@@ -29,8 +29,8 @@ A zero-cost, 24/7 autonomous agent system that builds real income. Sub-agents an
 - Engine output labels now say SIMULATION / estimated, no more 'LIVE' wording.
 
 ## Known issues (still open)
-0. Needs user action: (a) pick the income stream to validate (docs/VALIDATION_PLAN.md), (b) create the Groq key and set GROQ_API_KEY (docs/GROQ_SETUP.md), (c) accounts/hosting (later discussion), (d) approve git commit when ready.
-1. Uncommitted changes exist. Git sees the renames as delete + new file. Commit only when the user asks.
+0. Needs user action: (a) pick the income stream to validate (docs/VALIDATION_PLAN.md), (b) create the Groq key and set GROQ_API_KEY (docs/GROQ_SETUP.md), (c) accounts/hosting (later discussion).
+1. Nothing pushed anywhere. Work is committed locally only (commit 5c72aa5, tag `known-good-baseline-2026-10-13`). Roll back with `python3 versions.py rollback known-good-baseline-2026-10-13`.
 2. Revenue numbers in the engine are still hardcoded estimates (ROI values). They are labelled `simulated`.
 3. Dashboard runs the engine on the GUI thread, so the window freezes during a cycle. Fine for now; move to a thread later.
 4. Real earnings source is not connected. Nothing writes `source = 'real'` yet.
