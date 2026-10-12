@@ -1,0 +1,5 @@
+# Secrets: never commit API keys
+config.json
+# Python build/cache
+__pycache__/
+*.pyc

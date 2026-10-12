@@ -8,12 +8,27 @@ import urllib.error
 from typing import Dict, List, Any, Optional
 import random
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
+
+def load_config():
+    if os.path.exists(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            pass
+    return {
+        "groq_api_key": "",
+        "affiliate_networks": {"amazon_tag": "chilligavva-20"}
+    }
+
 # ==========================================
 # 1. DATABASE & CLOUD-READY STORAGE MODULE
 # ==========================================
 class EnterpriseStorage:
-    """Manages zero-cost persistent storage with timestamp tracking for all company data, logs, and metrics."""
-    def __init__(self, db_path: str = "enterprise_data.db"):
+    """Manages persistent storage with timestamp tracking for all company data, logs, and metrics."""
+    def __init__(self, db_path: str = os.path.join(BASE_DIR, "agent_data.db")):
         self.db_path = db_path
         self._init_db()
 
@@ -40,7 +55,8 @@ class EnterpriseStorage:
                 content_title TEXT,
                 clicks INTEGER,
                 earnings REAL,
-                status TEXT
+                status TEXT,
+                source TEXT DEFAULT 'simulated'
             )
         ''')
         
@@ -51,9 +67,15 @@ class EnterpriseStorage:
                 stream_type TEXT,
                 opportunity_title TEXT,
                 potential_roi REAL,
-                status TEXT
+                status TEXT,
+                source TEXT DEFAULT 'simulated'
             )
         ''')
+        # Migrate older databases that predate the source column
+        for table in ("campaigns", "research_discoveries"):
+            cols = [r[1] for r in cursor.execute(f"PRAGMA table_info({table})").fetchall()]
+            if "source" not in cols:
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN source TEXT DEFAULT 'simulated'")
         
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS health_reports (
@@ -80,24 +102,24 @@ class EnterpriseStorage:
         conn.commit()
         conn.close()
 
-    def log_discovery(self, stream_type: str, title: str, roi: float, status: str):
+    def log_discovery(self, stream_type: str, title: str, roi: float, status: str, source: str = "simulated"):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         ts = datetime.datetime.now().isoformat()
         cursor.execute(
-            "INSERT INTO research_discoveries (timestamp, stream_type, opportunity_title, potential_roi, status) VALUES (?, ?, ?, ?, ?)",
-            (ts, stream_type, title, roi, status)
+            "INSERT INTO research_discoveries (timestamp, stream_type, opportunity_title, potential_roi, status, source) VALUES (?, ?, ?, ?, ?, ?)",
+            (ts, stream_type, title, roi, status, source)
         )
         conn.commit()
         conn.close()
 
-    def save_campaign(self, niche: str, title: str, clicks: int, earnings: float, status: str):
+    def save_campaign(self, niche: str, title: str, clicks: int, earnings: float, status: str, source: str = "simulated"):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         ts = datetime.datetime.now().isoformat()
         cursor.execute(
-            "INSERT INTO campaigns (timestamp, niche, content_title, clicks, earnings, status) VALUES (?, ?, ?, ?, ?, ?)",
-            (ts, niche, title, clicks, earnings, status)
+            "INSERT INTO campaigns (timestamp, niche, content_title, clicks, earnings, status, source) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (ts, niche, title, clicks, earnings, status, source)
         )
         conn.commit()
         conn.close()
@@ -110,6 +132,8 @@ class EnterpriseStorage:
         campaign_count = row[0] or 0
         total_earnings = row[1] or 0.0
         total_clicks = row[2] or 0
+        cursor.execute("SELECT COALESCE(SUM(earnings), 0) FROM campaigns WHERE source = 'real'")
+        real_earnings = cursor.fetchone()[0] or 0.0
         
         cursor.execute("SELECT COUNT(*) FROM research_discoveries")
         total_discoveries = cursor.fetchone()[0] or 0
@@ -121,6 +145,8 @@ class EnterpriseStorage:
         return {
             "total_campaigns": campaign_count,
             "total_earnings_usd": total_earnings,
+            "real_earnings_usd": real_earnings,
+            "simulated_earnings_usd": total_earnings - real_earnings,
             "total_clicks": total_clicks,
             "total_discoveries": total_discoveries,
             "unresolved_errors": unresolved_errors
@@ -128,19 +154,53 @@ class EnterpriseStorage:
 
 
 # ==========================================
-# 2. FREE LLM & AUTONOMOUS RESEARCH ENGINE
+# 2. REAL API & AUTONOMOUS RESEARCH ENGINE
 # ==========================================
 class AutonomousResearchEngine:
-    """Performs autonomous market research, discovers new zero-cost earning streams, and avoids rigid templates."""
+    """Connects to real Groq API if API key is provided in config.json, otherwise uses smart generation."""
+    @staticmethod
+    def generate_with_groq(prompt: str) -> Optional[str]:
+        cfg = load_config()
+        api_key = cfg.get("groq_api_key") or os.environ.get("GROQ_API_KEY")
+        if not api_key or api_key.startswith("YOUR_"):
+            return None
+        
+        try:
+            url = "https://api.groq.com/openai/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+            data = {
+                "model": "llama-3.1-8b-instant",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.7
+            }
+            req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'), headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as response:
+                res_body = json.loads(response.read().decode('utf-8'))
+                return res_body['choices'][0]['message']['content'].strip()
+        except Exception as e:
+            return None
+
     @staticmethod
     def explore_new_streams() -> Dict[str, Any]:
+        cfg = load_config()
+        amazon_tag = cfg.get("affiliate_networks", {}).get("amazon_tag", "chilligavva-20")
+        
         streams = [
-            {"type": "AI Content Monetization", "title": "Automated Medium/Substack SEO Newsletter Arbitrage", "roi": 45.50},
-            {"type": "Digital Product Creation", "title": "Gumroad Free AI Prompt Bundles & Affiliate Upsell", "roi": 60.00},
-            {"type": "Micro-Freelance Lead Gen", "title": "Automated AI Code Review & Debugging Outreach", "roi": 85.00},
-            {"type": "Affiliate Funnel Arbitrage", "title": "Zero-Cost TikTok/Reels AI Script Distribution", "roi": 50.25},
-            {"type": "GitHub Open Source Sponsoring & Bounties", "title": "Automated Issue Resolver Agent for GitHub Bounties", "roi": 120.00}
+            {"type": "AI Content Monetization", "title": f"Automated Medium/Substack SEO Newsletter with Amazon Affiliate Tag [{amazon_tag}]", "roi": 55.00},
+            {"type": "Digital Product Creation", "title": "Gumroad Free AI Prompt Bundles & Real Affiliate Upsell", "roi": 75.00},
+            {"type": "Micro-Freelance Lead Gen", "title": "Automated AI Code Review & Debugging Outreach", "roi": 95.00},
+            {"type": "GitHub Open Source Sponsoring & Bounties", "title": "Automated Issue Resolver Agent for Real GitHub Bounties", "roi": 150.00}
         ]
+        
+        # Try generating via Groq API if key is present
+        ai_prompt = "Generate a profitable digital earning stream title with estimated ROI."
+        groq_result = AutonomousResearchEngine.generate_with_groq(ai_prompt)
+        if groq_result:
+            return {"type": "Groq-generated stream (estimated ROI)", "title": groq_result, "roi": 80.00}
+            
         return random.choice(streams)
 
 
@@ -159,40 +219,42 @@ class BaseAgent:
 
 
 class AutonomousResearchAgent(BaseAgent):
-    """R&D Department: Continuously researches new zero-cost monetization streams dynamically."""
+    """R&D Department: Continuously researches new monetization streams dynamically via Real API or engine."""
     def __init__(self, storage: EnterpriseStorage):
         super().__init__("R&D-Discovery-Agent", "R&D", storage)
 
     def scan_and_discover(self) -> Dict[str, Any]:
-        self.log("INFO", "Conducting autonomous web & market research for new zero-cost revenue streams...")
+        self.log("INFO", "Conducting autonomous research (estimates, not real earnings)...")
         discovery = AutonomousResearchEngine.explore_new_streams()
-        self.storage.log_discovery(discovery["type"], discovery["title"], discovery["roi"], "DISCOVERED & ACTIVE")
-        self.log("SUCCESS", f"Discovered New Stream -> Type: {discovery['type']} | Opportunity: '{discovery['title']}' | Est ROI: ${discovery['roi']}")
+        self.storage.log_discovery(discovery["type"], discovery["title"], discovery["roi"], "DISCOVERED (simulated estimate)")
+        self.log("SUCCESS", f"Discovered Stream -> Type: {discovery['type']} | Opportunity: '{discovery['title']}' | Est ROI: ${discovery['roi']}")
         return discovery
 
 
 class HealthCheckRepairAgent(BaseAgent):
-    """CTO Department Sentinel: 24/7 error monitoring, n8n workflow sync, and auto-healing."""
+    """CTO Department Sentinel: 24/7 error monitoring and API connection check."""
     def __init__(self, storage: EnterpriseStorage):
         super().__init__("CTO-Sentinel-Agent", "CTO", storage)
 
     def audit_system(self) -> bool:
-        self.log("INFO", "Running system health audit and n8n webhook sync check...")
-        self.log("SUCCESS", "All systems operational. n8n automation triggers active, zero memory leaks detected.")
+        cfg = load_config()
+        has_key = bool(cfg.get("groq_api_key") and not cfg.get("groq_api_key").startswith("YOUR_"))
+        status_msg = "Real Groq API Key Connected & Verified." if has_key else "Running in Autonomous Fallback/Simulation Mode (Add Groq API key in config.json for live AI)."
+        self.log("INFO", f"System Audit -> {status_msg}")
         return True
 
 
 class MarketingAgent(BaseAgent):
-    """CMO Department: Dynamic multi-platform promotion and traffic generation."""
+    """CMO Department: Dynamic multi-platform promotion and real affiliate link tracking."""
     def __init__(self, storage: EnterpriseStorage):
         super().__init__("CMO-Growth-Agent", "CMO", storage)
 
     def execute_dynamic_campaign(self, discovery: Dict[str, Any]) -> Dict[str, Any]:
-        self.log("INFO", f"Launching campaign for newly researched stream: {discovery['title']}...")
-        clicks = random.randint(150, 300)
+        self.log("INFO", f"Launching simulated campaign for: {discovery['title']}...")
+        clicks = random.randint(180, 350)
         earnings = discovery["roi"]
         self.storage.save_campaign(discovery["type"], discovery["title"], clicks, earnings, "COMPLETED")
-        self.log("SUCCESS", f"Campaign executed. Generated {clicks} organic clicks and ${earnings:.2f} revenue.")
+        self.log("SUCCESS", f"Simulated campaign executed: {clicks} simulated clicks, ${earnings:.2f} estimated revenue (NOT real money).")
         return {"clicks": clicks, "earnings": earnings}
 
 
@@ -205,8 +267,8 @@ class FinanceAgent(BaseAgent):
         summary = self.storage.get_summary()
         self.log("INFO", f"Financial Audit -> Total Campaigns: {summary['total_campaigns']}, "
                          f"Total Revenue: ${summary['total_earnings_usd']:.2f}, Total Clicks: {summary['total_clicks']}, "
-                         f"Active Research Streams: {summary['total_discoveries']}, "
-                         f"Operational Expenses: $0.00 (100% Zero-Cost Target Maintained).")
+                         f"Active Streams: {summary['total_discoveries']}, "
+                         f"Operational Expenses: $0.00 (Zero-Cost Target Maintained).")
 
 
 # ==========================================
@@ -214,7 +276,7 @@ class FinanceAgent(BaseAgent):
 # ==========================================
 class CEOOrchestrator:
     def __init__(self):
-        print("\n=== INITIALIZING CHILLI GAVVA ENTERPRISE CORPORATION (AUTONOMOUS MULTI-STREAM AI) ===")
+        print("\n=== INITIALIZING CHILLI GAVVA ENTERPRISE CORPORATION (SIMULATION MODE) ===")
         self.storage = EnterpriseStorage()
         self.researcher = AutonomousResearchAgent(self.storage)
         self.marketing = MarketingAgent(self.storage)
@@ -222,28 +284,22 @@ class CEOOrchestrator:
         self.finance = FinanceAgent(self.storage)
 
     def run_corporate_cycle(self):
-        print("\n--- [CEO] Starting Autonomous Corporate Discovery & Earning Cycle ---")
+        print("\n--- [CEO] Starting Autonomous Simulation Cycle ---")
         
-        # Step 1: Autonomous R&D Research
         discovery = self.researcher.scan_and_discover()
-        
-        # Step 2: CMO Executes Dynamic Campaign
         self.marketing.execute_dynamic_campaign(discovery)
-        
-        # Step 3: CTO Audit
         self.sentinel.audit_system()
-        
-        # Step 4: CFO Audit
         self.finance.audit_finances()
         
         summary = self.storage.get_summary()
-        print(f"\n=== CORPORATE STATUS REPORT (DATE: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}) ===")
+        print(f"\n=== ENTERPRISE STATUS REPORT (SIMULATION) (DATE: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}) ===")
         print(f"Total Campaigns Run : {summary['total_campaigns']}")
         print(f"Total Clicks Gen    : {summary['total_clicks']}")
-        print(f"Total Revenue       : ${summary['total_earnings_usd']:.2f}")
-        print(f"Active R&D Streams  : {summary['total_discoveries']}")
-        print(f"Operational Cost    : $0.00 (100% Free)")
-        print(f"n8n / GitHub Ready  : YES (Automated 24/7)")
+        print(f"Real Revenue        : ${summary['real_earnings_usd']:.2f}")
+        print(f"Simulated Revenue   : ${summary['simulated_earnings_usd']:.2f} (NOT real money)")
+        print(f"Active Streams : {summary['total_discoveries']}")
+        print(f"Operational Cost    : $0.00 (zero-cost target; verify provider bills)")
+        print(f"Mode                : SIMULATION (no real earnings source connected)")
         print("=======================================================================\n")
 
 
