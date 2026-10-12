@@ -254,7 +254,8 @@ def default_llm(db_path=None):
         if not guardrails.can_call_llm(db_path):
             return None
         import engine  # imported lazily so tests need no network or key
-        return engine.AutonomousResearchEngine.generate_with_groq(prompt)
+        eng = engine.AutonomousResearchEngine
+        return eng.generate_with_groq(prompt) or eng.generate_with_ollama(prompt)
     return call
 
 

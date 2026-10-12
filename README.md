@@ -1,13 +1,13 @@
 # Chilli Gavva Agent
 
-Zero-cost autonomous agent project (Python + SQLite + Tkinter dashboard).
+Zero-cost autonomous agent project (Python + SQLite + web dashboard).
 
 **Start here:** read `STATUS.md` first. It holds the current state, goals, known issues and next steps.
 
 ## Layout
 Read `STATUS.md` for the full table. Short version:
 - `workforce.py` (agent team), `guardrails.py` (kill switch, budget cap, approvals), `improver.py` (safe self-improvement), `engine.py` (old simulation + LLM call)
-- `serve.py` + `web/index.html`: local 2D office dashboard; `dashboard.py`: old Tkinter dashboard
+- `serve.py` + `web/index.html`: local 2D office dashboard
 - `cloud_runner.py` + `.github/workflows/agent.yml`: 24/7 cloud cycle (optional)
 - `versions.py` (rollback), `log_validation.py` (14-day test), `tests/` (run: `python3 -m unittest discover -s tests`)
 - `agent_data.db`: SQLite database. `config.json`: local settings, git-ignored, never commit.
@@ -24,3 +24,4 @@ Read `STATUS.md` for the full table. Short version:
 - `python3 maintenance.py` backup/prune/integrity
 - `python3 site_builder.py` build static pages from approved drafts
 - `python3 coder.py request "goal" file.py` ask the coder agent for a patch proposal (human approves and applies)
+- `python3 report.py` daily report (worker writes it automatically)

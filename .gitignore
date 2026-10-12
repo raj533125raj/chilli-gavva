@@ -12,3 +12,5 @@ site/*
 !site/.gitkeep
 # Code patch proposals (reviewed locally, applied by a human)
 proposals/
+# Daily reports
+reports/

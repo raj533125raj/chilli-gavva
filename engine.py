@@ -197,6 +197,22 @@ class AutonomousResearchEngine:
         return None
 
     @staticmethod
+    def generate_with_ollama(prompt: str) -> Optional[str]:
+        """Free local model via Ollama (http://127.0.0.1:11434). Used only if config has "ollama_model"."""
+        model = load_config().get("ollama_model")
+        if not model or not guardrails.can_call_llm():
+            return None
+        try:
+            guardrails.record_call()
+            req = urllib.request.Request("http://127.0.0.1:11434/api/generate",
+                                         data=json.dumps({"model": model, "prompt": prompt, "stream": False}).encode("utf-8"),
+                                         headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=120) as response:
+                return (json.loads(response.read().decode("utf-8")).get("response") or "").strip() or None
+        except Exception:
+            return None
+
+    @staticmethod
     def explore_new_streams() -> Dict[str, Any]:
         cfg = load_config()
         amazon_tag = cfg.get("affiliate_networks", {}).get("amazon_tag", "chilligavva-20")

@@ -19,6 +19,7 @@ import export_status
 import guardrails
 import improver
 import maintenance
+import report
 import site_builder
 import workforce
 
@@ -87,6 +88,8 @@ def one_pass(db_path=None, write_snapshot=True):
             built = site_builder.build()
             if built:
                 notes.append(f"built {len(built)} page(s) in site/")
+        if db_path is None and report.write_daily():
+            notes.append("daily report written")
         for aid, res in coder.verify_approved(db_path):
             notes.append(f"patch #{aid} {'passes' if res.get('ok') else 'FAILS'} tests")
         cleaned = maintenance.run_if_due(db_path)

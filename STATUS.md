@@ -24,7 +24,7 @@ Zero-cost, 24/7 autonomous agent team that builds real income. Office-style dash
 | `chat.py`, `serve.py` | Chat with the CEO (honest answers from the DB; LLM for open questions) and local dashboard server on 127.0.0.1:8787 |
 | `web/index.html` | 2D office dashboard: desks and status lights, money (real vs simulated), approvals, task queue, prompts, validation progress, kill switch, chat |
 | `cloud_runner.py` + `.github/workflows/agent.yml` | One cycle every 30 min in GitHub Actions: tests, run, save state |
-| `dashboard.py` | Old Tkinter dashboard (engine now runs in a background thread) |
+| `archive/dashboard_tkinter_retired.py` | Old Tkinter dashboard, retired 2026-10-13 (web dashboard replaces it) |
 | `versions.py` | List / tag / roll back project versions via git (dry run by default) |
 | `log_validation.py` | Daily numbers for the 14-day validation test |
 | `docs/` | RESEARCH_2026-10-13.md (platform facts and corrections), VALIDATION_PLAN.md, GROQ_SETUP.md, CLOUD_SETUP.md |
@@ -50,7 +50,10 @@ Zero-cost, 24/7 autonomous agent team that builds real income. Office-style dash
 - `maintenance.py`: daily backup (keep 7, in git-ignored `backups/`), prune old logs/tasks, integrity check; run by the worker.
 - `site_builder.py`: approved drafts -> static pages in `site/` (escaped, no scripts/trackers). Never auto-published anywhere.
 - `coder.py` + "Coder Worker": `python3 coder.py request "goal" file.py` -> LLM proposes a patch -> strict validation (protected files, no deletes, size limits) -> approval queue. After approval the worker tests it in a throwaway copy. A human applies it: `git apply proposals/proposal-<id>.diff`. Never auto-applied.
-- 76 tests pass (`python3 -m unittest discover -s tests`).
+- `report.py`: daily plain-text report in `reports/` (git-ignored), written by the worker once a day.
+- Ollama: set `"ollama_model": "llama3"` in config.json to use a free local model when Groq has no key/answer (needs Ollama running locally; untested on a real Ollama).
+- Tkinter dashboard retired into `archive/`.
+- 80 tests pass (`python3 -m unittest discover -s tests`).
 
 ## Open items
 1. USER ACTION: pick the income stream to validate (docs/VALIDATION_PLAN.md).
@@ -58,7 +61,7 @@ Zero-cost, 24/7 autonomous agent team that builds real income. Office-style dash
 3. USER ACTION (optional, for 24/7 cloud): create a GitHub repo, push, add the secret (docs/CLOUD_SETUP.md).
 4. USER ACTION: accounts/email/domain/hosting discussion (deferred by the user).
 5. Real earnings: only by hand with proof: `python3 record_earning.py add <usd> <proof-ref> <title>` (no automatic source).
-6. Tkinter dashboard, GitHub workflow and the macOS start-at-login file are not exercised on real hardware/GitHub. Tested for real in the cloud sandbox: worker + dashboard together (new work added while running was picked up and finished automatically, clean Ctrl+C shutdown), web UI in Chromium.
+6. GitHub workflow and the macOS start-at-login file are not exercised on real hardware/GitHub. Tested for real in the cloud sandbox: worker + dashboard together (new work added while running was picked up and finished automatically, clean Ctrl+C shutdown), web UI in Chromium.
 7. Old docs in `docs/memory_2026-10-02/` and `archive/` use outdated names and paths. Historical only.
 8. Nothing is pushed anywhere. Work is committed locally; see `python3 versions.py list` for tags.
 
