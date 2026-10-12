@@ -24,8 +24,13 @@ class StatusTests(unittest.TestCase):
         self._old = guardrails.KILL_FILE
         guardrails.KILL_FILE = os.path.join(self.tmp.name, "KILL")
         os.environ.pop("AGENT_PAUSED", None)
+        self._wf_cfg = workforce.CONFIG_PATH
+        workforce.CONFIG_PATH = os.path.join(self.tmp.name, "wf_config.json")
+        with open(workforce.CONFIG_PATH, "w") as f:
+            f.write('{"daily_drafts": 1}')
 
     def tearDown(self):
+        workforce.CONFIG_PATH = self._wf_cfg
         guardrails.KILL_FILE = self._old
         self.tmp.cleanup()
 

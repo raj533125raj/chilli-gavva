@@ -18,6 +18,7 @@ import guardrails
 import improver
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 MAX_ATTEMPTS = 3
 DEFAULT_TOPIC = "a free mini-tool page (calculator or prompt generator) that helps small creators"
 
@@ -44,6 +45,11 @@ def connect(db_path=None):
         result TEXT, error TEXT, priority INTEGER DEFAULT 5, finished_ts TEXT)""")
     conn.execute("""CREATE TABLE IF NOT EXISTS draft_meta (
         approval_id INTEGER PRIMARY KEY, version_id INTEGER, synced INTEGER DEFAULT 0)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS heartbeat (
+        name TEXT PRIMARY KEY, ts TEXT, info TEXT)""")
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(tasks)").fetchall()]
+    if "started_ts" not in cols:
+        conn.execute("ALTER TABLE tasks ADD COLUMN started_ts TEXT")
     return conn
 
 
@@ -69,8 +75,8 @@ def claim_next(db_path=None):
         return None
     task_id, kind, payload, attempts = row
     agent = KIND_TO_AGENT.get(kind, "CEO")
-    conn.execute("UPDATE tasks SET status = 'running', attempts = attempts + 1, agent = ? WHERE id = ?",
-                 (agent, task_id))
+    conn.execute("UPDATE tasks SET status = 'running', attempts = attempts + 1, agent = ?, started_ts = ? "
+                 "WHERE id = ?", (agent, datetime.datetime.now().isoformat(), task_id))
     conn.commit()
     conn.close()
     return {"id": task_id, "kind": kind, "payload": json.loads(payload or "{}"),
@@ -115,10 +121,27 @@ def review_text(text):
 
 
 # ---- step implementations ---------------------------------------------------------
+MAX_PENDING_APPROVALS = 10
+ANGLES = ["for first-time visitors", "for people short on time", "for people who prefer step-by-step help"]
+
+
+def _config_int(key, default):
+    try:
+        with open(CONFIG_PATH, encoding="utf-8") as f:
+            return int(json.load(f).get(key, default))
+    except Exception:
+        return default
+
+
 def step_plan(task, ctx):
+    """Plan the day's drafts. Stops adding drafts when too many wait for the human."""
     topic = task["payload"].get("topic") or DEFAULT_TOPIC
-    return {"summary": f"Plan: research then draft then review for '{topic}'",
-            "next": [{"kind": "research", "payload": {"topic": topic}}]}
+    waiting = len(guardrails.pending(ctx["db_path"]))
+    wanted = max(1, min(len(ANGLES), _config_int("daily_drafts", 2)))
+    if waiting >= MAX_PENDING_APPROVALS:
+        return {"summary": f"Skipped: {waiting} drafts already wait for approval", "next": []}
+    nxt = [{"kind": "research", "payload": {"topic": f"{topic} ({ANGLES[i]})"}} for i in range(wanted)]
+    return {"summary": f"Plan: {wanted} draft(s) for '{topic}'", "next": nxt}
 
 
 def step_research(task, ctx):
@@ -182,6 +205,41 @@ def sync_human_decisions(db_path=None):
     return len(rows)
 
 
+# ---- crash recovery and heartbeat -------------------------------------------------
+def recover_stuck(db_path=None, max_age_minutes=10):
+    """A task left 'running' after a crash goes back to the queue (it keeps its attempt count)."""
+    cutoff = (datetime.datetime.now() - datetime.timedelta(minutes=max_age_minutes)).isoformat()
+    conn = connect(db_path)
+    cur = conn.execute("UPDATE tasks SET status = CASE WHEN attempts >= ? THEN 'failed' ELSE 'queued' END, "
+                       "error = 'recovered after a crash or stop' "
+                       "WHERE status = 'running' AND (started_ts IS NULL OR started_ts < ?)",
+                       (MAX_ATTEMPTS, cutoff))
+    conn.commit()
+    n = cur.rowcount
+    conn.close()
+    return n
+
+
+def heartbeat(info="alive", db_path=None, name="worker"):
+    conn = connect(db_path)
+    conn.execute("INSERT INTO heartbeat (name, ts, info) VALUES (?, ?, ?) "
+                 "ON CONFLICT(name) DO UPDATE SET ts = excluded.ts, info = excluded.info",
+                 (name, datetime.datetime.now().isoformat(timespec="seconds"), info))
+    conn.commit()
+    conn.close()
+
+
+def worker_status(db_path=None, stale_after_seconds=180, name="worker"):
+    conn = connect(db_path)
+    row = conn.execute("SELECT ts, info FROM heartbeat WHERE name = ?", (name,)).fetchone()
+    conn.close()
+    if not row:
+        return {"running": False, "last_seen": None, "age_seconds": None, "info": "never started"}
+    age = (datetime.datetime.now() - datetime.datetime.fromisoformat(row[0])).total_seconds()
+    running = age <= stale_after_seconds and not row[1].startswith("stopped")
+    return {"running": running, "last_seen": row[0], "age_seconds": int(age), "info": row[1]}
+
+
 # ---- runner -----------------------------------------------------------------------
 def default_llm(db_path=None):
     def call(prompt):
@@ -197,6 +255,7 @@ def run_once(max_tasks=5, db_path=None, llm=None, rng=None):
     if guardrails.is_killed():
         return {"status": "killed", "ran": 0, "failed": 0}
     ctx = {"db_path": db_path, "llm": llm or default_llm(db_path), "rng": rng or random}
+    recover_stuck(db_path)
     sync_human_decisions(db_path)
     ran = failed = 0
     for _ in range(max_tasks):
@@ -227,7 +286,7 @@ def ensure_daily_plan(db_path=None):
         return None
     topic = DEFAULT_TOPIC
     try:
-        with open(os.path.join(BASE_DIR, "config.json"), encoding="utf-8") as f:
+        with open(CONFIG_PATH, encoding="utf-8") as f:
             topic = json.load(f).get("current_goal") or topic
     except Exception:
         pass

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Starts the Chilli Gavva worker at login and restarts it if it stops.
+     Replace PYTHON_PATH and PROJECT_PATH, then follow docs/AUTOSTART.md. Untested on a real Mac. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.chilligavva.worker</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>PYTHON_PATH</string>
+    <string>PROJECT_PATH/worker_daemon.py</string>
+  </array>
+  <key>WorkingDirectory</key><string>PROJECT_PATH</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>30</integer>
+  <key>StandardOutPath</key><string>PROJECT_PATH/worker.log</string>
+  <key>StandardErrorPath</key><string>PROJECT_PATH/worker.log</string>
+</dict>
+</plist>

@@ -22,8 +22,13 @@ class Base(unittest.TestCase):
         guardrails.KILL_FILE = os.path.join(self.tmp.name, "KILL_SWITCH")
         guardrails.CONFIG_PATH = os.path.join(self.tmp.name, "config.json")
         os.environ.pop("AGENT_PAUSED", None)
+        self._wf_cfg = workforce.CONFIG_PATH
+        workforce.CONFIG_PATH = os.path.join(self.tmp.name, "wf_config.json")
+        with open(workforce.CONFIG_PATH, "w") as f:
+            f.write('{"daily_drafts": 1}')
 
     def tearDown(self):
+        workforce.CONFIG_PATH = self._wf_cfg
         guardrails.KILL_FILE, guardrails.CONFIG_PATH = self._old
         self.tmp.cleanup()
 
@@ -162,6 +167,49 @@ class ImproverTests(Base):
             improver.record_human_decision(challenger_id, False, self.db)   # humans reject it
             improver.record_human_decision(champion_id, True, self.db)
         self.assertIsNone(improver.promote_if_better("draft", self.db))
+
+    def test_evolve_adds_one_valid_challenger_then_waits(self):
+        first = improver.evolve("draft", self.db)
+        self.assertIsNotNone(first)
+        self.assertIsNone(improver.evolve("draft", self.db))              # a challenger is still waiting
+        conn = improver.connect(self.db)
+        text = conn.execute("SELECT text FROM prompt_versions WHERE id = ?", (first,)).fetchone()[0]
+        conn.close()
+        self.assertIn("{topic}", text)
+        text.format(topic="x")                                           # must stay a valid template
+
+    def test_evolve_uses_each_tweak_once_and_is_capped(self):
+        seen = set()
+        for _ in range(improver.MAX_VARIANTS + 5):
+            vid = improver.evolve("draft", self.db)
+            if vid is None:
+                # let the waiting challenger finish its trials so another can be created
+                conn = improver.connect(self.db)
+                conn.execute("UPDATE prompt_versions SET trials = ? WHERE name = 'draft' AND active = 0",
+                             (improver.MIN_TRIALS,))
+                conn.commit(); conn.close()
+                vid = improver.evolve("draft", self.db)
+                if vid is None:
+                    break
+            seen.add(vid)
+        conn = improver.connect(self.db)
+        texts = [r[0] for r in conn.execute("SELECT text FROM prompt_versions WHERE name = 'draft'")]
+        conn.close()
+        self.assertEqual(len(texts), len(set(texts)))                    # no duplicates
+        self.assertLessEqual(len(texts), improver.MAX_VARIANTS)
+
+    def test_evolve_accepts_good_llm_template_and_rejects_bad(self):
+        good = improver.evolve("draft", self.db, llm=lambda p: "Write a clear page about {topic}. Be honest.")
+        conn = improver.connect(self.db)
+        self.assertEqual(conn.execute("SELECT text FROM prompt_versions WHERE id = ?", (good,)).fetchone()[0],
+                         "Write a clear page about {topic}. Be honest.")
+        conn.execute("UPDATE prompt_versions SET trials = ? WHERE id = ?", (improver.MIN_TRIALS, good))
+        conn.commit(); conn.close()
+        bad = improver.evolve("draft", self.db, llm=lambda p: "No placeholder and {unknown} braces")
+        conn = improver.connect(self.db)
+        text = conn.execute("SELECT text FROM prompt_versions WHERE id = ?", (bad,)).fetchone()[0]
+        conn.close()
+        self.assertNotIn("{unknown}", text)                              # fell back to a safe tweak
 
     def test_revert_with_no_history(self):
         self.assertIsNone(improver.revert("draft", self.db))

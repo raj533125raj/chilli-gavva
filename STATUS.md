@@ -11,13 +11,15 @@ Zero-cost, 24/7 autonomous agent team that builds real income. Office-style dash
 - Cloud 24/7 workflow file exists but has NOT been run on real GitHub yet (cannot be tested from here).
 - The Groq key is not set, so the team runs in `fallback` mode (templates, no LLM) until the user sets `GROQ_API_KEY`.
 
-## What exists (all tested, 25 unit tests pass: `python3 -m unittest discover -s tests`)
+## What exists (all tested, 45 unit tests pass: `python3 -m unittest discover -s tests`)
 | File | Purpose |
 |---|---|
 | `engine.py` | Old simulated cycle + Groq call (`llama-3.1-8b-instant`, 429 retry, respects kill switch and daily cap) |
-| `workforce.py` | SQLite task queue, 7 agents by level, plan -> research -> draft -> review, crash-safe, retries 3x |
+| `workforce.py` | SQLite task queue, 7 agents by level, plan -> research -> draft -> review, retries 3x, crash recovery, heartbeat, plans 2 drafts/day (config `daily_drafts`) and stops at 10 waiting approvals |
+| `worker_daemon.py` | ALWAYS-ON worker: picks up queued work automatically, obeys kill switch, single-instance lock, backoff when idle, promotes winning prompts and creates new challengers by itself |
+| `start.py` | One command: worker in the background + dashboard |
 | `guardrails.py` | Kill switch (`KILL_SWITCH` file or env `AGENT_PAUSED=1`), daily LLM call cap (config `daily_llm_call_cap`, default 100), approval queue |
-| `improver.py` | Prompt A/B testing with human approval signal, promote/revert in one call; code changes only as verified patch PROPOSALS, never auto-applied |
+| `improver.py` | Prompt A/B testing with human approval signal, automatic challenger creation (`evolve`: LLM rewrite or plain tweaks), promote/revert in one call; code changes only as verified patch PROPOSALS, never auto-applied |
 | `export_status.py` | Builds the dashboard snapshot (counts and titles only, no secrets) into `web/data/status.json` |
 | `chat.py`, `serve.py` | Chat with the CEO (honest answers from the DB; LLM for open questions) and local dashboard server on 127.0.0.1:8787 |
 | `web/index.html` | 2D office dashboard: desks and status lights, money (real vs simulated), approvals, task queue, prompts, validation progress, kill switch, chat |
@@ -28,8 +30,9 @@ Zero-cost, 24/7 autonomous agent team that builds real income. Office-style dash
 | `docs/` | RESEARCH_2026-10-13.md (platform facts and corrections), VALIDATION_PLAN.md, GROQ_SETUP.md, CLOUD_SETUP.md |
 
 ## How to use (local)
-- Dashboard: `python3 serve.py` then open http://127.0.0.1:8787
-- One agent cycle: `python3 workforce.py run`
+- Everything at once: `python3 start.py` (worker + dashboard). Details and start-at-login: docs/AUTOSTART.md
+- Dashboard only: `python3 serve.py` then open http://127.0.0.1:8787
+- One manual agent cycle: `python3 workforce.py run`
 - Approvals: dashboard buttons, or `python3 guardrails.py approvals | approve <id> | reject <id>`
 - Emergency stop: dashboard Kill switch, or `python3 guardrails.py kill` (resume with `resume`)
 - Prompt learning: `python3 improver.py status | promote <name> | revert <name>`
@@ -48,7 +51,7 @@ Zero-cost, 24/7 autonomous agent team that builds real income. Office-style dash
 3. USER ACTION (optional, for 24/7 cloud): create a GitHub repo, push, add the secret (docs/CLOUD_SETUP.md).
 4. USER ACTION: accounts/email/domain/hosting discussion (deferred by the user).
 5. Real earning source not connected; nothing writes `source = 'real'` yet.
-6. Tkinter dashboard and GitHub workflow not exercised on real hardware/GitHub (logic and the web dashboard were tested; web UI tested in Chromium).
+6. Tkinter dashboard, GitHub workflow and the macOS start-at-login file are not exercised on real hardware/GitHub. Tested for real in the cloud sandbox: worker + dashboard together (new work added while running was picked up and finished automatically, clean Ctrl+C shutdown), web UI in Chromium.
 7. Old docs in `docs/memory_2026-10-02/` and `archive/` use outdated names and paths. Historical only.
 8. Nothing is pushed anywhere. Work is committed locally; see `python3 versions.py list` for tags.
 

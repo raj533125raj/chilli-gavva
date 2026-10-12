@@ -30,6 +30,15 @@ DEFAULT_PROMPTS = {
               "and one call to action. Do not promise income or guaranteed results."),
 }
 
+MUTATIONS = [
+    "Keep it under 120 words.",
+    "Open with the single biggest benefit in plain words.",
+    "Use short sentences and end with one clear call to action.",
+    "Add one concrete example of how a real person would use it.",
+    "Write for a busy reader: no jargon, no filler.",
+]
+MAX_VARIANTS = 12
+
 MIN_TRIALS = 5
 WIN_MARGIN = 5.0          # challenger must beat champion by this many quality points
 CHALLENGER_SHARE = 0.2    # share of trials given to a challenger
@@ -158,6 +167,52 @@ def revert(name, db_path=None):
     conn.commit()
     conn.close()
     return {"active": previous}
+
+
+def _valid_template(text):
+    """A prompt template must use {topic} and nothing else in braces."""
+    if not text or "{topic}" not in text:
+        return False
+    try:
+        text.format(topic="x")
+        return True
+    except (KeyError, IndexError, ValueError):
+        return False
+
+
+def evolve(name, db_path=None, llm=None):
+    """Create ONE new challenger prompt when none is waiting for trials.
+
+    With an LLM: ask it to improve the champion. Without: apply the next plain-language
+    tweak from MUTATIONS. Returns the new version id, or None if nothing was added.
+    """
+    champion = get_active(name, db_path)
+    conn = connect(db_path)
+    waiting = conn.execute("SELECT COUNT(*) FROM prompt_versions WHERE name = ? AND active = 0 AND trials < ?",
+                           (name, MIN_TRIALS)).fetchone()[0]
+    total = conn.execute("SELECT COUNT(*) FROM prompt_versions WHERE name = ?", (name,)).fetchone()[0]
+    existing = [r[0] for r in conn.execute("SELECT text FROM prompt_versions WHERE name = ?", (name,))]
+    conn.close()
+    if waiting or total >= MAX_VARIANTS:
+        return None
+    text = None
+    if llm:
+        text = llm("Improve this prompt template so the result is clearer and more honest. Keep the "
+                   "placeholder {topic} exactly once and use no other curly braces. Return only the new template.\n\n"
+                   + champion[1])
+        if text:
+            text = text.strip()
+        if not _valid_template(text) or text in existing:
+            text = None
+    if not text:
+        for tweak in MUTATIONS:
+            candidate = champion[1] + " " + tweak
+            if candidate not in existing and tweak not in champion[1]:
+                text = candidate
+                break
+    if not text:
+        return None
+    return add_variant(name, text, db_path)
 
 
 # ---- code change proposals (never auto-applied) ---------------------------------

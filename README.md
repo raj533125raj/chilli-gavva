@@ -14,6 +14,6 @@ Read `STATUS.md` for the full table. Short version:
 - `docs/`: research, plans, setup guides. `docs/memory_2026-10-02/` and `archive/` are historical and outdated.
 
 ## Run
-- Dashboard: `python3 serve.py` then open http://127.0.0.1:8787
+- Everything (worker + dashboard): `python3 start.py` then http://127.0.0.1:8787. See docs/AUTOSTART.md
 - Agent cycle: `python3 workforce.py run`
 - Emergency stop: `python3 guardrails.py kill`

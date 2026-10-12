@@ -58,6 +58,7 @@ def build_status(db_path=None):
         "mode": "mixed" if real > 0 else "simulation",
         "money": {"real_usd": round(real, 2), "simulated_usd": round(simulated, 2)},
         "kill_switch": guardrails.is_killed(),
+        "worker": workforce.worker_status(db_path),
         "llm": {"calls_today": guardrails.calls_today(db_path), "cap": guardrails.daily_cap()},
         "agents": workforce.agent_states(db_path),
         "task_counts": counts,

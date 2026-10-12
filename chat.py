@@ -22,7 +22,9 @@ def reply(message, status, llm=None):
         working = [a["name"] for a in status["agents"] if a["state"] == "working"]
         errors = [a["name"] for a in status["agents"] if a["state"] == "error"]
         counts = status["task_counts"]
-        return (f"Agents working now: {', '.join(working) or 'none'}. Errors: {', '.join(errors) or 'none'}. "
+        worker = status.get("worker", {})
+        worker_text = "running" if worker.get("running") else "STOPPED (start it with python3 start.py)"
+        return (f"Worker: {worker_text}. Agents working now: {', '.join(working) or 'none'}. Errors: {', '.join(errors) or 'none'}. "
                 f"Tasks: {counts.get('done', 0)} done, {counts.get('queued', 0)} queued, "
                 f"{counts.get('failed', 0)} failed. Kill switch: {'ON' if status['kill_switch'] else 'off'}.")
     if any(w in low for w in ("stop", "pause", "kill")):
