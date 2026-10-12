@@ -1,0 +1,164 @@
+{
+ "generated_at": "2026-10-12T19:57:22",
+ "mode": "simulation",
+ "money": {
+  "real_usd": 0,
+  "simulated_usd": 142.75
+ },
+ "kill_switch": false,
+ "llm": {
+  "calls_today": 0,
+  "cap": 100
+ },
+ "agents": [
+  {
+   "name": "CEO",
+   "level": "high",
+   "role": "Plans the day's work and sets priorities",
+   "kinds": [
+    "plan"
+   ],
+   "state": "idle",
+   "tasks_done": 0
+  },
+  {
+   "name": "Research Manager",
+   "level": "mid",
+   "role": "Owns research quality",
+   "kinds": [],
+   "state": "idle",
+   "tasks_done": 0
+  },
+  {
+   "name": "Content Manager",
+   "level": "mid",
+   "role": "Owns drafts and tone",
+   "kinds": [],
+   "state": "idle",
+   "tasks_done": 0
+  },
+  {
+   "name": "QA Reviewer",
+   "level": "mid",
+   "role": "Scores drafts, blocks risky claims",
+   "kinds": [],
+   "state": "idle",
+   "tasks_done": 0
+  },
+  {
+   "name": "Research Worker",
+   "level": "entry",
+   "role": "Finds and lists ideas",
+   "kinds": [
+    "research"
+   ],
+   "state": "idle",
+   "tasks_done": 0
+  },
+  {
+   "name": "Draft Worker",
+   "level": "entry",
+   "role": "Writes page drafts",
+   "kinds": [
+    "draft"
+   ],
+   "state": "idle",
+   "tasks_done": 0
+  },
+  {
+   "name": "Review Worker",
+   "level": "entry",
+   "role": "Runs the review checklist",
+   "kinds": [
+    "review"
+   ],
+   "state": "idle",
+   "tasks_done": 0
+  }
+ ],
+ "task_counts": {},
+ "recent_tasks": [],
+ "pending_approvals": [],
+ "prompts": [],
+ "validation": null,
+ "logs": [
+  {
+   "ts": "2026-10-02T11:33:11",
+   "agent": "CFO-Budget-Agent",
+   "status": "INFO",
+   "message": "Financial Audit -> Total Campaigns: 2, Total Revenue: $142.75, Total Clicks: 303, Active Research Streams: 1, Operational Expenses: $0.00 (100% Zero-Cost Target Maintained)."
+  },
+  {
+   "ts": "2026-10-02T11:33:11",
+   "agent": "CTO-Sentinel-Agent",
+   "status": "SUCCESS",
+   "message": "All systems operational. n8n automation triggers active, zero memory leaks detected."
+  },
+  {
+   "ts": "2026-10-02T11:33:11",
+   "agent": "CTO-Sentinel-Agent",
+   "status": "INFO",
+   "message": "Running system health audit and n8n webhook sync check..."
+  },
+  {
+   "ts": "2026-10-02T11:33:11",
+   "agent": "CMO-Growth-Agent",
+   "status": "SUCCESS",
+   "message": "Campaign executed. Generated 153 organic clicks and $120.00 revenue."
+  },
+  {
+   "ts": "2026-10-02T11:33:11",
+   "agent": "CMO-Growth-Agent",
+   "status": "INFO",
+   "message": "Launching campaign for newly researched stream: Automated Issue Resolver Agent for GitHub Bounties..."
+  },
+  {
+   "ts": "2026-10-02T11:33:11",
+   "agent": "R&D-Discovery-Agent",
+   "status": "SUCCESS",
+   "message": "Discovered New Stream -> Type: GitHub Open Source Sponsoring & Bounties | Opportunity: 'Automated Issue Resolver Agent for GitHub Bounties' | Est ROI: $120.0"
+  },
+  {
+   "ts": "2026-10-02T11:33:11",
+   "agent": "R&D-Discovery-Agent",
+   "status": "INFO",
+   "message": "Conducting autonomous web & market research for new zero-cost revenue streams..."
+  },
+  {
+   "ts": "2026-10-02T01:28:52",
+   "agent": "CFO-Budget-Agent",
+   "status": "INFO",
+   "message": "Financial Audit -> Total Campaigns: 1, Total Revenue: $22.75, Total Clicks: 150, Operational Expenses: $0.00 (Zero-Cost Target Maintained)."
+  },
+  {
+   "ts": "2026-10-02T01:28:52",
+   "agent": "CTO-Sentinel-Agent",
+   "status": "SUCCESS",
+   "message": "All systems operational. Zero infinite loops or memory leaks detected."
+  },
+  {
+   "ts": "2026-10-02T01:28:52",
+   "agent": "CTO-Sentinel-Agent",
+   "status": "INFO",
+   "message": "Running system health audit and infinite loop detection..."
+  },
+  {
+   "ts": "2026-10-02T01:28:52",
+   "agent": "CMO-Growth-Agent",
+   "status": "SUCCESS",
+   "message": "Campaign live. Generated 150 organic clicks and $22.75 affiliate revenue."
+  },
+  {
+   "ts": "2026-10-02T01:28:52",
+   "agent": "CMO-Growth-Agent",
+   "status": "SUCCESS",
+   "message": "Generated Niche: 'AI & Cloud Automation Tools for Creators' | Title: 'Top 7 Free AI Tools That Make $100/Day Passive Income in 2025'"
+  },
+  {
+   "ts": "2026-10-02T01:28:52",
+   "agent": "CMO-Growth-Agent",
+   "status": "INFO",
+   "message": "Executing AI market research using Free LLM Engine..."
+  }
+ ]
+}

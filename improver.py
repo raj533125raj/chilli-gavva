@@ -1,0 +1,225 @@
+"""Safe self-improvement for the agent team.
+
+What may change by itself: PROMPT TEXT only, tracked in the database with versions.
+  - Variants are A/B tested (mostly champion, sometimes challenger).
+  - Quality = reviewer score mixed with the human approval rate.
+  - A challenger is promoted only after enough trials and a clear win.
+  - One call reverts to the previous champion.
+
+What may NOT change by itself: Python code. Code changes are written as patch
+PROPOSALS, verified in a throwaway copy (tests must pass), and then left for a
+human to apply. LLM-generated code is never executed outside that test run.
+"""
+import datetime
+import os
+import random
+import shutil
+import sqlite3
+import subprocess
+import sys
+import tempfile
+
+import guardrails
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROPOSAL_DIR = os.path.join(BASE_DIR, "proposals")
+
+DEFAULT_PROMPTS = {
+    "research": "List 5 concrete, honest ideas for: {topic}. One line each. No income promises.",
+    "draft": ("Write a short landing-page draft for: {topic}. Include a clear title, 3 benefit lines, "
+              "and one call to action. Do not promise income or guaranteed results."),
+}
+
+MIN_TRIALS = 5
+WIN_MARGIN = 5.0          # challenger must beat champion by this many quality points
+CHALLENGER_SHARE = 0.2    # share of trials given to a challenger
+
+
+def connect(db_path=None):
+    conn = guardrails.connect(db_path)
+    conn.execute("""CREATE TABLE IF NOT EXISTS prompt_versions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, text TEXT, active INTEGER DEFAULT 0,
+        trials INTEGER DEFAULT 0, score_sum REAL DEFAULT 0, decisions INTEGER DEFAULT 0,
+        approvals INTEGER DEFAULT 0, created_ts TEXT)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS prompt_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, from_version INTEGER,
+        to_version INTEGER, ts TEXT, reason TEXT)""")
+    return conn
+
+
+def ensure_defaults(db_path=None):
+    conn = connect(db_path)
+    for name, text in DEFAULT_PROMPTS.items():
+        if not conn.execute("SELECT 1 FROM prompt_versions WHERE name = ?", (name,)).fetchone():
+            conn.execute("INSERT INTO prompt_versions (name, text, active, created_ts) VALUES (?, ?, 1, ?)",
+                         (name, text, datetime.datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
+
+
+def get_active(name, db_path=None):
+    ensure_defaults(db_path)
+    conn = connect(db_path)
+    row = conn.execute("SELECT id, text FROM prompt_versions WHERE name = ? AND active = 1", (name,)).fetchone()
+    conn.close()
+    return row
+
+
+def add_variant(name, text, db_path=None):
+    ensure_defaults(db_path)
+    conn = connect(db_path)
+    cur = conn.execute("INSERT INTO prompt_versions (name, text, active, created_ts) VALUES (?, ?, 0, ?)",
+                       (name, text, datetime.datetime.now().isoformat()))
+    conn.commit()
+    vid = cur.lastrowid
+    conn.close()
+    return vid
+
+
+def pick_for_trial(name, rng=random, db_path=None):
+    """A/B choice: usually the champion, sometimes an under-tested challenger."""
+    champion = get_active(name, db_path)
+    conn = connect(db_path)
+    challengers = conn.execute("SELECT id, text FROM prompt_versions WHERE name = ? AND active = 0 "
+                               "AND trials < ? ORDER BY id", (name, MIN_TRIALS)).fetchall()
+    conn.close()
+    if challengers and rng.random() < CHALLENGER_SHARE:
+        return challengers[0]
+    return champion
+
+
+def record_result(version_id, review_score, db_path=None):
+    conn = connect(db_path)
+    conn.execute("UPDATE prompt_versions SET trials = trials + 1, score_sum = score_sum + ? WHERE id = ?",
+                 (float(review_score), version_id))
+    conn.commit()
+    conn.close()
+
+
+def record_human_decision(version_id, approved, db_path=None):
+    conn = connect(db_path)
+    conn.execute("UPDATE prompt_versions SET decisions = decisions + 1, approvals = approvals + ? WHERE id = ?",
+                 (1 if approved else 0, version_id))
+    conn.commit()
+    conn.close()
+
+
+def quality(row):
+    """row = (trials, score_sum, decisions, approvals). 0..100. Humans count when there are 3+ decisions."""
+    trials, score_sum, decisions, approvals = row
+    avg_review = (score_sum / trials) if trials else 0.0
+    if decisions >= 3:
+        return 0.5 * avg_review + 0.5 * (100.0 * approvals / decisions)
+    return avg_review
+
+
+def _stats(conn, version_id):
+    return conn.execute("SELECT trials, score_sum, decisions, approvals FROM prompt_versions WHERE id = ?",
+                        (version_id,)).fetchone()
+
+
+def promote_if_better(name, db_path=None):
+    """Promote the best well-tested challenger if it clearly beats the champion."""
+    champion = get_active(name, db_path)
+    conn = connect(db_path)
+    champ_q = quality(_stats(conn, champion[0]))
+    best = None
+    for (vid,) in conn.execute("SELECT id FROM prompt_versions WHERE name = ? AND active = 0 AND trials >= ?",
+                               (name, MIN_TRIALS)).fetchall():
+        q = quality(_stats(conn, vid))
+        if q >= champ_q + WIN_MARGIN and (best is None or q > best[1]):
+            best = (vid, q)
+    if not best:
+        conn.close()
+        return None
+    conn.execute("UPDATE prompt_versions SET active = 0 WHERE id = ?", (champion[0],))
+    conn.execute("UPDATE prompt_versions SET active = 1 WHERE id = ?", (best[0],))
+    conn.execute("INSERT INTO prompt_history (name, from_version, to_version, ts, reason) VALUES (?, ?, ?, ?, ?)",
+                 (name, champion[0], best[0], datetime.datetime.now().isoformat(),
+                  f"challenger quality {best[1]:.1f} beat champion {champ_q:.1f}"))
+    conn.commit()
+    conn.close()
+    return {"from": champion[0], "to": best[0], "quality": best[1], "champion_quality": champ_q}
+
+
+def revert(name, db_path=None):
+    """One call back to the previous champion."""
+    conn = connect(db_path)
+    row = conn.execute("SELECT id, from_version, to_version FROM prompt_history WHERE name = ? "
+                       "ORDER BY id DESC LIMIT 1", (name,)).fetchone()
+    if not row:
+        conn.close()
+        return None
+    _, previous, current = row
+    conn.execute("UPDATE prompt_versions SET active = 0 WHERE id = ?", (current,))
+    conn.execute("UPDATE prompt_versions SET active = 1 WHERE id = ?", (previous,))
+    conn.execute("INSERT INTO prompt_history (name, from_version, to_version, ts, reason) VALUES (?, ?, ?, ?, ?)",
+                 (name, current, previous, datetime.datetime.now().isoformat(), "manual revert"))
+    conn.commit()
+    conn.close()
+    return {"active": previous}
+
+
+# ---- code change proposals (never auto-applied) ---------------------------------
+def save_proposal(title, diff_text, db_path=None):
+    os.makedirs(PROPOSAL_DIR, exist_ok=True)
+    approval_id = guardrails.request_approval("code_patch", title, diff_text, db_path=db_path)
+    path = os.path.join(PROPOSAL_DIR, f"proposal-{approval_id}.diff")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(diff_text)
+    return approval_id, path
+
+
+def verify_proposal(approval_id, db_path=None, source_dir=None, proposal_dir=None):
+    """Apply the patch to a throwaway copy and run the tests there. The real tree is never touched."""
+    source_dir = source_dir or BASE_DIR
+    proposal_dir = proposal_dir or PROPOSAL_DIR
+    approval = guardrails.get_approval(approval_id, db_path)
+    if not approval or approval["kind"] != "code_patch":
+        return {"ok": False, "why": "no such code patch proposal"}
+    if approval["status"] != "approved":
+        return {"ok": False, "why": "proposal is not approved by a human yet"}
+    patch_path = os.path.join(proposal_dir, f"proposal-{approval_id}.diff")
+    if not os.path.exists(patch_path):
+        return {"ok": False, "why": "patch file missing"}
+    tmp = tempfile.mkdtemp(prefix="verify_")
+    try:
+        work = os.path.join(tmp, "copy")
+        shutil.copytree(source_dir, work,
+                        ignore=shutil.ignore_patterns(".git", "__pycache__", "*.db", "KILL_SWITCH", "config.json"))
+        applied = subprocess.run(["git", "apply", "--check", patch_path], cwd=work, capture_output=True, text=True)
+        if applied.returncode != 0:
+            return {"ok": False, "why": "patch does not apply: " + applied.stderr.strip()[:300]}
+        subprocess.run(["git", "apply", patch_path], cwd=work, check=True, capture_output=True, text=True)
+        tests = subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests"],
+                               cwd=work, capture_output=True, text=True, timeout=300)
+        ok = tests.returncode == 0
+        return {"ok": ok, "why": "tests passed" if ok else "tests failed: " + tests.stderr.strip()[-400:],
+                "next": f"Review {patch_path}, then apply it yourself: git apply {patch_path}" if ok else None}
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def main(argv):
+    cmd = argv[0] if argv else "status"
+    if cmd == "status":
+        ensure_defaults()
+        conn = connect()
+        for row in conn.execute("SELECT id, name, active, trials, score_sum, decisions, approvals "
+                                "FROM prompt_versions ORDER BY name, id"):
+            vid, name, active, trials, ssum, dec, appr = row
+            print(f"v{vid} {name:9s} {'ACTIVE ' if active else 'variant'} trials={trials} "
+                  f"quality={quality((trials, ssum, dec, appr)):.1f}")
+        conn.close()
+    elif cmd == "promote" and len(argv) == 2:
+        print(promote_if_better(argv[1]) or "no challenger is clearly better yet")
+    elif cmd == "revert" and len(argv) == 2:
+        print(revert(argv[1]) or "nothing to revert")
+    elif cmd == "verify" and len(argv) == 2:
+        print(verify_proposal(int(argv[1])))
+    else:
+        print("usage: improver.py status | promote <name> | revert <name> | verify <approval-id>")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

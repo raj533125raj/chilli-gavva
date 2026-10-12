@@ -7,6 +7,7 @@ import os
 import sys
 import sqlite3
 import datetime
+import threading
 import tkinter as tk
 from tkinter import messagebox, scrolledtext
 
@@ -60,12 +61,25 @@ class ChilliGavvaApp:
             self.log_box.insert(tk.END, f"[{ts[:19]}] {agent} [{status}] {msg}\n")
 
     def run_cycle(self):
-        self.log_box.insert(tk.END, f"[{datetime.datetime.now():%Y-%m-%d %H:%M:%S}] Running engine cycle...\n")
-        self.root.update()
-        try:
-            engine.CEOOrchestrator().run_corporate_cycle()
-        except Exception as e:  # show the failure instead of crashing the window
-            messagebox.showerror("Engine error", str(e))
+        if getattr(self, "_running", False):
+            return
+        self._running = True
+        self.log_box.insert(tk.END, f"[{datetime.datetime.now():%Y-%m-%d %H:%M:%S}] Running engine cycle in the background...\n")
+
+        def work():
+            error = None
+            try:
+                engine.CEOOrchestrator().run_corporate_cycle()
+            except Exception as e:  # report the failure instead of crashing the window
+                error = str(e)
+            self.root.after(0, lambda: self._cycle_done(error))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _cycle_done(self, error):
+        self._running = False
+        if error:
+            messagebox.showerror("Engine error", error)
             return
         self.refresh_log()
         self.view_stats(show_popup=False)

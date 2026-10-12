@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chilli Gavva Office</title>
+<style>
+  :root {
+    --bg: #11111b; --panel: #1e1e2e; --panel2: #181825; --line: #313244;
+    --text: #cdd6f4; --muted: #8b90a8; --accent: #fab387;
+    --good: #a6e3a1; --warn: #f9e2af; --bad: #f38ba8; --blue: #89b4fa;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 14px 20px;
+           background: var(--panel); border-bottom: 1px solid var(--line); }
+  h1 { font-size: 17px; margin: 0 12px 0 0; color: var(--accent); }
+  .pill { padding: 4px 10px; border-radius: 999px; background: var(--panel2); border: 1px solid var(--line); }
+  .pill b { color: var(--text); }
+  .sim { color: var(--warn); border-color: var(--warn); }
+  .real { color: var(--good); }
+  .spacer { flex: 1; }
+  button { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+           padding: 6px 12px; cursor: pointer; font: inherit; }
+  button:hover { border-color: var(--accent); }
+  button.danger { border-color: var(--bad); color: var(--bad); }
+  button.ok { border-color: var(--good); color: var(--good); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  main { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 16px; padding: 16px 20px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .office { display: flex; flex-direction: column; gap: 12px; }
+  .floor { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+  .floor h2 { margin: 0 0 10px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .desks { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .floor.high .desks { justify-content: center; }
+  .desk { width: 150px; background: var(--panel2); border: 1px solid var(--line); border-radius: 12px;
+          padding: 10px; text-align: center; }
+  .desk svg { width: 96px; height: 64px; }
+  .desk .name { font-weight: 600; font-size: 13px; }
+  .desk .role { color: var(--muted); font-size: 11px; min-height: 30px; }
+  .light { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; background: var(--muted); }
+  .light.working { background: var(--good); animation: pulse 1.2s infinite; }
+  .light.error { background: var(--bad); }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .side { display: flex; flex-direction: column; gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+  .card h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .row { display: flex; gap: 8px; justify-content: space-between; align-items: center; padding: 4px 0;
+         border-bottom: 1px solid var(--line); font-size: 12px; }
+  .row:last-child { border-bottom: 0; }
+  .muted { color: var(--muted); }
+  .log { max-height: 180px; overflow: auto; font: 11px/1.4 ui-monospace, Menlo, monospace; }
+  .bar { height: 6px; background: var(--panel2); border-radius: 4px; overflow: hidden; margin: 2px 0 8px; }
+  .bar > i { display: block; height: 100%; background: var(--blue); }
+  #chatlog { max-height: 180px; overflow: auto; margin-bottom: 8px; white-space: pre-wrap; }
+  .me { color: var(--accent); }
+  form { display: flex; gap: 6px; }
+  input { flex: 1; min-width: 0; background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+          border-radius: 8px; padding: 7px 10px; font: inherit; }
+  #banner { display: none; padding: 8px 20px; background: var(--bad); color: #11111b; font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="banner">KILL SWITCH IS ON: all agent work is stopped.</div>
+<header>
+  <h1>Chilli Gavva Office</h1>
+  <span class="pill sim" id="mode">SIMULATION</span>
+  <span class="pill">Real money: <b class="real" id="real">$0.00</b></span>
+  <span class="pill" title="Simulated numbers are NOT real money">Simulated: <b id="simulated">$0.00</b></span>
+  <span class="pill">LLM calls today: <b id="llm">0 / 0</b></span>
+  <span class="spacer"></span>
+  <span class="muted" id="updated"></span>
+  <button id="killbtn" class="danger" disabled>Kill switch</button>
+</header>
+<main>
+  <section class="office" id="office"></section>
+  <aside class="side">
+    <div class="card"><h3>Waiting for your approval</h3><div id="approvals"></div></div>
+    <div class="card"><h3>Chat with the CEO</h3>
+      <div id="chatlog" class="muted"></div>
+      <form id="chatform"><input id="chatinput" placeholder="Ask about money, agents, approvals..." autocomplete="off"><button>Send</button></form>
+      <div class="muted" id="chatnote" style="margin-top:6px"></div>
+    </div>
+    <div class="card"><h3>Validation test (14 days)</h3><div id="validation"></div></div>
+    <div class="card"><h3>Task queue</h3><div id="tasks"></div></div>
+    <div class="card"><h3>Prompt versions (self-improvement)</h3><div id="prompts"></div></div>
+    <div class="card"><h3>Activity log</h3><div id="logs" class="log"></div></div>
+  </aside>
+</main>
+<script>
+"use strict";
+var live = false, state = null;
+function el(tag, text, cls) { var e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; }
+function money(n) { return "$" + Number(n).toFixed(2); }
+function api(path, body) {
+  return fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "X-Requested-With": "chilli" },
+                       body: JSON.stringify(body || {}) }).then(function (r) { return r.json(); });
+}
+function deskSvg(stateName) {
+  var screen = stateName === "working" ? "#a6e3a1" : stateName === "error" ? "#f38ba8" : "#45475a";
+  return '<svg viewBox="0 0 96 64" aria-hidden="true"><rect x="4" y="46" width="88" height="8" rx="3" fill="#45475a"/>' +
+         '<rect x="10" y="54" width="6" height="8" fill="#313244"/><rect x="80" y="54" width="6" height="8" fill="#313244"/>' +
+         '<rect x="28" y="8" width="40" height="28" rx="4" fill="#11111b" stroke="#585b70"/>' +
+         '<rect x="32" y="12" width="32" height="20" rx="2" fill="' + screen + '"/>' +
+         '<rect x="44" y="36" width="8" height="8" fill="#585b70"/></svg>';
+}
+function renderOffice(agents) {
+  var office = document.getElementById("office"); office.textContent = "";
+  [["high", "High level"], ["mid", "Mid level"], ["entry", "Entry level"]].forEach(function (lv) {
+    var floor = el("div", undefined, "floor " + lv[0]); floor.appendChild(el("h2", lv[1]));
+    var desks = el("div", undefined, "desks");
+    agents.filter(function (a) { return a.level === lv[0]; }).forEach(function (a) {
+      var d = el("div", undefined, "desk");
+      var svgWrap = el("div"); svgWrap.innerHTML = deskSvg(a.state);   // static string built above, no user data
+      d.appendChild(svgWrap);
+      var name = el("div", undefined, "name"); name.appendChild(el("span", undefined, "light " + a.state)); name.appendChild(document.createTextNode(a.name));
+      d.appendChild(name); d.appendChild(el("div", a.role, "role"));
+      d.appendChild(el("div", a.state + " · " + a.tasks_done + " done", "muted"));
+      desks.appendChild(d);
+    });
+    floor.appendChild(desks); office.appendChild(floor);
+  });
+}
+function renderList(id, items, build, emptyText) {
+  var box = document.getElementById(id); box.textContent = "";
+  if (!items.length) { box.appendChild(el("div", emptyText, "muted")); return; }
+  items.forEach(function (it) { box.appendChild(build(it)); });
+}
+function render(s) {
+  state = s;
+  var mode = document.getElementById("mode");
+  mode.textContent = s.mode === "simulation" ? "SIMULATION" : "MIXED (some real)";
+  document.getElementById("real").textContent = money(s.money.real_usd);
+  document.getElementById("simulated").textContent = money(s.money.simulated_usd);
+  document.getElementById("llm").textContent = s.llm.calls_today + " / " + s.llm.cap;
+  document.getElementById("updated").textContent = "updated " + s.generated_at.replace("T", " ");
+  document.getElementById("banner").style.display = s.kill_switch ? "block" : "none";
+  var kb = document.getElementById("killbtn");
+  kb.disabled = !live; kb.textContent = s.kill_switch ? "Resume agents" : "Kill switch";
+  kb.className = s.kill_switch ? "ok" : "danger";
+  renderOffice(s.agents);
+  renderList("approvals", s.pending_approvals, function (a) {
+    var r = el("div", undefined, "row"); var left = el("div");
+    left.appendChild(el("div", "#" + a.id + " " + a.title)); left.appendChild(el("div", a.review || "not reviewed yet", "muted"));
+    r.appendChild(left);
+    if (live) {
+      var box = el("div");
+      [["Approve", true, "ok"], ["Reject", false, "danger"]].forEach(function (x) {
+        var b = el("button", x[0], x[2]); b.onclick = function () { api("/api/decide", { id: a.id, approve: x[1] }).then(refresh); }; box.appendChild(b);
+      });
+      r.appendChild(box);
+    }
+    return r;
+  }, "Nothing waiting.");
+  var v = s.validation, vbox = document.getElementById("validation"); vbox.textContent = "";
+  if (!v) { vbox.appendChild(el("div", "No days logged yet (python3 log_validation.py add ...).", "muted")); }
+  else {
+    var engaged = v.visitors ? 100 * v.engaged / v.visitors : 0;
+    [["Visitors", v.visitors, v.targets.visitors], ["Signups", v.signups, v.targets.signups], ["Engaged %", engaged, v.targets.engaged_pct]].forEach(function (m) {
+      vbox.appendChild(el("div", m[0] + ": " + Math.round(m[1] * 10) / 10 + " / " + m[2]));
+      var bar = el("div", undefined, "bar"), fill = el("i"); fill.style.width = Math.min(100, 100 * m[1] / m[2]) + "%"; bar.appendChild(fill); vbox.appendChild(bar);
+    });
+    vbox.appendChild(el("div", v.days + " of 14 days logged", "muted"));
+  }
+  renderList("tasks", s.recent_tasks, function (t) {
+    var r = el("div", undefined, "row"); r.appendChild(el("span", "#" + t.id + " " + t.kind));
+    r.appendChild(el("span", t.status + (t.agent ? " · " + t.agent : ""), "muted")); return r;
+  }, "No tasks yet.");
+  renderList("prompts", s.prompts, function (p) {
+    var r = el("div", undefined, "row"); r.appendChild(el("span", "v" + p.id + " " + p.name + (p.active ? " (active)" : "")));
+    r.appendChild(el("span", "trials " + p.trials + " · quality " + p.quality, "muted")); return r;
+  }, "No prompts yet.");
+  renderList("logs", s.logs, function (l) { return el("div", l.ts + " " + l.agent + ": " + l.message); }, "No activity yet.");
+}
+function refresh() {
+  return fetch("/api/status", { cache: "no-store" }).then(function (r) { if (!r.ok) throw 0; return r.json(); })
+    .then(function (s) { live = true; render(s); })
+    .catch(function () {
+      live = false;
+      return fetch("data/status.json", { cache: "no-store" }).then(function (r) { return r.json(); }).then(render)
+        .catch(function () { document.getElementById("updated").textContent = "no data yet: run python3 export_status.py"; });
+    }).then(function () {
+      document.getElementById("chatnote").textContent = live ? "" : "Read-only view. Chat and buttons need: python3 serve.py";
+      document.getElementById("chatinput").disabled = !live;
+    });
+}
+document.getElementById("killbtn").onclick = function () {
+  if (!live || !state) return;
+  api(state.kill_switch ? "/api/resume" : "/api/kill").then(refresh);
+};
+document.getElementById("chatform").onsubmit = function (ev) {
+  ev.preventDefault();
+  var input = document.getElementById("chatinput"), msg = input.value.trim(), log = document.getElementById("chatlog");
+  if (!msg || !live) return;
+  log.appendChild(el("div", "You: " + msg, "me")); input.value = "";
+  api("/api/chat", { message: msg }).then(function (r) { log.appendChild(el("div", "CEO: " + r.reply)); log.scrollTop = log.scrollHeight; });
+};
+refresh(); setInterval(refresh, 10000);
+</script>
+</body>
+</html>

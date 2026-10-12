@@ -1,63 +1,66 @@
 # STATUS (read this first)
 
-Last updated: 2026-10-13. Owner: Sai Prasanna (user). Write-up language: English for AI readers; the user chats in Tenglish.
+Last updated: 2026-10-13. Owner: Sai Prasanna. Written in English for AI readers; the user chats in Tenglish and wants continuous work without being asked "what next" for things the AI can do itself.
 
 ## Goal
-A zero-cost, 24/7 autonomous agent system that builds real income. Sub-agents and bots handle small tasks. A dashboard shows the system like a 2D office (desks, status lights). Layout is a pyramid: CEO orchestrator at top, department managers in the middle, worker bots at the bottom. Future direction: a self-improving agent with one-click rollback to any previous version.
+Zero-cost, 24/7 autonomous agent team that builds real income. Office-style dashboard (pyramid: CEO / managers / workers). Self-improving, with one-call rollback. Runs in the cloud even when the computer is off.
 
-## Current state (honest)
-- The engine is still a SIMULATION. Clicks are random and revenue values are estimates.
-- Real money so far: $0.00.
-- Every campaign and discovery row now has a `source` column: `real` or `simulated`. Existing rows were migrated to `simulated`.
-- The dashboard is connected to the engine: "Run Engine Cycle" runs the real cycle, and stats come from the same DB. Real and simulated revenue are shown separately.
-- Groq live mode uses model `llama-3.1-8b-instant`. No key is set yet, so the engine runs in fallback mode until the user sets GROQ_API_KEY.
-- Affiliate tags (chilligavva-20, chilliai, chilligavva.gumroad.com) are placeholders. No real affiliate tracking exists yet.
-- Config is read only from `config.json` next to `engine.py`. The DB path is next to `engine.py`.
+## Honest state
+- Real money earned so far: **$0.00**. The old engine (`engine.py`) is a SIMULATION. Its numbers are labelled `simulated` in the DB.
+- The new agent team (`workforce.py`) works, is tested, and produces DRAFTS that wait for human approval. Nothing publishes by itself. No real earning source is connected.
+- Cloud 24/7 workflow file exists but has NOT been run on real GitHub yet (cannot be tested from here).
+- The Groq key is not set, so the team runs in `fallback` mode (templates, no LLM) until the user sets `GROQ_API_KEY`.
 
-## Changes log
-- 2026-10-13 cleanup: fixed `chilli_app.py` syntax error; moved stale copies to `archive/`; memory docs to `docs/memory_2026-10-02/`; added `.gitignore`.
-- 2026-10-13 names: `engine.py`, `dashboard.py`, `run_engine.py`, `agent_data.db`.
-- 2026-10-13 fixes: model name updated; cost unified to $0.00; `source` ledger added with migration; dashboard connected to engine; config path made local-only.
-- Backup of the DB before schema change: `archive/agent_data_backup_2026-10-13.db`.
-- Tested on a throwaway copy: engine run OK, migration OK, summary OK. The real DB has NOT been run yet, so its migration happens on first engine or dashboard stats use.
+## What exists (all tested, 25 unit tests pass: `python3 -m unittest discover -s tests`)
+| File | Purpose |
+|---|---|
+| `engine.py` | Old simulated cycle + Groq call (`llama-3.1-8b-instant`, 429 retry, respects kill switch and daily cap) |
+| `workforce.py` | SQLite task queue, 7 agents by level, plan -> research -> draft -> review, crash-safe, retries 3x |
+| `guardrails.py` | Kill switch (`KILL_SWITCH` file or env `AGENT_PAUSED=1`), daily LLM call cap (config `daily_llm_call_cap`, default 100), approval queue |
+| `improver.py` | Prompt A/B testing with human approval signal, promote/revert in one call; code changes only as verified patch PROPOSALS, never auto-applied |
+| `export_status.py` | Builds the dashboard snapshot (counts and titles only, no secrets) into `web/data/status.json` |
+| `chat.py`, `serve.py` | Chat with the CEO (honest answers from the DB; LLM for open questions) and local dashboard server on 127.0.0.1:8787 |
+| `web/index.html` | 2D office dashboard: desks and status lights, money (real vs simulated), approvals, task queue, prompts, validation progress, kill switch, chat |
+| `cloud_runner.py` + `.github/workflows/agent.yml` | One cycle every 30 min in GitHub Actions: tests, run, save state |
+| `dashboard.py` | Old Tkinter dashboard (engine now runs in a background thread) |
+| `versions.py` | List / tag / roll back project versions via git (dry run by default) |
+| `log_validation.py` | Daily numbers for the 14-day validation test |
+| `docs/` | RESEARCH_2026-10-13.md (platform facts and corrections), VALIDATION_PLAN.md, GROQ_SETUP.md, CLOUD_SETUP.md |
 
-## Added 2026-10-13 (continued work)
-- `versions.py`: list versions, mark known-good tags, roll back. Rollback is a dry run by default. `--apply` makes a NEW commit (history kept) and refuses if the tree has uncommitted changes. Tested in a throwaway repo only.
-- `docs/VALIDATION_PLAN.md`: two-week $0 validation plan with success criteria written before starting.
-- `log_validation.py`: daily measured numbers (visitors, signups, engaged) into agent_data.db; `report` shows targets met and verdict on day 14.
-- `docs/GROQ_SETUP.md`: free Groq key setup, done by the user.
-- Engine output labels now say SIMULATION / estimated, no more 'LIVE' wording.
+## How to use (local)
+- Dashboard: `python3 serve.py` then open http://127.0.0.1:8787
+- One agent cycle: `python3 workforce.py run`
+- Approvals: dashboard buttons, or `python3 guardrails.py approvals | approve <id> | reject <id>`
+- Emergency stop: dashboard Kill switch, or `python3 guardrails.py kill` (resume with `resume`)
+- Prompt learning: `python3 improver.py status | promote <name> | revert <name>`
+- Version rollback: `python3 versions.py list`, then `rollback <tag>` (add `--apply`)
 
-## Known issues (still open)
-0. Needs user action: (a) pick the income stream to validate (docs/VALIDATION_PLAN.md), (b) create the Groq key and set GROQ_API_KEY (docs/GROQ_SETUP.md), (c) accounts/hosting (later discussion).
-1. Nothing pushed anywhere. Work is committed locally only (commit 5c72aa5, tag `known-good-baseline-2026-10-13`). Roll back with `python3 versions.py rollback known-good-baseline-2026-10-13`.
-2. Revenue numbers in the engine are still hardcoded estimates (ROI values). They are labelled `simulated`.
-3. Dashboard runs the engine on the GUI thread, so the window freezes during a cycle. Fine for now; move to a thread later.
-4. Real earnings source is not connected. Nothing writes `source = 'real'` yet.
-5. `docs/memory_2026-10-02/` and `archive/` use old names. Historical; not updated.
+## Research corrections (see docs/RESEARCH_2026-10-13.md)
+- GitHub Models was retired 2026-07-30: no free GitHub 8B token.
+- Hugging Face Inference Providers: free users get no monthly credits.
+- GitHub Pages must not host commercial sites. Use it only for the non-commercial test; use Cloudflare Pages later for monetised pages.
+- Free Hugging Face Spaces sleep when idle: not an always-on host.
+- Groq: model is listed as production; exact free limits for the 8B model are only in the user's console.
+
+## Open items
+1. USER ACTION: pick the income stream to validate (docs/VALIDATION_PLAN.md).
+2. USER ACTION: create a free Groq key, set GROQ_API_KEY (docs/GROQ_SETUP.md). Check Groq terms before earning from the free tier.
+3. USER ACTION (optional, for 24/7 cloud): create a GitHub repo, push, add the secret (docs/CLOUD_SETUP.md).
+4. USER ACTION: accounts/email/domain/hosting discussion (deferred by the user).
+5. Real earning source not connected; nothing writes `source = 'real'` yet.
+6. Tkinter dashboard and GitHub workflow not exercised on real hardware/GitHub (logic and the web dashboard were tested; web UI tested in Chromium).
+7. Old docs in `docs/memory_2026-10-02/` and `archive/` use outdated names and paths. Historical only.
+8. Nothing is pushed anywhere. Work is committed locally; see `python3 versions.py list` for tags.
+
+## Rules for any AI working here
+- Do not delete files; move stale ones into `archive/`.
+- Never print or commit `config.json` or any API key.
+- Never execute LLM-generated code outside the throwaway-copy test in `improver.verify_proposal`.
+- Nothing may publish or post publicly without a human approval in the approvals table.
+- Update this file with the date whenever the state changes.
+- End-of-day: when the user says delete, list exactly what will be removed and delete the project and its traces (local folder and notes) as they asked; remote copies (GitHub etc.) the user must remove.
 
 ## Decisions (user-stated)
-- Do not mix this project's data into other projects. The campaign project memory may hold Chilli work notes; the user has asked to keep them there.
-- Accounts, email, domain, hosting: discuss later, not now.
-- User wants: a real-vs-simulated ledger, a 2-week $0 validation test before building more, and a self-improving agent with one-click rollback (git tags + revert commits).
-- Recommended free stack (research dated 2026-10): Groq (Llama 3.1 8B Instant, no card) as primary LLM, Cloudflare Workers AI as backup, GitHub Actions cron for scheduled runs (near-24/7, not exact), GitHub Pages for the dashboard, SQLite for storage, API keys in GitHub Secrets only.
-
-## Next steps (suggested order)
-1. Confirm the one income stream to validate first.
-2. Set up a free LLM key via environment variable only (never in files).
-3. Run the engine once on the real DB and check the migration.
-4. Two-week validation test with success criteria written down before starting.
-5. Only when a real earning is recorded, set `source = 'real'` for it.
-
-## How to work in this folder (for any AI)
-- Do not delete files. Move stale files into `archive/`.
-- Do not print or copy `config.json` contents into chats or commits.
-- Update this STATUS.md whenever the state changes, with the date.
-
-## Rename log (2026-10-13)
-- `ai_enterprise_corp.py` -> `engine.py`
-- `chilli_app.py` -> `dashboard.py`
-- `start_agent.py` -> `run_engine.py`
-- `enterprise_data.db` -> `agent_data.db` (code paths updated in engine.py and dashboard.py)
-- Removed `__pycache__` folders and the empty leftover memory folder.
-- `docs/memory_2026-10-02/` and `archive/` still use the OLD names. They are historical; do not update them.
+- Keep this project's data inside this project; the campaign project memory may hold Chilli notes (user asked to keep them there).
+- Accounts, email, domain, hosting: discuss later.
+- Prefers Tenglish replies, structured, brutally honest, confidence levels, no unnecessary questions.

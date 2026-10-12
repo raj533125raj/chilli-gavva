@@ -4,6 +4,8 @@ Goal: find out in 14 days whether ONE income stream gets real traction, before b
 Budget: $0. Only free tools (GitHub Pages, GitHub, free social/newsletter tiers).
 
 ## Pick the stream (decide first, write it down)
+Hosting note: GitHub Pages forbids commercial sites, so use it only for this non-commercial test; host monetised pages on Cloudflare Pages.
+
 Candidate: a free mini-tool page (e.g. a simple calculator or prompt generator) on GitHub Pages, with an email signup. Income later comes from honest affiliate links or a paid tier, but the test only measures interest.
 
 ## Success criteria (fixed before day 1)

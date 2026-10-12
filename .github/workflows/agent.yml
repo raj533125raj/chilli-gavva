@@ -1,0 +1,35 @@
+name: agent-cycle
+
+on:
+  schedule:
+    - cron: "17,47 * * * *"     # twice an hour at odd minutes (GitHub is busiest at :00)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: agent-cycle
+  cancel-in-progress: false
+
+jobs:
+  cycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run tests first
+        run: python3 -m unittest discover -s tests
+      - name: Run one agent cycle
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python3 cloud_runner.py
+      - name: Save state
+        run: |
+          git config user.name "chilli-gavva-bot"
+          git config user.email "chilli-gavva-bot@users.noreply.github.com"
+          git add agent_data.db web/data/status.json
+          git diff --cached --quiet || (git commit -m "agent state update" && git push)

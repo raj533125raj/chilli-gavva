@@ -8,6 +8,8 @@ import urllib.error
 from typing import Dict, List, Any, Optional
 import random
 
+import guardrails
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 
@@ -160,28 +162,39 @@ class AutonomousResearchEngine:
     """Connects to real Groq API if API key is provided in config.json, otherwise uses smart generation."""
     @staticmethod
     def generate_with_groq(prompt: str) -> Optional[str]:
+        """Call Groq if a key exists, the kill switch is off and today's call cap allows it.
+        On HTTP 429 wait for the retry-after time (max 20s) and try once more."""
         cfg = load_config()
-        api_key = cfg.get("groq_api_key") or os.environ.get("GROQ_API_KEY")
+        api_key = os.environ.get("GROQ_API_KEY") or cfg.get("groq_api_key")
         if not api_key or api_key.startswith("YOUR_"):
             return None
-        
-        try:
-            url = "https://api.groq.com/openai/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            }
-            data = {
-                "model": "llama-3.1-8b-instant",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.7
-            }
-            req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'), headers=headers)
-            with urllib.request.urlopen(req, timeout=10) as response:
-                res_body = json.loads(response.read().decode('utf-8'))
-                return res_body['choices'][0]['message']['content'].strip()
-        except Exception as e:
+        if not guardrails.can_call_llm():
             return None
+
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        data = {"model": "llama-3.1-8b-instant",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.7}
+        for attempt in (1, 2):
+            try:
+                req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers)
+                guardrails.record_call()
+                with urllib.request.urlopen(req, timeout=20) as response:
+                    res_body = json.loads(response.read().decode("utf-8"))
+                    return res_body["choices"][0]["message"]["content"].strip()
+            except urllib.error.HTTPError as e:
+                if e.code == 429 and attempt == 1:
+                    try:
+                        wait = min(float(e.headers.get("retry-after", "5")), 20.0)
+                    except ValueError:
+                        wait = 5.0
+                    time.sleep(wait)
+                    continue
+                return None
+            except Exception:
+                return None
+        return None
 
     @staticmethod
     def explore_new_streams() -> Dict[str, Any]:
@@ -238,8 +251,9 @@ class HealthCheckRepairAgent(BaseAgent):
 
     def audit_system(self) -> bool:
         cfg = load_config()
-        has_key = bool(cfg.get("groq_api_key") and not cfg.get("groq_api_key").startswith("YOUR_"))
-        status_msg = "Real Groq API Key Connected & Verified." if has_key else "Running in Autonomous Fallback/Simulation Mode (Add Groq API key in config.json for live AI)."
+        key = os.environ.get("GROQ_API_KEY") or cfg.get("groq_api_key") or ""
+        has_key = bool(key and not key.startswith("YOUR_"))
+        status_msg = "Real Groq API Key Connected & Verified." if has_key else "Running in Autonomous Fallback/Simulation Mode (Set GROQ_API_KEY, see docs/GROQ_SETUP.md)."
         self.log("INFO", f"System Audit -> {status_msg}")
         return True
 
