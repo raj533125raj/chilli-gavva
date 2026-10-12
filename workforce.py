@@ -30,6 +30,8 @@ AGENTS = [
     {"name": "Research Worker", "level": "entry", "role": "Finds and lists ideas", "kinds": ["research"]},
     {"name": "Draft Worker", "level": "entry", "role": "Writes page drafts", "kinds": ["draft"]},
     {"name": "Review Worker", "level": "entry", "role": "Runs the review checklist", "kinds": ["review"]},
+    {"name": "Coder Worker", "level": "entry", "role": "Proposes code patches (never applies them)",
+     "kinds": ["code_proposal"]},
 ]
 KIND_TO_AGENT = {k: a["name"] for a in AGENTS for k in a["kinds"]}
 
@@ -188,7 +190,13 @@ def step_review(task, ctx):
     return {"score": score, "notes": notes}
 
 
-STEPS = {"plan": step_plan, "research": step_research, "draft": step_draft, "review": step_review}
+def step_code_proposal(task, ctx):
+    import coder
+    return coder.step_code_proposal(task, ctx)
+
+
+STEPS = {"plan": step_plan, "research": step_research, "draft": step_draft, "review": step_review,
+         "code_proposal": step_code_proposal}
 
 
 # ---- learning from human decisions ------------------------------------------------

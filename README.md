@@ -17,3 +17,10 @@ Read `STATUS.md` for the full table. Short version:
 - Everything (worker + dashboard): `python3 start.py` then http://127.0.0.1:8787. See docs/AUTOSTART.md
 - Agent cycle: `python3 workforce.py run`
 - Emergency stop: `python3 guardrails.py kill`
+
+
+## More tools
+- `python3 record_earning.py add|list|void|total` real earnings with proof
+- `python3 maintenance.py` backup/prune/integrity
+- `python3 site_builder.py` build static pages from approved drafts
+- `python3 coder.py request "goal" file.py` ask the coder agent for a patch proposal (human approves and applies)

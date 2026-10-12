@@ -28,8 +28,8 @@ def _money(db_path):
     if "source" not in cols:
         conn.execute("ALTER TABLE campaigns ADD COLUMN source TEXT DEFAULT 'simulated'")
         conn.commit()
-    real = conn.execute("SELECT COALESCE(SUM(earnings), 0) FROM campaigns WHERE source = 'real'").fetchone()[0]
-    total = conn.execute("SELECT COALESCE(SUM(earnings), 0) FROM campaigns").fetchone()[0]
+    real = conn.execute("SELECT COALESCE(SUM(earnings), 0) FROM campaigns WHERE source = 'real' AND status != 'VOIDED'").fetchone()[0]
+    total = conn.execute("SELECT COALESCE(SUM(earnings), 0) FROM campaigns WHERE status != 'VOIDED'").fetchone()[0]
     logs = conn.execute("SELECT timestamp, agent_name, status, message FROM agent_logs "
                         "ORDER BY id DESC LIMIT 15").fetchall()
     conn.close()

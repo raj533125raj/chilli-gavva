@@ -14,9 +14,12 @@ import signal
 import sys
 import time
 
+import coder
 import export_status
 import guardrails
 import improver
+import maintenance
+import site_builder
 import workforce
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -80,6 +83,15 @@ def one_pass(db_path=None, write_snapshot=True):
         added = improver.evolve("draft", db_path, llm=workforce.default_llm(db_path))
         if added:
             notes.append(f"new challenger v{added}")
+        if db_path is None:     # the real project only; tests pass a temp database and must not write site/
+            built = site_builder.build()
+            if built:
+                notes.append(f"built {len(built)} page(s) in site/")
+        for aid, res in coder.verify_approved(db_path):
+            notes.append(f"patch #{aid} {'passes' if res.get('ok') else 'FAILS'} tests")
+        cleaned = maintenance.run_if_due(db_path)
+        if cleaned:
+            notes.append("maintenance done" if "stopped" not in cleaned else "maintenance STOPPED: integrity check failed")
         workforce.heartbeat(f"ok: ran {result['ran']}, failed {result['failed']}"
                             + ("; " + ", ".join(notes) if notes else ""), db_path)
     if write_snapshot:

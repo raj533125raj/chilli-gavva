@@ -5,3 +5,10 @@ __pycache__/
 *.pyc
 # Worker single-instance lock
 worker.lock
+# Local database backups
+backups/
+# Generated pages from approved drafts (never leak drafts into a public repo)
+site/*
+!site/.gitkeep
+# Code patch proposals (reviewed locally, applied by a human)
+proposals/

@@ -129,12 +129,12 @@ class EnterpriseStorage:
     def get_summary(self) -> Dict[str, Any]:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*), SUM(earnings), SUM(clicks) FROM campaigns")
+        cursor.execute("SELECT COUNT(*), SUM(earnings), SUM(clicks) FROM campaigns WHERE status != 'VOIDED'")
         row = cursor.fetchone()
         campaign_count = row[0] or 0
         total_earnings = row[1] or 0.0
         total_clicks = row[2] or 0
-        cursor.execute("SELECT COALESCE(SUM(earnings), 0) FROM campaigns WHERE source = 'real'")
+        cursor.execute("SELECT COALESCE(SUM(earnings), 0) FROM campaigns WHERE source = 'real' AND status != 'VOIDED'")
         real_earnings = cursor.fetchone()[0] or 0.0
         
         cursor.execute("SELECT COUNT(*) FROM research_discoveries")
