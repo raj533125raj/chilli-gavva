@@ -268,12 +268,23 @@ def worker_status(db_path=None, stale_after_seconds=180, name="worker"):
 
 # ---- runner -----------------------------------------------------------------------
 def default_llm(db_path=None):
+    """Return a callable that routes prompts through the LLM fallback chain.
+
+    Order: Groq → Gemini (free) → Cloudflare Workers AI.
+    Falls back to legacy engine.generate_with_ollama for local dev if all cloud
+    providers fail and an ollama_model is configured.
+    """
     def call(prompt):
-        if not guardrails.can_call_llm(db_path):
+        import llm_router  # stdlib only, lazy import keeps tests fast
+        result = llm_router.chat(prompt, db_path=db_path)
+        if result:
+            return result
+        # Last-resort: local Ollama (dev only, ignored in CI)
+        try:
+            import engine
+            return engine.AutonomousResearchEngine.generate_with_ollama(prompt)
+        except Exception:
             return None
-        import engine  # imported lazily so tests need no network or key
-        eng = engine.AutonomousResearchEngine
-        return eng.generate_with_groq(prompt) or eng.generate_with_ollama(prompt)
     return call
 
 
