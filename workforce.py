@@ -179,7 +179,7 @@ def step_research(task, ctx):
     except Exception:
         mem_block = ""
 
-    # Pull live fishery/weather feed digest (best-effort, never blocks)
+    # Pull live content/weather feed digest (best-effort, never blocks)
     feed_ctx = ""
     try:
         import feeds as _feeds

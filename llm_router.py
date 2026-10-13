@@ -1,20 +1,22 @@
-"""LLM fallback router: Groq → Gemini (free) → Cloudflare Workers AI.
+"""LLM fallback router: FreeLLMAPI (local) → Groq → Gemini (free) → Cloudflare Workers AI.
 
-All three use OpenAI-compatible /v1/chat/completions or a thin wrapper, all
-via stdlib urllib — zero third-party deps.
+All four use OpenAI-compatible /v1/chat/completions, all via stdlib urllib — zero third-party deps.
 
 Usage:
     import llm_router
-    text = llm_router.chat("write a headline about salmon farming")
+    text = llm_router.chat("write a headline about Indian spices")
     # Returns str on success, None if all providers failed.
 
 Environment variables (all optional — missing key = skip that provider):
+    FREELLMAPI_KEY       freellmapi local router token (starts freellmapi-). Run locally: freellmapi.co
+    FREELLMAPI_BASE_URL  Override local router URL (default: http://localhost:3001/v1)
     GROQ_API_KEY         Groq console.groq.com — free, no card
     GEMINI_API_KEY       aistudio.google.com/apikey — free, no card
     CF_API_TOKEN         Cloudflare API token with Workers AI read
     CF_ACCOUNT_ID        Cloudflare account ID (Settings → scroll down)
 
 Behaviour:
+    - FreeLLMAPI: pools 7B+ free tokens/month from 34 providers — used first when running locally
     - Groq: llama-3.1-8b-instant, retries once on 429
     - Gemini: gemini-1.5-flash (free tier 15 RPM / 1M TPD), uses native REST API
     - Cloudflare: @cf/meta/llama-3.1-8b-instruct, free 10k neurons/day
@@ -30,6 +32,36 @@ import urllib.request
 import guardrails
 
 _TIMEOUT = 25  # seconds per request
+
+
+# ---------------------------------------------------------------------------
+# Provider 0: FreeLLMAPI (local router — pools 7B+ tokens/month free)
+# Install: freellmapi.co | Run locally and set FREELLMAPI_KEY env var
+# ---------------------------------------------------------------------------
+def _freellmapi(prompt: str) -> str | None:
+    api_key = os.environ.get("FREELLMAPI_KEY", "")
+    if not api_key or not api_key.startswith("freellmapi-"):
+        return None
+
+    base_url = os.environ.get("FREELLMAPI_BASE_URL", "http://localhost:3001/v1")
+    url = base_url.rstrip("/") + "/chat/completions"
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    body = {
+        "model": "auto",  # let the router pick the best free model
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.7,
+    }
+    try:
+        req = urllib.request.Request(
+            url, data=json.dumps(body).encode(), headers=headers
+        )
+        guardrails.record_call()
+        with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
+            data = json.loads(resp.read().decode())
+            return data["choices"][0]["message"]["content"].strip() or None
+    except Exception:
+        # Silently skip — localhost not running is expected in cloud/CI
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -155,6 +187,7 @@ def _cloudflare(prompt: str) -> str | None:
 # Public API
 # ---------------------------------------------------------------------------
 _PROVIDERS = [
+    ("FreeLLMAPI", _freellmapi),
     ("Groq", _groq),
     ("Gemini", _gemini),
     ("Cloudflare", _cloudflare),
@@ -171,7 +204,7 @@ def chat(prompt: str, *, db_path=None) -> str | None:
         return None
 
     _mod_globals = globals()
-    for name, fn_name in [("Groq", "_groq"), ("Gemini", "_gemini"), ("Cloudflare", "_cloudflare")]:
+    for name, fn_name in [("FreeLLMAPI", "_freellmapi"), ("Groq", "_groq"), ("Gemini", "_gemini"), ("Cloudflare", "_cloudflare")]:
         fn = _mod_globals[fn_name]
         try:
             result = fn(prompt)
@@ -187,7 +220,10 @@ def provider_status() -> list[dict]:
     """Return which providers have their env vars configured (does NOT make network calls)."""
     status = []
     for name, _ in _PROVIDERS:
-        if name == "Groq":
+        if name == "FreeLLMAPI":
+            key = os.environ.get("FREELLMAPI_KEY", "")
+            configured = bool(key and key.startswith("freellmapi-"))
+        elif name == "Groq":
             key = os.environ.get("GROQ_API_KEY", "")
             configured = bool(key and not key.startswith("YOUR_"))
         elif name == "Gemini":

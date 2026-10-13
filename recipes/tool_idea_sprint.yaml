@@ -1,6 +1,6 @@
 # Free tool idea sprint — generates multiple tool concepts fast
 name: tool_idea_sprint
-description: Generate 3 free mini-tool ideas for the fishery/aquaculture audience
+description: Generate 3 free mini-tool ideas for the Indian food and cooking audience
 tasks:
   - kind: research
     payload:

@@ -1,4 +1,4 @@
-"""Free public API feeds relevant to Fishery News content.
+"""Free public API feeds relevant to Chilli Gavva content (Indian food, spices, cooking).
 
 All endpoints are truly free — no key required unless noted.
 Used by the Research Worker to pull real-world data into article drafts.
@@ -49,7 +49,7 @@ def _parse_rss(text: str) -> list[dict]:
 
 
 def _parse_noaa_json(text: str) -> list[dict]:
-    """NOAA Fisheries news — JSON array or object with results."""
+    """NOAA food/agriculture news — JSON array or object with results."""
     items = []
     try:
         data = json.loads(text)
@@ -73,20 +73,20 @@ def _parse_noaa_json(text: str) -> list[dict]:
 _FEEDS = [
     # FAO Fisheries & Aquaculture news RSS (UN, no key)
     (
-        "FAO Fisheries",
-        "https://www.fao.org/fishery/en/rss",
+        "Times Food",
+        "https://recipes.timesofindia.com/rss/topstories",
         _parse_rss,
     ),
     # NOAA Fisheries news RSS
     (
-        "NOAA Fisheries",
-        "https://www.fisheries.noaa.gov/news/rss",
+        "Archana Kitchen",
+        "https://www.archanaskitchen.com/feeds/posts/default",
         _parse_rss,
     ),
     # Global Fishing Watch blog RSS (open data platform)
     (
-        "Global Fishing Watch",
-        "https://globalfishingwatch.org/feed/",
+        "Spice Up The Curry",
+        "https://www.spiceupthecurry.com/feed/",
         _parse_rss,
     ),
     # Open Meteo — free weather API (no key, JSON)
@@ -100,7 +100,7 @@ _FEEDS = [
         ),
         lambda text: _open_meteo_parse(text),
     ),
-    # REST Countries — not fishery but useful for market/trade angle
+    # REST Countries — not food but useful for market/trade angle
     # (kept as a lightweight connectivity check)
 ]
 

@@ -27,7 +27,7 @@ DEFAULT_SCHEDULE = """\
 slots:
   - name: morning
     hour: 2
-    recipe: daily_fishery_content
+    recipe: daily_chilli_content
   - name: midday
     hour: 7
     recipe: shrimp_market_brief
@@ -36,7 +36,7 @@ slots:
     recipe: tool_idea_sprint
   - name: evening
     hour: 17
-    recipe: daily_fishery_content
+    recipe: daily_chilli_content
 """
 
 

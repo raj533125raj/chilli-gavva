@@ -1,6 +1,6 @@
 """topic_pool.py — Auto-seed research tasks when the queue runs dry.
 
-Maintains a rotating pool of fishery/aquaculture topics. When the worker
+Maintains a rotating pool of Indian food and cooking topics. When the worker
 detects an idle queue, it calls seed_if_idle() which enqueues 1-2 research
 tasks so agents always have something to work on.
 
@@ -18,30 +18,30 @@ import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 TOPICS = [
-    # Aquaculture tools
-    "free pond water quality calculator for tilapia farmers",
-    "FCR feed conversion ratio tracker for shrimp farms",
-    "fish stocking density calculator for small ponds",
-    "dissolved oxygen management in aquaculture ponds",
-    "shrimp post-larvae survival rate benchmarks",
-    # Market & regulation
-    "global shrimp price trends and supply chain outlook",
-    "India aquaculture export regulations 2024-2025",
-    "vannamei vs monodon shrimp farming cost comparison",
-    "EU seafood import standards and labelling requirements",
-    "sustainable aquaculture certification guides (ASC, BAP)",
-    # Technology
-    "IoT sensors for pond monitoring in small-scale farms",
-    "probiotics use in shrimp aquaculture feed",
-    "aeration systems comparison for fish ponds",
-    "biofloc technology introduction for beginners",
-    "tilapia cage culture in reservoirs pros and cons",
+    # Cooking tools & calculators
+    "free spice ratio calculator for Indian cooking beginners",
+    "Indian meal planner tool for weekly family dinner prep",
+    "roti vs paratha calorie comparison chart for home cooks",
+    "pressure cooker timing guide for Indian dals and curries",
+    "masala dosage guide for common Indian recipes",
+    # Product & affiliate angles
+    "best budget Indian spice box sets on Amazon 2025",
+    "cast iron tawa vs non-stick for Indian cooking",
+    "Indian kitchen must-haves under Rs 1000 — buyer guide",
+    "best blenders for Indian chutneys and masalas",
+    "air fryer Indian recipes — is it worth buying?",
+    # Recipe content
+    "trending Indian breakfast recipes under 20 minutes",
+    "healthy Telugu traditional dishes for modern kitchens",
+    "Indian street food recipes easy to make at home",
+    "homemade masala powders vs store-bought — which wins",
+    "budget Indian meal prep guide for the week",
     # News angles
-    "trending fishery regulations or sustainability news this week",
-    "climate impact on ocean fish stocks and fishermen livelihoods",
-    "artisanal fishing communities technology adoption stories",
-    "mangrove conservation and coastal fishing communities",
-    "fish meal alternatives in aquaculture feed industry",
+    "popular Indian spice brands and their quality comparison",
+    "Indian food trends going viral on social media this week",
+    "organic spices vs regular — price and health comparison",
+    "South Indian vs North Indian cooking oil differences",
+    "traditional Indian pickling and preservation methods guide",
 ]
 
 IDLE_THRESHOLD = 2       # enqueue when pending tasks < this

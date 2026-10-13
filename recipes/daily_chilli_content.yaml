@@ -1,0 +1,11 @@
+# Daily Chilli Gavva content pipeline
+# Run: python3 recipe_runner.py recipes/daily_chilli_content.yaml
+name: daily_chilli_content
+description: Research and draft a Chilli Gavva mini-tool or article about Indian food, spices, and cooking
+tasks:
+  - kind: research
+    payload:
+      topic: "a free mini-tool or calculator for Indian home cooks (spice ratio, meal planner, or calorie counter)"
+  - kind: research
+    payload:
+      topic: "trending Indian recipes, spice blends, or kitchen product reviews this week"

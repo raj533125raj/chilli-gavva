@@ -1,7 +1,7 @@
 """YAML recipe runner — Goose-style one-command job launcher.
 
 Usage:
-    python3 recipe_runner.py recipes/daily_fishery_content.yaml
+    python3 recipe_runner.py recipes/daily_chilli_content.yaml
     python3 recipe_runner.py recipes/shrimp_market_brief.yaml
     python3 recipe_runner.py --list          # show all available recipes
 

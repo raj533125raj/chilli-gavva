@@ -29,6 +29,8 @@ jobs:
           python-version: "3.11"
 
       - name: Run tests first
+        env:
+          CHILLI_TEST: "1"
         run: python3 -m unittest discover -s tests
 
       - name: Run scheduled recipe (if slot matches now)
@@ -63,5 +65,5 @@ jobs:
         run: |
           git config user.name "chilli-gavva-bot"
           git config user.email "chilli-gavva-bot@users.noreply.github.com"
-          git add agent_data.db web/data/status.json content/ .scheduler_locks/ || true
+          git add agent_data.db web/data/status.json exported_content/ .scheduler_locks/ || true
           git diff --cached --quiet || (git commit -m "agent: state + content update [skip ci]" && git push)

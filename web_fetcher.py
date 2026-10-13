@@ -25,7 +25,7 @@ _LAST_FETCH = 0.0
 _MIN_GAP = 3.0  # seconds between requests
 _TIMEOUT = 10
 
-USER_AGENT = "ChilliGavvaBot/1.0 (research; +https://fishery.news)"
+USER_AGENT = "ChilliGavvaBot/1.0 (research; +https://chilligavva.com)"
 
 
 class _Stripper(html.parser.HTMLParser):
