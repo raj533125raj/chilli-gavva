@@ -1,8 +1,11 @@
 """Local dashboard server: python3 serve.py  ->  http://127.0.0.1:8787
 
-Serves web/ and a small JSON API. Listens on this computer only. Every POST needs the
-header X-Requested-With: chilli, and the Host header must be localhost, which blocks
-other websites from driving the dashboard.
+Serves web/ and a small JSON API. Listens on this computer only by default.
+For Tailscale remote access: CHILLI_BIND=0.0.0.0 python3 serve.py
+Then open http://<tailscale-ip>:8787 from phone/Windows machine.
+
+Every POST needs the header X-Requested-With: chilli. When running on localhost,
+the Host header must also be localhost (blocks CSRF from other sites).
 """
 import json
 import mimetypes
@@ -17,7 +20,9 @@ import workforce
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(BASE_DIR, "web")
-PORT = 8787
+PORT = int(os.environ.get("CHILLI_PORT", "8787"))
+BIND = os.environ.get("CHILLI_BIND", "127.0.0.1")
+_REMOTE = BIND not in ("127.0.0.1", "::1", "localhost")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -25,6 +30,8 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def _host_ok(self):
+        if _REMOTE:
+            return True  # Tailscale private network
         return self.headers.get("Host", "").split(":")[0] in ("127.0.0.1", "localhost")
 
     def _send(self, code, body, ctype="application/json"):
@@ -73,8 +80,14 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
-    print(f"Dashboard: http://127.0.0.1:{PORT}  (Ctrl+C to stop)")
+    server = ThreadingHTTPServer((BIND, PORT), Handler)
+    if _REMOTE:
+        import socket
+        local_ip = socket.gethostbyname(socket.gethostname())
+        print(f"[REMOTE MODE] Binding {BIND}:{PORT} — ensure Tailscale is running")
+        print(f"Dashboard: http://<tailscale-ip>:{PORT}  or  http://{local_ip}:{PORT}")
+    else:
+        print(f"Dashboard: http://127.0.0.1:{PORT}  (Ctrl+C to stop)")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
