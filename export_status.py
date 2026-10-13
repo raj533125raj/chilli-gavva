@@ -38,6 +38,15 @@ def _money(db_path):
     return real, total - real, [{"ts": t[:19], "agent": a, "status": s, "message": m[:200]} for t, a, s, m in logs]
 
 
+
+def _llm_providers() -> list:
+    """Return LLM provider status list; silently returns [] if llm_router unavailable."""
+    try:
+        import llm_router
+        return llm_router.provider_status()
+    except Exception:
+        return []
+
 def build_status(db_path=None):
     real, simulated, logs = _money(db_path)
     conn = workforce.connect(db_path)
@@ -78,6 +87,7 @@ def build_status(db_path=None):
         "logs": logs,
         "service_requests": svc_reqs,
         "built_tools": built_tools,
+        "llm_providers": _llm_providers(),
     }
 
 
