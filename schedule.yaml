@@ -1,0 +1,15 @@
+# Chilli Gavva daily schedule (UTC hours)
+# Each slot maps to a recipe name in recipes/
+slots:
+  - name: morning
+    hour: 2
+    recipe: daily_fishery_content
+  - name: midday
+    hour: 7
+    recipe: shrimp_market_brief
+  - name: afternoon
+    hour: 12
+    recipe: tool_idea_sprint
+  - name: evening
+    hour: 17
+    recipe: daily_fishery_content

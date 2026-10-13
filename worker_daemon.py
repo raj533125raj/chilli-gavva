@@ -107,14 +107,29 @@ def one_pass(db_path=None, write_snapshot=True):
 
 
 def loop(db_path=None, interval=None, max_loops=None, sleep=time.sleep, should_stop=lambda: False,
-         write_snapshot=True):
+         write_snapshot=True, enable_seeding=True):
     interval = interval or interval_from_config()
     delay, loops = interval, 0
     while not should_stop() and (max_loops is None or loops < max_loops):
         loops += 1
         try:
             _, did_work = one_pass(db_path, write_snapshot)
-            delay = interval if did_work else min(MAX_IDLE_INTERVAL, max(interval, delay * 1.5))
+            if did_work:
+                delay = interval
+            else:
+                delay = min(MAX_IDLE_INTERVAL, max(interval, delay * 1.5))
+                # Queue idle — auto-seed research topics so agents always have work
+                try:
+                    if enable_seeding and not guardrails.is_killed():
+                        import topic_pool
+                        seeded = topic_pool.seed_if_idle(db_path=db_path)
+                    else:
+                        seeded = []
+                    if seeded:
+                        workforce.heartbeat(f"auto-seeded {len(seeded)} topic(s)", db_path)
+                        delay = interval  # check again soon
+                except Exception:
+                    pass
         except Exception as exc:                      # never let the worker die on one bad pass
             workforce.heartbeat(f"error: {str(exc)[:120]}", db_path)
             delay = min(MAX_IDLE_INTERVAL, max(interval, delay * 2))

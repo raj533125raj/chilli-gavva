@@ -13,6 +13,8 @@ from unittest.mock import MagicMock, patch, call
 _guardrails_stub = types.ModuleType("guardrails")
 _guardrails_stub.can_call_llm = lambda db_path=None: True
 _guardrails_stub.record_call = lambda: None
+# Capture real guardrails for restoration after each test
+_real_guardrails = sys.modules.get("guardrails")
 sys.modules.setdefault("guardrails", _guardrails_stub)
 
 import llm_router  # noqa: E402 (import after stub)
@@ -233,7 +235,15 @@ class TestCloudflareProvider(unittest.TestCase):
 # ---------------------------------------------------------------------------
 class TestChat(unittest.TestCase):
     def setUp(self):
+        sys.modules["guardrails"] = _guardrails_stub  # ensure stub is active
         importlib.reload(llm_router)
+
+    def tearDown(self):
+        # Restore real guardrails so later test modules see the real one
+        if _real_guardrails is not None:
+            sys.modules["guardrails"] = _real_guardrails
+        elif "guardrails" in sys.modules:
+            del sys.modules["guardrails"]
 
     def test_returns_groq_when_available(self):
         with patch.object(llm_router, "_groq", return_value="groq result"):

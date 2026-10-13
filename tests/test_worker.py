@@ -40,7 +40,7 @@ class LoopTests(WorkerBase):
         return n, sleeps
 
     def test_worker_finishes_all_work_automatically(self):
-        self.run_loop(3)
+        self.run_loop(3, enable_seeding=False)
         conn = workforce.connect(self.db)
         statuses = {r[0] for r in conn.execute("SELECT status FROM tasks")}
         count = conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
@@ -57,7 +57,7 @@ class LoopTests(WorkerBase):
         self.assertEqual(plans, 1)
 
     def test_idle_backoff_grows_and_is_capped(self):
-        _, sleeps = self.run_loop(8)
+        _, sleeps = self.run_loop(8, enable_seeding=False)
         self.assertEqual(sleeps[0], 10)                          # first pass did work: base interval
         self.assertTrue(all(b >= a for a, b in zip(sleeps[1:], sleeps[2:])))
         self.assertLessEqual(max(sleeps), worker_daemon.MAX_IDLE_INTERVAL)
@@ -65,7 +65,7 @@ class LoopTests(WorkerBase):
 
     def test_kill_switch_pauses_and_heartbeat_says_so(self):
         guardrails.kill("test")
-        self.run_loop(2)
+        self.run_loop(2, enable_seeding=False)
         conn = workforce.connect(self.db)
         self.assertEqual(conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0], 0)
         conn.close()
