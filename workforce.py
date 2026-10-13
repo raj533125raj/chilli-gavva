@@ -167,7 +167,48 @@ def step_plan(task, ctx):
 def step_research(task, ctx):
     topic = task["payload"]["topic"]
     _, template = improver.get_active("research", ctx["db_path"])
-    text = ctx["llm"](template.format(topic=topic))
+
+    # Inject remembered facts so the agent learns from past runs
+    try:
+        import agent_memory as _mem
+        mem_block = _mem.facts_for_prompt("research", ctx.get("db_path"))
+        if not mem_block:
+            mem_block = _mem.facts_for_prompt("approved", ctx.get("db_path"))
+    except Exception:
+        mem_block = ""
+
+    # Pull live fishery/weather feed digest (best-effort, never blocks)
+    feed_ctx = ""
+    try:
+        import feeds as _feeds
+        feed_ctx = _feeds.for_prompt(max_per_feed=2)
+    except Exception:
+        pass
+
+    # Fetch real web context for the topic (best-effort, never blocks)
+    web_ctx = ""
+    try:
+        import web_fetcher as _wf
+        search_url = (
+            "https://www.google.com/search?q="
+            + topic.replace(" ", "+").replace("(", "").replace(")", "")[:120]
+            + "&num=3"
+        )
+        words, err = _wf.fetch_words(search_url, max_words=300)
+        if words and not err:
+            web_ctx = "\nWeb context (Google snippet):\n" + words
+    except Exception:
+        pass
+
+    prompt = template.format(topic=topic)
+    if mem_block:
+        prompt = mem_block + "\n\n" + prompt
+    if feed_ctx:
+        prompt += "\n\n" + feed_ctx
+    if web_ctx:
+        prompt += web_ctx
+
+    text = ctx["llm"](prompt)
     mode = "llm"
     if not text:
         mode = "fallback"
@@ -181,7 +222,20 @@ def step_research(task, ctx):
 def step_draft(task, ctx):
     topic = task["payload"]["topic"]
     version_id, template = improver.pick_for_trial("draft", ctx["rng"], ctx["db_path"])
-    text = ctx["llm"](template.format(topic=topic) + "\nContext notes:\n" + task["payload"].get("research", ""))
+
+    # Inject approved content patterns from memory
+    try:
+        import agent_memory as _mem
+        mem_block = _mem.facts_for_prompt("approved", ctx.get("db_path"))
+        if not mem_block:
+            mem_block = _mem.facts_for_prompt("draft", ctx.get("db_path"))
+    except Exception:
+        mem_block = ""
+
+    draft_prompt = template.format(topic=topic) + "\nContext notes:\n" + task["payload"].get("research", "")
+    if mem_block:
+        draft_prompt = mem_block + "\n\n" + draft_prompt
+    text = ctx["llm"](draft_prompt)
     mode = "llm"
     if not text:
         mode = "fallback"
@@ -205,6 +259,18 @@ def step_review(task, ctx):
     guardrails.set_review(approval_id, f"score {score}/100" + (": " + "; ".join(notes) if notes else ""),
                           ctx["db_path"])
     improver.record_result(task["payload"]["version_id"], score, ctx["db_path"])
+
+    # Remember high-scoring patterns so future drafts can learn from them
+    if score >= 70:
+        try:
+            import agent_memory as _mem
+            summary = f"Score {score}/100 on v{task['payload']['version_id']}"
+            if notes:
+                summary += " — passed: " + "; ".join(n for n in notes if not n.startswith("risky") and not n.startswith("no ") and not n.startswith("too "))
+            _mem.add_fact("Review Worker", "approved", summary, confidence=score / 100.0, db_path=ctx.get("db_path"))
+        except Exception:
+            pass
+
     return {"score": score, "notes": notes}
 
 
