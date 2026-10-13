@@ -61,6 +61,8 @@ def connect(db_path=None):
         approval_id INTEGER PRIMARY KEY, version_id INTEGER, synced INTEGER DEFAULT 0)""")
     conn.execute("""CREATE TABLE IF NOT EXISTS heartbeat (
         name TEXT PRIMARY KEY, ts TEXT, info TEXT)""")
+    # Performance: index for claim_next() hot path
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status, priority, id)")
     cols = [r[1] for r in conn.execute("PRAGMA table_info(tasks)").fetchall()]
     if "started_ts" not in cols:
         conn.execute("ALTER TABLE tasks ADD COLUMN started_ts TEXT")

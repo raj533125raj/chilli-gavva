@@ -11,10 +11,12 @@ CLI:
   python3 guardrails.py show <id>
   python3 guardrails.py approve <id>
   python3 guardrails.py reject <id>
+  python3 guardrails.py approve-above <score>  # bulk approve by score threshold
 """
 import datetime
 import json
 import os
+import re
 import sqlite3
 import sys
 
@@ -23,6 +25,9 @@ DB_PATH = os.path.join(BASE_DIR, "agent_data.db")
 KILL_FILE = os.path.join(BASE_DIR, "KILL_SWITCH")
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 DEFAULT_DAILY_CAP = 100
+
+# When CHILLI_TEST=1, record_call() is a no-op so tests don't eat the real cap
+_TESTING = os.environ.get("CHILLI_TEST") == "1"
 
 
 def connect(db_path=None):
@@ -75,6 +80,8 @@ def can_call_llm(db_path=None):
 
 
 def record_call(db_path=None):
+    if _TESTING:
+        return  # tests must not contaminate the real daily cap
     conn = connect(db_path)
     conn.execute("INSERT INTO usage_log (day, llm_calls) VALUES (?, 1) "
                  "ON CONFLICT(day) DO UPDATE SET llm_calls = llm_calls + 1", (today(),))
@@ -131,6 +138,26 @@ def decide(approval_id, approved, db_path=None):
     return bool(changed)
 
 
+def _parse_score(review_text):
+    """Extract numeric score from review strings like 'score 78/100' or 'Good score 80/100'."""
+    if not review_text:
+        return None
+    m = re.search(r'(\d+)\s*/\s*100', review_text)
+    return int(m.group(1)) if m else None
+
+
+def approve_above(threshold, db_path=None):
+    """Bulk-approve all pending items whose review score is >= threshold. Returns list of approved ids."""
+    items = pending(db_path)
+    approved_ids = []
+    for item in items:
+        score = _parse_score(item.get("review") or "")
+        if score is not None and score >= threshold:
+            if decide(item["id"], True, db_path):
+                approved_ids.append(item["id"])
+    return approved_ids
+
+
 def main(argv):
     cmd = argv[0] if argv else "status"
     if cmd == "status":
@@ -146,7 +173,9 @@ def main(argv):
     elif cmd == "approvals":
         items = pending()
         for it in items:
-            print(f"#{it['id']} [{it['kind']}] {it['title']}  review: {it['review'] or '-'}")
+            score = _parse_score(it.get("review") or "")
+            score_str = f"  score={score}/100" if score is not None else ""
+            print(f"#{it['id']} [{it['kind']}] {it['title']}{score_str}")
         if not items:
             print("No pending approvals.")
     elif cmd == "show" and len(argv) == 2:
@@ -155,6 +184,17 @@ def main(argv):
     elif cmd in ("approve", "reject") and len(argv) == 2:
         ok = decide(int(argv[1]), cmd == "approve")
         print("done" if ok else "not found or already decided")
+    elif cmd == "approve-above" and len(argv) == 2:
+        try:
+            threshold = int(argv[1])
+        except ValueError:
+            print("Usage: python3 guardrails.py approve-above <score 0-100>")
+            return
+        ids = approve_above(threshold)
+        if ids:
+            print(f"Approved {len(ids)} item(s): {ids}")
+        else:
+            print(f"No pending items with score >= {threshold}")
     else:
         print(__doc__)
 

@@ -103,6 +103,12 @@ def one_pass(db_path=None, write_snapshot=True):
                             + ("; " + ", ".join(notes) if notes else ""), db_path)
     if write_snapshot:
         export_status.write_status(db_path=db_path)
+    # Notify via Telegram if approvals are piling up (best-effort, never blocks)
+    try:
+        import notify as _notify
+        _notify.check_and_notify(db_path)
+    except Exception:
+        pass
     return result, bool(result.get("ran") or result.get("failed"))
 
 

@@ -1,0 +1,94 @@
+name: publish-content
+
+on:
+  push:
+    paths:
+      - "exported_content/**"
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build GitHub Pages site from exported_content/
+        run: |
+          mkdir -p _site
+          # Convert each markdown file to a simple HTML page
+          for md in exported_content/*.md; do
+            [ -f "$md" ] || continue
+            base=$(basename "$md" .md)
+            title=$(head -1 "$md" | sed 's/^#\+ //')
+            content=$(python3 -c "
+          import sys, re
+          with open('$md') as f:
+              text = f.read()
+          # Very simple md → html
+          lines = text.split('\n')
+          out = []
+          for line in lines:
+              if line.startswith('### '): out.append('<h3>' + line[4:] + '</h3>')
+              elif line.startswith('## '): out.append('<h2>' + line[3:] + '</h2>')
+              elif line.startswith('# '): out.append('<h1>' + line[2:] + '</h1>')
+              elif line.startswith('- '): out.append('<li>' + line[2:] + '</li>')
+              elif line.strip() == '': out.append('<br>')
+              else: out.append('<p>' + line + '</p>')
+          print('\n'.join(out))
+          ")
+            cat > "_site/${base}.html" << HTML
+          <!DOCTYPE html>
+          <html lang="en">
+          <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>${title}</title>
+          <style>body{font-family:Georgia,serif;max-width:720px;margin:40px auto;padding:0 20px;color:#222}h1,h2,h3{color:#1a5276}a{color:#1a5276}li{margin:4px 0}</style>
+          </head><body>
+          ${content}
+          <hr><p><small>Published by <a href="https://fishery.news">Fishery News</a> · Chilli Gavva AI</small></p>
+          </body></html>
+          HTML
+          done
+
+          # Build index page
+          python3 - << 'PYEOF'
+          import os, re
+          files = sorted(f for f in os.listdir('_site') if f.endswith('.html') and f != 'index.html')
+          links = []
+          for f in files:
+              title = re.sub(r'_id\d+\.html$', '', f).replace('_', ' ').replace('-', ' ').title()
+              links.append(f'<li><a href="{f}">{title}</a></li>')
+          html = """<!DOCTYPE html>
+          <html lang="en"><head><meta charset="UTF-8"><title>Fishery News — AI Content</title>
+          <style>body{font-family:Georgia,serif;max-width:720px;margin:40px auto;padding:0 20px}h1{color:#1a5276}li{margin:8px 0}</style>
+          </head><body>
+          <h1>🐟 Fishery News — Published Content</h1>
+          <ul>""" + "\n".join(links) + """</ul>
+          <p><small>Auto-published by Chilli Gavva Agent · <a href="https://fishery.news">fishery.news</a></small></p>
+          </body></html>"""
+          with open('_site/index.html', 'w') as f:
+              f.write(html)
+          print(f'Built {len(files)} content pages + index')
+          PYEOF
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - uses: actions/deploy-pages@v4
+        id: deployment
