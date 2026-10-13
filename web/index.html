@@ -75,6 +75,18 @@
   input { flex: 1; min-width: 0; background: var(--panel2); color: var(--text); border: 1px solid var(--line);
           border-radius: 8px; padding: 7px 10px; font: inherit; }
   #banner { display: none; padding: 8px 20px; background: var(--bad); color: #11111b; font-weight: 600; }
+  .provider-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .provider-row:last-child { border-bottom: 0; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .dot.ok { background: var(--good); }
+  .dot.err { background: var(--bad); }
+  .recipe-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .recipe-item:last-child { border-bottom: 0; }
+  .recipe-desc { color: var(--muted); font-size: 11px; }
+  button.run { padding: 4px 10px; font-size: 11px; border-color: var(--blue); color: var(--blue); }
+  button.run:hover { border-color: var(--accent); color: var(--accent); }
+  button.run:disabled { opacity: .4; }
+  .run-result { font-size: 11px; margin-top: 4px; color: var(--good); min-height: 14px; }
 </style>
 </head>
 <body>
@@ -101,6 +113,8 @@
     </div>
     <div class="card"><h3>Service Requests</h3><div id="services"></div></div>
     <div class="card"><h3>Built Tools</h3><div id="tools-built"></div></div>
+    <div class="card"><h3>LLM Providers</h3><div id="providers"></div></div>
+    <div class="card"><h3>Recipe Launcher</h3><div id="recipe-list"><span class="muted">Loading…</span></div><div class="run-result" id="run-result"></div></div>
     <div class="card"><h3>Validation test (14 days)</h3><div id="validation"></div></div>
     <div class="card"><h3>Task queue</h3><div id="tasks"></div></div>
     <div class="card"><h3>Prompt versions (self-improvement)</h3><div id="prompts"></div></div>
@@ -163,6 +177,15 @@ function render(s) {
   kb.disabled = !live; kb.textContent = s.kill_switch ? "Resume agents" : "Kill switch";
   kb.className = s.kill_switch ? "ok" : "danger";
   renderOffice(s.agents);
+  // LLM Providers
+  renderList("providers", s.llm_providers || [], function (p) {
+    var row = el("div", undefined, "provider-row");
+    var dot = el("span", undefined, "dot " + (p.configured ? "ok" : "err"));
+    var label = el("span"); label.appendChild(dot); label.appendChild(document.createTextNode(p.provider));
+    row.appendChild(label);
+    row.appendChild(el("span", p.configured ? "configured" : "not set", p.configured ? "" : "muted"));
+    return row;
+  }, "No provider info.");
   renderList("approvals", s.pending_approvals, function (a) {
     var card = el("div", undefined, "approval-card");
     card.appendChild(el("div", a.kind || "", "akind"));
@@ -216,6 +239,34 @@ function render(s) {
   }, "No prompts yet.");
   renderList("logs", s.logs, function (l) { return el("div", l.ts + " " + l.agent + ": " + l.message); }, "No activity yet.");
 }
+function loadRecipes() {
+  api("/api/recipes", {}).then(function (r) {
+    var box = document.getElementById("recipe-list"); box.textContent = "";
+    var list = r.recipes || [];
+    if (!list.length) { box.appendChild(el("div", "No recipes found in recipes/", "muted")); return; }
+    list.forEach(function (rec) {
+      var item = el("div", undefined, "recipe-item");
+      var info = el("div");
+      info.appendChild(el("div", rec.name.replace(/_/g, " ")));
+      info.appendChild(el("div", rec.description + "  (" + rec.task_count + " task" + (rec.task_count === 1 ? "" : "s") + ")", "recipe-desc"));
+      item.appendChild(info);
+      var btn = el("button", "▶ Run", "run");
+      btn.disabled = !live;
+      btn.onclick = (function (name) { return function () {
+        btn.disabled = true; btn.textContent = "…";
+        var res = document.getElementById("run-result");
+        api("/api/run_recipe", { name: name }).then(function (r) {
+          if (r.error) { res.textContent = "Error: " + r.error; res.style.color = "var(--bad)"; }
+          else { res.textContent = "Queued " + r.enqueued.length + " task(s) from "" + name + """; res.style.color = "var(--good)"; }
+          btn.disabled = !live; btn.textContent = "▶ Run";
+          setTimeout(function () { res.textContent = ""; }, 5000);
+        }).catch(function () { btn.disabled = !live; btn.textContent = "▶ Run"; });
+      }; })(rec.name);
+      item.appendChild(btn);
+      box.appendChild(item);
+    });
+  }).catch(function () { /* offline — recipe list stays empty */ });
+}
 function refresh() {
   return fetch("/api/status", { cache: "no-store" }).then(function (r) { if (!r.ok) throw 0; return r.json(); })
     .then(function (s) { live = true; render(s); })
@@ -240,6 +291,7 @@ document.getElementById("chatform").onsubmit = function (ev) {
   api("/api/chat", { message: msg }).then(function (r) { log.appendChild(el("div", "CEO: " + r.reply)); log.scrollTop = log.scrollHeight; });
 };
 refresh(); setInterval(refresh, 10000);
+loadRecipes();
 </script>
 </body>
 </html>

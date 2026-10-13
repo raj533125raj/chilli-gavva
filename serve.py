@@ -76,6 +76,37 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/decide":
             ok = guardrails.decide(int(body.get("id", 0)), bool(body.get("approve")))
             return self._send(200, {"ok": ok})
+        if self.path == "/api/recipes":
+            try:
+                import recipe_runner
+                return self._send(200, {"recipes": recipe_runner.list_recipes()})
+            except Exception as e:
+                return self._send(500, {"error": str(e)})
+        if self.path == "/api/run_recipe":
+            name = str(body.get("name", "")).strip()
+            if not name:
+                return self._send(400, {"error": "name required"})
+            try:
+                import recipe_runner, os as _os
+                path = _os.path.join(recipe_runner.RECIPES_DIR, name)
+                if not path.endswith(".yaml"):
+                    path += ".yaml"
+                result = recipe_runner.run_recipe(path)
+                if "error" in result:
+                    return self._send(400, result)
+                return self._send(200, result)
+            except Exception as e:
+                return self._send(500, {"error": str(e)})
+        if self.path == "/api/enqueue":
+            kind = str(body.get("kind", "")).strip()
+            payload = body.get("payload", {})
+            if kind not in {"research", "draft", "plan", "review", "code_proposal"}:
+                return self._send(400, {"error": "invalid kind"})
+            try:
+                task_id = workforce.enqueue(kind, payload)
+                return self._send(200, {"id": task_id, "kind": kind})
+            except Exception as e:
+                return self._send(500, {"error": str(e)})
         return self._send(404, {"error": "not found"})
 
 
