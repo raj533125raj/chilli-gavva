@@ -11,6 +11,7 @@ import datetime
 import json
 import os
 import random
+import socket
 import sqlite3
 import sys
 
@@ -21,6 +22,17 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 MAX_ATTEMPTS = 3
 DEFAULT_TOPIC = "a free mini-tool page (calculator or prompt generator) that helps small creators"
+
+def get_machine_id():
+    """Stable identifier for this machine — hostname + last 4 chars of MAC.
+    Used to tag tasks and heartbeats so two machines can share a DB without confusion."""
+    import uuid
+    host = socket.gethostname().replace(" ", "-")[:20]
+    mac = "%012x" % uuid.getnode()
+    return f"{host}-{mac[-4:]}"
+
+MACHINE_ID = get_machine_id()
+
 
 AGENTS = [
     {"name": "CEO", "level": "high", "role": "Plans the day's work and sets priorities", "kinds": ["plan"]},
@@ -52,6 +64,12 @@ def connect(db_path=None):
     cols = [r[1] for r in conn.execute("PRAGMA table_info(tasks)").fetchall()]
     if "started_ts" not in cols:
         conn.execute("ALTER TABLE tasks ADD COLUMN started_ts TEXT")
+    if "machine_id" not in cols:
+        conn.execute("ALTER TABLE tasks ADD COLUMN machine_id TEXT")
+    hb_cols = [r[1] for r in conn.execute("PRAGMA table_info(heartbeat)").fetchall()]
+    if "machine_id" not in hb_cols:
+        conn.execute("ALTER TABLE heartbeat ADD COLUMN machine_id TEXT")
+    conn.commit()
     return conn
 
 
@@ -77,8 +95,8 @@ def claim_next(db_path=None):
         return None
     task_id, kind, payload, attempts = row
     agent = KIND_TO_AGENT.get(kind, "CEO")
-    conn.execute("UPDATE tasks SET status = 'running', attempts = attempts + 1, agent = ?, started_ts = ? "
-                 "WHERE id = ?", (agent, datetime.datetime.now().isoformat(), task_id))
+    conn.execute("UPDATE tasks SET status = 'running', attempts = attempts + 1, agent = ?, started_ts = ?, machine_id = ? "
+                 "WHERE id = ?", (agent, datetime.datetime.now().isoformat(), MACHINE_ID, task_id))
     conn.commit()
     conn.close()
     return {"id": task_id, "kind": kind, "payload": json.loads(payload or "{}"),
@@ -230,9 +248,9 @@ def recover_stuck(db_path=None, max_age_minutes=10):
 
 def heartbeat(info="alive", db_path=None, name="worker"):
     conn = connect(db_path)
-    conn.execute("INSERT INTO heartbeat (name, ts, info) VALUES (?, ?, ?) "
-                 "ON CONFLICT(name) DO UPDATE SET ts = excluded.ts, info = excluded.info",
-                 (name, datetime.datetime.now().isoformat(timespec="seconds"), info))
+    conn.execute("INSERT INTO heartbeat (name, ts, info, machine_id) VALUES (?, ?, ?, ?) "
+                 "ON CONFLICT(name) DO UPDATE SET ts = excluded.ts, info = excluded.info, machine_id = excluded.machine_id",
+                 (name, datetime.datetime.now().isoformat(timespec="seconds"), info, MACHINE_ID))
     conn.commit()
     conn.close()
 

@@ -26,6 +26,23 @@
   button.danger { border-color: var(--bad); color: var(--bad); }
   button.ok { border-color: var(--good); color: var(--good); }
   button:disabled { opacity: .4; cursor: not-allowed; }
+  .approval-card { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px;
+                   padding: 10px 12px; margin-bottom: 8px; }
+  .approval-card .atitle { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+  .approval-card .arev { color: var(--muted); font-size: 11px; margin-bottom: 8px; min-height: 16px; }
+  .approval-card .akind { font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+                          color: var(--blue); margin-bottom: 6px; }
+  .abtns { display: flex; gap: 6px; }
+  .abtns button { flex: 1; padding: 8px 4px; font-size: 13px; }
+  @media (max-width: 500px) { .abtns button { padding: 11px 4px; font-size: 15px; } }
+  .service-row { display: flex; justify-content: space-between; align-items: center;
+                 padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .service-row:last-child { border-bottom: 0; }
+  .tool-row { display: flex; justify-content: space-between; padding: 4px 0;
+              border-bottom: 1px solid var(--line); font-size: 12px; }
+  .tool-row:last-child { border-bottom: 0; }
+  .tag { font-size: 10px; padding: 2px 6px; border-radius: 999px; background: var(--panel2);
+         border: 1px solid var(--line); color: var(--muted); }
   main { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 16px; padding: 16px 20px; }
   @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
   .office { display: flex; flex-direction: column; gap: 12px; }
@@ -82,6 +99,8 @@
       <form id="chatform"><input id="chatinput" placeholder="Ask about money, agents, approvals..." autocomplete="off"><button>Send</button></form>
       <div class="muted" id="chatnote" style="margin-top:6px"></div>
     </div>
+    <div class="card"><h3>Service Requests</h3><div id="services"></div></div>
+    <div class="card"><h3>Built Tools</h3><div id="tools-built"></div></div>
     <div class="card"><h3>Validation test (14 days)</h3><div id="validation"></div></div>
     <div class="card"><h3>Task queue</h3><div id="tasks"></div></div>
     <div class="card"><h3>Prompt versions (self-improvement)</h3><div id="prompts"></div></div>
@@ -145,18 +164,38 @@ function render(s) {
   kb.className = s.kill_switch ? "ok" : "danger";
   renderOffice(s.agents);
   renderList("approvals", s.pending_approvals, function (a) {
-    var r = el("div", undefined, "row"); var left = el("div");
-    left.appendChild(el("div", "#" + a.id + " " + a.title)); left.appendChild(el("div", a.review || "not reviewed yet", "muted"));
-    r.appendChild(left);
+    var card = el("div", undefined, "approval-card");
+    card.appendChild(el("div", a.kind || "", "akind"));
+    card.appendChild(el("div", "#" + a.id + " " + a.title, "atitle"));
+    card.appendChild(el("div", a.review || "not reviewed yet", "arev"));
     if (live) {
-      var box = el("div");
-      [["Approve", true, "ok"], ["Reject", false, "danger"]].forEach(function (x) {
-        var b = el("button", x[0], x[2]); b.onclick = function () { api("/api/decide", { id: a.id, approve: x[1] }).then(refresh); }; box.appendChild(b);
+      var btns = el("div", undefined, "abtns");
+      [["✓ Approve", true, "ok"], ["✗ Reject", false, "danger"]].forEach(function (x) {
+        var b = el("button", x[0], x[2]);
+        b.onclick = (function(id, approve) { return function() { api("/api/decide", { id: id, approve: approve }).then(refresh); }; })(a.id, x[1]);
+        btns.appendChild(b);
       });
-      r.appendChild(box);
+      card.appendChild(btns);
     }
-    return r;
-  }, "Nothing waiting.");
+    return card;
+  }, "Nothing waiting. ✓");
+  // Service requests
+  renderList("services", s.service_requests || [], function (r) {
+    var row = el("div", undefined, "service-row");
+    var left = el("div");
+    left.appendChild(el("div", "#" + r.id + " " + r.title));
+    left.appendChild(el("div", r.kind, "muted"));
+    row.appendChild(left);
+    row.appendChild(el("span", r.status, "tag"));
+    return row;
+  }, "No service requests yet. Add: python3 service_intake.py add bio ...");
+  // Built tools
+  renderList("tools-built", s.built_tools || [], function (t) {
+    var row = el("div", undefined, "tool-row");
+    row.appendChild(el("span", t.title || t.slug));
+    row.appendChild(el("span", t.slug, "muted"));
+    return row;
+  }, "No tools built yet. Approve a tool_draft first.");
   var v = s.validation, vbox = document.getElementById("validation"); vbox.textContent = "";
   if (!v) { vbox.appendChild(el("div", "No days logged yet (python3 log_validation.py add ...).", "muted")); }
   else {

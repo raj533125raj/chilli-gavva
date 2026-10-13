@@ -11,6 +11,8 @@ import sys
 
 import guardrails
 import improver
+import service_intake
+import tool_builder
 import workforce
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -53,6 +55,13 @@ def build_status(db_path=None):
         validation = {"days": v[0], "visitors": v[1], "signups": v[2], "engaged": v[3],
                       "targets": {"visitors": 1000, "signups": 50, "engaged_pct": 30}}
     conn.close()
+    # Service requests (last 10)
+    svc_reqs = service_intake.list_requests(db_path)[:10]
+    # Built tools
+    tb_conn = tool_builder.connect(db_path)
+    built_tools = [{"slug": r[0], "title": r[1], "built_ts": r[2]} for r in
+                   tb_conn.execute("SELECT slug, title, built_ts FROM tool_pages ORDER BY approval_id DESC LIMIT 10").fetchall()]
+    tb_conn.close()
     return {
         "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
         "mode": "mixed" if real > 0 else "simulation",
@@ -67,6 +76,8 @@ def build_status(db_path=None):
         "prompts": prompts,
         "validation": validation,
         "logs": logs,
+        "service_requests": svc_reqs,
+        "built_tools": built_tools,
     }
 
 

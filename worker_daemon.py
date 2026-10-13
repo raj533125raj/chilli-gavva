@@ -21,6 +21,7 @@ import improver
 import maintenance
 import report
 import site_builder
+import tool_builder
 import workforce
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -88,6 +89,9 @@ def one_pass(db_path=None, write_snapshot=True):
             built = site_builder.build()
             if built:
                 notes.append(f"built {len(built)} page(s) in site/")
+            tools_built = tool_builder.build()
+            if tools_built:
+                notes.append(f"built {len(tools_built)} tool(s) in site/tools/")
         if db_path is None and report.write_daily():
             notes.append("daily report written")
         for aid, res in coder.verify_approved(db_path):
