@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-14T16:56:16",
+ "generated_at": "2026-10-14T21:43:13",
  "mode": "simulation",
  "money": {
   "real_usd": 0,
@@ -13,7 +13,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 0,
+  "calls_today": 6,
   "cap": 500
  },
  "agents": [
@@ -59,7 +59,7 @@
     "research"
    ],
    "state": "idle",
-   "tasks_done": 0
+   "tasks_done": 3
   },
   {
    "name": "Draft Worker",
@@ -101,10 +101,71 @@
    "tasks_done": 0
   }
  ],
- "task_counts": {},
- "recent_tasks": [],
+ "task_counts": {
+  "done": 3,
+  "queued": 3
+ },
+ "recent_tasks": [
+  {
+   "id": 6,
+   "kind": "draft",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 5,
+   "kind": "draft",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 4,
+   "kind": "draft",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 3,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1
+  },
+  {
+   "id": 2,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1
+  },
+  {
+   "id": 1,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1
+  }
+ ],
  "pending_approvals": [],
- "prompts": [],
+ "prompts": [
+  {
+   "id": 2,
+   "name": "draft",
+   "active": true,
+   "trials": 0,
+   "quality": 0.0
+  },
+  {
+   "id": 1,
+   "name": "research",
+   "active": true,
+   "trials": 0,
+   "quality": 0.0
+  }
+ ],
  "validation": null,
  "logs": [
   {
