@@ -99,7 +99,7 @@ def main(argv):
         configured, _, _ = _telegram_configured(cfg)
         threshold = int(cfg.get("notify_threshold", DEFAULT_THRESHOLD))
         src = "env vars or config.json"
-        print(f"Telegram configured  : {'yes' if configured else 'no \u2014 set TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID ' + src}")
+        print(f"Telegram configured  : {'yes' if configured else 'no - set TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID ' + src}")
         print(f"Notify threshold     : {threshold} pending approvals")
     else:
         print(__doc__)
