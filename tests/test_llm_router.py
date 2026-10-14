@@ -292,3 +292,64 @@ class TestChat(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ---------------------------------------------------------------------------
+# Size routing (small = 8B, large = 70B with fallback to 8B)
+# ---------------------------------------------------------------------------
+class TestSizeRouting(unittest.TestCase):
+    def setUp(self):
+        self._env = patch.dict("os.environ", {"GROQ_API_KEY": "gsk_test"}, clear=True)
+        self._env.start()
+
+    def tearDown(self):
+        self._env.stop()
+
+    def _models_called(self, mock_urlopen):
+        return [json.loads(c.args[0].data.decode())["model"] for c in mock_urlopen.call_args_list]
+
+    def test_small_uses_8b_model(self):
+        with patch("urllib.request.urlopen", return_value=_FakeResp(_make_groq_response("ok"))) as m:
+            self.assertEqual(llm_router._groq("hi", size="small"), "ok")
+        self.assertEqual(self._models_called(m), ["llama-3.1-8b-instant"])
+
+    def test_default_size_is_small(self):
+        with patch("urllib.request.urlopen", return_value=_FakeResp(_make_groq_response("ok"))) as m:
+            llm_router._groq("hi")
+        self.assertEqual(self._models_called(m), ["llama-3.1-8b-instant"])
+
+    def test_large_uses_70b_model(self):
+        with patch("urllib.request.urlopen", return_value=_FakeResp(_make_groq_response("big"))) as m:
+            self.assertEqual(llm_router._groq("hi", size="large"), "big")
+        self.assertEqual(self._models_called(m), ["llama-3.3-70b-versatile"])
+
+    def test_large_falls_back_to_small_on_error(self):
+        import urllib.error
+        err = urllib.error.HTTPError("u", 400, "bad", {}, None)
+        with patch("urllib.request.urlopen", side_effect=[err, _FakeResp(_make_groq_response("small ok"))]) as m:
+            self.assertEqual(llm_router._groq("hi", size="large"), "small ok")
+        self.assertEqual(self._models_called(m), ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"])
+
+    def test_env_overrides_models(self):
+        with patch.dict("os.environ", {"GROQ_MODEL_LARGE": "my-large", "GROQ_MODEL_SMALL": "my-small"}):
+            self.assertEqual(llm_router._groq_models("large"), ["my-large", "my-small"])
+            self.assertEqual(llm_router._groq_models("small"), ["my-small"])
+
+    def test_pick_size(self):
+        self.assertEqual(llm_router.pick_size("short"), "small")
+        self.assertEqual(llm_router.pick_size("x" * 5000), "large")
+        self.assertEqual(llm_router.pick_size("x" * 5000, "small"), "small")
+        self.assertEqual(llm_router.pick_size("short", "large"), "large")
+        self.assertEqual(llm_router.pick_size("", "weird"), "small")
+
+    def test_chat_passes_size_to_groq(self):
+        with patch.object(llm_router, "_freellmapi", return_value=None):
+            with patch.object(llm_router, "_groq", return_value="g") as mg:
+                self.assertEqual(llm_router.chat("hi", size="large"), "g")
+        mg.assert_called_once_with("hi", size="large")
+
+    def test_chat_auto_size(self):
+        with patch.object(llm_router, "_freellmapi", return_value=None):
+            with patch.object(llm_router, "_groq", return_value="g") as mg:
+                llm_router.chat("hi")
+        mg.assert_called_once_with("hi", size="small")
