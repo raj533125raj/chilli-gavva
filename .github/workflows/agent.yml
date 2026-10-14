@@ -60,11 +60,11 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python3 cloud_runner.py
 
-      - name: Notify via Telegram if approvals pending
+      - name: Telegram inbox (approve/reject from phone + new draft alerts)
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python3 notify.py check
+        run: python3 telegram_inbox.py
 
       - name: Export approved content
         run: python3 content_export.py
