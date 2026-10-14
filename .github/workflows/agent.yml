@@ -31,7 +31,12 @@ jobs:
       - name: Run tests first
         env:
           CHILLI_TEST: "1"
-        run: python3 -m unittest discover -s tests
+        run: |
+          python3 -m unittest discover -s tests
+          # Some tests write to the real database / status file. Put the committed copies back
+          # (and drop files tests created) so test data is never saved by "Save state".
+          git checkout -- agent_data.db web/data/status.json
+          git clean -fdq -- exported_content .scheduler_locks
 
       - name: Run scheduled recipe (if slot matches now)
         env:
@@ -80,5 +85,8 @@ jobs:
         run: |
           git config user.name "chilli-gavva-bot"
           git config user.email "chilli-gavva-bot@users.noreply.github.com"
-          git add agent_data.db web/data/status.json exported_content/ .scheduler_locks/ || true
-          git diff --cached --quiet || (git commit -m "agent: state + content update [skip ci]" && git push)
+          # Add each path on its own: one missing folder must not stop everything else being saved
+          for p in agent_data.db web/data/status.json exported_content .scheduler_locks; do
+            if [ -e "$p" ]; then git add "$p"; fi
+          done
+          git diff --cached --quiet || (git commit -m "agent: state + content update [skip ci]" && git pull --rebase -q && git push)
