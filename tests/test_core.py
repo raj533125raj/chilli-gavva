@@ -50,6 +50,7 @@ class GuardrailTests(Base):
             os.environ.pop("AGENT_PAUSED")
 
     def test_daily_cap(self):
+        self.addCleanup(setattr, guardrails, "_TESTING", guardrails._TESTING); guardrails._TESTING = False
         with open(guardrails.CONFIG_PATH, "w") as f:
             json.dump({"daily_llm_call_cap": 2}, f)
         self.assertTrue(guardrails.can_call_llm(self.db))
