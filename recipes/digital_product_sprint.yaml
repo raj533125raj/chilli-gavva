@@ -1,0 +1,15 @@
+# Digital product sprint: drafts low-cost digital products (planners, templates, recipe packs)
+# Niche: Indian home cooking and small food businesses (fits the Chilli Gavva brand).
+# Change the topics below anytime. Nothing is published; every draft waits for human approval.
+name: digital_product_sprint
+description: Research and draft 3 digital product ideas with sales-page copy for Gumroad
+tasks:
+  - kind: research
+    payload:
+      topic: "a printable weekly meal planner and grocery list pack for Indian vegetarian families, sold as a digital product under 5 USD"
+  - kind: research
+    payload:
+      topic: "a printable recipe card set of 30 homemade Indian spice blends and masalas, sold as a digital product"
+  - kind: research
+    payload:
+      topic: "a Google Sheets costing and pricing calculator for home tiffin and home bakery businesses in India, sold as a digital product"
