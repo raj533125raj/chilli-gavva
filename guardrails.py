@@ -24,7 +24,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "agent_data.db")
 KILL_FILE = os.path.join(BASE_DIR, "KILL_SWITCH")
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
-DEFAULT_DAILY_CAP = 100
+DEFAULT_DAILY_CAP = 500  # own safety cap on LLM calls per day (Groq free tier allows far more)
 
 # When CHILLI_TEST=1, record_call() is a no-op so tests don't eat the real cap
 _TESTING = os.environ.get("CHILLI_TEST") == "1"
