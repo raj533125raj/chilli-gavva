@@ -13,6 +13,11 @@ slots:
   - name: evening
     hour: 17
     recipe: daily_chilli_content
+# Niche agents: ONE niche runs per night, taking turns by UTC weekday.
+# Mon budget sheets, Tue freelancer trackers, Wed ADHD planners, Thu Notion templates,
+# Fri resume bundle, Sat budget sheets, Sun freelancer trackers.
+# Skipped automatically while the approval queue is full (10 drafts waiting).
   - name: night
     hour: 21
-    recipe: digital_product_sprint
+    rotate: niche_budget_sheets, niche_freelancer_trackers, niche_adhd_planners, niche_notion_templates, niche_resume_bundle
+    recipe: niche_budget_sheets

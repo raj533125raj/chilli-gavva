@@ -100,10 +100,37 @@ def pick_slot(slots, now_hour):
     return None
 
 
-def run_slot(slot, dry_run=False, db_path=None):
-    recipe_name = slot.get("recipe", "")
+def resolve_recipe(slot, today=None):
+    """Return the recipe name a slot should run today.
+
+    A slot with `rotate: a, b, c` takes turns: one recipe per day, picked by
+    UTC weekday (Monday = first name, wrapping round when the list is shorter
+    than a week). Slots without `rotate` use their plain `recipe` value.
+    """
+    names = [n.strip() for n in slot.get("rotate", "").split(",") if n.strip()]
+    if not names:
+        return slot.get("recipe", "")
+    today = today or datetime.datetime.utcnow().date()
+    return names[today.weekday() % len(names)]
+
+
+def _queue_full(db_path=None):
+    """True when the human approval queue already holds the workforce limit of drafts."""
+    try:
+        import guardrails
+        import workforce
+        return len(guardrails.pending(db_path)) >= workforce.MAX_PENDING_APPROVALS
+    except Exception:
+        return False
+
+
+def run_slot(slot, dry_run=False, db_path=None, today=None):
+    recipe_name = resolve_recipe(slot, today)
     if not recipe_name:
         return {"error": f"slot '{slot['name']}' has no recipe"}
+    if slot.get("rotate") and not dry_run and _queue_full(db_path):
+        return {"skipped": True, "name": recipe_name,
+                "reason": f"approval queue is full, '{recipe_name}' waits for a later run"}
     import recipe_runner
     path = os.path.join(recipe_runner.RECIPES_DIR, recipe_name + ".yaml")
     if not os.path.exists(path):
@@ -157,7 +184,7 @@ def main():
             locked = _is_locked(s["name"], date_str)
             tag = "  [ran today]" if locked else ""
             active = " ← NOW" if pick_slot([s], now_hour) else ""
-            print(f"  {s['name']:12s}  UTC {s.get('hour','?'):02d}:xx  →  {s.get('recipe','?')}{tag}{active}")
+            print(f"  {s['name']:12s}  UTC {s.get('hour','?'):02d}:xx  →  {resolve_recipe(s) or '?'}{tag}{active}")
         print()
         return
 
