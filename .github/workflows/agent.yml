@@ -123,3 +123,12 @@ jobs:
           ALWAYS_ON_URL: ${{ secrets.ALWAYS_ON_URL }}
           ALWAYS_ON_SECRET: ${{ secrets.ALWAYS_ON_SECRET }}
         run: python3 always_on.py report
+
+      # Never fail silently: if any step above failed, send a short Telegram alert with the run link.
+      - name: Alert on Telegram if this run failed
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python3 -c "import os, notify; notify.send('Chilli Gavva: an agent run FAILED. Details: ' + os.environ.get('RUN_URL', ''))" || true
