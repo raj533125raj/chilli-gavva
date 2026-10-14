@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-14T23:33:36",
+ "generated_at": "2026-10-14T23:39:56",
  "mode": "simulation",
  "money": {
   "real_usd": 0,
@@ -13,7 +13,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 15,
+  "calls_today": 24,
   "cap": 500
  },
  "agents": [
@@ -80,7 +80,7 @@
     "review"
    ],
    "state": "idle",
-   "tasks_done": 0
+   "tasks_done": 3
   },
   {
    "name": "Review Worker",
@@ -102,30 +102,29 @@
   }
  ],
  "task_counts": {
-  "done": 6,
-  "queued": 3
+  "done": 9
  },
  "recent_tasks": [
   {
    "id": 9,
    "kind": "review",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 8,
    "kind": "review",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 7,
    "kind": "review",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 6,
@@ -176,21 +175,21 @@
    "ts": "2026-10-14T23:33:36.120091",
    "kind": "public_draft",
    "title": "Draft: [ADHD Planners Agent] printable energy-based daily planner f (v2, fallback)",
-   "review": null
+   "review": "score 18/100 (rules 30, checker 5) | CHECKER: REJECT | issues: Draft is incomplete and cuts off mid-sentence; Describes a free browser tool instead of a paid printable digital product; Missing product contents and page structure; Missing listing title and listing description; Missing 5 search tags"
   },
   {
    "id": 2,
    "ts": "2026-10-14T23:33:36.389802",
    "kind": "public_draft",
    "title": "Draft: [ADHD Planners Agent] printable time-blindness routine plann (v2, fallback)",
-   "review": null
+   "review": "score 20/100 (rules 30, checker 10) | CHECKER: REJECT | issues: Draft describes a free browser software tool instead of a paid printable planner; Missing product contents and page structure; Missing listing title and listing description; Missing 5 search tags; Missing price in USD and selling platform (Payhip)"
   },
   {
    "id": 3,
    "ts": "2026-10-14T23:33:36.651406",
    "kind": "public_draft",
    "title": "Draft: [ADHD Planners Agent] printable focus sheets pack (brain dum (v2, fallback)",
-   "review": null
+   "review": "score 20/100 (rules 30, checker 10) | CHECKER: REJECT | issues: Draft is cut off mid-sentence and completely unfinished; Presents the product as a free browser tool instead of a paid printable pack; Missing product contents and page structure; Missing listing title, listing description, and 5 search tags; Missing price in USD ($5-12 range required by brief)"
   }
  ],
  "prompts": [
@@ -198,8 +197,8 @@
    "id": 2,
    "name": "draft",
    "active": true,
-   "trials": 0,
-   "quality": 0.0
+   "trials": 3,
+   "quality": 19.3
   },
   {
    "id": 1,
@@ -304,6 +303,10 @@
   {
    "provider": "Gemini",
    "configured": true
+  },
+  {
+   "provider": "OpenRouter",
+   "configured": false
   },
   {
    "provider": "Cloudflare",
