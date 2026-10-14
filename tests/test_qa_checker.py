@@ -12,10 +12,18 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import guardrails  # noqa: E402
 import workforce  # noqa: E402
 
-DRAFT = ("# Freelancer Budget Sheet\nA Google Sheets budget for freelancers with uneven income. "
-         "Price: 7 USD on Payhip. Tabs: income log, bills, buffer fund, dashboard. "
-         "Listing title, description and 5 search tags included. Try it today and download the copy. ") * 2
-REWRITTEN = DRAFT + "Rewritten with all five search tags listed clearly."
+DRAFT = ("PRODUCT NAME: Freelancer Budget Sheet\n"
+         "BUYER: freelancers whose income changes every month\n"
+         "PRICE: 7 USD\n"
+         "PLATFORM: Payhip\n"
+         "WHAT'S INSIDE: Instructions tab; Income Log (Date, Client, Amount); Bills (Bill, Due, Cost); "
+         "Buffer Fund (Month, Target, Saved); Dashboard with monthly totals.\n"
+         "HOW TO USE: 1. Make a copy. 2. Log each payment. 3. Check the Dashboard weekly.\n"
+         "LISTING TITLE: Freelancer Budget Spreadsheet for Irregular Income\n"
+         "LISTING DESCRIPTION: A calm monthly budget for people paid at different times. Log income as it "
+         "arrives and see which bills are covered.\n"
+         "SEARCH TAGS: freelancer budget, irregular income, google sheets budget, budget template, money tracker")
+REWRITTEN = DRAFT.replace("A calm monthly budget", "A clear, calm monthly budget")
 
 
 def checker_json(score, verdict, issues=()):
