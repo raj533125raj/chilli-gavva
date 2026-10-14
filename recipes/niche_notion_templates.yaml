@@ -1,0 +1,18 @@
+# Niche agent: Notion Templates Agent
+# Drafts problem-specific Notion templates, for global buyers paying in USD.
+# Runs on Thursdays (see schedule.yaml). Nothing is published; every draft waits for human approval.
+name: niche_notion_templates
+description: Notion Templates Agent - drafts 3 problem-specific Notion templates for Gumroad
+tasks:
+  - kind: research
+    payload:
+      agent: Notion Templates Agent
+      topic: "[Notion Templates Agent] Notion student semester planner with courses, assignments, exam dates and a grade tracker for university students, priced 9-19 USD, sold on Gumroad to global buyers. Give the template contents and structure (pages, databases, properties, views), a listing title, a listing description, and 5 search tags"
+  - kind: research
+    payload:
+      agent: Notion Templates Agent
+      topic: "[Notion Templates Agent] Notion client CRM for freelancers with leads, projects, invoices status and follow-up reminders, priced 15-29 USD, sold on Gumroad to global buyers. Give the template contents and structure (pages, databases, properties, views), a listing title, a listing description, and 5 search tags"
+  - kind: research
+    payload:
+      agent: Notion Templates Agent
+      topic: "[Notion Templates Agent] Notion content calendar for solo creators with idea bank, posting schedule by platform and repurposing checklist, priced 9-19 USD, sold on Gumroad to global buyers. Give the template contents and structure (pages, databases, properties, views), a listing title, a listing description, and 5 search tags"
