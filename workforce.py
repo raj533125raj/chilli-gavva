@@ -12,6 +12,7 @@ import inspect
 import json
 import os
 import random
+import re
 import socket
 import sqlite3
 import sys
@@ -53,7 +54,39 @@ AGENTS = [
 KIND_TO_AGENT = {k: a["name"] for a in AGENTS for k in a["kinds"]}
 
 BANNED = ["guaranteed", "get rich", "risk-free", "risk free", "passive income", "per day", "100%", "earn $"]
-CTA_WORDS = ["sign up", "subscribe", "try", "get started", "join", "download"]
+
+# Every draft is a product spec + store listing in these sections (checked by review_text and the
+# QA Checker, used by product_builder.py). Added after the evolvable prompt so it can never drift.
+LISTING_SECTIONS = ["product name", "buyer", "price", "platform", "what's inside", "how to use",
+                    "listing title", "listing description", "search tags"]
+DRAFT_FORMAT = """
+
+Answer with exactly these sections, each starting on its own line with the label in capitals:
+PRODUCT NAME: one line
+BUYER: who it is for and the problem it solves
+PRICE: a price in USD, for example "7 USD"
+PLATFORM: Payhip or Gumroad
+WHAT'S INSIDE: the full structure (tabs, pages or sections, with the columns or fields of each)
+HOW TO USE: 3-5 short steps
+LISTING TITLE: under 140 characters
+LISTING DESCRIPTION: 2-4 short paragraphs for buyers anywhere in the world
+SEARCH TAGS: exactly 5 tags, separated by commas
+Be honest: no income, health, medical or job promises, and no made-up numbers or reviews."""
+
+# Topics the agents must never research or draft (old food / fishery recipes and topic pools).
+OFF_LIMITS = re.compile(r"\b(fish(?:es|ing|ery|eries)?|shrimps?|prawns?|aquaculture|tilapia|salmon|seafood|"
+                        r"foods?|recipes?|cook(?:s|ing|ed)?|spices?|masalas?|curry|curries|chutneys?|tiffin|"
+                        r"kitchens?|dosa|meals?)\b", re.IGNORECASE)
+
+
+def clean_topic(topic):
+    """Drop the "[Budget Sheets Agent]" label: it belongs in the draft title only, not in prompts."""
+    return re.sub(r"^\s*\[[^\]]*\]\s*", "", topic or "").strip()
+
+
+def off_limits(topic):
+    m = OFF_LIMITS.search(topic or "")
+    return m.group(0) if m else None
 
 
 def connect(db_path=None):
@@ -128,20 +161,59 @@ def fail(task_id, attempts, error, db_path=None):
 
 
 # ---- review rubric (plain rules, no LLM) ------------------------------------------
+def _has_section(lower, label):
+    return re.search(r"(?m)^\W*" + re.escape(label).replace("'", "'?") + r"\W*:", lower) is not None
+
+
+def count_tags(text):
+    """How many tags follow the SEARCH TAGS label: one comma (or hashtag) list on the label line,
+    or a bullet list on the lines below it. 0 when there is no such section."""
+    text = text.replace("\u2019", "'")
+    m = re.search(r"(?im)^\W*search tags\W*:[ \t]*(.*)$", text)
+    if not m:
+        return 0
+    first = m.group(1).strip()
+    if first:
+        parts = re.split(r"[,;]", first)
+        if len(parts) == 1 and first.count("#") > 1:
+            parts = first.split("#")
+        return len([t for t in parts if t.strip(" -*#\u2022\t.")])
+    count = 0
+    for line in text[m.end():].splitlines():
+        line = line.strip()
+        if not line:
+            if count:
+                break
+            continue
+        if not re.match(r"^([-*#\u2022]|\d+[.)])", line):
+            break
+        count += 1
+    return count
+
+
 def review_text(text):
+    """Plain-rule check of a product spec + store listing. Returns (score 0-100, notes)."""
     score, notes = 100, []
-    lower = text.lower()
+    lower = text.lower().replace("\u2019", "'")
     for phrase in BANNED:
         if phrase in lower:
             score -= 25
             notes.append(f"risky claim: '{phrase}'")
-    if not any(w in lower for w in CTA_WORDS):
-        score -= 15
-        notes.append("no clear call to action")
-    if len(text) < 200:
+    missing = [s for s in LISTING_SECTIONS if not _has_section(lower, s)]
+    if missing:
+        score -= min(40, 8 * len(missing))
+        notes.append("missing: " + ", ".join(missing))
+    if not re.search(r"\$\s?\d|\d\s?(?:usd|us\$|dollars?)\b", lower):
+        score -= 10
+        notes.append("no USD price")
+    tags = count_tags(text)
+    if "search tags" not in missing and tags != 5:
+        score -= 5
+        notes.append(f"{tags} search tags (need 5)")
+    if len(text) < 400:
         score -= 20
         notes.append("too short")
-    elif len(text) > 1500:
+    elif len(text) > 6000:
         score -= 10
         notes.append("too long")
     return max(0, score), notes
@@ -166,7 +238,8 @@ Brief: {topic}
 Draft:
 {draft}"""
 REWRITE_PROMPT = """Rewrite the product draft below so it fixes every issue the QA Checker found.
-Keep what already works. Stay honest: no income, health or job promises, no made-up numbers.
+Keep what already works and keep the same labelled sections (PRODUCT NAME ... SEARCH TAGS).
+Stay honest: no income, health or job promises, no made-up numbers.
 
 Brief: {topic}
 
@@ -256,6 +329,9 @@ def step_plan(task, ctx):
 
 def step_research(task, ctx):
     topic = task["payload"]["topic"]
+    blocked = off_limits(topic)
+    if blocked:  # old food / fishery recipes and topic pools: never sent to the model
+        return {"summary": f"skipped: off-limits topic ({blocked})", "next": []}
     _, template = improver.get_active("research", ctx["db_path"])
 
     # Inject remembered facts so the agent learns from past runs
@@ -267,50 +343,30 @@ def step_research(task, ctx):
     except Exception:
         mem_block = ""
 
-    # Pull live content/weather feed digest (best-effort, never blocks)
-    feed_ctx = ""
-    try:
-        import feeds as _feeds
-        feed_ctx = _feeds.for_prompt(max_per_feed=2)
-    except Exception:
-        pass
-
-    # Fetch real web context for the topic (best-effort, never blocks)
-    web_ctx = ""
-    try:
-        import web_fetcher as _wf
-        search_url = (
-            "https://www.google.com/search?q="
-            + topic.replace(" ", "+").replace("(", "").replace(")", "")[:120]
-            + "&num=3"
-        )
-        words, err = _wf.fetch_words(search_url, max_words=300)
-        if words and not err:
-            web_ctx = "\nWeb context (Google snippet):\n" + words
-    except Exception:
-        pass
-
-    prompt = template.format(topic=topic)
+    # No web scraping and no news/weather feeds: the model works from the topic and memory only.
+    product = clean_topic(topic)
+    prompt = template.format(topic=product)
     if mem_block:
         prompt = mem_block + "\n\n" + prompt
-    if feed_ctx:
-        prompt += "\n\n" + feed_ctx
-    if web_ctx:
-        prompt += web_ctx
 
     text = _ask(ctx, prompt, size="small")
     mode = "llm"
     if not text:
         mode = "fallback"
-        text = (f"1. Define who the page is for ({topic}).\n2. List 3 problems it solves.\n"
-                "3. Pick one simple feature to build first.\n4. Decide how to measure interest (visits, signups).\n"
-                "5. Write the page in plain language, no income promises.")
+        text = (f"1. Buyer: who needs {product} and why.\n2. Must-have contents: the tabs, pages or fields.\n"
+                "3. Search phrases buyers might type on Etsy, Payhip or Gumroad.\n"
+                "4. Price range in USD: unknown, check similar listings.\n"
+                "5. Stay honest: no income, health or job promises.")
     return {"text": text, "mode": mode,
             "next": [{"kind": "draft", "payload": {"topic": topic, "research": text[:1500]}}]}
 
 
 def step_draft(task, ctx):
     topic = task["payload"]["topic"]
+    blocked = off_limits(topic)
+    if blocked:
+        return {"summary": f"skipped: off-limits topic ({blocked})", "next": []}
+    product = clean_topic(topic)
     version_id, template = improver.pick_for_trial("draft", ctx["rng"], ctx["db_path"])
 
     # Inject approved content patterns from memory
@@ -322,16 +378,19 @@ def step_draft(task, ctx):
     except Exception:
         mem_block = ""
 
-    draft_prompt = template.format(topic=topic) + "\nContext notes:\n" + task["payload"].get("research", "")
+    draft_prompt = (template.format(topic=product) + DRAFT_FORMAT
+                    + "\n\nResearch notes:\n" + task["payload"].get("research", ""))
     if mem_block:
         draft_prompt = mem_block + "\n\n" + draft_prompt
     text = _ask(ctx, draft_prompt, size="large")
     mode = "llm"
     if not text:
         mode = "fallback"
-        text = (f"# Free tool: {topic[:60]}\n\nBenefit 1: Saves time on a boring task.\n"
-                "Benefit 2: Works in your browser, no account needed.\nBenefit 3: Free to try today.\n\n"
-                "Get started: try the tool now and subscribe for updates when new tools launch.")
+        text = (f"PRODUCT NAME: {product[:80]}\nBUYER: to be confirmed\nPRICE: 7 USD (placeholder)\n"
+                "PLATFORM: Payhip\nWHAT'S INSIDE: to be filled in\nHOW TO USE: to be filled in\n"
+                f"LISTING TITLE: {product[:80]}\n"
+                "LISTING DESCRIPTION: Written without the AI model. Fill in every section before approving.\n"
+                "SEARCH TAGS: tag one, tag two, tag three, tag four, tag five")
     approval_id = guardrails.request_approval("public_draft", f"Draft: {topic[:60]} (v{version_id}, {mode})",
                                               text, db_path=ctx["db_path"])
     conn = connect(ctx["db_path"])
@@ -356,7 +415,7 @@ def step_review(task, ctx):
     rule_score, notes = review_text(approval["payload"])
     topic = payload.get("topic") or approval.get("title", "")
     is_rewrite = bool(payload.get("rewrite"))
-    check = check_draft(ctx, approval["payload"], topic)
+    check = check_draft(ctx, approval["payload"], clean_topic(topic))
     nxt, issues = [], []
 
     if check is None:
@@ -412,7 +471,7 @@ def step_rewrite(task, ctx):
     if approval["title"].endswith(REWRITTEN_TAG):
         return {"summary": "skipped: this draft was already rewritten once"}
     issues = "\n".join(f"- {i}" for i in payload.get("issues", [])) or "- make it clearer and more complete"
-    prompt = REWRITE_PROMPT.format(topic=payload.get("topic", ""), issues=issues,
+    prompt = REWRITE_PROMPT.format(topic=clean_topic(payload.get("topic", "")), issues=issues,
                                    research=payload.get("research", ""), draft=approval["payload"][:6000])
     text = _ask(ctx, prompt, size="large")
     if not text:

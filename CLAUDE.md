@@ -1,67 +1,45 @@
-# CLAUDE.md — Chilli Gavva Agent Context
+# CLAUDE.md — notes for AI assistants working on Chilli Gavva
 
-> Read STATUS.md first. This file has project-specific rules for AI assistants.
+> Read STATUS.md first for the current state. This file holds the working rules.
 
-## Project overview
-Autonomous agent team that builds income for Sai Prasanna (@raj533125raj).
-Language: Python. Talks in Tenglish (Telugu-English mix). Free tools only.
+## Project in one line
+Zero-cost AI agent team that drafts low-cost digital products for global (USD) buyers; a human approves
+every draft and uploads the finished files to a free store. Python 3.11, standard library first, SQLite.
 
 ## Key files
 | File | Purpose |
 |------|---------|
-| `workforce.py` | Multi-agent CEO/manager/worker orchestration via Groq LLM |
-| `agent_memory.py` | Cross-session SQLite memory |
-| `notify.py` | Telegram notifications (reads `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` env vars, falls back to config.json) |
-| `worker_daemon.py` | Always-on heartbeat loop |
-| `web/` | FastAPI dashboard + HTML frontend |
-| `.github/workflows/agent.yml` | GitHub Actions: runs every 6h, notifies via Telegram |
-| `STATUS.md` | Honest project state — update this after major changes |
-| `config.json` | Local config (gitignored) — Telegram tokens, API keys for local dev |
+| `workforce.py` | Task queue and agents: research → draft (fixed listing format) → QA Checker (rules + large model, one rewrite) |
+| `improver.py` | Safe self-improvement of prompt wording (A/B tests, rollback). Old landing-page prompts are retired, not deleted |
+| `recipes/niche_*.yaml`, `schedule.yaml`, `scheduler.py` | Five niche agents, one per night at 21:00 UTC by weekday |
+| `guardrails.py` | Kill switch, daily LLM call cap, human approval queue |
+| `telegram_inbox.py`, `notify.py` | Owner-only Telegram commands (/list /view /approve /reject) and alerts |
+| `product_builder.py` | Approved niche drafts → xlsx / PDF / Notion zip / docx files in `exported_content/products/` |
+| `llm_router.py` | Free LLM providers (keys only from environment variables) |
+| `always_on.py`, `deploy/cloudflare_alarm_worker.js`, `docs/ALWAYS_ON.md` | Always-on setup (alarm clock, Mac mode, door bell) |
+| `.github/workflows/agent.yml` | Cloud cycle: tests → recipe → agent cycle → Telegram → export → products → save state |
+| `config.json` | Local settings and keys, git-ignored. Never commit it |
 
-## GitHub Secrets (all set as of Oct 14 2026)
-- `GROQ_API_KEY` — LLM inference (free tier)
-- `TELEGRAM_BOT_TOKEN` — @chilligavvabot token (ends in HPDpHc)
-- `TELEGRAM_CHAT_ID` — Sai's personal chat id: 746236151
-- `GITHUB_TOKEN` — auto-provided by GitHub Actions
-
-## Security rules (MUST follow)
-- @chilligavvabot token ends in `HPDpHc` — ONLY for this project
-- Do NOT use @FisheryChilliGavvaBot token (Fishery News project)
-- Do NOT use Bestdealsmhrbot token (Best Deals project)
-- Do NOT mix credentials across projects
-- Nothing auto-publishes, auto-posts, or applies patches to production
-- Human approval required before any content goes live
-- Free tools only — no paid APIs, no paid tiers
+## Rules (must follow)
+- Nothing auto-publishes, posts, sells or applies patches. Human approval is the final step.
+- Free tools and free tiers only; no paid APIs.
+- Never put tokens, API keys, chat ids or other secrets in the repo, logs, docs or chat.
+- No web scraping (search engines included). Research works from the topic and stored memory.
+- Product drafts must not promise income, health/medical results or jobs, and must not invent numbers or reviews.
+- Off-limits topics for this project: food/recipes and fisheries/aquaculture (the research guard skips them).
+- The bot commits `agent_data.db` every run: check a file still matches GitHub's latest version before changing it.
 
 ## How to run locally
 ```bash
-python workforce.py          # run one agent cycle
-python worker_daemon.py      # run continuous loop
-python -m pytest tests/      # 80+ tests
-python notify.py test        # test Telegram notification
-python web/app.py            # dashboard at localhost:8000
+python3 -m unittest discover -s tests   # offline tests (no network, LLM stubbed)
+python3 workforce.py run                # one agent cycle
+python3 scheduler.py --list             # schedule and tonight's niche agent
+python3 guardrails.py approvals         # drafts waiting for a human
+python3 product_builder.py --list       # built products
+python3 guardrails.py kill              # emergency stop
 ```
 
-## GitHub Actions
-Workflow: `.github/workflows/agent.yml`
-- Triggers: every 6h + manual dispatch
-- Steps: checkout → install deps → run one agent cycle → notify via Telegram if approvals pending
-- Env vars passed: `GROQ_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
-
-## notify.py important note
-Function `_telegram_configured()` reads env vars first:
-```python
-token = c.get("telegram_bot_token","").strip() or os.environ.get("TELEGRAM_BOT_TOKEN","").strip()
-chat_id = str(c.get("telegram_chat_id","") or os.environ.get("TELEGRAM_CHAT_ID","")).strip()
-```
-There should be exactly ONE definition of this function in the file.
-Bug history: a previous commit accidentally duplicated it — fixed Oct 14 2026.
-
-## Current income: $0
-The agent produces drafts that need human approval. No real income stream connected yet.
-Next step: pick an income stream and connect it.
-
-## Style guide
-- Respond in Tenglish (mix of Telugu + English) in chat
-- Be direct, work without asking permission for things AI can decide
-- Update STATUS.md after major changes
+## Conventions
+- Every code change gets offline unit tests; all tests must pass before committing.
+- Keep STATUS.md up to date after major changes.
+- The owner chats in Tenglish (Telugu words in English letters mixed with English); explain results simply.

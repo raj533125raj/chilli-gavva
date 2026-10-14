@@ -24,18 +24,30 @@ import guardrails
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROPOSAL_DIR = os.path.join(BASE_DIR, "proposals")
 
+# The draft OUTPUT FORMAT (product spec + store listing sections) is fixed in workforce.DRAFT_FORMAT
+# and added after these templates, so evolved prompts can change the wording but never the format.
 DEFAULT_PROMPTS = {
-    "research": "List 5 concrete, honest ideas for: {topic}. One line each. No income promises.",
-    "draft": ("Write a short landing-page draft for: {topic}. Include a clear title, 3 benefit lines, "
-              "and one call to action. Do not promise income or guaranteed results."),
+    "research": ("Research notes for this digital product: {topic}. As short, honest bullet points list: "
+                 "who buys it and why; what it must contain (tabs, pages or fields); 5-8 search phrases "
+                 "buyers type on Etsy, Payhip or Gumroad; a typical price range in USD (say unknown if unsure); "
+                 "and claims to avoid. No made-up statistics, no income promises."),
+    "draft": ("Write the product spec and store listing for this digital product: {topic}. "
+              "Make every part concrete and useful for buyers anywhere in the world."),
+}
+# Older built-in prompts from the landing-page era. A version that is, or grew from, one of these
+# is retired on start-up so the defaults above are used. Rows and history stay in the database.
+LEGACY_PROMPTS = {
+    "research": ["List 5 concrete, honest ideas for: {topic}. One line each. No income promises."],
+    "draft": ["Write a short landing-page draft for: {topic}. Include a clear title, 3 benefit lines, "
+              "and one call to action. Do not promise income or guaranteed results."],
 }
 
 MUTATIONS = [
-    "Keep it under 120 words.",
-    "Open with the single biggest benefit in plain words.",
-    "Use short sentences and end with one clear call to action.",
-    "Add one concrete example of how a real person would use it.",
-    "Write for a busy reader: no jargon, no filler.",
+    "Use short, plain sentences a busy buyer can scan.",
+    "Name every tab, page or field in WHAT'S INSIDE.",
+    "Write for buyers worldwide: prices in USD, no local slang.",
+    "Keep the listing description under 200 words.",
+    "Make the 5 search tags phrases that real buyers would type.",
 ]
 MAX_VARIANTS = 12
 
@@ -53,7 +65,42 @@ def connect(db_path=None):
     conn.execute("""CREATE TABLE IF NOT EXISTS prompt_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, from_version INTEGER,
         to_version INTEGER, ts TEXT, reason TEXT)""")
+    if "retired" not in [r[1] for r in conn.execute("PRAGMA table_info(prompt_versions)").fetchall()]:
+        conn.execute("ALTER TABLE prompt_versions ADD COLUMN retired INTEGER DEFAULT 0")
     return conn
+
+
+def is_legacy(name, text):
+    """True for an old built-in prompt or a variant that grew from one (landing-page era)."""
+    text = text or ""
+    if name == "draft" and ("landing-page" in text.lower() or "landing page" in text.lower()):
+        return True
+    return any(text == old or text.startswith(old + " ") for old in LEGACY_PROMPTS.get(name, []))
+
+
+def _retire_legacy(conn, name, new_text):
+    """Move a database that still uses an old built-in prompt onto the new default. Nothing is deleted:
+    old versions are marked retired (never trialled or promoted again) and the switch is logged."""
+    rows = conn.execute("SELECT id, text, active FROM prompt_versions WHERE name = ? AND retired = 0",
+                        (name,)).fetchall()
+    legacy = [(vid, active) for vid, text, active in rows if is_legacy(name, text)]
+    if not legacy:
+        return
+    now = datetime.datetime.now().isoformat()
+    for vid, _ in legacy:
+        conn.execute("UPDATE prompt_versions SET retired = 1, active = 0 WHERE id = ?", (vid,))
+    was_active = next((vid for vid, active in legacy if active), None)
+    if was_active is None:
+        return
+    row = conn.execute("SELECT id FROM prompt_versions WHERE name = ? AND text = ?", (name, new_text)).fetchone()
+    if row:
+        new_id = row[0]
+        conn.execute("UPDATE prompt_versions SET active = 1, retired = 0 WHERE id = ?", (new_id,))
+    else:
+        new_id = conn.execute("INSERT INTO prompt_versions (name, text, active, created_ts) VALUES (?, ?, 1, ?)",
+                              (name, new_text, now)).lastrowid
+    conn.execute("INSERT INTO prompt_history (name, from_version, to_version, ts, reason) VALUES (?, ?, ?, ?, ?)",
+                 (name, was_active, new_id, now, "new default: product spec + store listing format"))
 
 
 def ensure_defaults(db_path=None):
@@ -62,6 +109,8 @@ def ensure_defaults(db_path=None):
         if not conn.execute("SELECT 1 FROM prompt_versions WHERE name = ?", (name,)).fetchone():
             conn.execute("INSERT INTO prompt_versions (name, text, active, created_ts) VALUES (?, ?, 1, ?)",
                          (name, text, datetime.datetime.now().isoformat()))
+        else:
+            _retire_legacy(conn, name, text)
     conn.commit()
     conn.close()
 
@@ -90,7 +139,7 @@ def pick_for_trial(name, rng=random, db_path=None):
     champion = get_active(name, db_path)
     conn = connect(db_path)
     challengers = conn.execute("SELECT id, text FROM prompt_versions WHERE name = ? AND active = 0 "
-                               "AND trials < ? ORDER BY id", (name, MIN_TRIALS)).fetchall()
+                               "AND retired = 0 AND trials < ? ORDER BY id", (name, MIN_TRIALS)).fetchall()
     conn.close()
     if challengers and rng.random() < CHALLENGER_SHARE:
         return challengers[0]
@@ -133,8 +182,8 @@ def promote_if_better(name, db_path=None):
     conn = connect(db_path)
     champ_q = quality(_stats(conn, champion[0]))
     best = None
-    for (vid,) in conn.execute("SELECT id FROM prompt_versions WHERE name = ? AND active = 0 AND trials >= ?",
-                               (name, MIN_TRIALS)).fetchall():
+    for (vid,) in conn.execute("SELECT id FROM prompt_versions WHERE name = ? AND active = 0 AND retired = 0 "
+                               "AND trials >= ?", (name, MIN_TRIALS)).fetchall():
         q = quality(_stats(conn, vid))
         if q >= champ_q + WIN_MARGIN and (best is None or q > best[1]):
             best = (vid, q)
@@ -188,9 +237,10 @@ def evolve(name, db_path=None, llm=None):
     """
     champion = get_active(name, db_path)
     conn = connect(db_path)
-    waiting = conn.execute("SELECT COUNT(*) FROM prompt_versions WHERE name = ? AND active = 0 AND trials < ?",
-                           (name, MIN_TRIALS)).fetchone()[0]
-    total = conn.execute("SELECT COUNT(*) FROM prompt_versions WHERE name = ?", (name,)).fetchone()[0]
+    waiting = conn.execute("SELECT COUNT(*) FROM prompt_versions WHERE name = ? AND active = 0 AND retired = 0 "
+                           "AND trials < ?", (name, MIN_TRIALS)).fetchone()[0]
+    total = conn.execute("SELECT COUNT(*) FROM prompt_versions WHERE name = ? AND retired = 0",
+                         (name,)).fetchone()[0]
     existing = [r[0] for r in conn.execute("SELECT text FROM prompt_versions WHERE name = ?", (name,))]
     conn.close()
     if waiting or total >= MAX_VARIANTS:

@@ -1,40 +1,56 @@
 # STATUS (read this first)
 
-Last updated: 2026-10-14. Owner: Sai Prasanna. Written in English for AI readers; the user chats in Tenglish and wants continuous work without being asked "what next" for things the AI can do itself.
+Last updated: 2026-10-15.
 
 ## Goal
-Zero-cost, 24/7 autonomous agent team that builds real income. Office-style dashboard (pyramid: CEO / managers / workers). Self-improving, with one-call rollback. Runs in the cloud even when the computer is off.
+A zero-cost team of AI agents that researches and drafts low-cost digital products (Google Sheets
+trackers, printable planners, Notion templates, resume bundles) for buyers worldwide paying in USD.
+A human approves every draft; approved drafts become ready-to-sell files that the human uploads to a
+free store (Payhip or Gumroad). Nothing is published, posted or sold automatically.
 
 ## Honest state
-- Real money earned so far: **$0.00**. The old engine (`engine.py`) is a SIMULATION. Its numbers are labelled `simulated` in the DB.
-- The new agent team (`workforce.py`) works, is tested, and produces DRAFTS that wait for human approval. Nothing publishes by itself. No real earning source is connected.
-- Cloud 24/7 workflow (`.github/workflows/agent.yml`) is LIVE on GitHub — secrets set, notify.py fixed.
-- The Groq key IS set as GitHub secret `GROQ_API_KEY`. Team runs with LLM in GitHub Actions.
+- Real money earned so far: **$0.00**. No product has been listed or sold yet.
+- No real draft has been produced by the niche agents yet; the pipeline below is built and tested.
+- `engine.py` is an old simulation; its numbers are labelled `simulated` in the database and are not income.
 
-## What's done (as of Oct 14 2026)
-- ✅ GitHub Actions workflow (`agent.yml`) — runs agent cycle every 6h, notifies via Telegram if approvals pending
-- ✅ Telegram bot (@chilligavvabot) — token and chat_id set as GitHub secrets
-- ✅ 4 GitHub secrets set: GROQ_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, GITHUB_TOKEN (auto)
-- ✅ notify.py fixed — single `_telegram_configured()` that reads env vars (was duplicated, second old def was winning)
-- ✅ End-to-end Telegram test passed — bot sends message to Sai's Telegram (chat_id 746236151)
-- ✅ 80+ tests pass locally
+## How it works today
+1. **Five niche agents** (`recipes/niche_*.yaml`): budget sheets, freelancer trackers, ADHD planners,
+   Notion templates, resume bundle. One niche runs per night at 21:00 UTC, taking turns by weekday
+   (`schedule.yaml`, `scheduler.py`). Each run queues up to 3 product ideas; it skips the night when
+   10 drafts already wait for approval.
+2. **Research → draft** (`workforce.py`): the research step works from the topic and the agents'
+   memory only (no web scraping, no news or weather feeds). Topics about food or fisheries are skipped.
+   Every draft uses one fixed format: PRODUCT NAME, BUYER, PRICE (USD), PLATFORM, WHAT'S INSIDE,
+   HOW TO USE, LISTING TITLE, LISTING DESCRIPTION, SEARCH TAGS (5).
+3. **QA Checker** (`workforce.py`): plain rules (format complete, USD price, 5 tags, banned risky
+   claims) plus a large-model check. Verdict pass / revise (one rewrite) / reject. It never approves.
+4. **Human approval**: by Telegram (`telegram_inbox.py`: /list, /view, /approve, /reject), only from the
+   owner's chat, or `python3 guardrails.py approve <id>`.
+5. **Product Builder** (`product_builder.py`): turns approved niche drafts into files under
+   `exported_content/products/` (xlsx, printable PDFs, Notion import zip, docx + listing text).
+6. **Self-improvement** (`improver.py`): A/B tests prompt wording only; the draft format is fixed in code.
 
-## Open items (need human decision or action)
-- ❓ Income stream: pick one (Fishery News articles, Substack, affiliate, service) to start earning real $
-- ❓ Accounts: decide which accounts to connect for publishing
-- ❌ CLAUDE.md not created yet — needed for AI context handoff (add to repo root)
+## Where it runs
+- **GitHub Actions** (`.github/workflows/agent.yml`): tests first, then one agent cycle, Telegram inbox,
+  export, product builder, and "Save state" (commits the database and new product files).
+  GitHub's own timer is a backup every 3 hours; it fires rarely on its own.
+- **Planned / in setup** (`docs/ALWAYS_ON.md`): a free Cloudflare Worker "alarm clock" that starts a run
+  every 30 minutes within the 2,000 free Actions minutes, a Mac mode for nonstop work while the owner's
+  Mac is on, and a Telegram "door bell" for fast replies. Phase A code is merged; account setup is pending.
 
-## Architecture quick ref
-- `workforce.py` — multi-agent orchestration (CEO/managers/workers with Groq LLM)
-- `agent_memory.py` — cross-session memory (SQLite)
-- `notify.py` — Telegram notifications (config.json first, env vars fallback)
-- `worker_daemon.py` — heartbeat loop calling workforce every N minutes
-- `web/` — FastAPI dashboard
-- `.github/workflows/agent.yml` — cloud 24/7 runner
+## Quality
+- About 390 offline unit tests: `python3 -m unittest discover -s tests` (CI runs them with `CHILLI_TEST=1`
+  before every cycle). Tests never call real AI models or websites.
 
-## Security rules (for any AI reading this)
-- @chilligavvabot token ends in `HPDpHc` — ONLY for Chilli Gavva project
-- Do NOT use @FisheryChilliGavvaBot (Fishery News project)
-- Do NOT use Bestdealsmhrbot (Best Deals project)
-- Nothing auto-publishes — human approval required
-- Free tools only
+## Known gaps / next steps
+- Finish the always-on setup (alarm clock, Mac mode, door bell).
+- Old food and fishery recipes are still listed in `schedule.yaml` (02, 07, 12, 17 UTC). Their topics are
+  now skipped by the research guard, so they cost nothing, but the schedule should be cleaned up.
+- `feeds.py` and `web_fetcher.py` are no longer used by the agents and can be removed later.
+- Pick prices and upload the first approved products by hand, then measure real sales.
+
+## Safety rules
+- Nothing auto-publishes; a human approves every draft and uploads every product.
+- Free tools and free tiers only. Kill switch: `python3 guardrails.py kill`.
+- Secrets live only in GitHub Actions secrets, the Cloudflare dashboard, or the git-ignored `config.json`.
+  Never commit tokens, keys or chat ids.
