@@ -75,7 +75,7 @@ class TestProviderStatus(unittest.TestCase):
             importlib.reload(llm_router)
             status = llm_router.provider_status()
         names = [s["provider"] for s in status]
-        self.assertEqual(names, ["Groq", "Gemini", "Cloudflare"])
+        self.assertEqual(names, ["FreeLLMAPI", "Groq", "Gemini", "Cloudflare"])
         for s in status:
             self.assertFalse(s["configured"])
 
