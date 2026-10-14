@@ -1,14 +1,20 @@
 {
- "generated_at": "2026-10-12T19:57:22",
+ "generated_at": "2026-10-14T16:21:32",
  "mode": "simulation",
  "money": {
   "real_usd": 0,
   "simulated_usd": 142.75
  },
  "kill_switch": false,
+ "worker": {
+  "running": false,
+  "last_seen": null,
+  "age_seconds": null,
+  "info": "never started"
+ },
  "llm": {
   "calls_today": 0,
-  "cap": 100
+  "cap": 500
  },
  "agents": [
   {
@@ -58,9 +64,20 @@
   {
    "name": "Draft Worker",
    "level": "entry",
-   "role": "Writes page drafts",
+   "role": "Writes page drafts and one rewrite when asked",
    "kinds": [
-    "draft"
+    "draft",
+    "rewrite"
+   ],
+   "state": "idle",
+   "tasks_done": 0
+  },
+  {
+   "name": "QA Checker",
+   "level": "entry",
+   "role": "Checks every draft with the large model, sends weak ones back for one rewrite",
+   "kinds": [
+    "review"
    ],
    "state": "idle",
    "tasks_done": 0
@@ -68,9 +85,17 @@
   {
    "name": "Review Worker",
    "level": "entry",
-   "role": "Runs the review checklist",
+   "role": "Runs the rule checklist the QA Checker builds on",
+   "kinds": [],
+   "state": "idle",
+   "tasks_done": 0
+  },
+  {
+   "name": "Coder Worker",
+   "level": "entry",
+   "role": "Proposes code patches (never applies them)",
    "kinds": [
-    "review"
+    "code_proposal"
    ],
    "state": "idle",
    "tasks_done": 0
@@ -159,6 +184,26 @@
    "agent": "CMO-Growth-Agent",
    "status": "INFO",
    "message": "Executing AI market research using Free LLM Engine..."
+  }
+ ],
+ "service_requests": [],
+ "built_tools": [],
+ "llm_providers": [
+  {
+   "provider": "FreeLLMAPI",
+   "configured": false
+  },
+  {
+   "provider": "Groq",
+   "configured": true
+  },
+  {
+   "provider": "Gemini",
+   "configured": true
+  },
+  {
+   "provider": "Cloudflare",
+   "configured": false
   }
  ]
 }
