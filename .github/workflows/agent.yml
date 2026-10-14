@@ -2,7 +2,7 @@ name: agent-cycle
 
 on:
   schedule:
-    - cron: "17,47 * * * *" # twice an hour at odd minutes
+    - cron: "17 * * * *" # once an hour (free-minutes safe)
   workflow_dispatch:
     inputs:
       slot:
