@@ -13,3 +13,6 @@ slots:
   - name: evening
     hour: 17
     recipe: daily_chilli_content
+  - name: night
+    hour: 21
+    recipe: digital_product_sprint
