@@ -2,13 +2,22 @@ name: agent-cycle
 
 on:
   schedule:
-    - cron: "17 * * * *" # once an hour (free-minutes safe)
+    # Backup only. The free Cloudflare "alarm clock" (docs/ALWAYS_ON.md) starts runs every 30 min.
+    - cron: "17 */3 * * *"
   workflow_dispatch:
     inputs:
       slot:
         description: "Force scheduler slot (morning/midday/afternoon/evening)"
         required: false
         default: ""
+      reason:
+        description: "Who started this run (alarm, doorbell, manual)"
+        required: false
+        default: "manual"
+      force:
+        description: "Run even if the Mac worker is alive (yes/no)"
+        required: false
+        default: "no"
 
 permissions:
   contents: write
@@ -28,7 +37,18 @@ jobs:
         with:
           python-version: "3.11"
 
+      # One writer at a time: when the Mac worker is alive this run stands down (all steps skip).
+      - name: Skip if the Mac worker is running
+        id: gate
+        env:
+          ALWAYS_ON_URL: ${{ secrets.ALWAYS_ON_URL }}
+          ALWAYS_ON_SECRET: ${{ secrets.ALWAYS_ON_SECRET }}
+          REASON: ${{ github.event.inputs.reason || github.event_name }}
+          FORCE: ${{ github.event.inputs.force || 'no' }}
+        run: python3 always_on.py gate --reason "$REASON" --force "$FORCE"
+
       - name: Run tests first
+        if: steps.gate.outputs.run == 'true'
         env:
           CHILLI_TEST: "1"
         run: |
@@ -39,6 +59,7 @@ jobs:
           git clean -fdq -- exported_content .scheduler_locks
 
       - name: Run scheduled recipe (if slot matches now)
+        if: steps.gate.outputs.run == 'true'
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -53,6 +74,7 @@ jobs:
           fi
 
       - name: Run one agent cycle
+        if: steps.gate.outputs.run == 'true'
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -63,17 +85,20 @@ jobs:
         run: python3 cloud_runner.py
 
       - name: Telegram inbox (approve/reject from phone + new draft alerts)
+        if: steps.gate.outputs.run == 'true'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python3 telegram_inbox.py
 
       - name: Export approved content
+        if: steps.gate.outputs.run == 'true'
         run: python3 content_export.py
 
       # Standard library only (xlsx/docx/pdf are written directly), so nothing to install.
       # A builder error never blocks "Save state"; unfinished drafts are retried next run.
       - name: Build product files from approved drafts
+        if: steps.gate.outputs.run == 'true'
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -82,6 +107,7 @@ jobs:
         run: python3 product_builder.py --max 2 || echo "Product Builder hit an error; it will retry next run."
 
       - name: Save state
+        if: steps.gate.outputs.run == 'true'
         run: |
           git config user.name "chilli-gavva-bot"
           git config user.email "chilli-gavva-bot@users.noreply.github.com"
@@ -90,3 +116,10 @@ jobs:
             if [ -e "$p" ]; then git add "$p"; fi
           done
           git diff --cached --quiet || (git commit -m "agent: state + content update [skip ci]" && git pull --rebase -q && git push)
+
+      - name: Report minutes to the alarm clock
+        if: always()
+        env:
+          ALWAYS_ON_URL: ${{ secrets.ALWAYS_ON_URL }}
+          ALWAYS_ON_SECRET: ${{ secrets.ALWAYS_ON_SECRET }}
+        run: python3 always_on.py report
