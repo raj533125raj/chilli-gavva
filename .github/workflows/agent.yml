@@ -131,4 +131,5 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: python3 -c "import os, notify; notify.send('Chilli Gavva: an agent run FAILED. Details: ' + os.environ.get('RUN_URL', ''))" || true
+        run: |
+          python3 -c "import os, notify; notify.send('Chilli Gavva - an agent run FAILED. Details - ' + os.environ.get('RUN_URL', ''))" || true
