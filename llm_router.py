@@ -4,7 +4,8 @@ All four use OpenAI-compatible /v1/chat/completions, all via stdlib urllib — z
 
 Usage:
     import llm_router
-    text = llm_router.chat("write a headline about Indian spices")
+    text = llm_router.chat("write a headline about Indian spices")          # auto size
+    text = llm_router.chat(long_prompt, size="large")                         # strong model
     # Returns str on success, None if all providers failed.
 
 Environment variables (all optional — missing key = skip that provider):
@@ -17,7 +18,8 @@ Environment variables (all optional — missing key = skip that provider):
 
 Behaviour:
     - FreeLLMAPI: pools 7B+ free tokens/month from 34 providers — used first when running locally
-    - Groq: llama-3.1-8b-instant, retries once on 429
+    - Groq: size routing — "small" = llama-3.1-8b-instant, "large" = llama-3.3-70b-versatile
+      (large falls back to small), retries once on 429
     - Gemini: gemini-1.5-flash (free tier 15 RPM / 1M TPD), uses native REST API
     - Cloudflare: @cf/meta/llama-3.1-8b-instruct, free 10k neurons/day
     - On any non-retryable error: skip to next provider
@@ -67,15 +69,36 @@ def _freellmapi(prompt: str) -> str | None:
 # ---------------------------------------------------------------------------
 # Provider 1: Groq
 # ---------------------------------------------------------------------------
-def _groq(prompt: str) -> str | None:
+# Model sizes: "small" = fast/cheap model for simple jobs (research notes, checks),
+# "large" = stronger model for customer-facing drafts. Override with env vars.
+SMALL = "small"
+LARGE = "large"
+_LARGE_PROMPT_CHARS = 3000  # auto mode: prompts longer than this go to the large model
+
+
+def _groq_models(size: str) -> list[str]:
+    small = os.environ.get("GROQ_MODEL_SMALL", "llama-3.1-8b-instant")
+    large = os.environ.get("GROQ_MODEL_LARGE", "llama-3.3-70b-versatile")
+    # Large falls back to small (e.g. when the large model's daily free limit is used up)
+    return [large, small] if size == LARGE else [small]
+
+
+def _groq(prompt: str, size: str = SMALL) -> str | None:
     api_key = os.environ.get("GROQ_API_KEY", "")
     if not api_key or api_key.startswith("YOUR_"):
         return None
+    for model in _groq_models(size):
+        result = _groq_call(prompt, api_key, model)
+        if result:
+            return result
+    return None
 
+
+def _groq_call(prompt: str, api_key: str, model: str) -> str | None:
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     body = {
-        "model": "llama-3.1-8b-instant",
+        "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.7,
     }
@@ -194,20 +217,30 @@ _PROVIDERS = [
 ]
 
 
-def chat(prompt: str, *, db_path=None) -> str | None:
+def pick_size(prompt: str, size: str | None = None) -> str:
+    """Resolve the model size: explicit "small"/"large" wins, otherwise decide by prompt length."""
+    if size in (SMALL, LARGE):
+        return size
+    return LARGE if len(prompt or "") > _LARGE_PROMPT_CHARS else SMALL
+
+
+def chat(prompt: str, *, db_path=None, size: str | None = None) -> str | None:
     """Try each provider in order; return first non-None result.
 
+    size: "small" (fast model), "large" (stronger model) or None (auto by prompt length).
+    Only Groq has both sizes today; other providers use their single free model.
     Respects guardrails.can_call_llm() before the first attempt.
     Returns None if all providers fail or daily cap is hit.
     """
     if not guardrails.can_call_llm(db_path):
         return None
 
+    resolved = pick_size(prompt, size)
     _mod_globals = globals()
     for name, fn_name in [("FreeLLMAPI", "_freellmapi"), ("Groq", "_groq"), ("Gemini", "_gemini"), ("Cloudflare", "_cloudflare")]:
         fn = _mod_globals[fn_name]
         try:
-            result = fn(prompt)
+            result = fn(prompt, size=resolved) if name == "Groq" else fn(prompt)
         except Exception:
             result = None
         if result:

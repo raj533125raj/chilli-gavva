@@ -8,6 +8,7 @@ Everything is stored in SQLite, so a crash or a restart resumes where it stopped
 Nothing here publishes anything: drafts go to the approval queue (guardrails.py).
 """
 import datetime
+import inspect
 import json
 import os
 import random
@@ -155,6 +156,22 @@ def _config_int(key, default):
         return default
 
 
+def _ask(ctx, prompt, size=None):
+    """Call the LLM with a size hint ("small"/"large") when the callable supports it.
+
+    Test stubs and older callables that take only (prompt) still work.
+    """
+    fn = ctx["llm"]
+    if size is not None:
+        try:
+            params = inspect.signature(fn).parameters
+            if "size" in params or any(p.kind == p.VAR_KEYWORD for p in params.values()):
+                return fn(prompt, size=size)
+        except (TypeError, ValueError):
+            pass
+    return fn(prompt)
+
+
 def step_plan(task, ctx):
     """Plan the day's drafts. Stops adding drafts when too many wait for the human."""
     topic = task["payload"].get("topic") or DEFAULT_TOPIC
@@ -210,7 +227,7 @@ def step_research(task, ctx):
     if web_ctx:
         prompt += web_ctx
 
-    text = ctx["llm"](prompt)
+    text = _ask(ctx, prompt, size="small")
     mode = "llm"
     if not text:
         mode = "fallback"
@@ -237,7 +254,7 @@ def step_draft(task, ctx):
     draft_prompt = template.format(topic=topic) + "\nContext notes:\n" + task["payload"].get("research", "")
     if mem_block:
         draft_prompt = mem_block + "\n\n" + draft_prompt
-    text = ctx["llm"](draft_prompt)
+    text = _ask(ctx, draft_prompt, size="large")
     mode = "llm"
     if not text:
         mode = "fallback"
@@ -342,9 +359,9 @@ def default_llm(db_path=None):
     Falls back to legacy engine.generate_with_ollama for local dev if all cloud
     providers fail and an ollama_model is configured.
     """
-    def call(prompt):
+    def call(prompt, size=None):
         import llm_router  # stdlib only, lazy import keeps tests fast
-        result = llm_router.chat(prompt, db_path=db_path)
+        result = llm_router.chat(prompt, db_path=db_path, size=size)
         if result:
             return result
         # Last-resort: local Ollama (dev only, ignored in CI)
