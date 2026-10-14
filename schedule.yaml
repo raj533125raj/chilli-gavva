@@ -1,18 +1,7 @@
 # Chilli Gavva daily schedule (UTC hours)
 # Each slot maps to a recipe name in recipes/
+# Only earning work runs. Old food/aquaculture slots were removed on 2026-10-14.
 slots:
-  - name: morning
-    hour: 2
-    recipe: daily_chilli_content
-  - name: midday
-    hour: 7
-    recipe: shrimp_market_brief
-  - name: afternoon
-    hour: 12
-    recipe: tool_idea_sprint
-  - name: evening
-    hour: 17
-    recipe: daily_chilli_content
 # Niche agents: ONE niche runs per night, taking turns by UTC weekday.
 # Mon budget sheets, Tue freelancer trackers, Wed ADHD planners, Thu Notion templates,
 # Fri resume bundle, Sat budget sheets, Sun freelancer trackers.
