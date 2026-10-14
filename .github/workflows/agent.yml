@@ -47,9 +47,6 @@ jobs:
             python3 scheduler.py
           fi
 
-      - name: Auto-seed if queue is idle
-        run: python3 topic_pool.py
-
       - name: Run one agent cycle
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
