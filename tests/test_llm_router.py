@@ -75,7 +75,7 @@ class TestProviderStatus(unittest.TestCase):
             importlib.reload(llm_router)
             status = llm_router.provider_status()
         names = [s["provider"] for s in status]
-        self.assertEqual(names, ["FreeLLMAPI", "Groq", "Gemini", "Cloudflare"])
+        self.assertEqual(names, ["FreeLLMAPI", "Groq", "Gemini", "OpenRouter", "Cloudflare"])
         for s in status:
             self.assertFalse(s["configured"])
 
@@ -178,15 +178,14 @@ class TestGeminiProvider(unittest.TestCase):
             self.assertIsNone(llm_router._gemini("hello"))
 
     def test_success(self):
-        fake = _FakeResp(_make_gemini_response("ocean ecosystem article"))
+        fake = _FakeResp(_make_groq_response("ocean ecosystem article"))
         with patch.dict("os.environ", {"GEMINI_API_KEY": "AIza_real"}):
             with patch("urllib.request.urlopen", return_value=fake):
                 result = llm_router._gemini("write about fish")
         self.assertEqual(result, "ocean ecosystem article")
 
     def test_empty_response_returns_none(self):
-        body = json.dumps({"candidates": [{"content": {"parts": [{"text": ""}]}}]}).encode()
-        fake = _FakeResp(body)
+        fake = _FakeResp(_make_groq_response(""))
         with patch.dict("os.environ", {"GEMINI_API_KEY": "AIza_real"}):
             with patch("urllib.request.urlopen", return_value=fake):
                 result = llm_router._gemini("hello")
@@ -353,3 +352,91 @@ class TestSizeRouting(unittest.TestCase):
             with patch.object(llm_router, "_groq", return_value="g") as mg:
                 llm_router.chat("hi")
         mg.assert_called_once_with("hi", size="small")
+
+
+# ---------------------------------------------------------------------------
+# Auto-switch: Gemini model list, OpenRouter, cooldown after 429
+# ---------------------------------------------------------------------------
+import os as _os  # noqa: E402
+import tempfile as _tempfile  # noqa: E402
+import urllib.error as _uerr  # noqa: E402
+
+
+def _http429():
+    return _uerr.HTTPError("u", 429, "too many", {"retry-after": "0"}, None)
+
+
+class TestAutoSwitch(unittest.TestCase):
+    def setUp(self):
+        sys.modules["guardrails"] = _guardrails_stub
+        importlib.reload(llm_router)
+
+    def test_gemini_tries_next_model_when_model_missing(self):
+        err404 = _uerr.HTTPError("u", 404, "not found", {}, None)
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "k", "GEMINI_MODEL": "old-model,new-model"}, clear=True):
+            with patch("urllib.request.urlopen", side_effect=[err404, _FakeResp(_make_groq_response("hi"))]) as m:
+                self.assertEqual(llm_router._gemini("p"), "hi")
+        models = [json.loads(c.args[0].data.decode())["model"] for c in m.call_args_list]
+        self.assertEqual(models, ["old-model", "new-model"])
+        self.assertIn("v1beta/openai/chat/completions", m.call_args_list[0].args[0].full_url)
+
+    def test_gemini_stops_on_rate_limit(self):
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "k", "GEMINI_MODEL": "a,b"}, clear=True):
+            with patch("urllib.request.urlopen", side_effect=[_http429()]) as m:
+                self.assertIsNone(llm_router._gemini("p"))
+        self.assertEqual(m.call_count, 1)
+        self.assertIn("Gemini", llm_router._RATE_LIMITED)
+
+    def test_openrouter_needs_key_and_model(self):
+        with patch.dict("os.environ", {"OPENROUTER_API_KEY": "k"}, clear=True):
+            self.assertIsNone(llm_router._openrouter("p"))
+        with patch.dict("os.environ", {"OPENROUTER_API_KEY": "k", "OPENROUTER_MODEL": "x/y:free"}, clear=True):
+            with patch("urllib.request.urlopen", return_value=_FakeResp(_make_groq_response("ok"))) as m:
+                self.assertEqual(llm_router._openrouter("p"), "ok")
+        self.assertEqual(json.loads(m.call_args.args[0].data.decode())["model"], "x/y:free")
+
+    def test_rate_limited_provider_is_skipped_next_time(self):
+        calls = {"groq": 0}
+
+        def fake_groq(prompt, size="small"):
+            calls["groq"] += 1
+            llm_router._note_429("Groq")
+            return None
+        with patch.object(llm_router, "_freellmapi", return_value=None), \
+                patch.object(llm_router, "_groq", side_effect=fake_groq), \
+                patch.object(llm_router, "_gemini", return_value="gemini answer"):
+            self.assertEqual(llm_router.chat("p"), "gemini answer")
+            self.assertEqual(llm_router.chat("p"), "gemini answer")
+        self.assertEqual(calls["groq"], 1)  # second call skipped Groq (cooling down)
+
+    def test_failure_without_429_does_not_cool_down(self):
+        with patch.object(llm_router, "_freellmapi", return_value=None), \
+                patch.object(llm_router, "_groq", return_value=None), \
+                patch.object(llm_router, "_gemini", return_value=None), \
+                patch.object(llm_router, "_openrouter", return_value=None), \
+                patch.object(llm_router, "_cloudflare", return_value=None):
+            self.assertIsNone(llm_router.chat("p"))
+        self.assertFalse(llm_router.in_cooldown("Groq"))
+
+    def test_cooldown_is_saved_in_database_and_expires(self):
+        tmp = _tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        db = _os.path.join(tmp.name, "t.db")
+        llm_router.set_cooldown("Gemini", minutes=30, db_path=db)
+        llm_router._MEM_COOLDOWN.clear()          # simulate a new cloud run (fresh process)
+        self.assertTrue(llm_router.in_cooldown("Gemini", db_path=db))
+        llm_router.set_cooldown("Gemini", minutes=-1, db_path=db)
+        llm_router._MEM_COOLDOWN.clear()
+        self.assertFalse(llm_router.in_cooldown("Gemini", db_path=db))
+
+    def test_groq_429_on_both_attempts_marks_rate_limited(self):
+        with patch.dict("os.environ", {"GROQ_API_KEY": "gsk"}, clear=True):
+            with patch("urllib.request.urlopen", side_effect=[_http429(), _http429()]), \
+                    patch("time.sleep"):
+                self.assertIsNone(llm_router._groq("p"))
+        self.assertIn("Groq", llm_router._RATE_LIMITED)
+
+    def test_openrouter_in_provider_status(self):
+        with patch.dict("os.environ", {"OPENROUTER_API_KEY": "k", "OPENROUTER_MODEL": "m:free"}, clear=True):
+            st = {s["provider"]: s["configured"] for s in llm_router.provider_status()}
+        self.assertTrue(st["OpenRouter"])
