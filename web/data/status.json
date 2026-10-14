@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-14T21:43:13",
+ "generated_at": "2026-10-14T23:33:36",
  "mode": "simulation",
  "money": {
   "real_usd": 0,
@@ -13,7 +13,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 6,
+  "calls_today": 15,
   "cap": 500
  },
  "agents": [
@@ -70,7 +70,7 @@
     "rewrite"
    ],
    "state": "idle",
-   "tasks_done": 0
+   "tasks_done": 3
   },
   {
    "name": "QA Checker",
@@ -102,30 +102,51 @@
   }
  ],
  "task_counts": {
-  "done": 3,
+  "done": 6,
   "queued": 3
  },
  "recent_tasks": [
   {
-   "id": 6,
-   "kind": "draft",
+   "id": 9,
+   "kind": "review",
    "status": "queued",
    "agent": null,
    "attempts": 0
+  },
+  {
+   "id": 8,
+   "kind": "review",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 7,
+   "kind": "review",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 6,
+   "kind": "draft",
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 5,
    "kind": "draft",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 4,
    "kind": "draft",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 3,
@@ -149,7 +170,29 @@
    "attempts": 1
   }
  ],
- "pending_approvals": [],
+ "pending_approvals": [
+  {
+   "id": 1,
+   "ts": "2026-10-14T23:33:36.120091",
+   "kind": "public_draft",
+   "title": "Draft: [ADHD Planners Agent] printable energy-based daily planner f (v2, fallback)",
+   "review": null
+  },
+  {
+   "id": 2,
+   "ts": "2026-10-14T23:33:36.389802",
+   "kind": "public_draft",
+   "title": "Draft: [ADHD Planners Agent] printable time-blindness routine plann (v2, fallback)",
+   "review": null
+  },
+  {
+   "id": 3,
+   "ts": "2026-10-14T23:33:36.651406",
+   "kind": "public_draft",
+   "title": "Draft: [ADHD Planners Agent] printable focus sheets pack (brain dum (v2, fallback)",
+   "review": null
+  }
+ ],
  "prompts": [
   {
    "id": 2,
