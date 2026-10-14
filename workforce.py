@@ -2,7 +2,7 @@
 
 High  : CEO            plans the work
 Mid   : Research Manager, Content Manager, QA Reviewer
-Entry : the workers that actually do the steps (research, draft, review)
+Entry : the workers that actually do the steps (research, draft, QA check)
 
 Everything is stored in SQLite, so a crash or a restart resumes where it stopped.
 Nothing here publishes anything: drafts go to the approval queue (guardrails.py).
@@ -41,8 +41,12 @@ AGENTS = [
     {"name": "Content Manager", "level": "mid", "role": "Owns drafts and tone", "kinds": []},
     {"name": "QA Reviewer", "level": "mid", "role": "Scores drafts, blocks risky claims", "kinds": []},
     {"name": "Research Worker", "level": "entry", "role": "Finds and lists ideas", "kinds": ["research"]},
-    {"name": "Draft Worker", "level": "entry", "role": "Writes page drafts", "kinds": ["draft"]},
-    {"name": "Review Worker", "level": "entry", "role": "Runs the review checklist", "kinds": ["review"]},
+    {"name": "Draft Worker", "level": "entry", "role": "Writes page drafts and one rewrite when asked",
+     "kinds": ["draft", "rewrite"]},
+    {"name": "QA Checker", "level": "entry",
+     "role": "Checks every draft with the large model, sends weak ones back for one rewrite", "kinds": ["review"]},
+    {"name": "Review Worker", "level": "entry", "role": "Runs the rule checklist the QA Checker builds on",
+     "kinds": []},
     {"name": "Coder Worker", "level": "entry", "role": "Proposes code patches (never applies them)",
      "kinds": ["code_proposal"]},
 ]
@@ -141,6 +145,73 @@ def review_text(text):
         score -= 10
         notes.append("too long")
     return max(0, score), notes
+
+
+# ---- QA Checker (large model, strict JSON) --------------------------------------
+CHECKER_VERDICTS = ("pass", "revise", "reject")
+CHECKER_PROMPT = """You are the QA Checker for a small digital-product team. Check this draft before a human sees it.
+Be strict and honest. Rubric:
+1. Factual errors, made-up numbers, statistics or reviews.
+2. Risky claims: income or earnings promises, health or medical claims, job or interview guarantees.
+3. Missing parts the brief asked for: product contents/structure, listing title, listing description, 5 search tags.
+4. Price in USD, target buyer and selling platform are stated.
+5. Clear, plain writing.
+6. Fits global buyers who pay in USD.
+Verdict: "pass" = ready for a human, "revise" = fixable with one rewrite, "reject" = unsafe or unusable.
+Reply with ONLY this JSON and nothing else:
+{{"score": <0-100>, "verdict": "pass" | "revise" | "reject", "issues": ["short issue", "..."]}}
+
+Brief: {topic}
+
+Draft:
+{draft}"""
+REWRITE_PROMPT = """Rewrite the product draft below so it fixes every issue the QA Checker found.
+Keep what already works. Stay honest: no income, health or job promises, no made-up numbers.
+
+Brief: {topic}
+
+Issues to fix:
+{issues}
+
+Research notes:
+{research}
+
+Draft to rewrite:
+{draft}"""
+REWRITTEN_TAG = "(rewritten)"
+
+
+def parse_checker_reply(text):
+    """Read the checker's JSON reply. Returns {"score", "verdict", "issues"}, or None when unusable."""
+    if not isinstance(text, str):
+        return None
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end <= start:
+        return None
+    try:
+        data = json.loads(text[start:end + 1])
+    except ValueError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    verdict = str(data.get("verdict", "")).strip().lower()
+    score = data.get("score")
+    if verdict not in CHECKER_VERDICTS or isinstance(score, bool) or not isinstance(score, (int, float)):
+        return None
+    issues = data.get("issues") or []
+    if not isinstance(issues, list):
+        issues = [issues]
+    issues = [str(i).strip()[:200] for i in issues if str(i).strip()][:5]
+    return {"score": max(0, min(100, int(round(score)))), "verdict": verdict, "issues": issues}
+
+
+def check_draft(ctx, draft, topic=""):
+    """Ask the large model to check a draft. None means the checker is unavailable."""
+    prompt = CHECKER_PROMPT.format(topic=topic or "not given", draft=(draft or "")[:6000])
+    try:
+        return parse_checker_reply(_ask(ctx, prompt, size="large"))
+    except Exception:
+        return None
 
 
 # ---- step implementations ---------------------------------------------------------
@@ -268,16 +339,54 @@ def step_draft(task, ctx):
     conn.commit()
     conn.close()
     return {"approval_id": approval_id, "version_id": version_id, "mode": mode,
-            "next": [{"kind": "review", "payload": {"approval_id": approval_id, "version_id": version_id}}]}
+            "next": [{"kind": "review", "payload": {"approval_id": approval_id, "version_id": version_id,
+                                                    "topic": topic,
+                                                    "research": task["payload"].get("research", "")}}]}
 
 
 def step_review(task, ctx):
-    approval_id = task["payload"]["approval_id"]
+    """QA Checker: rule checklist plus a large-model check.
+
+    pass -> waits for the human. revise -> ONE rewrite is queued (never for a rewrite).
+    reject -> stays in the queue marked "CHECKER: REJECT". Only a human approves or rejects.
+    """
+    payload = task["payload"]
+    approval_id = payload["approval_id"]
     approval = guardrails.get_approval(approval_id, ctx["db_path"])
-    score, notes = review_text(approval["payload"])
-    guardrails.set_review(approval_id, f"score {score}/100" + (": " + "; ".join(notes) if notes else ""),
-                          ctx["db_path"])
-    improver.record_result(task["payload"]["version_id"], score, ctx["db_path"])
+    rule_score, notes = review_text(approval["payload"])
+    topic = payload.get("topic") or approval.get("title", "")
+    is_rewrite = bool(payload.get("rewrite"))
+    check = check_draft(ctx, approval["payload"], topic)
+    nxt, issues = [], []
+
+    if check is None:
+        verdict = "unavailable"
+        score = rule_score
+        review = (f"score {score}/100" + (": " + "; ".join(notes) if notes else "")
+                  + " | CHECKER: unavailable (rule check only)")
+    else:
+        verdict = check["verdict"]
+        if verdict == "pass" and any(n.startswith("risky") for n in notes):
+            verdict = "revise"  # the plain rules found a banned phrase the model let through
+        score = round((rule_score + check["score"]) / 2)
+        issues = check["issues"] + [n for n in notes if n not in check["issues"]]
+        review = f"score {score}/100 (rules {rule_score}, checker {check['score']}) | CHECKER: {verdict.upper()}"
+        if verdict == "revise":
+            if is_rewrite:
+                review += " | already rewritten once, a human decides"
+            elif approval.get("status", "pending") != "pending":
+                review += " | no rewrite, a human already decided"
+            else:
+                review += " | one rewrite queued"
+                nxt.append({"kind": "rewrite", "payload": {
+                    "approval_id": approval_id, "version_id": payload.get("version_id"), "topic": topic,
+                    "research": payload.get("research", ""), "issues": issues}})
+        if issues:
+            review += " | issues: " + "; ".join(issues[:5])
+    guardrails.set_review(approval_id, review, ctx["db_path"])
+    if not is_rewrite:
+        # A rewrite says nothing new about the prompt version, so only first drafts feed the improver
+        improver.record_result(payload["version_id"], score, ctx["db_path"])
 
     # Remember high-scoring patterns so future drafts can learn from them
     if score >= 70:
@@ -286,11 +395,39 @@ def step_review(task, ctx):
             summary = f"Score {score}/100 on v{task['payload']['version_id']}"
             if notes:
                 summary += " — passed: " + "; ".join(n for n in notes if not n.startswith("risky") and not n.startswith("no ") and not n.startswith("too "))
-            _mem.add_fact("Review Worker", "approved", summary, confidence=score / 100.0, db_path=ctx.get("db_path"))
+            _mem.add_fact("QA Checker", "approved", summary, confidence=score / 100.0, db_path=ctx.get("db_path"))
         except Exception:
             pass
 
-    return {"score": score, "notes": notes}
+    return {"score": score, "notes": notes, "checker": verdict, "issues": issues, "next": nxt}
+
+
+def step_rewrite(task, ctx):
+    """Draft Worker: the single rewrite the QA Checker asked for. Replaces the pending draft in place."""
+    payload = task["payload"]
+    approval_id = payload["approval_id"]
+    approval = guardrails.get_approval(approval_id, ctx["db_path"])
+    if not approval or approval["status"] != "pending":
+        return {"summary": "skipped: a human already decided this draft"}
+    if approval["title"].endswith(REWRITTEN_TAG):
+        return {"summary": "skipped: this draft was already rewritten once"}
+    issues = "\n".join(f"- {i}" for i in payload.get("issues", [])) or "- make it clearer and more complete"
+    prompt = REWRITE_PROMPT.format(topic=payload.get("topic", ""), issues=issues,
+                                   research=payload.get("research", ""), draft=approval["payload"][:6000])
+    text = _ask(ctx, prompt, size="large")
+    if not text:
+        guardrails.set_review(approval_id, (approval["review"] or "") + " | rewrite failed, original kept",
+                              ctx["db_path"])
+        return {"mode": "fallback", "summary": "rewrite failed, original draft kept"}
+    conn = guardrails.connect(ctx["db_path"])
+    conn.execute("UPDATE approvals SET payload = ?, title = ? WHERE id = ? AND status = 'pending'",
+                 (text, f"{approval['title']} {REWRITTEN_TAG}", approval_id))
+    conn.commit()
+    conn.close()
+    return {"mode": "llm", "approval_id": approval_id,
+            "next": [{"kind": "review", "payload": {"approval_id": approval_id, "rewrite": 1,
+                                                    "version_id": payload.get("version_id"),
+                                                    "topic": payload.get("topic", "")}}]}
 
 
 def step_code_proposal(task, ctx):
@@ -299,7 +436,7 @@ def step_code_proposal(task, ctx):
 
 
 STEPS = {"plan": step_plan, "research": step_research, "draft": step_draft, "review": step_review,
-         "code_proposal": step_code_proposal}
+         "rewrite": step_rewrite, "code_proposal": step_code_proposal}
 
 
 # ---- learning from human decisions ------------------------------------------------
