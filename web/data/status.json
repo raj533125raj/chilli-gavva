@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-15T16:16:29",
+ "generated_at": "2026-10-15T16:37:47",
  "money": {
   "real_usd": 0
  },
@@ -203,7 +203,7 @@
   },
   {
    "provider": "Cloudflare",
-   "configured": false
+   "configured": true
   },
   {
    "provider": "OpenRouter",
