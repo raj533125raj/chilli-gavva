@@ -29,8 +29,8 @@ def reply(message, status, llm=None):
     if any(w in low for w in ("stop", "pause", "kill")):
         return "Use the Kill switch button on the dashboard (or run: python3 guardrails.py kill). It stops all agent work at once."
     if llm:
-        context = (f"You are the CEO agent of a small zero-cost project. Facts: real money earned ${money['real_usd']:.2f}. "
-                   f"Be brief and honest. "
+        # Privacy: no earnings, chat ids or keys go into AI prompts (the money answer above is local only)
+        context = ("You are the CEO agent of a small zero-cost project. Be brief and honest. "
                    f"Never promise income. User asks: {text}")
         answer = llm(context)
         if answer:

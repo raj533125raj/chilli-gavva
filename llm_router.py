@@ -350,14 +350,71 @@ def _cloudflare(prompt: str) -> str | None:
 
 
 # ---------------------------------------------------------------------------
+# Provider: GitHub Models (preview; uses the workflow's built-in GITHUB_TOKEN)
+# Off unless the repo variable GITHUB_MODELS is "on" (turn it on only after the health check says OK).
+# ---------------------------------------------------------------------------
+_GITHUB_MODELS_URL = "https://models.github.ai/inference/chat/completions"
+
+
+def _github_models_token() -> str:
+    return os.environ.get("GITHUB_MODELS_TOKEN", "").strip()
+
+
+def _github_models_list() -> list[str]:
+    raw = os.environ.get("GITHUB_MODELS_MODEL", "") or "openai/gpt-4.1-mini,openai/gpt-4o-mini"
+    return [m.strip() for m in raw.split(",") if m.strip()]
+
+
+def github_models_enabled() -> bool:
+    return bool(_github_models_token()) and os.environ.get("GITHUB_MODELS", "").strip().lower() == "on"
+
+
+def _github_models(prompt: str, timeout: float = _TIMEOUT) -> str | None:
+    if not github_models_enabled():
+        return None
+    for model in _github_models_list():
+        text, status = _openai_style_call(_GITHUB_MODELS_URL, _github_models_token(), model, prompt,
+                                          "GitHubModels", timeout=timeout)
+        if text:
+            return text
+        if status in (400, 404, 500, 503) or status is None:
+            continue
+        return None
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Privacy: never send private data (keys, tokens, Telegram chat id) inside a prompt
+# ---------------------------------------------------------------------------
+_SECRET_ENV = ("GROQ_API_KEY", "GEMINI_API_KEY", "OPENROUTER_API_KEY", "CF_API_TOKEN", "CF_ACCOUNT_ID",
+               "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "GITHUB_MODELS_TOKEN", "GITHUB_TOKEN", "FREELLMAPI_KEY",
+               "ALWAYS_ON_SECRET")
+_SECRET_PATTERNS = re.compile(
+    r"(gsk_[A-Za-z0-9]{10,}|AIza[0-9A-Za-z_\-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}"
+    r"|sk-or-[A-Za-z0-9\-]{10,}|\b\d{6,12}:[A-Za-z0-9_\-]{30,}\b)")
+
+
+def scrub(prompt: str) -> str:
+    """Remove secret values and token-looking strings from text before it is sent to any AI provider."""
+    text = _SECRET_PATTERNS.sub("[hidden]", prompt or "")
+    for name in _SECRET_ENV:
+        value = os.environ.get(name, "").strip()
+        if len(value) >= 6:
+            text = text.replace(value, "[hidden]")
+    return text
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+# Order: Gemini first, then Groq, GitHub Models, Cloudflare, OpenRouter. FreeLLMAPI (local only) is last.
 _PROVIDERS = [
-    ("FreeLLMAPI", _freellmapi),
-    ("Groq", _groq),
     ("Gemini", _gemini),
-    ("OpenRouter", _openrouter),
+    ("Groq", _groq),
+    ("GitHubModels", _github_models),
     ("Cloudflare", _cloudflare),
+    ("OpenRouter", _openrouter),
+    ("FreeLLMAPI", _freellmapi),
 ]
 
 
@@ -380,10 +437,10 @@ def chat(prompt: str, *, db_path=None, size: str | None = None) -> str | None:
         print("LLM: skipped (kill switch on or daily call cap reached)", file=sys.stderr)
         return None
 
+    prompt = scrub(prompt)
     resolved = pick_size(prompt, size)
     _mod_globals = globals()
-    order = [("FreeLLMAPI", "_freellmapi"), ("Groq", "_groq"), ("Gemini", "_gemini"),
-             ("OpenRouter", "_openrouter"), ("Cloudflare", "_cloudflare")]
+    order = [(name, fn.__name__) for name, fn in _PROVIDERS]
     for name, fn_name in order:
         if in_cooldown(name, db_path):
             continue  # this free provider hit its limit recently: let the next one work
@@ -392,7 +449,7 @@ def chat(prompt: str, *, db_path=None, size: str | None = None) -> str | None:
         try:
             if name == "Groq":
                 result = fn(prompt, size=resolved)
-            elif name == "Gemini" and resolved == LARGE:
+            elif name in ("Gemini", "GitHubModels") and resolved == LARGE:
                 result = fn(prompt, timeout=_TIMEOUT_LARGE)  # long drafts need more than 25 s
             else:
                 result = fn(prompt)
@@ -422,6 +479,8 @@ def provider_status() -> list[dict]:
         elif name == "OpenRouter":
             key = os.environ.get("OPENROUTER_API_KEY", "")
             configured = bool(key and not key.startswith("YOUR_") and os.environ.get("OPENROUTER_MODEL", "").strip())
+        elif name == "GitHubModels":
+            configured = github_models_enabled()
         elif name == "Cloudflare":
             tok = os.environ.get("CF_API_TOKEN", "")
             acc = os.environ.get("CF_ACCOUNT_ID", "")
@@ -478,6 +537,11 @@ def _targets():
         headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json", "X-Title": "Chilli Gavva",
                    **_UA}
         out.append(("OpenRouter", model, "https://openrouter.ai/api/v1/chat/completions", headers, _chat_parse))
+    gh = _github_models_token()
+    if gh:  # tested even while switched off, so the health check can say whether it works
+        headers = {"Authorization": f"Bearer {gh}", "Content-Type": "application/json", **_UA}
+        for model in _github_models_list():
+            out.append(("GitHubModels", model, _GITHUB_MODELS_URL, headers, _chat_parse))
     tok, acc = os.environ.get("CF_API_TOKEN", ""), os.environ.get("CF_ACCOUNT_ID", "")
     if tok and acc and not tok.startswith("YOUR_"):
         headers = {"Authorization": f"Bearer {tok}", "Content-Type": "application/json", **_UA}
@@ -552,6 +616,24 @@ def groq_model_names(opener=None) -> list[str]:
     return sorted(set(names))[:20]
 
 
+def github_model_names(opener=None) -> list[str]:
+    """Names of the GitHub Models chat models (public catalog ids only)."""
+    token = _github_models_token()
+    if not token:
+        return []
+    req = urllib.request.Request("https://models.github.ai/catalog/models",
+                                 headers={"Authorization": f"Bearer {token}", "Accept": "application/json", **_UA})
+    try:
+        with (opener or urllib.request.urlopen)(req, timeout=_TIMEOUT) as resp:
+            data = json.loads(resp.read().decode())
+    except Exception as exc:
+        return [f"(could not list models: {_describe(exc)})"]
+    items = data if isinstance(data, list) else data.get("data", [])
+    names = [str(m.get("id", "")) for m in items if isinstance(m, dict)]
+    names = [n for n in names if re.fullmatch(r"[A-Za-z0-9_./:\-]{1,80}", n) and "mini" in n.lower()]
+    return sorted(set(names))[:15]
+
+
 def format_health(results):
     if not results:
         return "No AI provider is configured (no API keys found)."
@@ -572,5 +654,10 @@ if __name__ == "__main__":
         models = groq_model_names()
         if models:
             print("Groq models this key can use: " + ", ".join(models))
+        models = github_model_names()
+        if models:
+            print("GitHub Models (small ones) this token can use: " + ", ".join(models))
+        if _github_models_token() and not github_models_enabled():
+            print("GitHub Models is switched OFF for real work (repo variable GITHUB_MODELS is not 'on').")
     else:
         print("usage: python3 llm_router.py health")
