@@ -9,7 +9,8 @@ yet, the large model writes a JSON product spec, and this module builds the real
   Resume Bundle                       -> resume .docx + cover letter .docx + job tracker .xlsx
 
 Every product also gets listing.md (title, description, 5 tags, USD price, buyer, platform),
-README.md (instructions) and cover_image_idea.txt. Output: exported_content/products/<id>-<name>/.
+README.md (instructions), cover_image_idea.txt, LICENSE.txt (personal use only) and listing images
+(cover.png, preview-1..3.png, pinterest.png, made by mockups.py). Output: exported_content/products/<id>-<name>/.
 
 Only the Python standard library is used (the files are plain Office Open XML / PDF), so CI needs
 no extra installs. Nothing is uploaded, published or sold: a human uploads the files to a store.
@@ -831,6 +832,8 @@ def _build_resume(folder, spec):
         "Log each application in the job tracker and check the Overdue? column for follow-ups."]
 
 
+LICENSE_TEXT = "Personal use only. Do not resell or share the files.\n"
+
 BUILDERS = {"sheets": _build_sheets, "planner": _build_planner, "notion": _build_notion, "resume": _build_resume}
 
 
@@ -846,8 +849,16 @@ def build_product(spec, approval_id, out_dir=None):
         f.write(_listing_md(spec))
     with open(os.path.join(folder, "cover_image_idea.txt"), "w", encoding="utf-8") as f:
         f.write((spec["cover_image_idea"] or "A clean flat-lay of the product on a laptop screen.") + "\n")
+    with open(os.path.join(folder, "LICENSE.txt"), "w", encoding="utf-8") as f:
+        f.write(LICENSE_TEXT)
+    extra = ["listing.md", "cover_image_idea.txt", "LICENSE.txt"]
+    try:  # listing images; a drawing problem never blocks the product files
+        import mockups
+        extra += mockups.write_mockups(folder, spec)
+    except Exception as exc:
+        print(f"Product Builder: listing images skipped for #{approval_id}: {type(exc).__name__}", file=sys.stderr)
     with open(os.path.join(folder, "README.md"), "w", encoding="utf-8") as f:
-        f.write(_readme_md(spec, files + ["listing.md", "cover_image_idea.txt"], how_to))
+        f.write(_readme_md(spec, files + extra, how_to))
     return folder_name
 
 
