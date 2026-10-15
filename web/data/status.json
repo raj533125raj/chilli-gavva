@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-15T11:29:51",
+ "generated_at": "2026-10-15T11:34:36",
  "mode": "simulation",
  "money": {
   "real_usd": 0,
@@ -13,7 +13,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 9,
+  "calls_today": 15,
   "cap": 500
  },
  "agents": [
@@ -169,22 +169,14 @@
    "attempts": 1
   }
  ],
- "pending_approvals": [
-  {
-   "id": 3,
-   "ts": "2026-10-14T23:33:36.651406",
-   "kind": "public_draft",
-   "title": "Draft: [ADHD Planners Agent] printable focus sheets pack (brain dum (v2, fallback)",
-   "review": "score 20/100 (rules 30, checker 10) | CHECKER: REJECT | issues: Draft is cut off mid-sentence and completely unfinished; Presents the product as a free browser tool instead of a paid printable pack; Missing product contents and page structure; Missing listing title, listing description, and 5 search tags; Missing price in USD ($5-12 range required by brief)"
-  }
- ],
+ "pending_approvals": [],
  "prompts": [
   {
    "id": 2,
    "name": "draft",
    "active": true,
    "trials": 3,
-   "quality": 19.3
+   "quality": 59.7
   },
   {
    "id": 1,
