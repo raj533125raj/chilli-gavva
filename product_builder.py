@@ -912,6 +912,9 @@ def main(argv=None):
         for b in builds(args.db):
             print(f"#{b['approval_id']:<5} {b['status']:<8} tries={b['tries']} {b['folder'] or b['note']}")
         return
+    if guardrails.is_killed():
+        print("Product Builder: paused (kill switch or /pause), nothing built.")
+        return
     results = build_pending(db_path=args.db, max_builds=args.max)
     if not results:
         print("Product Builder: no new approved niche drafts.")

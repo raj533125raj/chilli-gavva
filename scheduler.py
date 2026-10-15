@@ -140,6 +140,9 @@ def run_slot(slot, dry_run=False, db_path=None, today=None):
 
 def run_now(slot_name=None, dry_run=False, db_path=None):
     """Pick or match a slot, check lock, run recipe. Returns result dict."""
+    import guardrails
+    if guardrails.is_killed():
+        return {"skipped": True, "reason": "paused (kill switch or /pause)"}
     slots = _load_schedule()
     now = datetime.datetime.utcnow()
     date_str = now.strftime("%Y-%m-%d")

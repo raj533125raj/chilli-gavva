@@ -37,6 +37,9 @@ def connect(db_path=None):
     conn.execute("""CREATE TABLE IF NOT EXISTS approvals (
         id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, kind TEXT, title TEXT,
         payload TEXT, status TEXT DEFAULT 'pending', review TEXT, decided_ts TEXT)""")
+    conn.execute("CREATE TABLE IF NOT EXISTS control (key TEXT PRIMARY KEY, value TEXT)")
+    if "reason" not in [r[1] for r in conn.execute("PRAGMA table_info(approvals)").fetchall()]:
+        conn.execute("ALTER TABLE approvals ADD COLUMN reason TEXT")  # why a human rejected a draft
     return conn
 
 
@@ -46,7 +49,30 @@ def today():
 
 # ---- kill switch -----------------------------------------------------------
 def is_killed():
-    return os.path.exists(KILL_FILE) or os.environ.get("AGENT_PAUSED") == "1"
+    if os.path.exists(KILL_FILE) or os.environ.get("AGENT_PAUSED") == "1":
+        return True
+    # The /pause flag lives in the real database (saved by the cloud every run). Tests use their own
+    # databases, so the real flag is ignored while tests run.
+    return False if _TESTING else is_paused()
+
+
+# ---- /pause and /resume (owner only, via Telegram) ---------------------------
+def is_paused(db_path=None):
+    try:
+        conn = connect(db_path)
+        row = conn.execute("SELECT value FROM control WHERE key = 'paused'").fetchone()
+        conn.close()
+        return bool(row and row[0] == "1")
+    except sqlite3.Error:
+        return False
+
+
+def set_paused(paused, db_path=None):
+    conn = connect(db_path)
+    conn.execute("INSERT INTO control (key, value) VALUES ('paused', ?) "
+                 "ON CONFLICT(key) DO UPDATE SET value = excluded.value", ("1" if paused else "0",))
+    conn.commit()
+    conn.close()
 
 
 def kill(reason="manual"):
@@ -127,11 +153,26 @@ def pending(db_path=None):
     return [dict(zip(("id", "ts", "kind", "title", "review"), r)) for r in rows]
 
 
-def decide(approval_id, approved, db_path=None):
+def decide(approval_id, approved, db_path=None, reason=None):
     status = "approved" if approved else "rejected"
     conn = connect(db_path)
-    cur = conn.execute("UPDATE approvals SET status = ?, decided_ts = ? WHERE id = ? AND status = 'pending'",
-                       (status, datetime.datetime.now().isoformat(), approval_id))
+    cur = conn.execute("UPDATE approvals SET status = ?, decided_ts = ?, reason = ? WHERE id = ? AND status = 'pending'",
+                       (status, datetime.datetime.now().isoformat(), reason, approval_id))
+    conn.commit()
+    changed = cur.rowcount
+    conn.close()
+    return bool(changed)
+
+
+REJECT_REASONS = ("price", "too generic", "bad niche", "poor quality", "other")
+
+
+def set_reason(approval_id, reason, db_path=None):
+    """Save why a human rejected a draft (only for rejected drafts; known reasons only)."""
+    if reason not in REJECT_REASONS:
+        return False
+    conn = connect(db_path)
+    cur = conn.execute("UPDATE approvals SET reason = ? WHERE id = ? AND status = 'rejected'", (reason, approval_id))
     conn.commit()
     changed = cur.rowcount
     conn.close()
