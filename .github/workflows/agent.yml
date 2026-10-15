@@ -154,6 +154,16 @@ jobs:
         run: |
           git config user.name "chilli-gavva-bot"
           git config user.email "chilli-gavva-bot@users.noreply.github.com"
+          # Save only when something real changed (rows, dashboard numbers, product files), not when a
+          # quiet run only rewrote the database file bytes or the dashboard timestamp.
+          set +e
+          python3 save_check.py
+          rc=$?
+          set -e
+          if [ "$rc" = "3" ]; then
+            echo "Nothing real changed: not saving."
+            exit 0
+          fi
           # Add each path on its own: one missing folder must not stop everything else being saved
           for p in agent_data.db web/data/status.json exported_content .scheduler_locks; do
             if [ -e "$p" ]; then git add "$p"; fi
