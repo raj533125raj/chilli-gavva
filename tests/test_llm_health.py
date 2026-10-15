@@ -17,8 +17,8 @@ ENV = {"GROQ_API_KEY": SECRET, "GEMINI_API_KEY": "AIza_SECRET_too", "GEMINI_MODE
        "GROQ_MODEL_SMALL": "small-m", "GROQ_MODEL_LARGE": "large-m"}
 
 
-def http_error(code):
-    return urllib.error.HTTPError("https://example.invalid", code, "err", {}, io.BytesIO(b"{}"))
+def http_error(code, body=b"{}"):
+    return urllib.error.HTTPError("https://example.invalid", code, "err", {}, io.BytesIO(body))
 
 
 class HealthTests(unittest.TestCase):
@@ -79,6 +79,46 @@ class HealthTests(unittest.TestCase):
             self.assertEqual(llm_router._probe("https://x.invalid", {}, {}, 1, lambda d: "")[:2], (False, "timeout"))
         with patch("urllib.request.urlopen", side_effect=urllib.error.URLError(socket.timeout())):
             self.assertEqual(llm_router._probe("https://x.invalid", {}, {}, 1, lambda d: "")[:2], (False, "timeout"))
+
+
+class ErrorDetailTests(unittest.TestCase):
+    def test_public_error_codes_are_shown(self):
+        groq = b'{"error": {"message": "Invalid API Key", "type": "invalid_request_error", "code": "invalid_api_key"}}'
+        self.assertEqual(llm_router._describe(http_error(401, groq)), "401 invalid_api_key")
+        google = b'[{"error": {"code": 404, "message": "models/x is not found", "status": "NOT_FOUND"}}]'
+        self.assertEqual(llm_router._describe(http_error(404, google)), "404 NOT_FOUND")
+        self.assertEqual(llm_router._describe(http_error(403, b"error code: 1010")), "403 cloudflare-1010")
+        self.assertEqual(llm_router._describe(http_error(500, b"<html>oops</html>")), "500")
+
+    def test_detail_never_echoes_odd_text(self):
+        body = b'{"error": {"code": "key gsk_SECRET leaked here"}}'
+        self.assertEqual(llm_router._describe(http_error(400, body)), "400")
+
+    def test_requests_send_a_user_agent(self):
+        seen = []
+
+        def fake(req, timeout=None):
+            seen.append(req.get_header("User-agent"))
+            raise http_error(403)
+        with patch.dict(os.environ, ENV, clear=True), redirect_stderr(io.StringIO()), \
+                patch("urllib.request.urlopen", fake), \
+                patch.object(llm_router.guardrails, "record_call", lambda *a, **k: None):
+            llm_router._groq("hi")
+            llm_router._gemini("hi")
+        self.assertTrue(seen and all(ua == "chilli-gavva/1.0" for ua in seen))
+
+    def test_gemini_model_list_is_filtered(self):
+        class Resp(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+        data = b'{"data": [{"id": "models/gemini-2.5-flash"}, {"id": "models/gemini-2.5-flash-preview-tts"}, ' \
+               b'{"id": "models/text-embedding-004"}, {"id": "models/gemini-2.0-flash"}]}'
+        with patch.dict(os.environ, ENV, clear=True):
+            names = llm_router.gemini_model_names(opener=lambda req, timeout=None: Resp(data))
+        self.assertEqual(names, ["gemini-2.5-flash", "gemini-2.0-flash"])
 
 
 class FailureLogTests(unittest.TestCase):
