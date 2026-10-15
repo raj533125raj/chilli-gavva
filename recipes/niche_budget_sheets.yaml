@@ -2,17 +2,17 @@
 # Drafts audience-specific Google Sheets budget and money trackers for global buyers paying in USD.
 # Runs on Mondays and Saturdays (see schedule.yaml). Nothing is published; every draft waits for human approval.
 name: niche_budget_sheets
-description: Budget Sheets Agent - drafts 3 audience-specific Google Sheets money trackers for Payhip
+description: Budget Sheets Agent - drafts 3 audience-specific Google Sheets money trackers for Gumroad
 tasks:
   - kind: research
     payload:
       agent: Budget Sheets Agent
-      topic: "[Budget Sheets Agent] Google Sheets irregular-income monthly budget for freelancers and gig workers, priced 5-9 USD, sold on Payhip to global buyers. Give the product contents and structure (tabs, columns, formulas, a how-to-use tab), a listing title, a listing description, and 5 search tags"
+      topic: "[Budget Sheets Agent] Google Sheets irregular-income monthly budget for freelancers and gig workers, priced 5-9 USD, sold on Gumroad to global buyers. Give the product contents and structure (tabs, columns, formulas, a how-to-use tab), a listing title, a listing description, and 5 search tags"
   - kind: research
     payload:
       agent: Budget Sheets Agent
-      topic: "[Budget Sheets Agent] Google Sheets shared budget for couples who split bills and save for joint goals, priced 5-9 USD, sold on Payhip to global buyers. Give the product contents and structure (tabs, columns, formulas, a how-to-use tab), a listing title, a listing description, and 5 search tags"
+      topic: "[Budget Sheets Agent] Google Sheets shared budget for couples who split bills and save for joint goals, priced 5-9 USD, sold on Gumroad to global buyers. Give the product contents and structure (tabs, columns, formulas, a how-to-use tab), a listing title, a listing description, and 5 search tags"
   - kind: research
     payload:
       agent: Budget Sheets Agent
-      topic: "[Budget Sheets Agent] Google Sheets debt snowball payoff tracker with a progress chart for adults paying off several debts, priced 5-9 USD, sold on Payhip to global buyers. Give the product contents and structure (tabs, columns, formulas, a how-to-use tab), a listing title, a listing description, and 5 search tags. Education only, no financial advice"
+      topic: "[Budget Sheets Agent] Google Sheets debt snowball payoff tracker with a progress chart for adults paying off several debts, priced 5-9 USD, sold on Gumroad to global buyers. Give the product contents and structure (tabs, columns, formulas, a how-to-use tab), a listing title, a listing description, and 5 search tags. Education only, no financial advice"

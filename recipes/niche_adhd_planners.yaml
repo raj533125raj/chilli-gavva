@@ -3,17 +3,17 @@
 # Runs on Wednesdays (see schedule.yaml). Nothing is published; every draft waits for human approval.
 # Rule: no medical, diagnosis or treatment claims. These are planning tools only.
 name: niche_adhd_planners
-description: ADHD Planners Agent - drafts 3 neurodivergent-friendly printable planners for Payhip
+description: ADHD Planners Agent - drafts 3 neurodivergent-friendly printable planners for Gumroad
 tasks:
   - kind: research
     payload:
       agent: ADHD Planners Agent
-      topic: "[ADHD Planners Agent] printable energy-based daily planner for ADHD and neurodivergent adults that plans tasks by energy level, priced 5-12 USD, sold on Payhip to global buyers. Give the product contents and page structure, a listing title, a listing description, and 5 search tags. Planning tool only: no medical, diagnosis or treatment claims"
+      topic: "[ADHD Planners Agent] printable energy-based daily planner for ADHD and neurodivergent adults that plans tasks by energy level, priced 5-12 USD, sold on Gumroad to global buyers. Give the product contents and page structure, a listing title, a listing description, and 5 search tags. Planning tool only: no medical, diagnosis or treatment claims"
   - kind: research
     payload:
       agent: ADHD Planners Agent
-      topic: "[ADHD Planners Agent] printable time-blindness routine planner with visual time blocks and checklists for ADHD adults, priced 5-12 USD, sold on Payhip to global buyers. Give the product contents and page structure, a listing title, a listing description, and 5 search tags. Planning tool only: no medical, diagnosis or treatment claims"
+      topic: "[ADHD Planners Agent] printable time-blindness routine planner with visual time blocks and checklists for ADHD adults, priced 5-12 USD, sold on Gumroad to global buyers. Give the product contents and page structure, a listing title, a listing description, and 5 search tags. Planning tool only: no medical, diagnosis or treatment claims"
   - kind: research
     payload:
       agent: ADHD Planners Agent
-      topic: "[ADHD Planners Agent] printable focus sheets pack (brain dump, one-task focus page, body-doubling session log) for neurodivergent adults, priced 5-12 USD, sold on Payhip to global buyers. Give the product contents and page structure, a listing title, a listing description, and 5 search tags. Planning tool only: no medical, diagnosis or treatment claims"
+      topic: "[ADHD Planners Agent] printable focus sheets pack (brain dump, one-task focus page, body-doubling session log) for neurodivergent adults, priced 5-12 USD, sold on Gumroad to global buyers. Give the product contents and page structure, a listing title, a listing description, and 5 search tags. Planning tool only: no medical, diagnosis or treatment claims"

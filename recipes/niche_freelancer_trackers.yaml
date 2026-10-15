@@ -2,17 +2,17 @@
 # Drafts Google Sheets trackers for freelancers and small online shops, for global buyers paying in USD.
 # Runs on Tuesdays and Sundays (see schedule.yaml). Nothing is published; every draft waits for human approval.
 name: niche_freelancer_trackers
-description: Freelancer Trackers Agent - drafts 3 small-business tracker spreadsheets for Payhip
+description: Freelancer Trackers Agent - drafts 3 small-business tracker spreadsheets for Gumroad
 tasks:
   - kind: research
     payload:
       agent: Freelancer Trackers Agent
-      topic: "[Freelancer Trackers Agent] Google Sheets invoice tracker with an overdue follow-up list for freelancers, priced 12-16 USD, sold on Payhip to global buyers. Give the product contents and structure (tabs, columns, formulas, a how-to-use tab), a listing title, a listing description, and 5 search tags"
+      topic: "[Freelancer Trackers Agent] Google Sheets invoice tracker with an overdue follow-up list for freelancers, priced 12-16 USD, sold on Gumroad to global buyers. Give the product contents and structure (tabs, columns, formulas, a how-to-use tab), a listing title, a listing description, and 5 search tags"
   - kind: research
     payload:
       agent: Freelancer Trackers Agent
-      topic: "[Freelancer Trackers Agent] Google Sheets profit calculator for Etsy and handmade shop owners that includes listing, transaction and payment fees, priced 12-16 USD, sold on Payhip to global buyers. Give the product contents and structure (tabs, columns, formulas, a how-to-use tab), a listing title, a listing description, and 5 search tags. No tax advice"
+      topic: "[Freelancer Trackers Agent] Google Sheets profit calculator for Etsy and handmade shop owners that includes listing, transaction and payment fees, priced 12-16 USD, sold on Gumroad to global buyers. Give the product contents and structure (tabs, columns, formulas, a how-to-use tab), a listing title, a listing description, and 5 search tags. No tax advice"
   - kind: research
     payload:
       agent: Freelancer Trackers Agent
-      topic: "[Freelancer Trackers Agent] Google Sheets inventory and order tracker for small online shops with low-stock alerts, priced 12-16 USD, sold on Payhip to global buyers. Give the product contents and structure (tabs, columns, formulas, a how-to-use tab), a listing title, a listing description, and 5 search tags"
+      topic: "[Freelancer Trackers Agent] Google Sheets inventory and order tracker for small online shops with low-stock alerts, priced 12-16 USD, sold on Gumroad to global buyers. Give the product contents and structure (tabs, columns, formulas, a how-to-use tab), a listing title, a listing description, and 5 search tags"
