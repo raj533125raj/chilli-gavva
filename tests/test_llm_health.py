@@ -209,6 +209,68 @@ class GeminiFallbackTests(unittest.TestCase):
             self.assertNotIn(name, open(llm_router.__file__).read())
 
 
+class GitHubModelsAndPrivacyTests(unittest.TestCase):
+    def test_off_unless_switched_on(self):
+        with patch.dict(os.environ, {"GITHUB_MODELS_TOKEN": "t0ken"}, clear=True), \
+                patch("urllib.request.urlopen", side_effect=AssertionError("no call while off")):
+            self.assertFalse(llm_router.github_models_enabled())
+            self.assertIsNone(llm_router._github_models("p"))
+
+    def test_on_uses_token_and_next_model(self):
+        class Resp(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+        seen = []
+
+        def fake(req, timeout=None):
+            import json as _json
+            seen.append((req.full_url, _json.loads(req.data)["model"]))
+            if len(seen) == 1:
+                raise http_error(404)
+            return Resp(b'{"choices": [{"message": {"content": "hi"}}]}')
+        env = {"GITHUB_MODELS_TOKEN": "t0ken", "GITHUB_MODELS": "on", "GITHUB_MODELS_MODEL": "a/m1,b/m2"}
+        with patch.dict(os.environ, env, clear=True), redirect_stderr(io.StringIO()), \
+                patch("urllib.request.urlopen", fake), \
+                patch.object(llm_router.guardrails, "record_call", lambda *a, **k: None):
+            self.assertEqual(llm_router._github_models("p"), "hi")
+        self.assertEqual([m for _, m in seen], ["a/m1", "b/m2"])
+        self.assertTrue(seen[0][0].startswith("https://models.github.ai/"))
+
+    def test_health_tests_github_models_even_when_off(self):
+        with patch.dict(os.environ, {"GITHUB_MODELS_TOKEN": "t0ken", "GITHUB_MODELS_MODEL": "a/m1"}, clear=True):
+            self.assertEqual([(t[0], t[1]) for t in llm_router._targets()], [("GitHubModels", "a/m1")])
+
+    def test_scrub_hides_secrets_and_chat_id(self):
+        env = {"TELEGRAM_CHAT_ID": "123456789", "GROQ_API_KEY": "gsk_abcdefghijklmnop1234"}
+        text = ("chat 123456789 key gsk_abcdefghijklmnop1234 other gsk_ZZZZZZZZZZZZZZZZZZZZ "
+                "bot 1234567890:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA ghp_aaaaaaaaaaaaaaaaaaaaaaaa")
+        with patch.dict(os.environ, env, clear=True):
+            out = llm_router.scrub(text)
+        for secret in ("123456789", "gsk_", "AAAAAAAAAA", "ghp_"):
+            self.assertNotIn(secret, out)
+        self.assertIn("chat [hidden]", out)
+
+    def test_chat_sends_scrubbed_prompt(self):
+        sent = []
+        with patch.dict(os.environ, {"TELEGRAM_CHAT_ID": "987654321"}, clear=True), \
+                patch.object(llm_router.guardrails, "can_call_llm", lambda *a, **k: True), \
+                patch.object(llm_router, "in_cooldown", lambda *a, **k: False), \
+                patch.object(llm_router, "_gemini", lambda p, timeout=None: sent.append(p) or "ok"):
+            llm_router.chat("my chat id is 987654321")
+        self.assertEqual(sent, ["my chat id is [hidden]"])
+
+    def test_dashboard_chat_prompt_has_no_earnings(self):
+        import chat
+        seen = []
+        status = {"money": {"real_usd": 42.5}, "pending_approvals": [], "agents": [], "task_counts": {},
+                  "kill_switch": False}
+        chat.reply("tell me a joke", status, llm=lambda p: seen.append(p) or "ha")
+        self.assertNotIn("42.5", seen[0])
+
+
 class FailureLogTests(unittest.TestCase):
     def test_groq_failure_prints_one_line_without_key(self):
         err = io.StringIO()

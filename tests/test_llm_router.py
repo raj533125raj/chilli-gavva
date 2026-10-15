@@ -75,7 +75,7 @@ class TestProviderStatus(unittest.TestCase):
             importlib.reload(llm_router)
             status = llm_router.provider_status()
         names = [s["provider"] for s in status]
-        self.assertEqual(names, ["FreeLLMAPI", "Groq", "Gemini", "OpenRouter", "Cloudflare"])
+        self.assertEqual(names, ["Gemini", "Groq", "GitHubModels", "Cloudflare", "OpenRouter", "FreeLLMAPI"])
         for s in status:
             self.assertFalse(s["configured"])
 
@@ -244,9 +244,15 @@ class TestChat(unittest.TestCase):
         elif "guardrails" in sys.modules:
             del sys.modules["guardrails"]
 
-    def test_returns_groq_when_available(self):
+    def test_gemini_is_tried_first(self):
         with patch.object(llm_router, "_groq", return_value="groq result"):
             with patch.object(llm_router, "_gemini", return_value="gemini result"):
+                result = llm_router.chat("hello")
+        self.assertEqual(result, "gemini result")
+
+    def test_groq_answers_when_gemini_fails(self):
+        with patch.object(llm_router, "_groq", return_value="groq result"):
+            with patch.object(llm_router, "_gemini", return_value=None):
                 result = llm_router.chat("hello")
         self.assertEqual(result, "groq result")
 
@@ -404,9 +410,10 @@ class TestAutoSwitch(unittest.TestCase):
             return None
         with patch.object(llm_router, "_freellmapi", return_value=None), \
                 patch.object(llm_router, "_groq", side_effect=fake_groq), \
-                patch.object(llm_router, "_gemini", return_value="gemini answer"):
-            self.assertEqual(llm_router.chat("p"), "gemini answer")
-            self.assertEqual(llm_router.chat("p"), "gemini answer")
+                patch.object(llm_router, "_gemini", return_value=None), \
+                patch.object(llm_router, "_github_models", return_value="backup answer"):
+            self.assertEqual(llm_router.chat("p"), "backup answer")
+            self.assertEqual(llm_router.chat("p"), "backup answer")
         self.assertEqual(calls["groq"], 1)  # second call skipped Groq (cooling down)
 
     def test_failure_without_429_does_not_cool_down(self):
