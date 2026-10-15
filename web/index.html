@@ -93,9 +93,7 @@
 <div id="banner">KILL SWITCH IS ON: all agent work is stopped.</div>
 <header>
   <h1>Chilli Gavva Office</h1>
-  <span class="pill sim" id="mode">SIMULATION</span>
-  <span class="pill">Real money: <b class="real" id="real">$0.00</b></span>
-  <span class="pill" title="Simulated numbers are NOT real money">Simulated: <b id="simulated">$0.00</b></span>
+  <span class="pill" title="Only payouts recorded with proof">Real money: <b class="real" id="real">$0.00</b></span>
   <span class="pill" id="worker">Worker: ?</span>
   <span class="pill">LLM calls today: <b id="llm">0 / 0</b></span>
   <span class="spacer"></span>
@@ -162,10 +160,7 @@ function renderList(id, items, build, emptyText) {
 }
 function render(s) {
   state = s;
-  var mode = document.getElementById("mode");
-  mode.textContent = s.mode === "simulation" ? "SIMULATION" : "MIXED (some real)";
   document.getElementById("real").textContent = money(s.money.real_usd);
-  document.getElementById("simulated").textContent = money(s.money.simulated_usd);
   document.getElementById("llm").textContent = s.llm.calls_today + " / " + s.llm.cap;
   var w = document.getElementById("worker"), ws = s.worker || {};
   w.textContent = ws.running ? "Worker: running (" + ws.age_seconds + "s ago)" : "Worker: stopped";
