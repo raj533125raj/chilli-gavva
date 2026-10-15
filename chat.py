@@ -10,8 +10,7 @@ def reply(message, status, llm=None):
     low = text.lower()
     money = status["money"]
     if any(w in low for w in ("money", "earn", "revenue", "income", "profit")):
-        return (f"Real money earned so far: ${money['real_usd']:.2f}. "
-                f"Simulated numbers (NOT real money): ${money['simulated_usd']:.2f}.")
+        return f"Real money earned so far: ${money['real_usd']:.2f}. Only payouts recorded with proof count."
     if any(w in low for w in ("approve", "approval", "pending", "review")):
         items = status["pending_approvals"]
         if not items:
@@ -30,8 +29,8 @@ def reply(message, status, llm=None):
     if any(w in low for w in ("stop", "pause", "kill")):
         return "Use the Kill switch button on the dashboard (or run: python3 guardrails.py kill). It stops all agent work at once."
     if llm:
-        context = (f"You are the CEO agent of a small zero-cost project. Facts: real money ${money['real_usd']:.2f}, "
-                   f"simulated ${money['simulated_usd']:.2f}, mode {status['mode']}. Be brief and honest. "
+        context = (f"You are the CEO agent of a small zero-cost project. Facts: real money earned ${money['real_usd']:.2f}. "
+                   f"Be brief and honest. "
                    f"Never promise income. User asks: {text}")
         answer = llm(context)
         if answer:

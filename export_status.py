@@ -19,23 +19,49 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATUS_PATH = os.path.join(BASE_DIR, "web", "data", "status.json")
 
 
+def _has_table(conn, name):
+    return conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)).fetchone() is not None
+
+
+def _cols(conn, table):
+    return [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+
+
 def _money(db_path):
+    """Real money only (rows recorded with proof by record_earning.py), plus the activity log."""
     conn = sqlite3.connect(db_path or guardrails.DB_PATH)
-    conn.execute("""CREATE TABLE IF NOT EXISTS campaigns (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT,
-        niche TEXT, content_title TEXT, clicks INTEGER, earnings REAL, status TEXT, source TEXT DEFAULT 'simulated')""")
-    conn.execute("""CREATE TABLE IF NOT EXISTS agent_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT,
-        agent_name TEXT, department TEXT, status TEXT, message TEXT)""")
-    # Older databases (created before the ledger) have no source column: add it, rows count as simulated.
-    cols = [r[1] for r in conn.execute("PRAGMA table_info(campaigns)").fetchall()]
-    if "source" not in cols:
-        conn.execute("ALTER TABLE campaigns ADD COLUMN source TEXT DEFAULT 'simulated'")
-        conn.commit()
-    real = conn.execute("SELECT COALESCE(SUM(earnings), 0) FROM campaigns WHERE source = 'real' AND status != 'VOIDED'").fetchone()[0]
-    total = conn.execute("SELECT COALESCE(SUM(earnings), 0) FROM campaigns WHERE status != 'VOIDED'").fetchone()[0]
-    logs = conn.execute("SELECT timestamp, agent_name, status, message FROM agent_logs "
-                        "ORDER BY id DESC LIMIT 15").fetchall()
+    real = 0.0
+    if _has_table(conn, "campaigns") and "source" in _cols(conn, "campaigns"):
+        real = conn.execute("SELECT COALESCE(SUM(earnings), 0) FROM campaigns "
+                            "WHERE source = 'real' AND status != 'VOIDED'").fetchone()[0]
+    logs = []
+    if _has_table(conn, "agent_logs"):
+        logs = conn.execute("SELECT timestamp, agent_name, status, message FROM agent_logs "
+                            "ORDER BY id DESC LIMIT 15").fetchall()
     conn.close()
-    return real, total - real, [{"ts": t[:19], "agent": a, "status": s, "message": m[:200]} for t, a, s, m in logs]
+    return real, [{"ts": t[:19], "agent": a, "status": s, "message": (m or "")[:200]} for t, a, s, m in logs]
+
+
+def purge_simulated(db_path=None):
+    """Delete the old engine.py simulation rows: fake money, its agent logs, fake discoveries and
+    health reports. Real earnings (source = 'real'), drafts, approvals, tasks and Telegram state
+    are never touched. Safe to run every cycle; returns the number of rows deleted per table."""
+    conn = sqlite3.connect(db_path or guardrails.DB_PATH)
+    deleted = {}
+    try:
+        if _has_table(conn, "campaigns"):
+            where = "COALESCE(source, 'simulated') != 'real'" if "source" in _cols(conn, "campaigns") else "1"
+            deleted["campaigns"] = conn.execute(f"DELETE FROM campaigns WHERE {where}").rowcount
+        if _has_table(conn, "research_discoveries"):
+            where = "COALESCE(source, 'simulated') != 'real'" if "source" in _cols(conn, "research_discoveries") else "1"
+            deleted["research_discoveries"] = conn.execute(f"DELETE FROM research_discoveries WHERE {where}").rowcount
+        for table in ("agent_logs", "health_reports"):  # only the old simulation (engine.py) writes these
+            if _has_table(conn, table):
+                deleted[table] = conn.execute(f"DELETE FROM {table}").rowcount
+        conn.commit()
+    finally:
+        conn.close()
+    return {t: n for t, n in deleted.items() if n}
 
 
 
@@ -48,7 +74,7 @@ def _llm_providers() -> list:
         return []
 
 def build_status(db_path=None):
-    real, simulated, logs = _money(db_path)
+    real, logs = _money(db_path)
     conn = workforce.connect(db_path)
     counts = dict(conn.execute("SELECT status, COUNT(*) FROM tasks GROUP BY status").fetchall())
     recent = [{"id": r[0], "kind": r[1], "status": r[2], "agent": r[3], "attempts": r[4]} for r in
@@ -73,8 +99,7 @@ def build_status(db_path=None):
     tb_conn.close()
     return {
         "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
-        "mode": "mixed" if real > 0 else "simulation",
-        "money": {"real_usd": round(real, 2), "simulated_usd": round(simulated, 2)},
+        "money": {"real_usd": round(real, 2)},
         "kill_switch": guardrails.is_killed(),
         "worker": workforce.worker_status(db_path),
         "llm": {"calls_today": guardrails.calls_today(db_path), "cap": guardrails.daily_cap()},

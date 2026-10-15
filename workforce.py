@@ -151,6 +151,35 @@ def complete(task_id, result, db_path=None):
     conn.close()
 
 
+class AIUnavailable(Exception):
+    """No AI model answered. The task is put back in the queue for a later run (up to MAX_ATTEMPTS)."""
+
+
+AI_DOWN_MESSAGE = "Chilli Gavva: AI is down, will retry later. No placeholder drafts were made."
+
+
+def _alert_ai_down(db_path=None):
+    """Send ONE Telegram alert per UTC day when no AI model answers. Never raises."""
+    try:
+        import notify
+        day = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+        conn = connect(db_path)
+        conn.execute("CREATE TABLE IF NOT EXISTS ai_alerts (day TEXT PRIMARY KEY)")
+        seen = conn.execute("SELECT 1 FROM ai_alerts WHERE day = ?", (day,)).fetchone()
+        conn.close()
+        if seen:
+            return False
+        if not notify.send(AI_DOWN_MESSAGE):
+            return False  # Telegram not set up or not reachable: try again on a later run
+        conn = connect(db_path)
+        conn.execute("INSERT OR IGNORE INTO ai_alerts (day) VALUES (?)", (day,))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception:
+        return False
+
+
 def fail(task_id, attempts, error, db_path=None):
     status = "queued" if attempts < MAX_ATTEMPTS else "failed"
     conn = connect(db_path)
@@ -350,14 +379,9 @@ def step_research(task, ctx):
         prompt = mem_block + "\n\n" + prompt
 
     text = _ask(ctx, prompt, size="small")
-    mode = "llm"
     if not text:
-        mode = "fallback"
-        text = (f"1. Buyer: who needs {product} and why.\n2. Must-have contents: the tabs, pages or fields.\n"
-                "3. Search phrases buyers might type on Etsy, Payhip or Gumroad.\n"
-                "4. Price range in USD: unknown, check similar listings.\n"
-                "5. Stay honest: no income, health or job promises.")
-    return {"text": text, "mode": mode,
+        raise AIUnavailable("research: no answer from any AI model")
+    return {"text": text, "mode": "llm",
             "next": [{"kind": "draft", "payload": {"topic": topic, "research": text[:1500]}}]}
 
 
@@ -383,14 +407,9 @@ def step_draft(task, ctx):
     if mem_block:
         draft_prompt = mem_block + "\n\n" + draft_prompt
     text = _ask(ctx, draft_prompt, size="large")
+    if not text:  # never save a placeholder draft: the task goes back in the queue instead
+        raise AIUnavailable("draft: no answer from any AI model")
     mode = "llm"
-    if not text:
-        mode = "fallback"
-        text = (f"PRODUCT NAME: {product[:80]}\nBUYER: to be confirmed\nPRICE: 7 USD (placeholder)\n"
-                "PLATFORM: Payhip\nWHAT'S INSIDE: to be filled in\nHOW TO USE: to be filled in\n"
-                f"LISTING TITLE: {product[:80]}\n"
-                "LISTING DESCRIPTION: Written without the AI model. Fill in every section before approving.\n"
-                "SEARCH TAGS: tag one, tag two, tag three, tag four, tag five")
     approval_id = guardrails.request_approval("public_draft", f"Draft: {topic[:60]} (v{version_id}, {mode})",
                                               text, db_path=ctx["db_path"])
     conn = connect(ctx["db_path"])
@@ -577,6 +596,7 @@ def run_once(max_tasks=5, db_path=None, llm=None, rng=None):
     recover_stuck(db_path)
     sync_human_decisions(db_path)
     ran = failed = 0
+    ai_down = False
     for _ in range(max_tasks):
         if guardrails.is_killed():
             return {"status": "killed", "ran": ran, "failed": failed}
@@ -589,10 +609,20 @@ def run_once(max_tasks=5, db_path=None, llm=None, rng=None):
                 enqueue(follow["kind"], follow["payload"], db_path=db_path)
             complete(task["id"], result, db_path)
             ran += 1
+        except AIUnavailable as exc:
+            # Back in the queue for a later run (fail() marks it failed after MAX_ATTEMPTS tries).
+            fail(task["id"], task["attempts"], exc, db_path)
+            failed += 1
+            ai_down = True
+            _alert_ai_down(db_path)
+            break  # no point trying more AI tasks in this run
         except Exception as exc:
             fail(task["id"], task["attempts"], exc, db_path)
             failed += 1
-    return {"status": "ok", "ran": ran, "failed": failed}
+    out = {"status": "ok", "ran": ran, "failed": failed}
+    if ai_down:
+        out["ai_down"] = True
+    return out
 
 
 def ensure_daily_plan(db_path=None):

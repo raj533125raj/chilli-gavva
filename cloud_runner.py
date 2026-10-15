@@ -3,7 +3,8 @@
 Order: respect the kill switch, run a few queued tasks (queued by the niche agent
 schedule), write the dashboard snapshot. The old generic daily plan was removed so
 only earning work runs. It never runs the old simulated campaign cycle, so it
-cannot fill the database with fake revenue every few minutes.
+cannot fill the database with fake revenue every few minutes, and it deletes old simulated rows
+(fake money and logs) so the dashboard shows real money only.
 """
 import guardrails
 import workforce
@@ -11,6 +12,9 @@ import export_status
 
 
 def main():
+    removed = export_status.purge_simulated()
+    if removed:
+        print("removed old simulated rows:", removed)
     if guardrails.is_killed():
         result = {"status": "killed", "ran": 0, "failed": 0}
     else:

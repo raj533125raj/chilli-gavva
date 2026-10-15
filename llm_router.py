@@ -14,7 +14,7 @@ Environment variables (all optional — missing key = skip that provider):
     FREELLMAPI_BASE_URL  Override local router URL (default: http://localhost:3001/v1)
     GROQ_API_KEY         Groq console.groq.com — free, no card
     GEMINI_API_KEY       aistudio.google.com/apikey — free, no card
-    GEMINI_MODEL         Optional comma list of Gemini models to try (default: gemini-3.8-flash,gemini-2.5-flash)
+    GEMINI_MODEL         Optional comma list of Gemini models to try (default: gemini-3.8-flash,gemini-flash-latest,gemini-3.5-flash)
     OPENROUTER_API_KEY   openrouter.ai free account key
     OPENROUTER_MODEL     Required with OPENROUTER_API_KEY: a current free model id (ends with ":free")
     CF_API_TOKEN         Cloudflare API token with Workers AI read
@@ -24,7 +24,7 @@ Behaviour:
     - FreeLLMAPI: pools 7B+ free tokens/month from 34 providers — used first when running locally
     - Groq: size routing — "small" = llama-3.1-8b-instant, "large" = llama-3.3-70b-versatile
       (large falls back to small), retries once on 429
-    - Gemini: OpenAI-compatible endpoint, tries GEMINI_MODEL list in order (unknown model -> next)
+    - Gemini: OpenAI-compatible endpoint, tries GEMINI_MODEL list in order (unknown or busy model -> next)
     - OpenRouter: OpenAI-compatible, only when both key and a free model id are set
     - Cloudflare: @cf/meta/llama-3.1-8b-instruct, free 10k neurons/day
     - On any non-retryable error: skip to next provider
@@ -251,7 +251,8 @@ def _groq_call(prompt: str, api_key: str, model: str, timeout: float = _TIMEOUT)
 # ---------------------------------------------------------------------------
 # Provider 2: Google Gemini (free tier)
 # ---------------------------------------------------------------------------
-def _openai_style_call(url: str, api_key: str, model: str, prompt: str, name: str, extra_headers=None):
+def _openai_style_call(url: str, api_key: str, model: str, prompt: str, name: str, extra_headers=None,
+                       timeout: float = _TIMEOUT):
     """POST an OpenAI-compatible chat request. Returns (text_or_None, http_status_or_None)."""
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", **_UA}
     if extra_headers:
@@ -260,7 +261,7 @@ def _openai_style_call(url: str, api_key: str, model: str, prompt: str, name: st
     try:
         req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers)
         guardrails.record_call()
-        with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read().decode())
             text = (((data.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
             if not text:
@@ -277,22 +278,22 @@ def _openai_style_call(url: str, api_key: str, model: str, prompt: str, name: st
 
 
 def _gemini_models() -> list[str]:
-    raw = os.environ.get("GEMINI_MODEL", "") or "gemini-3.8-flash,gemini-2.5-flash"
+    raw = os.environ.get("GEMINI_MODEL", "") or "gemini-3.8-flash,gemini-flash-latest,gemini-3.5-flash"
     return [m.strip() for m in raw.split(",") if m.strip()]
 
 
-def _gemini(prompt: str) -> str | None:
+def _gemini(prompt: str, timeout: float = _TIMEOUT) -> str | None:
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key or api_key.startswith("YOUR_"):
         return None
     url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
     for model in _gemini_models():
-        text, status = _openai_style_call(url, api_key, model, prompt, "Gemini")
+        text, status = _openai_style_call(url, api_key, model, prompt, "Gemini", timeout=timeout)
         if text:
             return text
-        if status in (400, 404):
-            continue  # model name not available any more: try the next one
-        return None   # rate limit, auth problem or network error: stop here
+        if status in (400, 404, 500, 503) or status is None:
+            continue  # model retired, busy (503) or timed out: try the next one
+        return None   # rate limit or auth problem: stop here
     return None
 
 
@@ -388,7 +389,12 @@ def chat(prompt: str, *, db_path=None, size: str | None = None) -> str | None:
         fn = _mod_globals[fn_name]
         _RATE_LIMITED.discard(name)
         try:
-            result = fn(prompt, size=resolved) if name == "Groq" else fn(prompt)
+            if name == "Groq":
+                result = fn(prompt, size=resolved)
+            elif name == "Gemini" and resolved == LARGE:
+                result = fn(prompt, timeout=_TIMEOUT_LARGE)  # long drafts need more than 25 s
+            else:
+                result = fn(prompt)
         except Exception:
             result = None
         if result:
@@ -494,9 +500,9 @@ def health(probe=_probe, long_timeout=90):
                         "reason": reason, "seconds": round(secs, 1)})
     large = os.environ.get("GROQ_MODEL_LARGE", "llama-3.3-70b-versatile")
     working = [r for r in results if r["ok"]]
-    pick = next((r for r in working if r["provider"] == "Groq" and r["model"] == large), None) \
-        or next(iter(working), None)
-    if pick:
+    # Same order as real drafts: the Groq large model first, then every other model that answered.
+    working.sort(key=lambda r: not (r["provider"] == "Groq" and r["model"] == large))
+    for pick in working:
         target = next(t for t in targets if t[0] == pick["provider"] and t[1] == pick["model"])
         body = {"model": target[1], "messages": [{"role": "user", "content": LONG_PROMPT}]}
         ok, reason, secs = probe(target[2], target[3], body, long_timeout, target[4])
@@ -504,6 +510,8 @@ def health(probe=_probe, long_timeout=90):
             reason = f"slower than the old {_TIMEOUT}s limit"
         results.append({"test": "long", "provider": target[0], "model": target[1], "ok": ok,
                         "reason": reason, "seconds": round(secs, 1)})
+        if ok:
+            break
     return results
 
 
