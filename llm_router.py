@@ -3,6 +3,7 @@
 All of them use OpenAI-compatible /v1/chat/completions, all via stdlib urllib — zero third-party deps.
 
 Usage:
+    python3 llm_router.py health     # one tiny test per provider/model + one long-answer test
     import llm_router
     text = llm_router.chat("write a headline about Indian spices")          # auto size
     text = llm_router.chat(long_prompt, size="large")                         # strong model
@@ -35,7 +36,9 @@ Behaviour:
 import datetime
 import json
 import os
+import socket
 import sqlite3
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -43,6 +46,23 @@ import urllib.request
 import guardrails
 
 _TIMEOUT = 25  # seconds per request
+_TIMEOUT_LARGE = 60  # long answers (product drafts) on the large model need more time
+
+
+def _describe(exc) -> str:
+    """Short, secret-free reason for a failed request: HTTP status, "timeout" or the error type."""
+    if isinstance(exc, urllib.error.HTTPError):
+        return str(exc.code)
+    if isinstance(exc, (socket.timeout, TimeoutError)):
+        return "timeout"
+    if isinstance(exc, urllib.error.URLError):
+        return "timeout" if isinstance(exc.reason, (socket.timeout, TimeoutError)) else "network"
+    return type(exc).__name__
+
+
+def _log_fail(provider: str, model: str, reason) -> None:
+    """One short line per failed provider call so CI logs show WHY the AI failed. Never logs keys."""
+    print(f"LLM {provider} {model}: FAIL {reason}", file=sys.stderr)
 
 # ---------------------------------------------------------------------------
 # Auto-switch: remember providers that hit their free limit (HTTP 429)
@@ -155,14 +175,15 @@ def _groq(prompt: str, size: str = SMALL) -> str | None:
     api_key = os.environ.get("GROQ_API_KEY", "")
     if not api_key or api_key.startswith("YOUR_"):
         return None
+    timeout = _TIMEOUT_LARGE if size == LARGE else _TIMEOUT
     for model in _groq_models(size):
-        result = _groq_call(prompt, api_key, model)
+        result = _groq_call(prompt, api_key, model, timeout=timeout)
         if result:
             return result
     return None
 
 
-def _groq_call(prompt: str, api_key: str, model: str) -> str | None:
+def _groq_call(prompt: str, api_key: str, model: str, timeout: float = _TIMEOUT) -> str | None:
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     body = {
@@ -177,9 +198,12 @@ def _groq_call(prompt: str, api_key: str, model: str) -> str | None:
                 url, data=json.dumps(body).encode(), headers=headers
             )
             guardrails.record_call()
-            with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
                 data = json.loads(resp.read().decode())
-                return data["choices"][0]["message"]["content"].strip() or None
+                text = data["choices"][0]["message"]["content"].strip() or None
+                if not text:
+                    _log_fail("Groq", model, "empty answer")
+                return text
         except urllib.error.HTTPError as e:
             if e.code == 429 and attempt == 2:
                 _note_429("Groq")
@@ -191,8 +215,10 @@ def _groq_call(prompt: str, api_key: str, model: str) -> str | None:
                     pass
                 time.sleep(wait)
                 continue
+            _log_fail("Groq", model, e.code)
             return None
-        except Exception:
+        except Exception as exc:
+            _log_fail("Groq", model, _describe(exc))
             return None
     return None
 
@@ -212,12 +238,16 @@ def _openai_style_call(url: str, api_key: str, model: str, prompt: str, name: st
         with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
             data = json.loads(resp.read().decode())
             text = (((data.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
+            if not text:
+                _log_fail(name, model, "empty answer")
             return (text or None), 200
     except urllib.error.HTTPError as e:
         if e.code == 429:
             _note_429(name)
+        _log_fail(name, model, e.code)
         return None, e.code
-    except Exception:
+    except Exception as exc:
+        _log_fail(name, model, _describe(exc))
         return None, None
 
 
@@ -286,7 +316,8 @@ def _cloudflare(prompt: str) -> str | None:
             data = json.loads(resp.read().decode())
             # Shape: {"result": {"response": "..."}, "success": true}
             return (data.get("result") or {}).get("response", "").strip() or None
-    except Exception:
+    except Exception as exc:
+        _log_fail("Cloudflare", "llama-3.1-8b-instruct", _describe(exc))
         return None
 
 
@@ -318,6 +349,7 @@ def chat(prompt: str, *, db_path=None, size: str | None = None) -> str | None:
     Returns None if all providers fail or daily cap is hit.
     """
     if not guardrails.can_call_llm(db_path):
+        print("LLM: skipped (kill switch on or daily call cap reached)", file=sys.stderr)
         return None
 
     resolved = pick_size(prompt, size)
@@ -365,3 +397,102 @@ def provider_status() -> list[dict]:
             configured = False
         status.append({"provider": name, "configured": configured})
     return status
+
+
+# ---------------------------------------------------------------------------
+# Health check: python3 llm_router.py health
+# ---------------------------------------------------------------------------
+HEALTH_PROMPT = "Reply with the single word OK."
+LONG_PROMPT = ("Write a complete product spec and store listing (about 600 words) for a Google Sheets budget "
+               "template for freelancers with irregular income. Use these labelled sections: PRODUCT NAME, BUYER, "
+               "PRICE (in USD), PLATFORM, WHAT'S INSIDE (every tab with its columns), HOW TO USE, LISTING TITLE, "
+               "LISTING DESCRIPTION, SEARCH TAGS (exactly 5). No income promises.")
+
+
+def _probe(url, headers, body, timeout, parse):
+    """One request for the health check. Returns (ok, reason, seconds). reason never contains secrets."""
+    started = time.time()
+    try:
+        req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            text = parse(json.loads(resp.read().decode()))
+        ok = bool(text and text.strip())
+        return ok, ("" if ok else "empty answer"), time.time() - started
+    except Exception as exc:
+        return False, _describe(exc), time.time() - started
+
+
+def _chat_parse(data):
+    return ((data.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+
+
+def _targets():
+    """(provider, model, url, headers, extra_body, parse) for every configured provider and model."""
+    out = []
+    key = os.environ.get("GROQ_API_KEY", "")
+    if key and not key.startswith("YOUR_"):
+        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+        for model in dict.fromkeys(_groq_models(LARGE)[::-1]):  # small first, then large
+            out.append(("Groq", model, "https://api.groq.com/openai/v1/chat/completions", headers, _chat_parse))
+    key = os.environ.get("GEMINI_API_KEY", "")
+    if key and not key.startswith("YOUR_"):
+        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+        for model in _gemini_models():
+            out.append(("Gemini", model, "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+                        headers, _chat_parse))
+    key, model = os.environ.get("OPENROUTER_API_KEY", ""), os.environ.get("OPENROUTER_MODEL", "").strip()
+    if key and model and not key.startswith("YOUR_"):
+        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json", "X-Title": "Chilli Gavva"}
+        out.append(("OpenRouter", model, "https://openrouter.ai/api/v1/chat/completions", headers, _chat_parse))
+    tok, acc = os.environ.get("CF_API_TOKEN", ""), os.environ.get("CF_ACCOUNT_ID", "")
+    if tok and acc and not tok.startswith("YOUR_"):
+        headers = {"Authorization": f"Bearer {tok}", "Content-Type": "application/json"}
+        url = f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/@cf/meta/llama-3.1-8b-instruct"
+        out.append(("Cloudflare", "llama-3.1-8b-instruct", url, headers,
+                    lambda d: (d.get("result") or {}).get("response") or ""))
+    return out
+
+
+def health(probe=_probe, long_timeout=90):
+    """Run one tiny test per provider/model, then one long-answer test on the first large model that works.
+
+    Returns a list of result dicts. Nothing here contains a key: only provider, model, ok, reason, seconds.
+    """
+    results = []
+    targets = _targets()
+    for provider, model, url, headers, parse in targets:
+        body = {"model": model, "messages": [{"role": "user", "content": HEALTH_PROMPT}]}
+        ok, reason, secs = probe(url, headers, body, _TIMEOUT, parse)
+        results.append({"test": "tiny", "provider": provider, "model": model, "ok": ok,
+                        "reason": reason, "seconds": round(secs, 1)})
+    large = os.environ.get("GROQ_MODEL_LARGE", "llama-3.3-70b-versatile")
+    working = [r for r in results if r["ok"]]
+    pick = next((r for r in working if r["provider"] == "Groq" and r["model"] == large), None) \
+        or next(iter(working), None)
+    if pick:
+        target = next(t for t in targets if t[0] == pick["provider"] and t[1] == pick["model"])
+        body = {"model": target[1], "messages": [{"role": "user", "content": LONG_PROMPT}]}
+        ok, reason, secs = probe(target[2], target[3], body, long_timeout, target[4])
+        if ok and secs > _TIMEOUT:
+            reason = f"slower than the old {_TIMEOUT}s limit"
+        results.append({"test": "long", "provider": target[0], "model": target[1], "ok": ok,
+                        "reason": reason, "seconds": round(secs, 1)})
+    return results
+
+
+def format_health(results):
+    if not results:
+        return "No AI provider is configured (no API keys found)."
+    lines = [f"{'TEST':5} {'PROVIDER':11} {'MODEL':32} RESULT"]
+    for r in results:
+        verdict = "OK" if r["ok"] else "FAIL"
+        extra = f" {r['reason']}" if r["reason"] else ""
+        lines.append(f"{r['test']:5} {r['provider']:11} {r['model'][:32]:32} {verdict}{extra} ({r['seconds']}s)")
+    return "\n".join(lines)
+
+
+if __name__ == "__main__":
+    if sys.argv[1:2] == ["health"]:
+        print(format_health(health()))
+    else:
+        print("usage: python3 llm_router.py health")
