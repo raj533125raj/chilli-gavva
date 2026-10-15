@@ -119,11 +119,14 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python3 cloud_runner.py
 
-      - name: Telegram inbox (approve/reject from phone + new draft alerts)
+      - name: Telegram inbox (buttons, commands, new draft alerts, daily report)
         if: steps.gate.outputs.run == 'true'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # read-only: the daily report asks the alarm clock how many minutes ran this month
+          ALWAYS_ON_URL: ${{ secrets.ALWAYS_ON_URL }}
+          ALWAYS_ON_SECRET: ${{ secrets.ALWAYS_ON_SECRET }}
         run: python3 telegram_inbox.py
 
       - name: Export approved content
