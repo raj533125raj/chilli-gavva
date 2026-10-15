@@ -135,6 +135,23 @@ class ErrorDetailTests(unittest.TestCase):
             names = llm_router.gemini_model_names(opener=lambda req, timeout=None: Resp(data))
         self.assertEqual(names, ["gemini-2.5-flash", "gemini-2.0-flash"])
 
+    def test_groq_model_list_is_filtered_and_safe(self):
+        class Resp(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+        data = b'{"data": [{"id": "llama-9-70b"}, {"id": "whisper-large-v3"}, {"id": "bad id with spaces"}, ' \
+               b'{"id": "openai/gpt-oss-20b"}, {"id": "llama-guard-4"}]}'
+        with patch.dict(os.environ, ENV, clear=True):
+            names = llm_router.groq_model_names(opener=lambda req, timeout=None: Resp(data))
+        self.assertEqual(names, ["llama-9-70b", "openai/gpt-oss-20b"])
+        with patch.dict(os.environ, ENV, clear=True):
+            out = llm_router.groq_model_names(opener=lambda req, timeout=None: (_ for _ in ()).throw(http_error(401)))
+        self.assertEqual(out, ["(could not list models: 401)"])
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(llm_router.groq_model_names(), [])
 
 class GeminiFallbackTests(unittest.TestCase):
     def test_busy_or_retired_model_moves_to_next(self):
