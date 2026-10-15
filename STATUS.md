@@ -40,6 +40,10 @@ free store (Gumroad). Nothing is published, posted or sold automatically.
    LICENSE.txt (personal use only).
 10. **Daily report** (`daily_report.py`): one short Telegram message on the first run after 03:30 UTC, plus a
     weekly letter on Sundays (real money only).
+11. **Topic pool** (`niche_topics.py`): each niche's 3 starter topics seed a pool; when it runs low the AI
+    suggests new specific topics. A done-topics list (plus every past task) blocks repeats and near-repeats.
+    If no fresh topic is left and the AI is down, nothing is queued that night.
+12. **Save state** saves only when something real changed (`save_check.py`), not just timestamps.
 
 ## Where it runs
 - **GitHub Actions** (`.github/workflows/agent.yml`): tests first, then one agent cycle, Telegram inbox,

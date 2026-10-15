@@ -119,8 +119,12 @@ def list_recipes() -> list[dict]:
     return out
 
 
-def run_recipe(path: str, db_path=None, dry_run: bool = False) -> dict:
-    """Load recipe from path and enqueue its tasks. Returns summary dict."""
+def run_recipe(path: str, db_path=None, dry_run: bool = False, llm=None) -> dict:
+    """Load recipe from path and enqueue its tasks. Returns summary dict.
+
+    Niche recipes (name starts with "niche_") take fresh, never-used topics from the niche topic pool
+    (niche_topics.py) instead of repeating their 3 starter topics every time.
+    """
     if not os.path.isabs(path):
         path = os.path.join(BASE_DIR, path)
     if not os.path.exists(path):
@@ -134,6 +138,17 @@ def run_recipe(path: str, db_path=None, dry_run: bool = False) -> dict:
     tasks = recipe.get("tasks", [])
     if not tasks:
         return {"error": "Recipe has no tasks", "name": recipe.get("name")}
+
+    note = ""
+    if not dry_run and str(recipe.get("name", "")).startswith("niche_"):
+        import niche_topics
+        import workforce
+        fresh = niche_topics.fresh_tasks(recipe, db_path=db_path,
+                                         llm=llm if llm is not None else workforce.default_llm(db_path))
+        if fresh is not None:
+            tasks = fresh
+            if not tasks:
+                note = "no new topics left and the AI could not suggest more; nothing repeated tonight"
 
     enqueued = []
     errors = []
@@ -158,7 +173,7 @@ def run_recipe(path: str, db_path=None, dry_run: bool = False) -> dict:
         "name": recipe.get("name", os.path.basename(path)),
         "description": recipe.get("description", ""),
         "enqueued": enqueued,
-        "errors": errors,
+        "errors": errors + ([note] if note else []),
     }
 
 
