@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-15T17:16:21",
+ "generated_at": "2026-10-15T20:16:29",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 25,
+  "calls_today": 28,
   "cap": 500
  },
  "agents": [
@@ -57,7 +57,7 @@
     "research"
    ],
    "state": "idle",
-   "tasks_done": 3
+   "tasks_done": 6
   },
   {
    "name": "Draft Worker",
@@ -100,9 +100,52 @@
   }
  ],
  "task_counts": {
-  "done": 9
+  "done": 12,
+  "queued": 3
  },
  "recent_tasks": [
+  {
+   "id": 15,
+   "kind": "draft",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 14,
+   "kind": "draft",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 13,
+   "kind": "draft",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 12,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1
+  },
+  {
+   "id": 11,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1
+  },
+  {
+   "id": 10,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1
+  },
   {
    "id": 9,
    "kind": "review",
@@ -144,27 +187,6 @@
    "status": "done",
    "agent": "Draft Worker",
    "attempts": 1
-  },
-  {
-   "id": 3,
-   "kind": "research",
-   "status": "done",
-   "agent": "Research Worker",
-   "attempts": 1
-  },
-  {
-   "id": 2,
-   "kind": "research",
-   "status": "done",
-   "agent": "Research Worker",
-   "attempts": 1
-  },
-  {
-   "id": 1,
-   "kind": "research",
-   "status": "done",
-   "agent": "Research Worker",
-   "attempts": 1
   }
  ],
  "pending_approvals": [],
@@ -172,12 +194,26 @@
   {
    "id": 2,
    "name": "draft",
-   "active": true,
+   "active": false,
    "trials": 3,
    "quality": 59.7
   },
   {
+   "id": 4,
+   "name": "draft",
+   "active": true,
+   "trials": 0,
+   "quality": 0.0
+  },
+  {
    "id": 1,
+   "name": "research",
+   "active": false,
+   "trials": 0,
+   "quality": 0.0
+  },
+  {
+   "id": 3,
    "name": "research",
    "active": true,
    "trials": 0,
