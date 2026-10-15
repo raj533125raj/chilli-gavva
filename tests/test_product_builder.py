@@ -104,8 +104,11 @@ class Base(unittest.TestCase):
         return folder
 
     def assert_common_files(self, folder):
-        for name in ("listing.md", "README.md", "cover_image_idea.txt"):
+        for name in ("listing.md", "README.md", "cover_image_idea.txt", "LICENSE.txt", "cover.png",
+                     "preview-1.png", "preview-2.png", "preview-3.png", "pinterest.png"):
             self.assertTrue(os.path.isfile(os.path.join(folder, name)), name)
+        with open(os.path.join(folder, "LICENSE.txt"), encoding="utf-8") as f:
+            self.assertEqual(f.read().strip(), "Personal use only. Do not resell or share the files.")
         with open(os.path.join(folder, "listing.md"), encoding="utf-8") as f:
             listing = f.read()
         self.assertIn("USD", listing)
