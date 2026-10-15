@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-15T15:07:49",
+ "generated_at": "2026-10-15T15:16:16",
  "money": {
   "real_usd": 0
  },
@@ -190,23 +190,27 @@
  "built_tools": [],
  "llm_providers": [
   {
-   "provider": "FreeLLMAPI",
-   "configured": false
+   "provider": "Gemini",
+   "configured": true
   },
   {
    "provider": "Groq",
    "configured": true
   },
   {
-   "provider": "Gemini",
-   "configured": true
+   "provider": "GitHubModels",
+   "configured": false
+  },
+  {
+   "provider": "Cloudflare",
+   "configured": false
   },
   {
    "provider": "OpenRouter",
    "configured": false
   },
   {
-   "provider": "Cloudflare",
+   "provider": "FreeLLMAPI",
    "configured": false
   }
  ]
