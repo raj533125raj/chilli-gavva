@@ -300,8 +300,15 @@ def run(db_path=None):
         return {"configured": False, "commands": 0, "alerts": 0}
     commands = process_updates(token, chat_id, db_path)
     alerts = alert_new_drafts(token, chat_id, db_path)
-    print(f"Telegram inbox: {commands} command(s) handled, {alerts} new draft(s) announced.")
-    return {"configured": True, "commands": commands, "alerts": alerts}
+    try:  # one short health report a day (first run after 03:30 UTC), weekly letter on Sundays
+        import daily_report
+        daily = daily_report.maybe_send(lambda text: send_text(token, chat_id, text), get_state, set_state, db_path)
+    except Exception as exc:
+        print(f"Daily report skipped: {type(exc).__name__}")
+        daily = False
+    print(f"Telegram inbox: {commands} command(s) handled, {alerts} new draft(s) announced"
+          + (", daily report sent." if daily else "."))
+    return {"configured": True, "commands": commands, "alerts": alerts, "daily_report": daily}
 
 
 def main(argv):

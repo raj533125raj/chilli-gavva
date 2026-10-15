@@ -29,6 +29,17 @@ free store (Payhip or Gumroad). Nothing is published, posted or sold automatical
 5. **Product Builder** (`product_builder.py`): turns approved niche drafts into files under
    `exported_content/products/` (xlsx, printable PDFs, Notion import zip, docx + listing text).
 6. **Self-improvement** (`improver.py`): A/B tests prompt wording only; the draft format is fixed in code.
+7. **AI providers** (`llm_router.py`): Gemini first, then Groq, GitHub Models (off until the repo variable
+   `GITHUB_MODELS` is `on`), Cloudflare Workers AI, OpenRouter. Prompts are scrubbed of keys, tokens and the
+   Telegram chat id. If no AI answers, no placeholder draft is made: the task retries on a later run (max 3).
+   Manual health check: run the workflow with `health=yes`.
+8. **Telegram** (`telegram_inbox.py`): new drafts come with Approve / Reject / View buttons; Reject asks for a
+   reason (saved with the decision). `/pause` and `/resume` are the emergency brake. Answered on the next run
+   (about every 30 minutes).
+9. **Listing images** (`mockups.py`): every built product gets cover.png, preview-1..3.png, pinterest.png and
+   LICENSE.txt (personal use only).
+10. **Daily report** (`daily_report.py`): one short Telegram message on the first run after 03:30 UTC, plus a
+    weekly letter on Sundays (real money only).
 
 ## Where it runs
 - **GitHub Actions** (`.github/workflows/agent.yml`): tests first, then one agent cycle, Telegram inbox,

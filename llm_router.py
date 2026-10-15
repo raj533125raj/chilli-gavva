@@ -441,6 +441,10 @@ def chat(prompt: str, *, db_path=None, size: str | None = None) -> str | None:
     resolved = pick_size(prompt, size)
     _mod_globals = globals()
     order = [(name, fn.__name__) for name, fn in _PROVIDERS]
+    try:
+        configured = {s["provider"] for s in provider_status() if s["configured"]}
+    except Exception:
+        configured = set()
     for name, fn_name in order:
         if in_cooldown(name, db_path):
             continue  # this free provider hit its limit recently: let the next one work
@@ -455,12 +459,32 @@ def chat(prompt: str, *, db_path=None, size: str | None = None) -> str | None:
                 result = fn(prompt)
         except Exception:
             result = None
+        if name in configured:
+            log_provider(name, bool(result), db_path)
         if result:
             return result
         if name in _RATE_LIMITED:
             set_cooldown(name, db_path=db_path)
 
     return None
+
+
+def log_provider(name: str, ok: bool, db_path=None) -> None:
+    """Count answers and failures per provider per day (for the daily Telegram report). Never raises."""
+    if getattr(guardrails, "_TESTING", False) and db_path is None:
+        return  # tests must not write into the real database
+    try:
+        conn = sqlite3.connect(db_path or guardrails.DB_PATH)
+        conn.execute("CREATE TABLE IF NOT EXISTS provider_log (day TEXT, provider TEXT, ok INTEGER DEFAULT 0, "
+                     "fail INTEGER DEFAULT 0, PRIMARY KEY (day, provider))")
+        col = "ok" if ok else "fail"
+        conn.execute(f"INSERT INTO provider_log (day, provider, {col}) VALUES (?, ?, 1) "
+                     f"ON CONFLICT(day, provider) DO UPDATE SET {col} = {col} + 1",
+                     (datetime.datetime.now(datetime.timezone.utc).date().isoformat(), name))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
 
 
 def provider_status() -> list[dict]:
