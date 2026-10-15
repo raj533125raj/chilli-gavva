@@ -49,10 +49,35 @@ _TIMEOUT = 25  # seconds per request
 _TIMEOUT_LARGE = 60  # long answers (product drafts) on the large model need more time
 
 
+# Some APIs sit behind Cloudflare, which refuses Python's default "Python-urllib" user agent with 403.
+_UA = {"User-Agent": "chilli-gavva/1.0"}
+
+
+def _error_detail(exc) -> str:
+    """A short public error code from the response body (e.g. "invalid_api_key", "1010"). Never the key."""
+    import re
+    try:
+        raw = (exc.read() or b"")[:4000].decode("utf-8", "replace")
+    except Exception:
+        return ""
+    if "error code: 1010" in raw or "error code:1010" in raw:
+        return "cloudflare-1010"
+    try:
+        data = json.loads(raw)
+        err = data[0] if isinstance(data, list) and data else data
+        err = err.get("error", err) if isinstance(err, dict) else {}
+        values = [err.get(k) for k in ("code", "status", "type")] if isinstance(err, dict) else []
+        code = next((v for v in values if isinstance(v, str) and v), "")
+    except Exception:
+        return ""
+    return code if re.fullmatch(r"[A-Za-z0-9_.\-]{1,40}", code) else ""
+
+
 def _describe(exc) -> str:
-    """Short, secret-free reason for a failed request: HTTP status, "timeout" or the error type."""
+    """Short, secret-free reason for a failed request: HTTP status (+ public error code), "timeout" or type."""
     if isinstance(exc, urllib.error.HTTPError):
-        return str(exc.code)
+        detail = _error_detail(exc)
+        return f"{exc.code} {detail}".strip()
     if isinstance(exc, (socket.timeout, TimeoutError)):
         return "timeout"
     if isinstance(exc, urllib.error.URLError):
@@ -135,7 +160,7 @@ def _freellmapi(prompt: str) -> str | None:
 
     base_url = os.environ.get("FREELLMAPI_BASE_URL", "http://localhost:3001/v1")
     url = base_url.rstrip("/") + "/chat/completions"
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", **_UA}
     body = {
         "model": "auto",  # let the router pick the best free model
         "messages": [{"role": "user", "content": prompt}],
@@ -185,7 +210,7 @@ def _groq(prompt: str, size: str = SMALL) -> str | None:
 
 def _groq_call(prompt: str, api_key: str, model: str, timeout: float = _TIMEOUT) -> str | None:
     url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", **_UA}
     body = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
@@ -215,7 +240,7 @@ def _groq_call(prompt: str, api_key: str, model: str, timeout: float = _TIMEOUT)
                     pass
                 time.sleep(wait)
                 continue
-            _log_fail("Groq", model, e.code)
+            _log_fail("Groq", model, _describe(e))
             return None
         except Exception as exc:
             _log_fail("Groq", model, _describe(exc))
@@ -228,7 +253,7 @@ def _groq_call(prompt: str, api_key: str, model: str, timeout: float = _TIMEOUT)
 # ---------------------------------------------------------------------------
 def _openai_style_call(url: str, api_key: str, model: str, prompt: str, name: str, extra_headers=None):
     """POST an OpenAI-compatible chat request. Returns (text_or_None, http_status_or_None)."""
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", **_UA}
     if extra_headers:
         headers.update(extra_headers)
     body = {"model": model, "messages": [{"role": "user", "content": prompt}], "temperature": 0.7}
@@ -244,7 +269,7 @@ def _openai_style_call(url: str, api_key: str, model: str, prompt: str, name: st
     except urllib.error.HTTPError as e:
         if e.code == 429:
             _note_429(name)
-        _log_fail(name, model, e.code)
+        _log_fail(name, model, _describe(e))
         return None, e.code
     except Exception as exc:
         _log_fail(name, model, _describe(exc))
@@ -302,6 +327,7 @@ def _cloudflare(prompt: str) -> str | None:
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
+        **_UA,
     }
     body = {
         "messages": [{"role": "user", "content": prompt}],
@@ -431,22 +457,23 @@ def _targets():
     out = []
     key = os.environ.get("GROQ_API_KEY", "")
     if key and not key.startswith("YOUR_"):
-        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json", **_UA}
         for model in dict.fromkeys(_groq_models(LARGE)[::-1]):  # small first, then large
             out.append(("Groq", model, "https://api.groq.com/openai/v1/chat/completions", headers, _chat_parse))
     key = os.environ.get("GEMINI_API_KEY", "")
     if key and not key.startswith("YOUR_"):
-        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json", **_UA}
         for model in _gemini_models():
             out.append(("Gemini", model, "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
                         headers, _chat_parse))
     key, model = os.environ.get("OPENROUTER_API_KEY", ""), os.environ.get("OPENROUTER_MODEL", "").strip()
     if key and model and not key.startswith("YOUR_"):
-        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json", "X-Title": "Chilli Gavva"}
+        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json", "X-Title": "Chilli Gavva",
+                   **_UA}
         out.append(("OpenRouter", model, "https://openrouter.ai/api/v1/chat/completions", headers, _chat_parse))
     tok, acc = os.environ.get("CF_API_TOKEN", ""), os.environ.get("CF_ACCOUNT_ID", "")
     if tok and acc and not tok.startswith("YOUR_"):
-        headers = {"Authorization": f"Bearer {tok}", "Content-Type": "application/json"}
+        headers = {"Authorization": f"Bearer {tok}", "Content-Type": "application/json", **_UA}
         url = f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/@cf/meta/llama-3.1-8b-instruct"
         out.append(("Cloudflare", "llama-3.1-8b-instruct", url, headers,
                     lambda d: (d.get("result") or {}).get("response") or ""))
@@ -480,6 +507,24 @@ def health(probe=_probe, long_timeout=90):
     return results
 
 
+def gemini_model_names(opener=None) -> list[str]:
+    """Names of the Gemini chat models this key can use (public model ids only), newest-looking first."""
+    key = os.environ.get("GEMINI_API_KEY", "")
+    if not key or key.startswith("YOUR_"):
+        return []
+    req = urllib.request.Request("https://generativelanguage.googleapis.com/v1beta/openai/models",
+                                 headers={"Authorization": f"Bearer {key}", **_UA})
+    try:
+        with (opener or urllib.request.urlopen)(req, timeout=_TIMEOUT) as resp:
+            data = json.loads(resp.read().decode())
+    except Exception as exc:
+        return [f"(could not list models: {_describe(exc)})"]
+    names = [str(m.get("id", "")).replace("models/", "") for m in data.get("data", []) if isinstance(m, dict)]
+    names = [n for n in names if n.startswith("gemini") and ("flash" in n or "pro" in n)
+             and not any(x in n for x in ("tts", "image", "audio", "live", "embedding"))]
+    return sorted(set(names), reverse=True)[:12]
+
+
 def format_health(results):
     if not results:
         return "No AI provider is configured (no API keys found)."
@@ -494,5 +539,8 @@ def format_health(results):
 if __name__ == "__main__":
     if sys.argv[1:2] == ["health"]:
         print(format_health(health()))
+        models = gemini_model_names()
+        if models:
+            print("Gemini models this key can use: " + ", ".join(models))
     else:
         print("usage: python3 llm_router.py health")
