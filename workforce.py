@@ -65,7 +65,7 @@ Answer with exactly these sections, each starting on its own line with the label
 PRODUCT NAME: one line
 BUYER: who it is for and the problem it solves
 PRICE: a price in USD, for example "7 USD"
-PLATFORM: Payhip or Gumroad
+PLATFORM: Gumroad
 WHAT'S INSIDE: the full structure (tabs, pages or sections, with the columns or fields of each)
 HOW TO USE: 3-5 short steps
 LISTING TITLE: under 140 characters

@@ -6,7 +6,7 @@ Last updated: 2026-10-15.
 A zero-cost team of AI agents that researches and drafts low-cost digital products (Google Sheets
 trackers, printable planners, Notion templates, resume bundles) for buyers worldwide paying in USD.
 A human approves every draft; approved drafts become ready-to-sell files that the human uploads to a
-free store (Payhip or Gumroad). Nothing is published, posted or sold automatically.
+free store (Gumroad). Nothing is published, posted or sold automatically.
 
 ## Honest state
 - Real money earned so far: **$0.00**. No product has been listed or sold yet.
@@ -29,7 +29,7 @@ free store (Payhip or Gumroad). Nothing is published, posted or sold automatical
 5. **Product Builder** (`product_builder.py`): turns approved niche drafts into files under
    `exported_content/products/` (xlsx, printable PDFs, Notion import zip, docx + listing text).
 6. **Self-improvement** (`improver.py`): A/B tests prompt wording only; the draft format is fixed in code.
-7. **AI providers** (`llm_router.py`): Gemini first, then Groq, GitHub Models (off until the repo variable
+7. **AI providers** (`llm_router.py`): Groq first, then Gemini, GitHub Models (off until the repo variable
    `GITHUB_MODELS` is `on`), Cloudflare Workers AI, OpenRouter. Prompts are scrubbed of keys, tokens and the
    Telegram chat id. If no AI answers, no placeholder draft is made: the task retries on a later run (max 3).
    Manual health check: run the workflow with `health=yes`.

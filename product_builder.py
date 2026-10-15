@@ -39,15 +39,15 @@ MAX_TRIES = 3
 MAX_BUILDS_PER_RUN = 2
 
 NICHES = {
-    "Budget Sheets Agent": {"kind": "sheets", "price": 7, "platform": "Payhip",
+    "Budget Sheets Agent": {"kind": "sheets", "price": 7, "platform": "Gumroad",
                             "buyer": "adults who want a simple monthly money plan",
                             "tags": ["budget spreadsheet", "google sheets budget", "money tracker",
                                      "monthly budget", "budget template"]},
-    "Freelancer Trackers Agent": {"kind": "sheets", "price": 14, "platform": "Payhip",
+    "Freelancer Trackers Agent": {"kind": "sheets", "price": 14, "platform": "Gumroad",
                                   "buyer": "freelancers and small online shop owners",
                                   "tags": ["freelancer tracker", "invoice tracker", "small business sheet",
                                            "profit calculator", "google sheets template"]},
-    "ADHD Planners Agent": {"kind": "planner", "price": 8, "platform": "Payhip",
+    "ADHD Planners Agent": {"kind": "planner", "price": 8, "platform": "Gumroad",
                             "buyer": "neurodivergent adults who like simple printable planners",
                             "tags": ["adhd planner", "printable planner", "daily planner",
                                      "routine planner", "focus planner"]},
@@ -55,7 +55,7 @@ NICHES = {
                                "buyer": "students, freelancers and creators who use Notion",
                                "tags": ["notion template", "notion planner", "notion dashboard",
                                         "productivity template", "notion system"]},
-    "Resume Bundle Agent": {"kind": "resume", "price": 12, "platform": "Payhip",
+    "Resume Bundle Agent": {"kind": "resume", "price": 12, "platform": "Gumroad",
                             "buyer": "job seekers who want a clean ATS-friendly resume",
                             "tags": ["ats resume", "resume template", "cover letter template",
                                      "job tracker", "word resume"]},
@@ -212,7 +212,7 @@ def parse_spec(text, niche):
             "short_name": _slug(data.get("short_name") or data.get("name") or title),
             "listing": {"title": title, "description": description, "tags": tags, "price_usd": price,
                         "buyer": _clean(listing.get("buyer"), 160) or info["buyer"],
-                        "platform": _clean(listing.get("platform"), 40) or info["platform"]},
+                        "platform": info["platform"]},   # always Gumroad (the store we use)
             "instructions": [_clean(s, 300) for s in (data.get("instructions") or []) if _clean(s)][:12],
             "cover_image_idea": _clean(data.get("cover_image_idea"), 400)}
     checker = {"sheets": _norm_sheets, "planner": _norm_pages, "notion": _norm_notion, "resume": _norm_resume}[kind]
@@ -866,7 +866,7 @@ def write_index(db_path=None, out_dir=None):
     out_dir = out_dir or PRODUCTS_DIR
     os.makedirs(out_dir, exist_ok=True)
     lines = ["# Ready-to-sell products", "",
-             "Built from approved drafts. Download a folder, check the files, then upload them to Payhip or "
+             "Built from approved drafts. Download a folder, check the files, then upload them to "
              "Gumroad yourself. Nothing here is published automatically.", "",
              "| Draft | Folder | Status |", "|---|---|---|"]
     for b in builds(db_path):

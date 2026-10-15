@@ -288,13 +288,19 @@ def _gemini(prompt: str, timeout: float = _TIMEOUT) -> str | None:
     if not api_key or api_key.startswith("YOUR_"):
         return None
     url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+    statuses = []
     for model in _gemini_models():
         text, status = _openai_style_call(url, api_key, model, prompt, "Gemini", timeout=timeout)
         if text:
+            _RATE_LIMITED.discard("Gemini")
             return text
-        if status in (400, 404, 500, 503) or status is None:
-            continue  # model retired, busy (503) or timed out: try the next one
-        return None   # rate limit or auth problem: stop here
+        statuses.append(status)
+        if status in (400, 404, 429, 500, 503) or status is None:
+            continue  # retired, over its own limit (429), busy or timed out: try the next Gemini model
+        return None   # auth problem: stop here
+    if any(s != 429 for s in statuses):
+        # Each Gemini model has its own limit: cool Gemini down only when EVERY model said 429.
+        _RATE_LIMITED.discard("Gemini")
     return None
 
 
@@ -407,10 +413,10 @@ def scrub(prompt: str) -> str:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
-# Order: Gemini first, then Groq, GitHub Models, Cloudflare, OpenRouter. FreeLLMAPI (local only) is last.
+# Order: Groq first, then Gemini, GitHub Models, Cloudflare, OpenRouter. FreeLLMAPI (local only) is last.
 _PROVIDERS = [
-    ("Gemini", _gemini),
     ("Groq", _groq),
+    ("Gemini", _gemini),
     ("GitHubModels", _github_models),
     ("Cloudflare", _cloudflare),
     ("OpenRouter", _openrouter),
