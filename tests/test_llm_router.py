@@ -310,24 +310,24 @@ class TestSizeRouting(unittest.TestCase):
     def test_small_uses_8b_model(self):
         with patch("urllib.request.urlopen", return_value=_FakeResp(_make_groq_response("ok"))) as m:
             self.assertEqual(llm_router._groq("hi", size="small"), "ok")
-        self.assertEqual(self._models_called(m), ["llama-3.1-8b-instant"])
+        self.assertEqual(self._models_called(m), ["openai/gpt-oss-20b"])
 
     def test_default_size_is_small(self):
         with patch("urllib.request.urlopen", return_value=_FakeResp(_make_groq_response("ok"))) as m:
             llm_router._groq("hi")
-        self.assertEqual(self._models_called(m), ["llama-3.1-8b-instant"])
+        self.assertEqual(self._models_called(m), ["openai/gpt-oss-20b"])
 
     def test_large_uses_70b_model(self):
         with patch("urllib.request.urlopen", return_value=_FakeResp(_make_groq_response("big"))) as m:
             self.assertEqual(llm_router._groq("hi", size="large"), "big")
-        self.assertEqual(self._models_called(m), ["llama-3.3-70b-versatile"])
+        self.assertEqual(self._models_called(m), ["openai/gpt-oss-120b"])
 
     def test_large_falls_back_to_small_on_error(self):
         import urllib.error
         err = urllib.error.HTTPError("u", 400, "bad", {}, None)
         with patch("urllib.request.urlopen", side_effect=[err, _FakeResp(_make_groq_response("small ok"))]) as m:
             self.assertEqual(llm_router._groq("hi", size="large"), "small ok")
-        self.assertEqual(self._models_called(m), ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"])
+        self.assertEqual(self._models_called(m), ["openai/gpt-oss-120b", "openai/gpt-oss-20b"])
 
     def test_env_overrides_models(self):
         with patch.dict("os.environ", {"GROQ_MODEL_LARGE": "my-large", "GROQ_MODEL_SMALL": "my-small"}):

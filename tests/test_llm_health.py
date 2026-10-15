@@ -201,6 +201,13 @@ class GeminiFallbackTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             self.assertNotIn("gemini-2.5-flash", llm_router._gemini_models())
 
+    def test_default_groq_models_are_current(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(llm_router._groq_models(llm_router.LARGE)[0], "openai/gpt-oss-120b")
+            self.assertEqual(llm_router._groq_models(llm_router.SMALL)[0], "openai/gpt-oss-20b")
+        for name in ("llama-3.1-8b-instant", "llama-3.3-70b-versatile"):  # retired by Groq (404)
+            self.assertNotIn(name, open(llm_router.__file__).read())
+
 
 class FailureLogTests(unittest.TestCase):
     def test_groq_failure_prints_one_line_without_key(self):
