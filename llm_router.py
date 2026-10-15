@@ -36,6 +36,7 @@ Behaviour:
 import datetime
 import json
 import os
+import re
 import socket
 import sqlite3
 import sys
@@ -533,6 +534,24 @@ def gemini_model_names(opener=None) -> list[str]:
     return sorted(set(names), reverse=True)[:12]
 
 
+def groq_model_names(opener=None) -> list[str]:
+    """Names of the Groq chat models this key can use (public model ids only)."""
+    key = os.environ.get("GROQ_API_KEY", "")
+    if not key or key.startswith("YOUR_"):
+        return []
+    req = urllib.request.Request("https://api.groq.com/openai/v1/models",
+                                 headers={"Authorization": f"Bearer {key}", **_UA})
+    try:
+        with (opener or urllib.request.urlopen)(req, timeout=_TIMEOUT) as resp:
+            data = json.loads(resp.read().decode())
+    except Exception as exc:
+        return [f"(could not list models: {_describe(exc)})"]
+    names = [str(m.get("id", "")) for m in data.get("data", []) if isinstance(m, dict)]
+    names = [n for n in names if re.fullmatch(r"[A-Za-z0-9_./:\-]{1,80}", n)
+             and not any(x in n.lower() for x in ("whisper", "tts", "guard", "playai", "orpheus", "distil"))]
+    return sorted(set(names))[:20]
+
+
 def format_health(results):
     if not results:
         return "No AI provider is configured (no API keys found)."
@@ -550,5 +569,8 @@ if __name__ == "__main__":
         models = gemini_model_names()
         if models:
             print("Gemini models this key can use: " + ", ".join(models))
+        models = groq_model_names()
+        if models:
+            print("Groq models this key can use: " + ", ".join(models))
     else:
         print("usage: python3 llm_router.py health")
