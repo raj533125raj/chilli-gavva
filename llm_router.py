@@ -22,7 +22,7 @@ Environment variables (all optional — missing key = skip that provider):
 
 Behaviour:
     - FreeLLMAPI: pools 7B+ free tokens/month from 34 providers — used first when running locally
-    - Groq: size routing — "small" = llama-3.1-8b-instant, "large" = llama-3.3-70b-versatile
+    - Groq: size routing — "small" = openai/gpt-oss-20b, "large" = openai/gpt-oss-120b
       (large falls back to small), retries once on 429
     - Gemini: OpenAI-compatible endpoint, tries GEMINI_MODEL list in order (unknown or busy model -> next)
     - OpenRouter: OpenAI-compatible, only when both key and a free model id are set
@@ -191,8 +191,8 @@ _LARGE_PROMPT_CHARS = 3000  # auto mode: prompts longer than this go to the larg
 
 
 def _groq_models(size: str) -> list[str]:
-    small = os.environ.get("GROQ_MODEL_SMALL", "llama-3.1-8b-instant")
-    large = os.environ.get("GROQ_MODEL_LARGE", "llama-3.3-70b-versatile")
+    small = os.environ.get("GROQ_MODEL_SMALL", "openai/gpt-oss-20b")
+    large = os.environ.get("GROQ_MODEL_LARGE", "openai/gpt-oss-120b")
     # Large falls back to small (e.g. when the large model's daily free limit is used up)
     return [large, small] if size == LARGE else [small]
 
@@ -499,7 +499,7 @@ def health(probe=_probe, long_timeout=90):
         ok, reason, secs = probe(url, headers, body, _TIMEOUT, parse)
         results.append({"test": "tiny", "provider": provider, "model": model, "ok": ok,
                         "reason": reason, "seconds": round(secs, 1)})
-    large = os.environ.get("GROQ_MODEL_LARGE", "llama-3.3-70b-versatile")
+    large = os.environ.get("GROQ_MODEL_LARGE", "openai/gpt-oss-120b")
     working = [r for r in results if r["ok"]]
     # Same order as real drafts: the Groq large model first, then every other model that answered.
     working.sort(key=lambda r: not (r["provider"] == "Groq" and r["model"] == large))
