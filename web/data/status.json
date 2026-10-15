@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-15T16:37:47",
+ "generated_at": "2026-10-15T16:46:20",
  "money": {
   "real_usd": 0
  },
@@ -190,11 +190,11 @@
  "built_tools": [],
  "llm_providers": [
   {
-   "provider": "Gemini",
+   "provider": "Groq",
    "configured": true
   },
   {
-   "provider": "Groq",
+   "provider": "Gemini",
    "configured": true
   },
   {
