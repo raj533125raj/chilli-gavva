@@ -18,6 +18,10 @@ on:
         description: "Run even if the Mac worker is alive (yes/no)"
         required: false
         default: "no"
+      health:
+        description: "Run the AI health check first (yes/no)"
+        required: false
+        default: "no"
 
 permissions:
   contents: write
@@ -40,6 +44,20 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+
+      # Manual only (Run workflow -> health = yes): one tiny test per AI model + one long-answer test.
+      # Prints provider, model, OK/FAIL, error number or timeout, seconds. Never prints keys.
+      - name: AI health check (manual only)
+        if: github.event.inputs.health == 'yes'
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+        run: python3 llm_router.py health
 
       # One writer at a time: when the Mac worker is alive this run stands down (all steps skip).
       - name: Skip if the Mac worker is running
