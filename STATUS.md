@@ -10,12 +10,14 @@ free store (Gumroad). Nothing is published, posted or sold automatically.
 
 ## Honest state
 - Real money earned so far: **$0.00**. No product has been listed or sold yet.
-- No real draft has been produced by the niche agents yet; the pipeline below is built and tested.
+- Drafts 1-3 (ADHD planners) were written while the AI was down and approved; products #1 and #3 are built,
+  #2 is retried by the Product Builder now that the AI works.
 - `engine.py` is an old simulation; its numbers are labelled `simulated` in the database and are not income.
 
 ## How it works today
 1. **Five niche agents** (`recipes/niche_*.yaml`): budget sheets, freelancer trackers, ADHD planners,
-   Notion templates, resume bundle. One niche runs per night at 21:00 UTC, taking turns by weekday
+   Notion templates, resume bundle. One niche runs per night (slot hour 21 UTC with a +/-1 hour window,
+   so the first run after 20:00 UTC starts it, about 20:16), taking turns by weekday
    (`schedule.yaml`, `scheduler.py`). Each run queues up to 3 product ideas; it skips the night when
    10 drafts already wait for approval.
 2. **Research → draft** (`workforce.py`): the research step works from the topic and the agents'
@@ -49,18 +51,18 @@ free store (Gumroad). Nothing is published, posted or sold automatically.
 - **GitHub Actions** (`.github/workflows/agent.yml`): tests first, then one agent cycle, Telegram inbox,
   export, product builder, and "Save state" (commits the database and new product files).
   GitHub's own timer is a backup every 3 hours; it fires rarely on its own.
-- **Planned / in setup** (`docs/ALWAYS_ON.md`): a free Cloudflare Worker "alarm clock" that starts a run
-  every 30 minutes within the 2,000 free Actions minutes, a Mac mode for nonstop work while the owner's
-  Mac is on, and a Telegram "door bell" for fast replies. Phase A code is merged; account setup is pending.
+- **Alarm clock (live)** (`docs/ALWAYS_ON.md`): a free Cloudflare Worker starts a run about every 30 minutes
+  within the 2,000 free Actions minutes. Still planned: a Mac mode for nonstop work while the owner's Mac is
+  on, and a Telegram "door bell" for fast replies.
 
 ## Quality
-- About 390 offline unit tests: `python3 -m unittest discover -s tests` (CI runs them with `CHILLI_TEST=1`
+- About 500 offline unit tests: `python3 -m unittest discover -s tests` (CI runs them with `CHILLI_TEST=1`
   before every cycle). Tests never call real AI models or websites.
 
 ## Known gaps / next steps
-- Finish the always-on setup (alarm clock, Mac mode, door bell).
-- Old food and fishery recipes are still listed in `schedule.yaml` (02, 07, 12, 17 UTC). Their topics are
-  now skipped by the research guard, so they cost nothing, but the schedule should be cleaned up.
+- Finish the always-on setup (Mac mode, door bell).
+- The schedule has only the night niche slot. Old food/fishery recipe files remain in `recipes/` but are
+  not scheduled, and their topics are blocked by the research guard.
 - `feeds.py` and `web_fetcher.py` are no longer used by the agents and can be removed later.
 - Pick prices and upload the first approved products by hand, then measure real sales.
 

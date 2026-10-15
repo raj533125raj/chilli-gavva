@@ -108,7 +108,8 @@ def _todo(db_path=None, out_dir=None):
     rows = conn.execute("SELECT a.id, a.title, a.payload FROM approvals a "
                         "LEFT JOIN product_builds b ON b.approval_id = a.id "
                         "WHERE a.status = 'approved' AND a.kind = 'public_draft' "
-                        "AND (b.status IS NULL OR b.status = 'retry') ORDER BY a.id").fetchall()
+                        "AND (b.status IS NULL OR b.status = 'retry' "
+                        "     OR (b.status = 'failed' AND b.note = ?)) ORDER BY a.id", (AI_DOWN,)).fetchall()
     conn.close()
     existing = set(os.listdir(out_dir)) if os.path.isdir(out_dir) else set()
     out = []
@@ -862,6 +863,102 @@ def build_product(spec, approval_id, out_dir=None):
     return folder_name
 
 
+# ---- listing images for products built before images existed ---------------------------
+_PDF_OP = re.compile(r"BT /(F1|F2) ([\d.]+) Tf [\d.]+ ([\d.]+) Td \((.*)\) Tj ET$")
+
+
+def _pdf_unescape(s):
+    return s.replace("\\(", "(").replace("\\)", ")").replace("\\\\", "\\")
+
+
+def planner_pages_from_pdf(path):
+    """Read page titles, headings and items back from a planner PDF written by build_planner_pdf."""
+    with open(path, "rb") as f:
+        data = f.read().decode("latin-1")
+    pages = []
+    for stream in re.findall(r"stream\n(.*?)\nendstream", data, re.S):
+        page, section, boxed = None, None, False
+        for op in stream.splitlines():
+            if op.endswith(" re S 0 G"):
+                boxed = True
+                continue
+            m = _PDF_OP.match(op)
+            if not m:
+                continue
+            font, size, text = m.group(1), float(m.group(2)), _pdf_unescape(m.group(4))
+            if font == "F2" and size >= 18:
+                page = {"title": text.replace(" (cont.)", ""), "subtitle": "", "sections": []}
+                pages.append(page)
+            elif page is None or size <= 8:
+                continue   # footer
+            elif font == "F2" and size >= 12:
+                section = {"heading": text, "type": "lines", "items": [], "count": 3}
+                page["sections"].append(section)
+            elif section is not None and (boxed or font == "F2"):
+                section["type"] = "checklist" if boxed else "schedule"
+                section["items"].append(text)
+            elif size == 10 and not page["sections"]:
+                page["subtitle"] = text
+            boxed = False
+    merged = []
+    for p in pages:   # "(cont.)" pages belong to the page before
+        if merged and merged[-1]["title"] == p["title"]:
+            merged[-1]["sections"] += p["sections"]
+        else:
+            merged.append(p)
+    return merged
+
+
+def spec_from_folder(folder):
+    """A small spec (name, kind, first pages) rebuilt from an existing product folder."""
+    names = sorted(os.listdir(folder))
+    name = os.path.basename(folder).split("-", 1)[-1].replace("-", " ").title()
+    try:
+        with open(os.path.join(folder, "README.md"), encoding="utf-8") as f:
+            first = f.readline().strip()
+        if first.startswith("# "):
+            name = first[2:].strip()
+    except OSError:
+        pass
+    pdfs = [n for n in names if n.endswith(".pdf")]
+    if pdfs:
+        pdf = next((n for n in pdfs if n.endswith("-A4.pdf")), pdfs[0])
+        return {"kind": "planner", "name": name, "pages": planner_pages_from_pdf(os.path.join(folder, pdf))}
+    if any(n.endswith("-resume.docx") for n in names):
+        return {"kind": "resume", "name": name, "resume": [], "cover_letter": []}
+    if any(n.endswith("-notion-import.zip") for n in names):
+        return {"kind": "notion", "name": name, "pages": [], "databases": []}
+    return {"kind": "sheets", "name": name, "sheets": []}
+
+
+def add_missing_images(out_dir=None):
+    """Give every built product folder without listing images its images and LICENSE.txt.
+
+    Only new files are added; the product files themselves are never changed. Returns the folders done.
+    """
+    out_dir = out_dir or PRODUCTS_DIR
+    done = []
+    if not os.path.isdir(out_dir):
+        return done
+    import mockups
+    for entry in sorted(os.listdir(out_dir)):
+        folder = os.path.join(out_dir, entry)
+        if not os.path.isdir(folder) or os.path.exists(os.path.join(folder, "cover.png")):
+            continue
+        if not os.path.exists(os.path.join(folder, "listing.md")):
+            continue   # not a finished product folder
+        try:
+            mockups.write_mockups(folder, spec_from_folder(folder))
+        except Exception as exc:
+            print(f"Product Builder: images for {entry} skipped: {type(exc).__name__}", file=sys.stderr)
+            continue
+        if not os.path.exists(os.path.join(folder, "LICENSE.txt")):
+            with open(os.path.join(folder, "LICENSE.txt"), "w", encoding="utf-8") as f:
+                f.write(LICENSE_TEXT)
+        done.append(entry)
+    return done
+
+
 def write_index(db_path=None, out_dir=None):
     out_dir = out_dir or PRODUCTS_DIR
     os.makedirs(out_dir, exist_ok=True)
@@ -876,6 +973,9 @@ def write_index(db_path=None, out_dir=None):
             lines.append(f"| #{b['approval_id']} | - | {b['status']} after {b['tries']} try(s): {b['note'][:80]} |")
     with open(os.path.join(out_dir, "INDEX.md"), "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
+
+
+AI_DOWN = "no reply from the model"
 
 
 def build_pending(db_path=None, llm=None, max_builds=MAX_BUILDS_PER_RUN, out_dir=None):
@@ -898,6 +998,11 @@ def build_pending(db_path=None, llm=None, max_builds=MAX_BUILDS_PER_RUN, out_dir
                                                      size="large"), niche)
         except Exception as exc:
             spec, reason = None, f"model error: {exc}"
+        if spec is None and reason == AI_DOWN:
+            # No AI answered: not the draft's fault, so it does not use up a try. Retry on a later run.
+            _record(db_path, item["id"], "retry", note=reason)
+            results.append({"id": item["id"], "status": "retry", "reason": reason})
+            break
         if spec is None:
             tries = _record(db_path, item["id"], "retry", note=reason, add_try=True)
             if tries >= MAX_TRIES:
@@ -927,6 +1032,8 @@ def main(argv=None):
         print("Product Builder: paused (kill switch or /pause), nothing built.")
         return
     results = build_pending(db_path=args.db, max_builds=args.max)
+    for entry in add_missing_images():
+        print(f"Product Builder: added listing images and LICENSE.txt to {entry}")
     if not results:
         print("Product Builder: no new approved niche drafts.")
     for r in results:

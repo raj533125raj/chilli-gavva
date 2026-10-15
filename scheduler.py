@@ -21,22 +21,15 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SCHEDULE_PATH = os.path.join(BASE_DIR, "schedule.yaml")
 LOCK_DIR = os.path.join(BASE_DIR, ".scheduler_locks")
 
+# Used only when schedule.yaml is missing: the one night slot with the five niche agents (same as schedule.yaml).
 DEFAULT_SCHEDULE = """\
 # Chilli Gavva daily schedule (UTC hours)
-# Each slot maps to a recipe name in recipes/
+# One niche agent runs per night, taking turns by UTC weekday.
 slots:
-  - name: morning
-    hour: 2
-    recipe: daily_chilli_content
-  - name: midday
-    hour: 7
-    recipe: shrimp_market_brief
-  - name: afternoon
-    hour: 12
-    recipe: tool_idea_sprint
-  - name: evening
-    hour: 17
-    recipe: daily_chilli_content
+  - name: night
+    hour: 21
+    rotate: niche_budget_sheets, niche_freelancer_trackers, niche_adhd_planners, niche_notion_templates, niche_resume_bundle
+    recipe: niche_budget_sheets
 """
 
 
