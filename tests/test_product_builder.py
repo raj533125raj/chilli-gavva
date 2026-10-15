@@ -287,5 +287,45 @@ class ParseTests(unittest.TestCase):
         self.assertIsNone(pb.niche_of(None))
 
 
+class OldProductImageTests(Base):
+    def test_old_products_get_images_without_changing_files(self):
+        folder = self.build_one("ADHD Planners Agent")
+        for name in ("cover.png", "preview-1.png", "preview-2.png", "preview-3.png", "pinterest.png", "LICENSE.txt"):
+            os.remove(os.path.join(folder, name))             # like a product built before images existed
+        before = {n: open(os.path.join(folder, n), "rb").read() for n in os.listdir(folder)}
+        self.assertEqual(pb.add_missing_images(self.out), [os.path.basename(folder)])
+        after = set(os.listdir(folder))
+        self.assertTrue({"cover.png", "preview-1.png", "preview-2.png", "preview-3.png", "pinterest.png",
+                         "LICENSE.txt"} <= after)
+        for n, data in before.items():
+            self.assertEqual(open(os.path.join(folder, n), "rb").read(), data, n)   # product files untouched
+        self.assertEqual(pb.add_missing_images(self.out), [])                      # nothing done twice
+
+    def test_planner_pages_read_back_from_pdf(self):
+        folder = self.build_one("ADHD Planners Agent")
+        pdf = next(n for n in os.listdir(folder) if n.endswith("-A4.pdf"))
+        pages = pb.planner_pages_from_pdf(os.path.join(folder, pdf))
+        spec = SPECS["ADHD Planners Agent"]
+        self.assertEqual([p["title"] for p in pages], [p["title"] for p in spec["pages"]])
+        first = pages[0]["sections"][0]
+        self.assertEqual(first["heading"], spec["pages"][0]["sections"][0]["heading"])
+
+    def test_ai_down_does_not_use_up_tries(self):
+        aid = self.add(TITLES["ADHD Planners Agent"])
+        for _ in range(5):
+            res = self.run_builder(StubLLM(lambda p: None))
+            self.assertEqual(res[0]["status"], "retry")
+        row = [b for b in pb.builds(self.db) if b["approval_id"] == aid][0]
+        self.assertEqual(row["tries"], 0)
+
+    def test_old_ai_down_failure_gets_another_chance(self):
+        aid = self.add(TITLES["ADHD Planners Agent"])
+        pb._record(self.db, aid, "failed", note=pb.AI_DOWN, add_try=True)
+        res = self.run_builder(StubLLM(reply_for_prompt))
+        self.assertEqual(res[0]["status"], "built")
+        pb._record(self.db, aid + 100, "failed", note="reply is not valid JSON")
+        self.assertNotIn(aid + 100, [t["id"] for t in pb._todo(self.db, self.out)])
+
+
 if __name__ == "__main__":
     unittest.main()

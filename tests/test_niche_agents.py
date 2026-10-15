@@ -130,6 +130,15 @@ class RealScheduleTests(unittest.TestCase):
         week = {scheduler.resolve_recipe(night, MONDAY + datetime.timedelta(days=i)) for i in range(7)}
         self.assertEqual(week, set(NICHES))
 
+    def test_fallback_schedule_is_the_night_niche_slot(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            slots = scheduler._load_schedule(os.path.join(d, "schedule.yaml"))
+        self.assertEqual([s["name"] for s in slots], ["night"])
+        self.assertEqual([n.strip() for n in slots[0]["rotate"].split(",")], NICHES)
+        for old in ("daily_chilli_content", "shrimp_market_brief", "tool_idea_sprint"):
+            self.assertNotIn(old, scheduler.DEFAULT_SCHEDULE)
+
     def test_old_sprint_is_retired(self):
         self.assertFalse(os.path.exists(os.path.join(BASE_DIR, "recipes", "digital_product_sprint.yaml")))
         for s in _real_schedule():

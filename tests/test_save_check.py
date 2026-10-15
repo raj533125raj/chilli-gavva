@@ -79,5 +79,65 @@ class SaveCheckTests(unittest.TestCase):
         self.assertIn('if [ "$rc" = "3" ]', save_step)
 
 
+class TelegramStateIsSavedTests(unittest.TestCase):
+    """The bot must never answer the same command twice: Telegram memory always counts as a real change."""
+
+    def setUp(self):
+        import datetime
+        from unittest import mock
+        import daily_report
+        import guardrails
+        import telegram_inbox as ti
+        import workforce
+        self.mock, self.dt, self.dr, self.g, self.ti, self.wf = mock, datetime, daily_report, guardrails, ti, workforce
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.dir = self.tmp.name
+        self.db = os.path.join(self.dir, "agent_data.db")
+        guardrails.request_approval("public_draft", "Draft: [ADHD Planners Agent] x", "body", db_path=self.db)
+        ti.set_state("update_offset", 100, self.db)
+        ti.set_state("last_alerted_id", 1, self.db)
+        workforce.connect(self.db).close()
+        git(self.dir, "init", "-q")
+        git(self.dir, "add", "-A")
+        git(self.dir, "commit", "-qm", "base")
+        patches = [mock.patch.object(ti, "send_text", return_value=True),
+                   mock.patch.object(ti, "_call", return_value={"ok": True})]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+
+    def updates(self, items):
+        with self.mock.patch.object(self.ti, "fetch_updates", return_value=items):
+            self.ti.process_updates("tok", "111", self.db)
+
+    def test_quiet_run_skips(self):
+        self.updates([])
+        self.ti.alert_new_drafts("tok", "111", self.db)
+        self.assertEqual(save_check.real_changes(self.dir), [])
+
+    def test_every_telegram_action_is_saved(self):
+        actions = {
+            "command": lambda: self.updates([{"update_id": 101, "message": {"chat": {"id": 111}, "text": "/list"}}]),
+            "stranger": lambda: self.updates([{"update_id": 102, "message": {"chat": {"id": 9}, "text": "/pause"}}]),
+            "button": lambda: self.updates([{"update_id": 103, "callback_query": {
+                "id": "q", "data": "v:1", "from": {"id": 111}, "message": {"chat": {"id": 111}}}}]),
+            "draft alert": lambda: (self.g.request_approval("public_draft", "Draft: new", "b", db_path=self.db),
+                                    git(self.dir, "commit", "-qam", "draft"),
+                                    self.ti.alert_new_drafts("tok", "111", self.db)),
+            "daily report": lambda: self.dr.maybe_send(lambda t: True, self.ti.get_state, self.ti.set_state, self.db,
+                                                       now=self.dt.datetime(2026, 10, 16, 4, 0),
+                                                       status_fn=lambda: {}),
+            "ai-down alert": lambda: self.mock.patch("notify.send", return_value=True).start()
+            and self.wf._alert_ai_down(self.db),
+        }
+        for name, act in actions.items():
+            with self.subTest(action=name):
+                act()
+                self.assertIn("database rows", save_check.real_changes(self.dir))
+                git(self.dir, "checkout", "-q", "--", ".")
+        self.mock.patch.stopall()
+
+
 if __name__ == "__main__":
     unittest.main()
