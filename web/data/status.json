@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-15T11:16:15",
+ "generated_at": "2026-10-15T11:25:39",
  "mode": "simulation",
  "money": {
   "real_usd": 0,
@@ -13,7 +13,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 0,
+  "calls_today": 3,
   "cap": 500
  },
  "agents": [
@@ -170,13 +170,6 @@
   }
  ],
  "pending_approvals": [
-  {
-   "id": 1,
-   "ts": "2026-10-14T23:33:36.120091",
-   "kind": "public_draft",
-   "title": "Draft: [ADHD Planners Agent] printable energy-based daily planner f (v2, fallback)",
-   "review": "score 18/100 (rules 30, checker 5) | CHECKER: REJECT | issues: Draft is incomplete and cuts off mid-sentence; Describes a free browser tool instead of a paid printable digital product; Missing product contents and page structure; Missing listing title and listing description; Missing 5 search tags"
-  },
   {
    "id": 2,
    "ts": "2026-10-14T23:33:36.389802",

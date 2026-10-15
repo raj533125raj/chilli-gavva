@@ -4,4 +4,5 @@ Built from approved drafts. Download a folder, check the files, then upload them
 
 | Draft | Folder | Status |
 |---|---|---|
-| #1 | - | retry after 1 try(s): no reply from the model |
+| #1 | - | retry after 2 try(s): no reply from the model |
+| #2 | - | retry after 1 try(s): no reply from the model |
