@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-15T20:16:29",
+ "generated_at": "2026-10-15T20:46:32",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 28,
+  "calls_today": 31,
   "cap": 500
  },
  "agents": [
@@ -68,7 +68,7 @@
     "rewrite"
    ],
    "state": "idle",
-   "tasks_done": 3
+   "tasks_done": 6
   },
   {
    "name": "QA Checker",
@@ -100,30 +100,51 @@
   }
  ],
  "task_counts": {
-  "done": 12,
+  "done": 15,
   "queued": 3
  },
  "recent_tasks": [
   {
-   "id": 15,
-   "kind": "draft",
+   "id": 18,
+   "kind": "review",
    "status": "queued",
    "agent": null,
    "attempts": 0
+  },
+  {
+   "id": 17,
+   "kind": "review",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 16,
+   "kind": "review",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 15,
+   "kind": "draft",
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 14,
    "kind": "draft",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 13,
    "kind": "draft",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 12,
@@ -166,30 +187,31 @@
    "status": "done",
    "agent": "QA Checker",
    "attempts": 1
-  },
+  }
+ ],
+ "pending_approvals": [
   {
-   "id": 6,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
+   "id": 4,
+   "ts": "2026-10-15T20:46:26.648103",
+   "kind": "public_draft",
+   "title": "Draft: [Notion Templates Agent] Notion student semester planner wit (v4, llm)",
+   "review": null
   },
   {
    "id": 5,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
+   "ts": "2026-10-15T20:46:29.582624",
+   "kind": "public_draft",
+   "title": "Draft: [Notion Templates Agent] Notion client CRM for freelancers w (v4, llm)",
+   "review": null
   },
   {
-   "id": 4,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
+   "id": 6,
+   "ts": "2026-10-15T20:46:32.127870",
+   "kind": "public_draft",
+   "title": "Draft: [Notion Templates Agent] Notion content calendar for solo cr (v4, llm)",
+   "review": null
   }
  ],
- "pending_approvals": [],
  "prompts": [
   {
    "id": 2,
