@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-15T11:25:39",
+ "generated_at": "2026-10-15T11:29:51",
  "mode": "simulation",
  "money": {
   "real_usd": 0,
@@ -13,7 +13,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 3,
+  "calls_today": 9,
   "cap": 500
  },
  "agents": [
@@ -170,13 +170,6 @@
   }
  ],
  "pending_approvals": [
-  {
-   "id": 2,
-   "ts": "2026-10-14T23:33:36.389802",
-   "kind": "public_draft",
-   "title": "Draft: [ADHD Planners Agent] printable time-blindness routine plann (v2, fallback)",
-   "review": "score 20/100 (rules 30, checker 10) | CHECKER: REJECT | issues: Draft describes a free browser software tool instead of a paid printable planner; Missing product contents and page structure; Missing listing title and listing description; Missing 5 search tags; Missing price in USD and selling platform (Payhip)"
-  },
   {
    "id": 3,
    "ts": "2026-10-14T23:33:36.651406",
