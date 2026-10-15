@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-15T21:16:22",
+ "generated_at": "2026-10-15T21:26:54",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 34,
+  "calls_today": 36,
   "cap": 500
  },
  "agents": [
@@ -68,7 +68,7 @@
     "rewrite"
    ],
    "state": "idle",
-   "tasks_done": 6
+   "tasks_done": 7
   },
   {
    "name": "QA Checker",
@@ -78,7 +78,7 @@
     "review"
    ],
    "state": "idle",
-   "tasks_done": 6
+   "tasks_done": 7
   },
   {
    "name": "Review Worker",
@@ -100,16 +100,22 @@
   }
  ],
  "task_counts": {
-  "done": 18,
-  "queued": 1
+  "done": 20
  },
  "recent_tasks": [
   {
+   "id": 20,
+   "kind": "review",
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
+  },
+  {
    "id": 19,
    "kind": "rewrite",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 18,
@@ -180,13 +186,6 @@
    "status": "done",
    "agent": "QA Checker",
    "attempts": 1
-  },
-  {
-   "id": 8,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1
   }
  ],
  "pending_approvals": [
@@ -201,8 +200,8 @@
    "id": 5,
    "ts": "2026-10-15T20:46:29.582624",
    "kind": "public_draft",
-   "title": "Draft: [Notion Templates Agent] Notion client CRM for freelancers w (v4, llm)",
-   "review": "score 89/100 (rules 100, checker 78) | CHECKER: REVISE | one rewrite queued | issues: Mentions Notion 'auto\u2011number' columns, which Notion does not natively support.; Refers to a 'Gantt view' \u2013 Notion offers a Timeline view, not a dedicated Gantt chart.; Mentions a 'PDF Export Link' property, which is not a built\u2011in Notion property."
+   "title": "Draft: [Notion Templates Agent] Notion client CRM for freelancers w (v4, llm) (rewritten)",
+   "review": "score 78/100 (rules 60, checker 95) | CHECKER: PASS | issues: missing: product name, buyer, price, platform, what's inside, how to use, listing title, listing description, search tags"
   },
   {
    "id": 6,
