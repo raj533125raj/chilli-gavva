@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-15T20:46:32",
+ "generated_at": "2026-10-15T21:16:22",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 31,
+  "calls_today": 34,
   "cap": 500
  },
  "agents": [
@@ -78,7 +78,7 @@
     "review"
    ],
    "state": "idle",
-   "tasks_done": 3
+   "tasks_done": 6
   },
   {
    "name": "Review Worker",
@@ -100,30 +100,37 @@
   }
  ],
  "task_counts": {
-  "done": 15,
-  "queued": 3
+  "done": 18,
+  "queued": 1
  },
  "recent_tasks": [
   {
-   "id": 18,
-   "kind": "review",
+   "id": 19,
+   "kind": "rewrite",
    "status": "queued",
    "agent": null,
    "attempts": 0
+  },
+  {
+   "id": 18,
+   "kind": "review",
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 17,
    "kind": "review",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 16,
    "kind": "review",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 15,
@@ -180,13 +187,6 @@
    "status": "done",
    "agent": "QA Checker",
    "attempts": 1
-  },
-  {
-   "id": 7,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1
   }
  ],
  "pending_approvals": [
@@ -195,21 +195,21 @@
    "ts": "2026-10-15T20:46:26.648103",
    "kind": "public_draft",
    "title": "Draft: [Notion Templates Agent] Notion student semester planner wit (v4, llm)",
-   "review": null
+   "review": "score 98/100 (rules 100, checker 95) | CHECKER: PASS"
   },
   {
    "id": 5,
    "ts": "2026-10-15T20:46:29.582624",
    "kind": "public_draft",
    "title": "Draft: [Notion Templates Agent] Notion client CRM for freelancers w (v4, llm)",
-   "review": null
+   "review": "score 89/100 (rules 100, checker 78) | CHECKER: REVISE | one rewrite queued | issues: Mentions Notion 'auto\u2011number' columns, which Notion does not natively support.; Refers to a 'Gantt view' \u2013 Notion offers a Timeline view, not a dedicated Gantt chart.; Mentions a 'PDF Export Link' property, which is not a built\u2011in Notion property."
   },
   {
    "id": 6,
    "ts": "2026-10-15T20:46:32.127870",
    "kind": "public_draft",
    "title": "Draft: [Notion Templates Agent] Notion content calendar for solo cr (v4, llm)",
-   "review": null
+   "review": "score 98/100 (rules 100, checker 95) | CHECKER: PASS"
   }
  ],
  "prompts": [
@@ -224,8 +224,8 @@
    "id": 4,
    "name": "draft",
    "active": true,
-   "trials": 0,
-   "quality": 0.0
+   "trials": 3,
+   "quality": 95.0
   },
   {
    "id": 1,
