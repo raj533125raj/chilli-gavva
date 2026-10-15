@@ -1,9 +1,7 @@
 {
- "generated_at": "2026-10-15T11:34:36",
- "mode": "simulation",
+ "generated_at": "2026-10-15T11:43:11",
  "money": {
-  "real_usd": 0,
-  "simulated_usd": 142.75
+  "real_usd": 0
  },
  "kill_switch": false,
  "worker": {
@@ -13,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 15,
+  "calls_today": 21,
   "cap": 500
  },
  "agents": [
@@ -187,86 +185,7 @@
   }
  ],
  "validation": null,
- "logs": [
-  {
-   "ts": "2026-10-02T11:33:11",
-   "agent": "CFO-Budget-Agent",
-   "status": "INFO",
-   "message": "Financial Audit -> Total Campaigns: 2, Total Revenue: $142.75, Total Clicks: 303, Active Research Streams: 1, Operational Expenses: $0.00 (100% Zero-Cost Target Maintained)."
-  },
-  {
-   "ts": "2026-10-02T11:33:11",
-   "agent": "CTO-Sentinel-Agent",
-   "status": "SUCCESS",
-   "message": "All systems operational. n8n automation triggers active, zero memory leaks detected."
-  },
-  {
-   "ts": "2026-10-02T11:33:11",
-   "agent": "CTO-Sentinel-Agent",
-   "status": "INFO",
-   "message": "Running system health audit and n8n webhook sync check..."
-  },
-  {
-   "ts": "2026-10-02T11:33:11",
-   "agent": "CMO-Growth-Agent",
-   "status": "SUCCESS",
-   "message": "Campaign executed. Generated 153 organic clicks and $120.00 revenue."
-  },
-  {
-   "ts": "2026-10-02T11:33:11",
-   "agent": "CMO-Growth-Agent",
-   "status": "INFO",
-   "message": "Launching campaign for newly researched stream: Automated Issue Resolver Agent for GitHub Bounties..."
-  },
-  {
-   "ts": "2026-10-02T11:33:11",
-   "agent": "R&D-Discovery-Agent",
-   "status": "SUCCESS",
-   "message": "Discovered New Stream -> Type: GitHub Open Source Sponsoring & Bounties | Opportunity: 'Automated Issue Resolver Agent for GitHub Bounties' | Est ROI: $120.0"
-  },
-  {
-   "ts": "2026-10-02T11:33:11",
-   "agent": "R&D-Discovery-Agent",
-   "status": "INFO",
-   "message": "Conducting autonomous web & market research for new zero-cost revenue streams..."
-  },
-  {
-   "ts": "2026-10-02T01:28:52",
-   "agent": "CFO-Budget-Agent",
-   "status": "INFO",
-   "message": "Financial Audit -> Total Campaigns: 1, Total Revenue: $22.75, Total Clicks: 150, Operational Expenses: $0.00 (Zero-Cost Target Maintained)."
-  },
-  {
-   "ts": "2026-10-02T01:28:52",
-   "agent": "CTO-Sentinel-Agent",
-   "status": "SUCCESS",
-   "message": "All systems operational. Zero infinite loops or memory leaks detected."
-  },
-  {
-   "ts": "2026-10-02T01:28:52",
-   "agent": "CTO-Sentinel-Agent",
-   "status": "INFO",
-   "message": "Running system health audit and infinite loop detection..."
-  },
-  {
-   "ts": "2026-10-02T01:28:52",
-   "agent": "CMO-Growth-Agent",
-   "status": "SUCCESS",
-   "message": "Campaign live. Generated 150 organic clicks and $22.75 affiliate revenue."
-  },
-  {
-   "ts": "2026-10-02T01:28:52",
-   "agent": "CMO-Growth-Agent",
-   "status": "SUCCESS",
-   "message": "Generated Niche: 'AI & Cloud Automation Tools for Creators' | Title: 'Top 7 Free AI Tools That Make $100/Day Passive Income in 2025'"
-  },
-  {
-   "ts": "2026-10-02T01:28:52",
-   "agent": "CMO-Growth-Agent",
-   "status": "INFO",
-   "message": "Executing AI market research using Free LLM Engine..."
-  }
- ],
+ "logs": [],
  "service_requests": [],
  "built_tools": [],
  "llm_providers": [

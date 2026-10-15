@@ -6,4 +6,4 @@ Built from approved drafts. Download a folder, check the files, then upload them
 |---|---|---|
 | #1 | [1-energy-daily-planner](1-energy-daily-planner/) | built |
 | #2 | - | failed after 3 try(s): no reply from the model |
-| #3 | - | retry after 1 try(s): no reply from the model |
+| #3 | [3-printable-focus-sheets](3-printable-focus-sheets/) | built |
