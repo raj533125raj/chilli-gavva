@@ -21,7 +21,13 @@ class InboxBase(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.db = os.path.join(self.tmp.name, "t.db")
         self.sent = []
-        p1 = mock.patch.object(ti, "send_text", side_effect=lambda tok, chat, text: self.sent.append((chat, text)) or True)
+        self.buttons = []
+
+        def fake_send(tok, chat, text, buttons=None):
+            self.sent.append((chat, text))
+            self.buttons.append(buttons)
+            return True
+        p1 = mock.patch.object(ti, "send_text", side_effect=fake_send)
         p1.start()
         self.addCleanup(p1.stop)
 
@@ -129,6 +135,111 @@ class AlertTests(InboxBase):
     def test_no_drafts_no_message(self):
         self.assertEqual(ti.alert_new_drafts("tok", OWNER, self.db), 0)
         self.assertEqual(self.sent, [])
+
+
+def _cb(uid, data, chat=OWNER, sender=OWNER):
+    return {"update_id": uid, "callback_query": {"id": f"q{uid}", "data": data, "from": {"id": int(sender)},
+                                                 "message": {"chat": {"id": int(chat)}}}}
+
+
+class ButtonTests(InboxBase):
+    def run_updates(self, updates):
+        calls = []
+        with mock.patch.object(ti, "fetch_updates", return_value=updates), \
+                mock.patch.object(ti, "_call", side_effect=lambda *a: calls.append(a[1]) or {"ok": True}):
+            n = ti.process_updates("tok", OWNER, self.db)
+        return n, calls
+
+    def test_new_draft_alert_has_three_buttons(self):
+        self.add()
+        ti.alert_new_drafts("tok", OWNER, self.db)
+        b = self.add()
+        ti.alert_new_drafts("tok", OWNER, self.db)
+        self.assertEqual(self.buttons[-1], [[("✅ Approve", f"a:{b}"), ("❌ Reject", f"r:{b}"),
+                                             ("\U0001f441 View", f"v:{b}")]])
+
+    def test_approve_button(self):
+        a = self.add()
+        n, calls = self.run_updates([_cb(1, f"a:{a}")])
+        self.assertEqual(n, 1)
+        self.assertIn("answerCallbackQuery", calls)
+        self.assertEqual(guardrails.get_approval(a, self.db)["status"], "approved")
+
+    def test_reject_then_reason_is_saved(self):
+        a = self.add()
+        self.run_updates([_cb(1, f"r:{a}")])
+        self.assertEqual(guardrails.get_approval(a, self.db)["status"], "rejected")
+        self.assertIn("Why?", self.sent[-1][1])
+        labels = [label for row in self.buttons[-1] for label, _ in row]
+        self.assertEqual(labels, ["Price", "Too generic", "Bad niche", "Poor quality", "Other"])
+        self.run_updates([_cb(2, f"y:{a}:too generic")])
+        conn = guardrails.connect(self.db)
+        self.assertEqual(conn.execute("SELECT reason FROM approvals WHERE id = ?", (a,)).fetchone()[0], "too generic")
+        conn.close()
+
+    def test_unknown_reason_or_pending_draft_not_saved(self):
+        a = self.add()
+        self.assertFalse(guardrails.set_reason(a, "price", self.db))        # still pending
+        guardrails.decide(a, False, self.db)
+        self.assertFalse(guardrails.set_reason(a, "DROP TABLE", self.db))
+        self.assertTrue(guardrails.set_reason(a, "price", self.db))
+
+    def test_view_button_shows_text_with_buttons(self):
+        a = self.add()
+        self.run_updates([_cb(1, f"v:{a}")])
+        self.assertIn("BODY", self.sent[-1][1])
+        self.assertIsNotNone(self.buttons[-1])
+
+    def test_buttons_from_strangers_are_ignored(self):
+        a = self.add()
+        n, _ = self.run_updates([_cb(1, f"a:{a}", chat="999"), _cb(2, f"a:{a}", sender="999"),
+                                 _cb(3, "a:abc"), _cb(4, "x:1")])
+        self.assertEqual(n, 0)
+        self.assertEqual(guardrails.get_approval(a, self.db)["status"], "pending")
+
+    def test_old_typed_commands_still_work(self):
+        a = self.add()
+        n, _ = self.run_updates([_upd(1, f"/approve {a}")])
+        self.assertEqual(n, 1)
+        self.assertEqual(guardrails.get_approval(a, self.db)["status"], "approved")
+
+    def test_help_mentions_buttons_and_delay(self):
+        self.assertIn("30 minutes", ti.HELP)
+        self.assertIn("/pause", ti.HELP)
+
+
+class PauseTests(InboxBase):
+    def test_pause_and_resume(self):
+        self.assertEqual(ti.parse_command("/pause"), ("pause", []))
+        self.assertIn("Paused", ti.handle_command("pause", [], self.db))
+        self.assertTrue(guardrails.is_paused(self.db))
+        self.assertIn("Resumed", ti.handle_command("resume", [], self.db))
+        self.assertFalse(guardrails.is_paused(self.db))
+
+    def test_pause_from_a_stranger_is_ignored(self):
+        with mock.patch.object(ti, "fetch_updates", return_value=[_upd(1, "/pause", chat="999")]):
+            ti.process_updates("tok", OWNER, self.db)
+        self.assertFalse(guardrails.is_paused(self.db))
+
+    def test_paused_flag_stops_ai_and_drafts(self):
+        import llm_router
+        import scheduler
+        import workforce
+        guardrails.set_paused(True, self.db)
+        with mock.patch.object(guardrails, "_TESTING", False), mock.patch.object(guardrails, "DB_PATH", self.db):
+            self.assertTrue(guardrails.is_killed())
+            self.assertFalse(guardrails.can_call_llm(self.db))
+            self.assertEqual(workforce.run_once(db_path=self.db)["status"], "killed")
+            self.assertTrue(scheduler.run_now(db_path=self.db).get("skipped"))
+            self.assertIsNone(llm_router.chat("hello", db_path=self.db))
+        guardrails.set_paused(False, self.db)
+        with mock.patch.object(guardrails, "_TESTING", False), mock.patch.object(guardrails, "DB_PATH", self.db):
+            self.assertFalse(guardrails.is_killed())
+
+    def test_tests_ignore_the_real_pause_flag(self):
+        with mock.patch.object(guardrails, "_TESTING", True), \
+                mock.patch.object(guardrails, "is_paused", side_effect=AssertionError("must not read")):
+            self.assertFalse(guardrails.is_killed())
 
 
 class SendTests(unittest.TestCase):
