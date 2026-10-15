@@ -12,6 +12,10 @@ import guardrails  # noqa: E402
 import worker_daemon  # noqa: E402
 import workforce  # noqa: E402
 
+GOOD_DRAFT = ("PRODUCT NAME: Budget Sheet\nBUYER: freelancers\nPRICE: 9 USD\nPLATFORM: Payhip\n"
+              "WHAT'S INSIDE: 3 tabs\nHOW TO USE: 1. Copy. 2. Fill.\nLISTING TITLE: Budget Sheet\n"
+              "LISTING DESCRIPTION: Simple.\nSEARCH TAGS: a, b, c, d, e")
+
 
 class WorkerBase(unittest.TestCase):
     def setUp(self):
@@ -25,8 +29,12 @@ class WorkerBase(unittest.TestCase):
         with open(workforce.CONFIG_PATH, "w") as f:
             f.write('{"daily_drafts": 1}')
         os.environ.pop("GROQ_API_KEY", None)
+        # The loop uses the default AI; give it a fake model that answers (no network in tests).
+        self._default_llm = workforce.default_llm
+        workforce.default_llm = lambda db_path=None: (lambda prompt, size=None: GOOD_DRAFT)
 
     def tearDown(self):
+        workforce.default_llm = self._default_llm
         workforce.CONFIG_PATH = self._wf_cfg
         guardrails.KILL_FILE = self._old
         self.tmp.cleanup()
@@ -104,7 +112,7 @@ class PlanAndEvolveTests(WorkerBase):
         with open(workforce.CONFIG_PATH, "w") as f:
             f.write('{"daily_drafts": 2}')
         workforce.enqueue("plan", {"topic": "demo"}, db_path=self.db)
-        workforce.run_once(max_tasks=20, db_path=self.db, llm=lambda p: None)
+        workforce.run_once(max_tasks=20, db_path=self.db, llm=lambda p, size=None: GOOD_DRAFT)
         self.assertEqual(len(guardrails.pending(self.db)), 2)
 
     def test_plan_stops_when_too_many_drafts_wait_for_human(self):

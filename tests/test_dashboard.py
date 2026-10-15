@@ -36,10 +36,10 @@ class StatusTests(unittest.TestCase):
 
     def test_snapshot_shape_and_no_secrets(self):
         workforce.enqueue("plan", {"topic": "demo"}, db_path=self.db)
-        workforce.run_once(max_tasks=10, db_path=self.db, llm=lambda p: None)
+        workforce.run_once(max_tasks=10, db_path=self.db, llm=lambda p, size=None: "PRODUCT NAME: Demo\nPRICE: 5 USD")
         status = export_status.build_status(self.db)
-        self.assertEqual(status["mode"], "simulation")
-        self.assertEqual(status["money"], {"real_usd": 0.0, "simulated_usd": 0.0})
+        self.assertNotIn("mode", status)
+        self.assertEqual(status["money"], {"real_usd": 0.0})
         self.assertEqual(len(status["agents"]), len(workforce.AGENTS))
         self.assertEqual(len(status["pending_approvals"]), 1)
         blob = json.dumps(status).lower()
@@ -47,17 +47,17 @@ class StatusTests(unittest.TestCase):
             self.assertNotIn(secret_word, blob)
         out = export_status.write_status(os.path.join(self.tmp.name, "out", "status.json"), self.db)
         with open(out) as f:
-            self.assertEqual(json.load(f)["mode"], "simulation")
+            self.assertEqual(json.load(f)["money"], {"real_usd": 0.0})
 
-    def test_real_money_switches_mode(self):
+    def test_real_money_is_shown(self):
         import sqlite3
-        export_status.build_status(self.db)       # creates tables
+        import record_earning
+        record_earning.connect(self.db).close()   # creates the ledger table
         conn = sqlite3.connect(self.db)
         conn.execute("INSERT INTO campaigns (timestamp, niche, content_title, clicks, earnings, status, source) "
                      "VALUES ('t','n','c',1,5.0,'DONE','real')")
         conn.commit(); conn.close()
         status = export_status.build_status(self.db)
-        self.assertEqual(status["mode"], "mixed")
         self.assertEqual(status["money"]["real_usd"], 5.0)
 
     def test_old_database_without_source_column(self):
@@ -69,11 +69,64 @@ class StatusTests(unittest.TestCase):
                      "VALUES ('t', 'n', 'c', 10, 120.0, 'COMPLETED')")
         conn.commit(); conn.close()
         status = export_status.build_status(self.db)       # must migrate, not crash
-        self.assertEqual(status["money"], {"real_usd": 0.0, "simulated_usd": 120.0})
+        self.assertEqual(status["money"], {"real_usd": 0.0})   # old fake money is never shown
+
+    def make_old_simulation_rows(self):
+        import engine
+        import record_earning
+        store = engine.EnterpriseStorage(self.db)
+        store.save_campaign("n", "fake campaign", 10, 142.75, "COMPLETED")
+        store.log_agent_action("CMO-Growth-Agent", "Marketing", "OK", "fake log")
+        store.log_discovery("x", "fake discovery", 120.0, "DISCOVERED")
+        record_earning.add(4.5, "PAYOUT-1", "real sale", db_path=self.db)
+        approval = guardrails.request_approval("public_draft", "Draft 1", "text", db_path=self.db)
+        guardrails.decide(approval, True, self.db)
+        return approval
+
+    def count(self, table, where="1"):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        n = conn.execute(f"SELECT COUNT(*) FROM {table} WHERE {where}").fetchone()[0]
+        conn.close()
+        return n
+
+    def test_purge_removes_fake_rows_and_keeps_real_ones(self):
+        approval = self.make_old_simulation_rows()
+        removed = export_status.purge_simulated(self.db)
+        self.assertEqual(removed, {"campaigns": 1, "agent_logs": 1, "research_discoveries": 1})
+        self.assertEqual(self.count("campaigns"), 1)                    # the real sale stays
+        self.assertEqual(self.count("campaigns", "source = 'real'"), 1)
+        self.assertEqual(guardrails.get_approval(approval, self.db)["status"], "approved")   # untouched
+        status = export_status.build_status(self.db)
+        self.assertEqual(status["money"], {"real_usd": 4.5})
+        self.assertEqual(status["logs"], [])
+        self.assertEqual(export_status.purge_simulated(self.db), {})     # second run: nothing left
+
+    def test_purge_on_an_empty_database(self):
+        self.assertEqual(export_status.purge_simulated(self.db), {})
+
+    def test_cloud_runner_purges_before_writing_the_dashboard(self):
+        import cloud_runner
+        from unittest.mock import patch
+        self.make_old_simulation_rows()
+        with patch.object(export_status.guardrails, "DB_PATH", self.db), \
+                patch.object(cloud_runner.workforce, "run_once", lambda **k: {"status": "ok", "ran": 0, "failed": 0}), \
+                patch.object(cloud_runner.export_status, "write_status", lambda: None):
+            cloud_runner.main()
+        self.assertEqual(self.count("campaigns", "source != 'real'"), 0)
+        self.assertEqual(self.count("agent_logs"), 0)
+
+    def test_dashboard_page_has_no_simulated_money(self):
+        with open(os.path.join(os.path.dirname(export_status.__file__), "web", "index.html"), encoding="utf-8") as f:
+            page = f.read()
+        self.assertNotIn("simulated_usd", page)
+        self.assertNotIn("SIMULATION", page)
 
     def test_chat_answers_are_honest(self):
         status = export_status.build_status(self.db)
-        self.assertIn("NOT real money", chat.reply("how much money did we earn?", status))
+        answer = chat.reply("how much money did we earn?", status)
+        self.assertIn("Real money earned so far: $0.00", answer)
+        self.assertNotIn("imulated", answer)
         self.assertIn("No drafts", chat.reply("anything pending approval?", status))
         self.assertIn("Agents working now", chat.reply("what is the team doing", status))
         self.assertIn("Kill switch", chat.reply("stop everything", status))

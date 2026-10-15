@@ -51,6 +51,21 @@ class HealthTests(unittest.TestCase):
         self.assertEqual((long["provider"], long["model"], long["ok"]), ("Gemini", "gem-a", True))
         self.assertIn("slower than the old 25s limit", long["reason"])
 
+    def test_long_test_moves_on_when_a_model_is_busy(self):
+        seen = []
+
+        def probe(url, headers, body, timeout, parse):
+            is_long = body["messages"][0]["content"] == llm_router.LONG_PROMPT
+            if is_long:
+                seen.append(body["model"])
+                return (False, "503 UNAVAILABLE", 1.5) if body["model"] == "gem-a" else (True, "", 20.0)
+            return (body["model"].startswith("gem"), "" if body["model"].startswith("gem") else "401", 0.2)
+        with patch.dict(os.environ, ENV, clear=True):
+            results = llm_router.health(probe=probe)
+        self.assertEqual(seen, ["gem-a", "gem-b"])
+        self.assertEqual([(r["model"], r["ok"]) for r in results if r["test"] == "long"],
+                         [("gem-a", False), ("gem-b", True)])
+
     def test_no_long_test_when_nothing_works(self):
         results, _ = self.run_health({"small-m": (False, "timeout", 25), "large-m": (False, "timeout", 25),
                                       "gem-a": (False, "404", 0.1), "gem-b": (False, "404", 0.1)})
@@ -121,6 +136,55 @@ class ErrorDetailTests(unittest.TestCase):
         self.assertEqual(names, ["gemini-2.5-flash", "gemini-2.0-flash"])
 
 
+class GeminiFallbackTests(unittest.TestCase):
+    def test_busy_or_retired_model_moves_to_next(self):
+        class Resp(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+        answers = [http_error(503, b'[{"error": {"status": "UNAVAILABLE"}}]'), http_error(404),
+                   Resp(b'{"choices": [{"message": {"content": "draft"}}]}')]
+        seen = []
+
+        def fake(req, timeout=None):
+            import json as _json
+            seen.append((_json.loads(req.data)["model"], timeout))
+            a = answers.pop(0)
+            if isinstance(a, Exception):
+                raise a
+            return a
+        env = dict(ENV, GEMINI_MODEL="m1,m2,m3")
+        with patch.dict(os.environ, env, clear=True), redirect_stderr(io.StringIO()), \
+                patch("urllib.request.urlopen", fake), \
+                patch.object(llm_router.guardrails, "record_call", lambda *a, **k: None):
+            self.assertEqual(llm_router._gemini("p", timeout=60), "draft")
+        self.assertEqual(seen, [("m1", 60), ("m2", 60), ("m3", 60)])
+
+    def test_auth_problem_stops(self):
+        with patch.dict(os.environ, dict(ENV, GEMINI_MODEL="m1,m2"), clear=True), redirect_stderr(io.StringIO()), \
+                patch("urllib.request.urlopen", side_effect=[http_error(403)]) as m, \
+                patch.object(llm_router.guardrails, "record_call", lambda *a, **k: None):
+            self.assertIsNone(llm_router._gemini("p"))
+        self.assertEqual(m.call_count, 1)
+
+    def test_chat_gives_gemini_the_long_timeout_for_large_drafts(self):
+        calls = []
+        with patch.object(llm_router.guardrails, "can_call_llm", lambda *a, **k: True), \
+                patch.object(llm_router, "in_cooldown", lambda *a, **k: False), \
+                patch.object(llm_router, "_freellmapi", lambda p: None), \
+                patch.object(llm_router, "_groq", lambda p, size=None: None), \
+                patch.object(llm_router, "_gemini", lambda p, timeout=None: calls.append(timeout) or "ok"):
+            self.assertEqual(llm_router.chat("p", size="large"), "ok")
+            self.assertEqual(llm_router.chat("p", size="small"), "ok")
+        self.assertEqual(calls, [60, None])
+
+    def test_default_models_skip_the_retired_one(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertNotIn("gemini-2.5-flash", llm_router._gemini_models())
+
+
 class FailureLogTests(unittest.TestCase):
     def test_groq_failure_prints_one_line_without_key(self):
         err = io.StringIO()
@@ -138,7 +202,9 @@ class FailureLogTests(unittest.TestCase):
                 patch("urllib.request.urlopen", side_effect=socket.timeout("timed out")), \
                 patch.object(llm_router.guardrails, "record_call", lambda *a, **k: None):
             self.assertIsNone(llm_router._gemini("hi"))
-        self.assertEqual(err.getvalue().strip(), "LLM Gemini gem-a: FAIL timeout")
+        # a timed-out model is skipped and the next one is tried
+        self.assertEqual(err.getvalue().strip().splitlines(),
+                         ["LLM Gemini gem-a: FAIL timeout", "LLM Gemini gem-b: FAIL timeout"])
 
     def test_large_requests_get_the_long_timeout(self):
         seen = []

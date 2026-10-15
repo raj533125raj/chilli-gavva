@@ -55,9 +55,10 @@ class EarningsTests(unittest.TestCase):
             re_.void(1, "nope", self.db)
         self.assertEqual(store.get_summary()["simulated_earnings_usd"], 99.0)
 
-    def test_dashboard_mode_becomes_mixed(self):
+    def test_dashboard_shows_only_real_money(self):
+        engine.EnterpriseStorage(self.db).save_campaign("n", "t", 1, 99.0, "COMPLETED")   # simulated
         re_.add(3, "INV-9", "c", db_path=self.db)
-        self.assertEqual(export_status.build_status(self.db)["mode"], "mixed")
+        self.assertEqual(export_status.build_status(self.db)["money"], {"real_usd": 3.0})
 
 
 if __name__ == "__main__":

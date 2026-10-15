@@ -6,6 +6,7 @@ import random
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -86,10 +87,16 @@ class WorkforceTests(Base):
         self.assertIn("score", pending[0]["review"])
         self.assertEqual(guardrails.get_approval(pending[0]["id"], self.db)["status"], "pending")
 
-    def test_pipeline_fallback_without_llm(self):
-        result = self.run_pipeline(lambda prompt: None)
-        self.assertEqual(result["ran"], 4)
-        self.assertIn("fallback", guardrails.pending(self.db)[0]["title"])
+    def test_no_placeholder_draft_when_ai_is_down(self):
+        with patch("notify.send", return_value=True) as send:
+            result = self.run_pipeline(lambda prompt: None)
+        self.assertEqual(result, {"status": "ok", "ran": 1, "failed": 1, "ai_down": True})
+        self.assertEqual(guardrails.pending(self.db), [])          # no junk draft for the human
+        conn = workforce.connect(self.db)
+        row = conn.execute("SELECT status, attempts FROM tasks WHERE kind = 'research'").fetchone()
+        conn.close()
+        self.assertEqual(row, ("queued", 1))                       # back in the queue for a later run
+        send.assert_called_once_with(workforce.AI_DOWN_MESSAGE)
 
     def test_kill_switch_stops_work(self):
         workforce.enqueue("plan", {"topic": "demo"}, db_path=self.db)
@@ -246,6 +253,68 @@ class ImproverTests(Base):
         self.assertIn("does not apply", verify(bad_id)["why"])
         with open(os.path.join(src, "mod.py")) as f:                  # real tree untouched
             self.assertEqual(f.read(), "def f(): return 1\n")
+
+
+class AIDownTests(Base):
+    GOOD = ("PRODUCT NAME: Budget Sheet\nBUYER: freelancers\nPRICE: 9 USD\nPLATFORM: Payhip\n"
+            "WHAT'S INSIDE: 3 tabs\nHOW TO USE: 1. Copy. 2. Fill.\nLISTING TITLE: Budget Sheet\n"
+            "LISTING DESCRIPTION: Simple.\nSEARCH TAGS: a, b, c, d, e")
+
+    def run(self, result=None):
+        with patch("notify.send", return_value=True) as self.send:
+            return super().run(result)
+
+    def tasks(self, kind):
+        conn = workforce.connect(self.db)
+        rows = conn.execute("SELECT status, attempts FROM tasks WHERE kind = ?", (kind,)).fetchall()
+        conn.close()
+        return rows
+
+    def test_draft_step_never_saves_a_placeholder(self):
+        workforce.enqueue("draft", {"topic": "budget sheet", "research": "notes"}, db_path=self.db)
+        result = workforce.run_once(max_tasks=5, db_path=self.db, llm=lambda p: None)
+        self.assertEqual(result["failed"], 1)
+        self.assertEqual(guardrails.pending(self.db), [])
+        self.assertEqual(self.tasks("draft"), [("queued", 1)])
+
+    def test_task_retries_on_later_runs_then_stops_after_three_tries(self):
+        workforce.enqueue("research", {"topic": "budget sheet"}, db_path=self.db)
+        for tries in (1, 2):
+            workforce.run_once(max_tasks=5, db_path=self.db, llm=lambda p: None)
+            self.assertEqual(self.tasks("research"), [("queued", tries)])   # one try per run
+        workforce.run_once(max_tasks=5, db_path=self.db, llm=lambda p: None)
+        self.assertEqual(self.tasks("research"), [("failed", workforce.MAX_ATTEMPTS)])
+        self.assertEqual(guardrails.pending(self.db), [])
+
+    def test_retry_succeeds_when_the_ai_is_back(self):
+        workforce.enqueue("research", {"topic": "budget sheet"}, db_path=self.db)
+        workforce.run_once(max_tasks=5, db_path=self.db, llm=lambda p: None)
+        result = workforce.run_once(max_tasks=5, db_path=self.db, llm=lambda p, size=None: self.GOOD)
+        self.assertEqual(self.tasks("research"), [("done", 2)])
+        self.assertNotIn("ai_down", result)
+        self.assertEqual(len(guardrails.pending(self.db)), 1)
+        self.assertIn("llm", guardrails.pending(self.db)[0]["title"])
+
+    def test_alert_at_most_once_per_day(self):
+        for _ in range(3):
+            workforce.enqueue("research", {"topic": "budget sheet"}, db_path=self.db)
+            workforce.run_once(max_tasks=5, db_path=self.db, llm=lambda p: None)
+        self.assertEqual(self.send.call_count, 1)
+        self.assertIn("AI is down, will retry later", self.send.call_args[0][0])
+
+    def test_alert_tried_again_if_telegram_failed(self):
+        self.send.return_value = False
+        self.assertFalse(workforce._alert_ai_down(self.db))
+        self.send.return_value = True
+        self.assertTrue(workforce._alert_ai_down(self.db))
+        self.assertFalse(workforce._alert_ai_down(self.db))
+        self.assertEqual(self.send.call_count, 2)
+
+    def test_alert_never_crashes_the_run(self):
+        self.send.side_effect = RuntimeError("telegram down")
+        workforce.enqueue("research", {"topic": "budget sheet"}, db_path=self.db)
+        result = workforce.run_once(max_tasks=5, db_path=self.db, llm=lambda p: None)
+        self.assertTrue(result["ai_down"])
 
 
 if __name__ == "__main__":

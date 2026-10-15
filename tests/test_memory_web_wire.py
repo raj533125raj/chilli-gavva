@@ -137,11 +137,10 @@ class TestStepResearch(unittest.TestCase):
                 self.assertEqual(result["next"], [])
                 self.assertIn("off-limits", result["summary"])
 
-    def test_fallback_when_llm_fails(self):
-        result, _ = self._run(llm=lambda p: None)
-        self.assertEqual(result["mode"], "fallback")
-        self.assertIn("Google Sheets budget for freelancers", result["text"])
-        self.assertNotIn("[Budget Sheets Agent]", result["text"])
+    def test_no_fallback_text_when_llm_fails(self):
+        # No placeholder research: the task goes back in the queue instead (see run_once)
+        with self.assertRaises(self._workforce.AIUnavailable):
+            self._run(llm=lambda p: None)
 
     def test_memory_exception_does_not_crash(self):
         def broken(tag, db_path=None): raise RuntimeError("broken")
