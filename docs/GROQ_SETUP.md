@@ -1,7 +1,7 @@
 # Groq free API key setup (no card needed)
 
 Why: the engine uses an LLM for its "AI" parts. Without a key it runs in fallback mode (templates only).
-Model used by the code: `llama-3.1-8b-instant`. Free tier limits are published by Groq at
+Models used by the code: `openai/gpt-oss-20b` (small) and `openai/gpt-oss-120b` (large). Run the health check to see which models your key can use. Free tier limits are published by Groq at
 console.groq.com (research note in STATUS.md says about 30 requests/min, 14,400/day; verify on the console).
 
 ## Steps (done by YOU, not by the agent)
