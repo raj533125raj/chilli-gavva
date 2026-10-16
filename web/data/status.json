@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-16T15:34:42",
+ "generated_at": "2026-10-16T20:00:31",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 2,
+  "calls_today": 5,
   "cap": 500
  },
  "agents": [
@@ -57,7 +57,7 @@
     "research"
    ],
    "state": "idle",
-   "tasks_done": 6
+   "tasks_done": 9
   },
   {
    "name": "Draft Worker",
@@ -100,9 +100,52 @@
   }
  ],
  "task_counts": {
-  "done": 20
+  "done": 23,
+  "queued": 3
  },
  "recent_tasks": [
+  {
+   "id": 26,
+   "kind": "draft",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 25,
+   "kind": "draft",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 24,
+   "kind": "draft",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 23,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1
+  },
+  {
+   "id": 22,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1
+  },
+  {
+   "id": 21,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1
+  },
   {
    "id": 20,
    "kind": "review",
@@ -143,48 +186,6 @@
    "kind": "draft",
    "status": "done",
    "agent": "Draft Worker",
-   "attempts": 1
-  },
-  {
-   "id": 14,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
-  },
-  {
-   "id": 13,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
-  },
-  {
-   "id": 12,
-   "kind": "research",
-   "status": "done",
-   "agent": "Research Worker",
-   "attempts": 1
-  },
-  {
-   "id": 11,
-   "kind": "research",
-   "status": "done",
-   "agent": "Research Worker",
-   "attempts": 1
-  },
-  {
-   "id": 10,
-   "kind": "research",
-   "status": "done",
-   "agent": "Research Worker",
-   "attempts": 1
-  },
-  {
-   "id": 9,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
    "attempts": 1
   }
  ],
