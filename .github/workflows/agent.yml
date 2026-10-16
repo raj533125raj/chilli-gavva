@@ -62,6 +62,21 @@ jobs:
           GITHUB_MODELS: ${{ vars.GITHUB_MODELS }}
         run: python3 llm_router.py health
 
+      # Every run: report any secret or private data in the repository (the Save state step blocks on it).
+      - name: Secret guard (report)
+        continue-on-error: true
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALWAYS_ON_SECRET: ${{ secrets.ALWAYS_ON_SECRET }}
+          ALWAYS_ON_URL: ${{ secrets.ALWAYS_ON_URL }}
+        run: python3 secret_guard.py
+
       # One writer at a time: when the Mac worker is alive this run stands down (all steps skip).
       - name: Skip if the Mac worker is running
         id: gate
@@ -151,7 +166,20 @@ jobs:
 
       - name: Save state
         if: steps.gate.outputs.run == 'true'
+        env:
+          # Only for the secret guard: it looks for these exact values in memory and never prints them.
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALWAYS_ON_SECRET: ${{ secrets.ALWAYS_ON_SECRET }}
+          ALWAYS_ON_URL: ${{ secrets.ALWAYS_ON_URL }}
         run: |
+          # Secret guard: never save a token, key, password, chat id or personal email (blocks the save).
+          python3 secret_guard.py
           git config user.name "chilli-gavva-bot"
           git config user.email "chilli-gavva-bot@users.noreply.github.com"
           # Save only when something real changed (rows, dashboard numbers, product files), not when a
