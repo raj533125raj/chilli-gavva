@@ -95,6 +95,49 @@ class WeeklyTests(Base):
         self.assertIn("Real money: $0.00 this week, $0.00 in total", dr.weekly_text(self.db, now=SUNDAY))
 
 
+class DoorBellAndButtonLineTests(Base):
+    def test_door_bell_line(self):
+        self.assertEqual(dr.door_bell_line({"door_bell": True, "telegram_token_ok": "yes"}), "Door bell: on")
+        self.assertEqual(dr.door_bell_line({"door_bell": False, "telegram_token_ok": "not set"}), "Door bell: off")
+        self.assertIn("does NOT accept", dr.door_bell_line({"door_bell": True, "telegram_token_ok": "no"}))
+        self.assertIn("unknown", dr.door_bell_line({}))
+
+    def test_report_shows_door_bell_and_button_count(self):
+        import time
+        ti.log_button(self.db)
+        ti.log_button(self.db)
+        conn = sqlite3.connect(self.db)
+        conn.execute("INSERT INTO button_log (ts) VALUES ('2000-01-01T00:00:00')")   # too old to count
+        conn.commit()
+        conn.close()
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(minutes=1)
+        text = dr.daily_text(self.db, now=now, status_fn=lambda: {"door_bell": True, "telegram_token_ok": "yes",
+                                                                   "month_minutes": 3, "month_runs": 2})
+        self.assertIn("Door bell: on", text)
+        self.assertIn("Button presses received in the last 24h: 2", text)
+        self.assertIn("GitHub minutes this month: 3 of 2000", text)
+
+    def test_owner_button_press_is_counted_time_only(self):
+        a = guardrails.request_approval("public_draft", "Draft x", "body", db_path=self.db)
+        press = {"update_id": 1, "callback_query": {"id": "q", "data": f"v:{a}", "from": {"id": 1},
+                                                    "message": {"chat": {"id": 42}}}}
+        stranger = {"update_id": 2, "callback_query": {"id": "q", "data": f"v:{a}", "from": {"id": 9},
+                                                       "message": {"chat": {"id": 9}}}}
+        with mock.patch.object(ti, "fetch_updates", return_value=[press, stranger]), \
+                mock.patch.object(ti, "_call", return_value={"ok": True}), \
+                mock.patch.object(ti, "send_text", return_value=True):
+            ti.process_updates("tok", "42", self.db)
+        conn = sqlite3.connect(self.db)
+        self.assertEqual([r[1] for r in conn.execute("PRAGMA table_info(button_log)")], ["ts"])   # time only
+        self.assertEqual(conn.execute("SELECT COUNT(*) FROM button_log").fetchone()[0], 1)
+        conn.close()
+        self.assertEqual(guardrails.get_approval(a, self.db)["status"], "pending")
+
+    def test_empty_report_has_zero_buttons(self):
+        self.assertIn("Button presses received in the last 24h: 0", dr.daily_text(self.db, now=MONDAY,
+                                                                                    status_fn=lambda: {}))
+
+
 class OncePerDayTests(Base):
     def run_send(self, now, ok=True):
         sent = []
