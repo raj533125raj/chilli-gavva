@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-15T21:26:54",
+ "generated_at": "2026-10-16T00:16:25",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 36,
+  "calls_today": 0,
   "cap": 500
  },
  "agents": [
