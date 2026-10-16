@@ -94,7 +94,10 @@ class PassTests(Base):
         self.assertEqual(item["status"], "pending")
         self.assertIn("CHECKER: PASS", item["review"])
         self.assertTrue(item["review"].startswith("score "))
-        self.assertEqual(guardrails._parse_score(item["review"]), round((100 + 90) / 2))
+        import qa_checklist
+        # the buyer checklist is the score; the AI checker's own number is shown as a second opinion
+        self.assertEqual(guardrails._parse_score(item["review"]), qa_checklist.score(item["payload"])["score"])
+        self.assertIn("(AI 90)", item["review"])
         self.assertEqual(self.task_kinds(), ["draft", "review"])
         self.assertEqual(calls["rewrite"], 0)
 
@@ -172,9 +175,9 @@ class RejectTests(Base):
 class FallbackTests(Base):
     def assert_rule_only(self):
         item = self.only_draft()
-        self.assertIn("CHECKER: unavailable (rule check only)", item["review"])
-        rule_score, _ = workforce.review_text(item["payload"])
-        self.assertEqual(guardrails._parse_score(item["review"]), rule_score)
+        import qa_checklist
+        self.assertIn("CHECKER: unavailable (checklist only)", item["review"])
+        self.assertEqual(guardrails._parse_score(item["review"]), qa_checklist.score(item["payload"])["score"])
         self.assertEqual(self.task_kinds(), ["draft", "review"])
 
     def test_bad_json_falls_back_to_rules(self):

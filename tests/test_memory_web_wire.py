@@ -52,15 +52,16 @@ TOPIC = "[Budget Sheets Agent] Google Sheets budget for freelancers, 5-9 USD, Pa
 
 def _long_good_text():
     return ("PRODUCT NAME: Freelancer Budget Sheet\n"
-            "BUYER: freelancers whose income changes every month\n"
+            "BUYER: freelancers and gig workers whose income changes every month and who need a simple plan\n"
             "PRICE: 7 USD\n"
             "PLATFORM: Payhip\n"
             "WHAT'S INSIDE: Instructions tab; Income Log (Date, Client, Amount, Status); Bills (Bill, Due, Cost); "
             "Buffer Fund (Month, Target, Saved); Dashboard with monthly totals.\n"
             "HOW TO USE: 1. Make a copy. 2. Log each payment. 3. Check the Dashboard every Friday.\n"
             "LISTING TITLE: Freelancer Budget Spreadsheet for Irregular Income - Google Sheets Template\n"
-            "LISTING DESCRIPTION: A calm monthly budget for people paid at different times. Log income as it "
-            "arrives, see which bills are covered and build a buffer for slow months.\n"
+            "LISTING DESCRIPTION: Unlike a blank spreadsheet, this calm monthly budget is built for people paid "
+            "at different times. You log income as it arrives and see which bills are covered. It helps you "
+            "build a buffer for slow months without complicated formulas.\n"
             "SEARCH TAGS: freelancer budget, irregular income, google sheets budget, budget template, money tracker")
 
 
