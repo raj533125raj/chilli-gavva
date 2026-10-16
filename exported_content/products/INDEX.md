@@ -10,6 +10,12 @@ Built from approved drafts and checked by the Truth Checker against the real fil
 | #4 | [4-notion-semester-planner](4-notion-semester-planner/) | **NOT FOR SALE - files do not match listing** |
 | #6 | [6-solo-creator-notion-planner](6-solo-creator-notion-planner/) | **NOT FOR SALE - files do not match listing** |
 
+## Bundles (pages from the products above, in one file)
+
+| Bundle | Status |
+|---|---|
+| [bundle-adhd-printable-planner-kit](bundle-adhd-printable-planner-kit/) | ready (truth check passed) - the owner decides if it goes on sale |
+
 ## Older versions (kept, not for sale)
 
 | Draft | Folder |
