@@ -121,6 +121,7 @@ class OncePerDayTests(Base):
         calls = []
         with mock.patch.object(ti.notify, "_telegram_configured", return_value=(True, "tok", "42")), \
                 mock.patch.object(ti, "fetch_updates", return_value=[]), \
+                mock.patch.object(ti, "_call", side_effect=AssertionError("no network in tests")), \
                 mock.patch.object(ti, "send_text", side_effect=lambda tok, chat, text, buttons=None:
                                   calls.append(chat) or True), \
                 mock.patch.object(dr, "_now", return_value=MONDAY), \

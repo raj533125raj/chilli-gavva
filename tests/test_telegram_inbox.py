@@ -71,9 +71,16 @@ class CommandTests(InboxBase):
         self.assertIn("Not changed", out)
         self.assertEqual(guardrails.get_approval(a, self.db)["status"], "approved")
 
-    def test_missing_id(self):
-        self.assertIn("draft number", ti.handle_command("approve", [], self.db))
-        self.assertIn("draft number", ti.handle_command("view", [], self.db))
+    def test_missing_id_shows_real_waiting_drafts(self):
+        self.assertEqual(ti.handle_command("approve", [], self.db), "No drafts are waiting right now.")
+        a, b, c = self.add(), self.add(), self.add()
+        out = ti.handle_command("approve", [], self.db)
+        self.assertEqual(out, f"Waiting: #{a}, #{b}, #{c}. Send /approve {a}")
+        self.assertIn(f"Send /view {a}", ti.handle_command("view", [], self.db))
+        self.assertIn(f"Send /reject {a}", ti.handle_command("reject", [], self.db))
+        for reply in (out, ti.handle_command("view", [], self.db)):
+            self.assertNotIn("12", reply)                     # no made-up example number
+        self.assertEqual(guardrails.get_approval(a, self.db)["status"], "pending")   # nothing decided
 
     def test_list_and_view(self):
         a = self.add()
@@ -190,12 +197,24 @@ class ButtonTests(InboxBase):
         self.assertIn("BODY", self.sent[-1][1])
         self.assertIsNotNone(self.buttons[-1])
 
-    def test_buttons_from_strangers_are_ignored(self):
+    def test_buttons_from_other_chats_are_ignored(self):
         a = self.add()
-        n, _ = self.run_updates([_cb(1, f"a:{a}", chat="999"), _cb(2, f"a:{a}", sender="999"),
-                                 _cb(3, "a:abc"), _cb(4, "x:1")])
+        stats = ti.new_stats()
+        with mock.patch.object(ti, "fetch_updates", return_value=[_cb(1, f"a:{a}", chat="999"), _cb(3, "a:abc"),
+                                                                  _cb(4, "x:1")]), \
+                mock.patch.object(ti, "_call", return_value={"ok": True}):
+            n = ti.process_updates("tok", OWNER, self.db, stats)
         self.assertEqual(n, 0)
         self.assertEqual(guardrails.get_approval(a, self.db)["status"], "pending")
+        self.assertEqual(stats["skipped"], {"not owner chat": 1, "not a command": 0, "unknown button": 2})
+
+    def test_button_in_owner_chat_works_even_when_presser_id_differs(self):
+        """The real bug: buttons were also checked against the presser's own id, which only equals the chat
+        id in a private chat. Typed commands never had that rule, so they worked while buttons were dropped."""
+        a = self.add()
+        n, _ = self.run_updates([_cb(1, f"v:{a}", sender="555")])
+        self.assertEqual(n, 1)
+        self.assertIn("BODY", self.sent[-1][1])
 
     def test_old_typed_commands_still_work(self):
         a = self.add()
@@ -240,6 +259,84 @@ class PauseTests(InboxBase):
         with mock.patch.object(guardrails, "_TESTING", True), \
                 mock.patch.object(guardrails, "is_paused", side_effect=AssertionError("must not read")):
             self.assertFalse(guardrails.is_killed())
+
+
+class StrictCommandTests(unittest.TestCase):
+    def test_real_commands_still_work(self):
+        self.assertEqual(ti.parse_command("/approve 4"), ("approve", [4]))
+        self.assertEqual(ti.parse_command("approve 4"), ("approve", [4]))
+        self.assertEqual(ti.parse_command("Approve 4, 5"), ("approve", [4, 5]))
+        self.assertEqual(ti.parse_command("approve #4"), ("approve", [4]))
+        self.assertEqual(ti.parse_command("/approve"), ("approve", []))
+        self.assertEqual(ti.parse_command("/approve@chilligavvabot 6"), ("approve", [6]))
+        self.assertEqual(ti.parse_command("list"), ("list", []))
+        self.assertEqual(ti.parse_command("/view 5"), ("view", [5]))
+        self.assertEqual(ti.parse_command("/pause"), ("pause", []))
+
+    def test_normal_sentences_are_not_commands(self):
+        for text in ("Approve button edhuku work avadam ledhu?", "approve this one please",
+                     "view chesthe em kanipinchaledu", "List lo enni unnayi?", "reject 4 because price",
+                     "I will approve 4 later", "approved"):
+            with self.subTest(text=text):
+                self.assertEqual(ti.parse_command(text), (None, []))
+
+    def test_sentence_gets_no_reply(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        sent = []
+        with mock.patch.object(ti, "fetch_updates", return_value=[_upd(1, "Approve button edhuku work avadam ledhu?")]), \
+                mock.patch.object(ti, "send_text", side_effect=lambda *a, **k: sent.append(a) or True):
+            stats = ti.new_stats()
+            self.assertEqual(ti.process_updates("tok", OWNER, os.path.join(tmp.name, "t.db"), stats), 0)
+        self.assertEqual(sent, [])
+        self.assertEqual(stats["skipped"]["not a command"], 1)
+
+
+class LogLineTests(InboxBase):
+    def test_counts_by_kind_and_reasons_without_private_data(self):
+        a = self.add()
+        updates = [_upd(1, f"/view {a}"), _upd(2, "hello there friend"), _upd(3, "/list", chat="777"),
+                   _cb(4, f"v:{a}"), {"update_id": 5, "message": {"chat": {"id": int(OWNER)}, "sticker": {}}},
+                   {"update_id": 6, "edited_message": {}}]
+        stats = ti.new_stats()
+        with mock.patch.object(ti, "fetch_updates", return_value=updates), \
+                mock.patch.object(ti, "_call", return_value={"ok": True}):
+            ti.process_updates("SECRET-TOKEN", OWNER, self.db, stats)
+        line = ti.stats_line(stats, "webhook set: no")
+        self.assertEqual(line, "Telegram updates: 3 text, 1 button, 2 other; handled 2; "
+                               "skipped: 1 not owner chat, 1 not a command; webhook set: no.")
+        for private in ("SECRET", OWNER, "777", "hello", "/view"):
+            self.assertNotIn(private, line)
+
+    def test_read_failure_is_named(self):
+        import urllib.error
+        import io
+        err = urllib.error.HTTPError("https://api.telegram.org/botSECRET/getUpdates", 409, "Conflict", {},
+                                     io.BytesIO(b"{}"))
+        with mock.patch.object(ti, "_call", side_effect=err):
+            self.assertEqual(ti.fetch_updates("SECRET", None), [])
+        line = ti.stats_line(ti.new_stats())
+        self.assertIn("READ FAILED: 409 (another program or a webhook is reading this bot)", line)
+        self.assertNotIn("SECRET", line)
+        with mock.patch.object(ti, "_call", return_value={"ok": True, "result": []}):
+            ti.fetch_updates("SECRET", None)
+        self.assertNotIn("READ FAILED", ti.stats_line(ti.new_stats()))
+
+    def test_always_asks_for_button_presses(self):
+        seen = {}
+        with mock.patch.object(ti, "_call", side_effect=lambda t, m, p: seen.update(p) or {"ok": True, "result": []}):
+            ti.fetch_updates("tok", 5)
+        self.assertEqual(seen["allowed_updates"], ["message", "callback_query"])
+
+    def test_subscription_note_warns(self):
+        cases = [({"url": "", "allowed_updates": ["message"]}, "WARNING button presses are not delivered"),
+                 ({"url": "https://x.invalid/hook"}, "webhook set: YES"),
+                 ({"url": "", "allowed_updates": ["message", "callback_query"]}, "bot asks for: message, callback_query")]
+        for info, expected in cases:
+            with mock.patch.object(ti, "_call", return_value={"ok": True, "result": info}):
+                note = ti.subscription_note("tok")
+            self.assertIn(expected, note)
+            self.assertNotIn("x.invalid", note)
 
 
 class SendTests(unittest.TestCase):
