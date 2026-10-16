@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-16T08:28:19",
+ "generated_at": "2026-10-16T08:29:23",
  "money": {
   "real_usd": 0
  },
@@ -188,15 +188,7 @@
    "attempts": 1
   }
  ],
- "pending_approvals": [
-  {
-   "id": 5,
-   "ts": "2026-10-15T20:46:29.582624",
-   "kind": "public_draft",
-   "title": "Draft: [Notion Templates Agent] Notion client CRM for freelancers w (v4, llm) (rewritten)",
-   "review": "score 93/100 (checklist v2) | top: Say why it beats a free template; Title: under 80 chars, say what + who | before: score 78/100 (rules 60, checker 95) | CHECKER: PASS"
-  }
- ],
+ "pending_approvals": [],
  "prompts": [
   {
    "id": 2,
@@ -210,7 +202,7 @@
    "name": "draft",
    "active": true,
    "trials": 3,
-   "quality": 95.0
+   "quality": 80.8
   },
   {
    "id": 1,
