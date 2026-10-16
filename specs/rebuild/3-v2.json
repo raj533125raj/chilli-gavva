@@ -1,0 +1,157 @@
+{
+ "kind": "planner",
+ "niche": "ADHD Planners Agent",
+ "version": "v2",
+ "style": "B",
+ "approval_id": 3,
+ "name": "Printable Focus Sheets Pack",
+ "short_name": "printable-focus-sheets",
+ "daily_page": false,
+ "listing": {
+  "title": "Printable Focus Sheets Pack - Minimalist Brain Dump and Daily Planning Pages",
+  "description": "A set of four printable focus sheets to clear mental clutter and organise your day without busy layouts.\n\nThe four sheets: the Brain Dump & Sort page, the Daily Focus Sheet, the Project Micro-Step Breakdown page and the Weekly Reset & Clear Out page. A cover and a How to use page are included too.\n\nPrint them on A4 or US Letter paper, as often as you need, for personal use.",
+  "tags": [
+   "printable planner",
+   "brain dump sheet",
+   "daily focus sheet",
+   "task planner",
+   "minimalist worksheet"
+  ],
+  "price_usd": 5.0,
+  "buyer": "adults seeking low-friction printable worksheets to organize tasks and reduce mental clutter",
+  "platform": "Gumroad"
+ },
+ "instructions": [
+  "Print the A4 or US Letter file at 100% (actual size).",
+  "Start with the Brain Dump page whenever you feel overwhelmed.",
+  "Move your top three items to the Daily Focus Sheet."
+ ],
+ "cover_image_idea": "The four focus sheets printed on soft pastel paper.",
+ "pages": [
+  {
+   "title": "Brain Dump & Sort",
+   "subtitle": "Get everything out of your head and onto paper",
+   "sections": [
+    {
+     "heading": "Unsorted mental clutter",
+     "type": "lines",
+     "items": [],
+     "count": 8
+    },
+    {
+     "heading": "Category check",
+     "type": "checklist",
+     "items": [
+      "Must do today",
+      "Can wait until tomorrow",
+      "Delegate or ask for help",
+      "Not important right now"
+     ],
+     "count": 4
+    },
+    {
+     "heading": "Immediate next actions",
+     "type": "checkboxes",
+     "items": [],
+     "count": 3
+    }
+   ]
+  },
+  {
+   "title": "Daily Focus Sheet",
+   "subtitle": "Keep your day simple and centred on what matters",
+   "sections": [
+    {
+     "heading": "Today’s main focus",
+     "type": "lines",
+     "items": [],
+     "count": 2
+    },
+    {
+     "heading": "Top 3 priorities",
+     "type": "checkboxes",
+     "items": [],
+     "count": 3
+    },
+    {
+     "heading": "Daily rhythm",
+     "type": "schedule",
+     "items": [
+      "Morning focus",
+      "Midday check-in",
+      "Afternoon tasks",
+      "Evening wrap-up"
+     ],
+     "count": 4
+    },
+    {
+     "heading": "Side notes & distractions to park",
+     "type": "lines",
+     "items": [],
+     "count": 4
+    }
+   ]
+  },
+  {
+   "title": "Project Micro-Step Breakdown",
+   "subtitle": "Turn a big project into small steps",
+   "sections": [
+    {
+     "heading": "Project goal",
+     "type": "lines",
+     "items": [],
+     "count": 2
+    },
+    {
+     "heading": "Tiny first steps",
+     "type": "checklist",
+     "items": [
+      "Step 1 (takes under 5 minutes)",
+      "Step 2",
+      "Step 3",
+      "Step 4",
+      "Step 5",
+      "Step 6"
+     ],
+     "count": 6
+    },
+    {
+     "heading": "Materials or links needed",
+     "type": "lines",
+     "items": [],
+     "count": 4
+    }
+   ]
+  },
+  {
+   "title": "Weekly Reset & Clear Out",
+   "subtitle": "Close open loops before starting fresh",
+   "sections": [
+    {
+     "heading": "Reset checklist",
+     "type": "checklist",
+     "items": [
+      "Clear physical desk space",
+      "Check calendar for upcoming deadlines",
+      "Review open tasks from the week",
+      "Archive or discard scrap paper",
+      "Set top intention for next week"
+     ],
+     "count": 5
+    },
+    {
+     "heading": "Carried-over tasks",
+     "type": "lines",
+     "items": [],
+     "count": 4
+    },
+    {
+     "heading": "Notes & reflections",
+     "type": "lines",
+     "items": [],
+     "count": 4
+    }
+   ]
+  }
+ ]
+}

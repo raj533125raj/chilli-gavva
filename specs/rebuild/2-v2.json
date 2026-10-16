@@ -1,0 +1,111 @@
+{
+ "kind": "planner",
+ "niche": "ADHD Planners Agent",
+ "version": "v2",
+ "style": "B",
+ "approval_id": 2,
+ "name": "Time-Blindness Printable Planner",
+ "short_name": "time-blindness-planner",
+ "daily_page": true,
+ "listing": {
+  "title": "Printable Time-Blindness Planner - Today Page, Weekly Overview and Monthly Review",
+  "description": "A printable planner for people who lose track of time. It plans your day by anchors, not by the clock.\n\nThe Today page has time anchors, a Top 3 (only 3), Now / Next / Later, waiting for / errands, wins today, a guess vs real time table, sixteen 15-minute focus blocks, tomorrow's first step and a brain dump.\n\nAlso inside: a cover, a How to use page, the Weekly Overview page, the Monthly Review page and the Notes & Reflections page. Print it on A4 or US Letter paper, as often as you need, for personal use.",
+  "tags": [
+   "planner",
+   "printable",
+   "time blindness",
+   "ADHD",
+   "productivity"
+  ],
+  "price_usd": 5.0,
+  "buyer": "neurodivergent adults who like simple printable planners",
+  "platform": "Gumroad"
+ },
+ "instructions": [
+  "Print the A4 or US Letter file at 100% (actual size).",
+  "Print a fresh Today page every morning and tick your time anchors as you go.",
+  "Guess how long a task takes, then write the real time: it trains your sense of time.",
+  "Use the Weekly Overview on Sunday and the Monthly Review at the end of the month."
+ ],
+ "cover_image_idea": "The Today page printed on soft pastel paper.",
+ "pages": [
+  {
+   "title": "Weekly Overview",
+   "subtitle": "See the whole week at a glance",
+   "sections": [
+    {
+     "heading": "Weekly goals",
+     "type": "checkboxes",
+     "items": [],
+     "count": 3
+    },
+    {
+     "heading": "Key appointments",
+     "type": "lines",
+     "items": [],
+     "count": 4
+    },
+    {
+     "heading": "Day slots",
+     "type": "schedule",
+     "items": [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday"
+     ],
+     "count": 7
+    },
+    {
+     "heading": "Reflection",
+     "type": "lines",
+     "items": [],
+     "count": 4
+    }
+   ]
+  },
+  {
+   "title": "Monthly Review",
+   "subtitle": "Reflect on patterns and adjust",
+   "sections": [
+    {
+     "heading": "Monthly achievements",
+     "type": "checklist",
+     "items": [
+      "Completed tasks",
+      "New habits",
+      "Challenges overcome"
+     ],
+     "count": 3
+    },
+    {
+     "heading": "Top 5 successes",
+     "type": "lines",
+     "items": [],
+     "count": 5
+    },
+    {
+     "heading": "Insights & adjustments",
+     "type": "lines",
+     "items": [],
+     "count": 5
+    }
+   ]
+  },
+  {
+   "title": "Notes & Reflections",
+   "subtitle": "Free space for ideas, doodles and plans",
+   "sections": [
+    {
+     "heading": "Open notes",
+     "type": "lines",
+     "items": [],
+     "count": 12
+    }
+   ]
+  }
+ ]
+}

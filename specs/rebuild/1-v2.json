@@ -1,0 +1,154 @@
+{
+ "kind": "planner",
+ "niche": "ADHD Planners Agent",
+ "version": "v2",
+ "style": "B",
+ "approval_id": 1,
+ "name": "Energy-Based Daily Planner",
+ "short_name": "energy-daily-planner",
+ "daily_page": false,
+ "listing": {
+  "title": "Printable Energy-Based Daily Planner | Flexible Routine Sheets",
+  "description": "A printable planner that helps you plan your day around your energy, not a strict hour-by-hour schedule.\n\nInside: a cover, a How to use page, the Energy-Based Daily Plan page, a Low-Energy Reset Sheet for tough days, the Weekly Capacity & Rhythm page and the Unload & Sort page.\n\nPrint it on A4 or US Letter paper, as often as you need, for personal use.",
+  "tags": [
+   "daily planner",
+   "printable planner",
+   "energy tracker",
+   "productivity template",
+   "adhd friendly"
+  ],
+  "price_usd": 8.0,
+  "buyer": "adults looking for a simple, flexible planning system tailored to daily energy levels",
+  "platform": "Gumroad"
+ },
+ "instructions": [
+  "Print the A4 or US Letter file at 100% (actual size).",
+  "Each morning, tick your energy level and pick tasks that fit it.",
+  "On hard days, use the Low-Energy Reset Sheet instead."
+ ],
+ "cover_image_idea": "The Energy-Based Daily Plan page printed on soft pastel paper.",
+ "pages": [
+  {
+   "title": "Energy-Based Daily Plan",
+   "subtitle": "Match your tasks to your daily capacity",
+   "sections": [
+    {
+     "heading": "Current energy level",
+     "type": "checklist",
+     "items": [
+      "High energy (deep focus & heavy tasks)",
+      "Medium energy (routine & maintenance work)",
+      "Low energy (essential basics only)"
+     ],
+     "count": 3
+    },
+    {
+     "heading": "Top priority task",
+     "type": "lines",
+     "items": [],
+     "count": 3
+    },
+    {
+     "heading": "Flexible time windows",
+     "type": "schedule",
+     "items": [
+      "Morning focus",
+      "Midday maintenance",
+      "Afternoon follow-up",
+      "Evening wrap-up"
+     ],
+     "count": 4
+    },
+    {
+     "heading": "Quick brain dump",
+     "type": "lines",
+     "items": [],
+     "count": 4
+    }
+   ]
+  },
+  {
+   "title": "Low-Energy Reset Sheet",
+   "subtitle": "A gentle layout for tough or low-capacity days",
+   "sections": [
+    {
+     "heading": "Bare minimum check",
+     "type": "checklist",
+     "items": [
+      "Drink a glass of water",
+      "Eat a simple meal or snack",
+      "Stretch or change physical position",
+      "Step away from screens for 10 minutes"
+     ],
+     "count": 4
+    },
+    {
+     "heading": "Three tiny next steps",
+     "type": "checkboxes",
+     "items": [],
+     "count": 3
+    },
+    {
+     "heading": "Notes & reminders to rest",
+     "type": "lines",
+     "items": [],
+     "count": 4
+    }
+   ]
+  },
+  {
+   "title": "Weekly Capacity & Rhythm",
+   "subtitle": "Map your week by expected energy and commitments",
+   "sections": [
+    {
+     "heading": "Daily capacity forecast",
+     "type": "schedule",
+     "items": [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Weekend"
+     ],
+     "count": 6
+    },
+    {
+     "heading": "Core tasks across the week",
+     "type": "lines",
+     "items": [],
+     "count": 5
+    },
+    {
+     "heading": "Items that can wait",
+     "type": "lines",
+     "items": [],
+     "count": 4
+    }
+   ]
+  },
+  {
+   "title": "Unload & Sort",
+   "subtitle": "Get everything out of your head and sort it",
+   "sections": [
+    {
+     "heading": "Raw task dump",
+     "type": "lines",
+     "items": [],
+     "count": 10
+    },
+    {
+     "heading": "Triage check",
+     "type": "checklist",
+     "items": [
+      "Needs action today",
+      "Can wait for tomorrow",
+      "Needs breaking into smaller steps",
+      "Can be dropped or set aside"
+     ],
+     "count": 4
+    }
+   ]
+  }
+ ]
+}
