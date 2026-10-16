@@ -87,6 +87,19 @@ jobs:
           FORCE: ${{ github.event.inputs.force || 'no' }}
         run: python3 always_on.py gate --reason "$REASON" --force "$FORCE"
 
+      # Free tools for the listing images: Pillow draws them, poppler turns real PDF pages into pictures,
+      # and the URW fonts give poppler a free Helvetica twin (so bold text looks bold in the pictures).
+      # If this step fails, products are still built; only their images are skipped.
+      - name: Install free image tools
+        if: steps.gate.outputs.run == 'true'
+        continue-on-error: true
+        timeout-minutes: 4
+        run: |
+          python3 -m pip install --quiet "Pillow==11.3.0"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends poppler-utils fonts-urw-base35 > /dev/null
+          python3 -c "import mockups; print('Image tools ready:', mockups.available())"
+
       - name: Run tests first
         if: steps.gate.outputs.run == 'true'
         env:
