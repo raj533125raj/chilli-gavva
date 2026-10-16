@@ -8,3 +8,4 @@ Built from approved drafts. Download a folder, check the files, then upload them
 | #2 | [2-time-blindness-planner](2-time-blindness-planner/) | built |
 | #3 | [3-printable-focus-sheets](3-printable-focus-sheets/) | built |
 | #4 | [4-notion-semester-planner](4-notion-semester-planner/) | built |
+| #6 | [6-solo-creator-notion-planner](6-solo-creator-notion-planner/) | built |
