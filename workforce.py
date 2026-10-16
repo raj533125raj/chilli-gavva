@@ -592,6 +592,9 @@ def run_once(max_tasks=5, db_path=None, llm=None, rng=None):
     """Run up to max_tasks queued tasks. Stops at once if the kill switch is on."""
     if guardrails.is_killed():
         return {"status": "killed", "ran": 0, "failed": 0}
+    import rest_window
+    if rest_window.in_rest_window():
+        return {"status": "rest", "ran": 0, "failed": 0}   # daily 6-minute rest: no new AI work or drafts
     ctx = {"db_path": db_path, "llm": llm or default_llm(db_path), "rng": rng or random}
     recover_stuck(db_path)
     sync_human_decisions(db_path)

@@ -468,6 +468,11 @@ def chat(prompt: str, *, db_path=None, size: str | None = None) -> str | None:
         if name in configured:
             log_provider(name, bool(result), db_path)
         if result:
+            try:  # sample emails or key-shaped strings in AI text must never reach the repository
+                import secret_guard
+                result = secret_guard.clean_ai_text(result)
+            except Exception:
+                pass
             return result
         if name in _RATE_LIMITED:
             set_cooldown(name, db_path=db_path)

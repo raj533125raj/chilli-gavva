@@ -22,8 +22,12 @@ def main():
             print("QA checklist re-scored drafts:", rescored)
     except Exception as exc:
         print(f"QA re-score skipped: {type(exc).__name__}")
+    import rest_window
     if guardrails.is_killed():
         result = {"status": "killed", "ran": 0, "failed": 0}
+    elif rest_window.in_rest_window():
+        print(rest_window.rest_tasks())
+        result = {"status": "rest", "ran": 0, "failed": 0}
     else:
         result = workforce.run_once(max_tasks=3)
     export_status.write_status()

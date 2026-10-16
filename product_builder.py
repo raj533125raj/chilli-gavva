@@ -1031,6 +1031,10 @@ def main(argv=None):
     if guardrails.is_killed():
         print("Product Builder: paused (kill switch or /pause), nothing built.")
         return
+    import rest_window
+    if rest_window.in_rest_window():
+        print("Product Builder: daily rest window, nothing built.")
+        return
     results = build_pending(db_path=args.db, max_builds=args.max)
     for entry in add_missing_images():
         print(f"Product Builder: added listing images and LICENSE.txt to {entry}")

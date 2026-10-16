@@ -6,8 +6,8 @@ Setup (one-time):
   1. Message @BotFather on Telegram → /newbot → copy token
   2. Message your new bot once (so it can find your chat_id)
   3. Add to config.json:
-       "telegram_bot_token": "123456:ABC-xyz...",
-       "telegram_chat_id":   "987654321"
+       "telegram_bot_token": "YOUR_BOT_TOKEN",
+       "telegram_chat_id":   "YOUR_CHAT_ID"
 
 CLI:
   python3 notify.py test               # send a test message
