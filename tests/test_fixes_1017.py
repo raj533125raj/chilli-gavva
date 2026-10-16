@@ -166,7 +166,8 @@ class BundleTests(unittest.TestCase):
         self.assertEqual(spec["pages"], [p for s in parts for p in s["pages"]])
         self.assertTrue(spec["daily_page"])
         self.assertEqual(pd.style_for(spec), "B")
-        self.assertEqual(spec["listing"]["price_usd"], 7.0)
+        self.assertEqual(spec["listing"]["price_usd"], 5.0)               # the owner's launch price
+        self.assertEqual(len(spec["listing"]["tags"]), 10)
 
     def test_bundle_build_ready_once_and_listed_not_for_sale(self):
         with tempfile.TemporaryDirectory() as d:
@@ -189,7 +190,9 @@ class BundleTests(unittest.TestCase):
         self.assertEqual(titles[:3], ["ADHD Printable Planner Kit", "How to use", "Today"])
         self.assertEqual(len(titles), 14)
         self.assertIn("the owner decides if it goes on sale", index)
-        self.assertIn("**Price:** 7.00 USD", listing)
+        self.assertIn("**Price:** 5.00 USD", listing)
+        self.assertIn("## Tags (10)", listing)
+        self.assertIn("WHAT'S INSIDE (14 pages)", listing)
         self.assertIn("products #1 v2, #2 v2 and #3 v2", listing)
 
 
