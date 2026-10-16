@@ -1,0 +1,19 @@
+# Niche agent: 2027 Planners Agent
+# Drafts printable 2027 dated planners (PDF, A4 + US Letter), each for ONE clear buyer, for global buyers in USD.
+# Runs on Thursdays (see schedule.yaml). Nothing is published; every draft waits for human approval.
+# Rule: every date, weekday and month grid is made by code (product_builder.py), never by the AI.
+name: niche_planners_2027
+description: 2027 Planners Agent - drafts 3 printable 2027 dated planners, each for one clear buyer, for Gumroad
+tasks:
+  - kind: research
+    payload:
+      agent: 2027 Planners Agent
+      topic: "[2027 Planners Agent] printable 2027 monthly planner for classroom teachers with space for lesson goals and key school dates, priced 7-12 USD, sold on Gumroad to global buyers. Give the product contents and page structure, a listing title, a listing description, and 5 search tags. Dates are made by code: only promise a year overview and 12 monthly calendar pages plus the extra pages you list"
+  - kind: research
+    payload:
+      agent: 2027 Planners Agent
+      topic: "[2027 Planners Agent] printable 2027 monthly planner for small business owners to plan launches, deadlines and monthly money check-ins, priced 7-12 USD, sold on Gumroad to global buyers. Give the product contents and page structure, a listing title, a listing description, and 5 search tags. Dates are made by code: only promise a year overview and 12 monthly calendar pages plus the extra pages you list"
+  - kind: research
+    payload:
+      agent: 2027 Planners Agent
+      topic: "[2027 Planners Agent] printable 2027 monthly planner for university students to track exams, assignment deadlines and study goals, priced 7-12 USD, sold on Gumroad to global buyers. Give the product contents and page structure, a listing title, a listing description, and 5 search tags. Dates are made by code: only promise a year overview and 12 monthly calendar pages plus the extra pages you list"
