@@ -66,6 +66,17 @@ GitHub gives a private repo **2,000 Actions minutes a month** and bills every ru
   starts a run when the month's minutes are not ahead of schedule (budget 1,700 spread evenly over
   the month). Busy days are balanced by skipped alarms later. At 1,700 the alarm stops for the month.
 * Door bell runs count too and reset the 30-minute timer (no double runs). They stop at 1,900.
+
+### Turn on the door bell (owner only, about 2 minutes)
+The door bell starts a run within about a minute when you send a message **or press a button**
+(Approve / Reject / View). It needs the bot token and chat id in the Worker, typed by you:
+1. Cloudflare dashboard -> **Workers & Pages** -> **chilli-gavva-clock** -> **Settings** ->
+   **Variables and Secrets** -> **+ Add**.
+2. Type **Secret**, name `TELEGRAM_BOT_TOKEN`, value: the CURRENT bot token from BotFather -> **Deploy**.
+3. **+ Add** again: type **Secret**, name `TELEGRAM_CHAT_ID`, value: the same chat id as the GitHub secret
+   -> **Deploy**.
+4. Check: the Worker status shows `"door_bell": true` and `"telegram_token_ok": "yes"`. If the bot token is
+   renewed again, update `TELEGRAM_BOT_TOKEN` here too (status then shows `"no"` until you do).
 * GitHub's own timer is kept only as a backup every 3 hours (at most 8 runs a day, and it rarely fires).
 * While the Mac worker is alive the Worker starts nothing, so a Mac that is on most of the day saves
   most of the minutes.
