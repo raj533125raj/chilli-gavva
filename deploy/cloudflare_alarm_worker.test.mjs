@@ -1,7 +1,7 @@
 // Offline tests for cloudflare_alarm_worker.js. Run: node --test deploy/cloudflare_alarm_worker.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { tick, handle, alarmAllowed, settings } from "./cloudflare_alarm_worker.js";
+import { tick, handle, alarmAllowed, settings, telegramTokenOk } from "./cloudflare_alarm_worker.js";
 
 const MIN = 60 * 1000;
 const T0 = Date.UTC(2026, 9, 15, 12, 0); // 15 Oct 2026, about half the month gone
@@ -141,4 +141,34 @@ test("heartbeat, run start/end and status", async () => {
   await handle(req("/run", { method: "POST", body: { phase: "end", minutes: 1 } }), e, Date.UTC(2026, 10, 1, 1));
   st = await (await handle(req("/status"), e, Date.UTC(2026, 10, 1, 2))).json();
   assert.equal(st.month_minutes, 1);
+});
+
+const press = (id, chat) => ({ update_id: id, callback_query: { id: "q", data: "v:4", from: { id: 5 },
+  message: { chat: { id: chat } } } });
+
+test("door bell also rings for a button press from the owner chat, and asks for button presses", async () => {
+  const e = env({ TELEGRAM_BOT_TOKEN: "tg", TELEGRAM_CHAT_ID: "42" });
+  await e.STATE.put("clock", JSON.stringify({ lastDispatch: T0 - 5 * MIN }));
+  const other = fakeFetch([press(9, 99)]);
+  assert.equal((await tick(e, T0, other)).action, "idle");
+  const owner = fakeFetch([press(10, 42)]);
+  assert.equal((await tick(e, T0 + MIN, owner)).action, "doorbell");
+  const peek = decodeURIComponent(owner.calls.find((c) => c.url.includes("getUpdates")).url);
+  assert.ok(peek.includes('allowed_updates=["message","callback_query"]'));
+  assert.ok(!peek.includes("offset"));
+});
+
+test("status says whether the Telegram token works, never shows it", async () => {
+  const fetchOk = async (url) => new Response(JSON.stringify({ ok: String(url).includes("/botGOOD/") }),
+    { status: String(url).includes("/botGOOD/") ? 200 : 401 });
+  assert.equal(await telegramTokenOk(env(), fetchOk), "not set");
+  assert.equal(await telegramTokenOk(env({ TELEGRAM_BOT_TOKEN: "OLD", TELEGRAM_CHAT_ID: "42" }), fetchOk), "no");
+  const good = env({ TELEGRAM_BOT_TOKEN: "GOOD", TELEGRAM_CHAT_ID: "42" });
+  assert.equal(await telegramTokenOk(good, fetchOk), "yes");
+  assert.equal(await telegramTokenOk(good, async () => { throw new Error("net"); }), "no");
+  const st = await (await handle(req("/status"), good, T0, fetchOk)).json();
+  assert.equal(st.telegram_token_ok, "yes");
+  assert.equal(st.door_bell, true);
+  const text = JSON.stringify(st);
+  assert.ok(!text.includes("GOOD") && !text.includes("42"));
 });

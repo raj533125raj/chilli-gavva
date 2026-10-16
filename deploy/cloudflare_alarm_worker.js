@@ -4,7 +4,8 @@
 // Every minute (Cron Trigger "* * * * *"):
 //   1. If the Mac worker sent a heartbeat in the last 12 minutes -> do nothing (one writer at a time).
 //   2. Door bell: peek at Telegram (getUpdates WITHOUT offset, so nothing is consumed). A new message
-//      from the owner chat starts the GitHub workflow at once.
+//      OR button press from the owner chat starts the GitHub workflow at once. The peek always asks for
+//      both kinds: Telegram only keeps the kinds a bot last asked for.
 //   3. Alarm: if no run was started for 30 minutes, start the GitHub workflow.
 //      A monthly minutes budget (default 1,700) paces the alarm so GitHub's free 2,000 minutes last.
 //
@@ -73,18 +74,43 @@ export function runInProgress(runs, now, s) {
 }
 
 // ---- outside calls -----------------------------------------------------------------------
+export const ALLOWED_UPDATES = ["message", "callback_query"]; // text messages AND button presses
+
+export function updateChat(u) {
+  const m = u.message || (u.callback_query && u.callback_query.message) || null;
+  return m && m.chat ? String(m.chat.id) : "";
+}
+
 export async function newestOwnerUpdate(env, fetchFn) {
   // No offset => Telegram only shows pending updates and does NOT mark them as read,
-  // so telegram_inbox.py still receives every command.
-  const r = await fetchFn(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getUpdates?timeout=0&limit=100`);
+  // so telegram_inbox.py still receives every command and button press.
+  const allowed = encodeURIComponent(JSON.stringify(ALLOWED_UPDATES));
+  const r = await fetchFn(
+    `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getUpdates?timeout=0&limit=100&allowed_updates=${allowed}`);
   if (!r.ok) return null;
   const data = await r.json();
   let newest = null;
   for (const u of data.result || []) {
-    const chat = u.message && u.message.chat ? String(u.message.chat.id) : "";
-    if (chat === String(env.TELEGRAM_CHAT_ID) && (newest === null || u.update_id > newest)) newest = u.update_id;
+    if (updateChat(u) === String(env.TELEGRAM_CHAT_ID) && (newest === null || u.update_id > newest)) {
+      newest = u.update_id;
+    }
   }
   return newest;
+}
+
+// "yes" when Telegram accepts the token saved in this Worker, "no" when it is rejected (for example an
+// old token after the bot token was renewed), "not set" when the door bell secrets are missing.
+// The token itself is never returned or logged.
+export async function telegramTokenOk(env, fetchFn) {
+  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return "not set";
+  try {
+    const r = await fetchFn(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getMe`);
+    if (!r.ok) return "no";
+    const data = await r.json();
+    return data && data.ok ? "yes" : "no";
+  } catch {
+    return "no";
+  }
 }
 
 export async function dispatch(env, s, reason, fetchFn) {
@@ -141,7 +167,7 @@ export function authorized(request, env) {
   return diff === 0;
 }
 
-export async function handle(request, env, now) {
+export async function handle(request, env, now, fetchFn = fetch) {
   const url = new URL(request.url);
   if (url.pathname === "/") return new Response("Chilli Gavva clock is running.\n");
   if (!authorized(request, env)) return json({ error: "unauthorized" }, 401);
@@ -184,6 +210,7 @@ export async function handle(request, env, now) {
       month_runs: runs.month === monthKey(now) ? runs.runs || 0 : 0,
       budget: s.budget,
       door_bell: Boolean(env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID),
+      telegram_token_ok: await telegramTokenOk(env, fetchFn),
     });
   }
   return json({ error: "not found" }, 404);
