@@ -702,7 +702,7 @@ def _listing_md(spec):
         f"# {l['title']}", "",
         f"**Price:** {l['price_usd']:.2f} USD  ", f"**Buyer:** {l['buyer']}  ", f"**Platform:** {l['platform']}", "",
         "## Description", "", l["description"], "",
-        "## Tags (5)", "", *[f"- {t}" for t in l["tags"]], "",
+        f"## Tags ({len(l['tags'])})", "", *[f"- {t}" for t in l["tags"]], "",
         "## Cover image idea", "", spec["cover_image_idea"] or "A clean flat-lay of the product on a laptop screen.",
         "", "---", (spec.get("source_note") or f"Built by the Product Builder from approved draft #{spec['approval_id']}.")
         + " "
