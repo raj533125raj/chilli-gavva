@@ -12,8 +12,9 @@ Every product also gets listing.md (title, description, 5 tags, USD price, buyer
 README.md (instructions), cover_image_idea.txt, LICENSE.txt (personal use only) and listing images
 (cover.png, preview-1..3.png, pinterest.png, made by mockups.py). Output: exported_content/products/<id>-<name>/.
 
-Only the Python standard library is used (the files are plain Office Open XML / PDF), so CI needs
-no extra installs. Nothing is uploaded, published or sold: a human uploads the files to a store.
+The product files use only the Python standard library (plain Office Open XML / PDF; planner pages are
+drawn by pdf_design.py in the owner-approved Style A / Style B). The listing images need two free tools:
+Pillow and poppler (see mockups.py). Nothing is uploaded, published or sold: a human uploads the files.
 
 Usage:
     python3 product_builder.py            # build up to 2 new products
@@ -135,11 +136,11 @@ _SHEET_EXAMPLE = {"name": "Income Log", "columns": [
     "overdue": {"due": "Due Date", "status": "Status", "done": "Paid"},
     "balance": {"in": "Amount", "out": ""}}
 EXAMPLES = {
-    "dated_planner": {"monthly_sections": ["Lesson goals", "Key dates", "Notes"],
-                      "pages": [{"title": "Class Roster", "subtitle": "One line per student",
+    "dated_planner": {"pages": [{"title": "Class Roster", "subtitle": "One line per student",
                                  "sections": [{"heading": "Students", "type": "lines", "count": 12}]}]},
     "sheets": {"sheets": [_SHEET_EXAMPLE]},
-    "planner": {"pages": [{"title": "Energy-Based Daily Plan", "subtitle": "Plan by energy, not by the clock",
+    "planner": {"daily_page": True,
+                "pages": [{"title": "Energy-Based Daily Plan", "subtitle": "Plan by energy, not by the clock",
                            "sections": [{"heading": "Energy check", "type": "checklist",
                                          "items": ["High", "Medium", "Low"]},
                                         {"heading": "Top 3 tasks", "type": "lines", "count": 3},
@@ -161,11 +162,15 @@ KIND_RULES = {
               "has a due-date and a status column, and 'balance' only for a money in/out ledger "
               "(use \"\" when a side is missing). 3-6 sample rows per sheet, dates as YYYY-MM-DD.",
     "planner": "Give 3-6 printable pages. Section types: checklist (items), lines (count 1-12), "
-               "schedule (slots), notes (count of lines).",
+               "schedule (slots), notes (count of lines). Set daily_page to true for a daily or time-blindness "
+               "planner: code then adds a fixed 'Today' page (time anchors, top 3, now/next/later, waiting for, "
+               "wins, guess vs real time, 15-minute focus blocks, tomorrow's first step, brain dump). Code also "
+               "adds a cover and a 'How to use' page to every planner.",
     "notion": "Give 2-4 pages in Markdown and 1-3 databases with 3-6 sample rows each.",
     "dated_planner": ("The calendar part is FIXED and made by code: a cover, a 2027 year-at-a-glance page and 12 "
-                      "monthly calendar pages (January to December 2027, weeks start on Sunday). You only choose "
-                      "2-3 short monthly section headings for ONE clear buyer and 1-4 extra planner pages "
+                      "monthly calendar pages (January to December 2027, weeks start on Sunday, each with the boxes "
+                      "This month's focus, Key dates and Notes), plus a cover and a How to use page. You only "
+                      "choose 1-4 extra planner pages for ONE clear buyer "
                       "(checklist, lines, schedule or notes sections). Printable PDF in A4 and US Letter. "
                       "The listing may ONLY promise these things. Never promise weekly or daily dated pages, "
                       "hyperlinks, fillable fields, stickers, a digital/tablet version, dashboards or formulas."),
@@ -313,12 +318,17 @@ def _norm_pages(data, spec):
     if not pages:
         return "spec has no usable planner pages"
     spec["pages"] = pages
+    if spec.get("kind") == "planner":
+        flag = data.get("daily_page")
+        if flag is None:   # the model forgot: a daily or time-blindness planner gets the Today page
+            flag = bool(re.search(r"\bdaily\b|time[- ]blind", spec["listing"]["title"].lower()))
+        spec["daily_page"] = bool(flag)
     return None
 
 
 def _norm_dated(data, spec):
-    sections = [_clean(h, 40) for h in (data.get("monthly_sections") or []) if _clean(h, 40)][:3]
-    spec["monthly_sections"] = sections or ["Goals", "Notes"]
+    import pdf_design
+    spec["monthly_sections"] = list(pdf_design.MONTH_BOXES)   # fixed by the design, the same every month
     spec["year"] = PLANNER_YEAR
     if data.get("pages"):
         if _norm_pages(data, spec):
@@ -677,273 +687,10 @@ def build_docx(path, blocks, title=""):
     _write_zip(path, files)
 
 
-# ---- PDF (hand-written, standard fonts) -------------------------------------------------
-PAGE_SIZES = {"A4": (595.28, 841.89), "Letter": (612.0, 792.0)}
-# The fonts use WinAnsi (Windows-1252), which HAS curly quotes, en/em dashes, bullets and the ellipsis.
-# Anything it does not have becomes the closest plain text: a PDF never shows "?" for a dash or quote.
-_PDF_SUBS = {"‐": "-", "‑": "-", "‒": "-", "⁃": "-", "−": "-", " ": " ",
-             " ": " ", " ": " ", "​": "", "→": "->", "←": "<-", "≤": "<=",
-             "≥": ">=", "∑": "Sum", "Σ": "Sum", "✓": "v", "✔": "v", "★": "*",
-             "☆": "*", "≈": "~", "≠": "!="}
-
-
-def _winansi(s):
-    out = []
-    for ch in str(s):
-        ch = _PDF_SUBS.get(ch, ch)
-        try:
-            ch.encode("cp1252")
-            out.append(ch)
-        except UnicodeEncodeError:
-            import unicodedata
-            plain = unicodedata.normalize("NFKD", ch).encode("ascii", "ignore").decode()
-            out.append(plain)          # unknown symbols are dropped, never shown as "?"
-    return "".join(out)
-
-
-def _pdf_text(s):
-    s = _winansi(s).encode("cp1252").decode("latin-1")   # one byte per character, as the PDF expects
-    return s.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
-
-
-def text_width(s, size, bold=False):
-    """Estimated width in points (Helvetica): good enough to wrap text before it runs off the page."""
-    return len(_winansi(s)) * size * (0.58 if bold else 0.53)
-
-
-def wrap_text(s, size, max_width, bold=False):
-    words, lines, cur = _winansi(s).split(), [], ""
-    for w in words:
-        trial = f"{cur} {w}".strip()
-        if cur and text_width(trial, size, bold) > max_width:
-            lines.append(cur)
-            cur = w
-        else:
-            cur = trial
-    if cur:
-        lines.append(cur)
-    out = []
-    for line in lines or [""]:       # a single very long word is split rather than cut off
-        while text_width(line, size, bold) > max_width and len(line) > 1:
-            n = max(1, int(max_width / (size * (0.58 if bold else 0.53))))
-            out.append(line[:n])
-            line = line[n:]
-        out.append(line)
-    return out
-
-
-class Pdf:
-    def __init__(self, size):
-        self.w, self.h = PAGE_SIZES[size]
-        self.pages = []
-
-    def new_page(self):
-        self.pages.append([])
-
-    def text(self, x, y, s, size=11, bold=False):
-        self.pages[-1].append(f"BT /{'F2' if bold else 'F1'} {size} Tf {x:.1f} {y:.1f} Td ({_pdf_text(s)}) Tj ET")
-
-    def line(self, x1, y1, x2, y2, gray=0.7):
-        self.pages[-1].append(f"{gray} G 0.6 w {x1:.1f} {y1:.1f} m {x2:.1f} {y2:.1f} l S 0 G")
-
-    def box(self, x, y, size=10):
-        self.pages[-1].append(f"0.3 G 0.8 w {x:.1f} {y:.1f} {size} {size} re S 0 G")
-
-    def rect(self, x, y, w, h, gray=0.7):
-        self.pages[-1].append(f"{gray} G 0.6 w {x:.1f} {y:.1f} {w:.1f} {h:.1f} re S 0 G")
-
-    def save(self, path):
-        objs = ["<< /Type /Catalog /Pages 2 0 R >>", None,
-                "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
-                "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>"]
-        kids = []
-        for ops in self.pages:
-            stream = "\n".join(ops).encode("latin-1")
-            objs.append(b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream")
-            content_id = len(objs)
-            objs.append(f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {self.w} {self.h}] "
-                        f"/Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents {content_id} 0 R >>")
-            kids.append(f"{len(objs)} 0 R")
-        objs[1] = f"<< /Type /Pages /Kids [{' '.join(kids)}] /Count {len(kids)} >>"
-        out, offsets = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n"), []
-        for i, obj in enumerate(objs, 1):
-            offsets.append(len(out))
-            out += f"{i} 0 obj\n".encode() + (obj if isinstance(obj, bytes) else obj.encode("latin-1")) + b"\nendobj\n"
-        xref = len(out)
-        out += f"xref\n0 {len(objs) + 1}\n0000000000 65535 f \n".encode()
-        out += b"".join(f"{o:010d} 00000 n \n".encode() for o in offsets)
-        out += f"trailer\n<< /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
-        with open(path, "wb") as f:
-            f.write(bytes(out))
-
-
-BOTTOM = 60            # nothing is drawn below this line (the footer lives at y = 30)
-FILL_IF_FREE = 0.40    # a page with more than 40% of its writing area empty gets a full Notes area
-
-
-def _footer(spec):
-    return f"{spec.get('name') or spec['listing']['title']}  |  for personal use"
-
-
-def _page_header(pdf, margin, title, subtitle, footer):
-    pdf.new_page()
-    y = pdf.h - 70
-    for line in wrap_text(title, 20, pdf.w - 2 * margin, True)[:3]:
-        pdf.text(margin, y, line, 20, True)
-        y -= 24
-    y += 4
-    for line in wrap_text(subtitle, 10, pdf.w - 2 * margin)[:3] if subtitle else []:
-        pdf.text(margin, y, line, 10)
-        y -= 13
-    y -= 4
-    pdf.text(margin, 30, footer, 8)
-    pdf.line(margin, y, pdf.w - margin, y, 0.3)
-    return y - 30
-
-
-def _fill_notes(pdf, margin, y, top):
-    """Turn a mostly empty page into a full page: a Notes heading and writing lines to the bottom."""
-    usable = top - BOTTOM
-    if usable <= 0 or (y - BOTTOM) / usable <= FILL_IF_FREE:
-        return
-    pdf.text(margin, y, "Notes", 13, True)
-    y -= 22
-    while y - 2 > BOTTOM:
-        pdf.line(margin, y - 2, pdf.w - margin, y - 2)
-        y -= 24
-
-
-def render_sections(pdf, margin, page, footer):
-    """Draw one planner page. Long sections continue on a '(cont.)' page; nothing is ever cut off."""
-    width = pdf.w - 2 * margin
-    y = top = _page_header(pdf, margin, page["title"], page.get("subtitle", ""), footer)
-    for sec in page["sections"]:
-        rows = sec["items"] if sec["type"] in ("checklist", "schedule") and sec["items"] else [""] * sec["count"]
-        heading = wrap_text(sec["heading"], 13, width, True) if sec["heading"] else []
-        first_row = 24
-        if y - (22 * len(heading) + first_row) < BOTTOM:
-            _fill_notes(pdf, margin, y, top)
-            y = top = _page_header(pdf, margin, page["title"] + " (cont.)", "", footer)
-        for line in heading:
-            pdf.text(margin, y, line, 13, True)
-            y -= 22
-        for item in rows:
-            if sec["type"] == "checklist" and item:
-                lines = wrap_text(item, 11, width - 18 - 40)
-            elif sec["type"] == "schedule" and item:
-                lines = wrap_text(item, 10, 104, True)
-            else:
-                lines = [""]
-            row_h = 24 + 13 * (len(lines) - 1)
-            if y - row_h < BOTTOM:
-                y = top = _page_header(pdf, margin, page["title"] + " (cont.)", "", footer)
-                if sec["heading"]:
-                    pdf.text(margin, y, _winansi(sec["heading"]) + " (cont.)", 13, True)
-                    y -= 22
-            if sec["type"] == "checklist" and item:
-                pdf.box(margin, y - 2)
-                for i, line in enumerate(lines):
-                    pdf.text(margin + 18, y - 13 * i, line, 11)
-                last = y - 13 * (len(lines) - 1)
-                end_of_text = margin + 26 + text_width(lines[-1], 11)
-                if end_of_text < pdf.w - margin - 40:
-                    pdf.line(end_of_text, last - 2, pdf.w - margin, last - 2)
-            elif sec["type"] == "schedule" and item:
-                for i, line in enumerate(lines):
-                    pdf.text(margin, y - 13 * i, line, 10, True)
-                last = y - 13 * (len(lines) - 1)
-                pdf.line(margin + 110, last - 2, pdf.w - margin, last - 2)
-            else:
-                pdf.line(margin, y - 2, pdf.w - margin, y - 2)
-            y -= row_h
-        y -= 10
-    _fill_notes(pdf, margin, y, top)
-
-
-def build_planner_pdf(path, spec, size):
-    pdf, margin = Pdf(size), 50
-    for page in spec["pages"]:
-        render_sections(pdf, margin, page, _footer(spec))
-    pdf.save(path)
-    return len(pdf.pages)
-
-
-# ---- dated planners: every date comes from code, never from the AI ---------------------------
-import calendar as _calendar
-
-PLANNER_YEAR = 2027
-WEEKDAYS_SUN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-
-
-def month_weeks(year, month):
-    """Weeks of a month, Sunday first: lists of 7 day numbers (0 = blank). Made by Python's calendar."""
-    return _calendar.Calendar(firstweekday=6).monthdayscalendar(year, month)
-
-
-def _month_grid(pdf, x, y, w, h, year, month, label_size=9, numbers=True):
-    """Draw a month grid inside the box (x, y = top-left). Returns the bottom y."""
-    weeks = month_weeks(year, month)
-    col = w / 7
-    head = label_size + 6
-    for i, name in enumerate(WEEKDAYS_SUN):
-        pdf.text(x + i * col + 3, y - label_size, name if label_size >= 8 else name[0], label_size, True)
-    row = (h - head) / len(weeks)
-    for r, week in enumerate(weeks):
-        top = y - head - r * row
-        for c, day in enumerate(week):
-            pdf.rect(x + c * col, top - row, col, row)
-            if day and numbers:
-                pdf.text(x + c * col + 3, top - label_size - 2, str(day), label_size)
-    return y - h
-
-
-def build_dated_planner_pdf(path, spec, size, year=PLANNER_YEAR):
-    pdf, margin = Pdf(size), 50
-    footer = _footer(spec)
-    width = pdf.w - 2 * margin
-    # 1. cover
-    pdf.new_page()
-    y = pdf.h * 0.62
-    for line in wrap_text(spec["name"], 26, width, True)[:3]:
-        pdf.text(margin, y, line, 26, True)
-        y -= 32
-    pdf.text(margin, y - 10, str(year), 48, True)
-    for i, line in enumerate(wrap_text(spec["listing"]["buyer"], 12, width)[:3]):
-        pdf.text(margin, y - 60 - 15 * i, line, 12)
-    pdf.text(margin, 30, footer, 8)
-    # 2. year at a glance
-    y = _page_header(pdf, margin, f"{year} at a glance", "", footer) + 10
-    cols, rows_n, gap = 3, 4, 14
-    cw = (width - gap * (cols - 1)) / cols
-    ch = (y - BOTTOM - gap * (rows_n - 1)) / rows_n
-    for m in range(1, 13):
-        r, c = divmod(m - 1, cols)
-        x0, y0 = margin + c * (cw + gap), y - r * (ch + gap)
-        pdf.text(x0, y0 - 9, _calendar.month_name[m], 9, True)
-        _month_grid(pdf, x0, y0 - 14, cw, ch - 16, year, m, label_size=6)
-    # 3. one page per month: the grid, then the buyer's monthly sections
-    sections = spec.get("monthly_sections") or ["Goals", "Notes"]
-    for m in range(1, 13):
-        y = _page_header(pdf, margin, f"{_calendar.month_name[m]} {year}", "", footer)
-        grid_h = min(0.55 * (y - BOTTOM), 360)
-        y = _month_grid(pdf, margin, y, width, grid_h, year, m) - 24
-        per = max(1, int((y - BOTTOM) / max(1, len(sections)) / 22) - 1)
-        for heading in sections:
-            if y - 44 < BOTTOM:
-                break
-            pdf.text(margin, y, heading, 13, True)
-            y -= 22
-            for _ in range(per):
-                if y - 2 < BOTTOM:
-                    break
-                pdf.line(margin, y - 2, pdf.w - margin, y - 2)
-                y -= 22
-            y -= 6
-    # 4. the buyer's extra pages (made by the same planner page code)
-    for page in spec.get("pages") or []:
-        render_sections(pdf, margin, page, footer)
-    pdf.save(path)
-    return len(pdf.pages)
+# ---- PDF planners: the page design lives in pdf_design.py (owner-approved mockups, 2026-10-16) ----------
+from pdf_design import (BOTTOM, PAGE_SIZES, PLANNER_YEAR, STYLES, TODAY_PAGE, WEEKDAYS_SUN, Pdf,  # noqa: F401
+                        _pdf_text, _winansi, build_dated_planner_pdf, build_planner_pdf, month_cells, month_weeks,
+                        style_for, text_width, wrap_text)
 
 
 # ---- product folders -------------------------------------------------------------------
@@ -1049,11 +796,11 @@ BUILDERS = {"sheets": _build_sheets, "planner": _build_planner, "notion": _build
             "dated_planner": _build_dated_planner}
 
 
-def build_product(spec, approval_id, out_dir=None):
+def build_product(spec, approval_id, out_dir=None, folder_name=None):
     """Write all files for one spec. Returns the folder name."""
     out_dir = out_dir or PRODUCTS_DIR
     spec = dict(spec, approval_id=approval_id)
-    folder_name = f"{approval_id}-{spec['short_name']}"
+    folder_name = folder_name or f"{approval_id}-{spec['short_name']}"
     folder = os.path.join(out_dir, folder_name)
     os.makedirs(folder, exist_ok=True)
     files, how_to = BUILDERS[spec["kind"]](folder, spec)
@@ -1076,6 +823,7 @@ def build_product(spec, approval_id, out_dir=None):
 
 # ---- listing images for products built before images existed ---------------------------
 _PDF_OP = re.compile(r"BT /(F1|F2) ([\d.]+) Tf [\d.]+ ([\d.]+) Td \((.*)\) Tj ET$")
+_CODE_PAGES = {"How to use", "Today"}
 
 
 def _pdf_unescape(s):
@@ -1087,7 +835,10 @@ def planner_pages_from_pdf(path):
     with open(path, "rb") as f:
         data = f.read().decode("latin-1")
     pages = []
-    for stream in re.findall(r"stream\n(.*?)\nendstream", data, re.S):
+    streams = re.findall(r"stream\n(.*?)\nendstream", data, re.S)
+    if "/ChilliStyle (" in data:      # the new design: page 1 is the cover, code-made pages are skipped
+        streams = streams[1:]
+    for stream in streams:
         page, section, boxed = None, None, False
         for op in stream.splitlines():
             if op.endswith(" re S 0 G"):
@@ -1099,20 +850,24 @@ def planner_pages_from_pdf(path):
             font, size = m.group(1), float(m.group(2))
             text = _pdf_unescape(m.group(4)).encode("latin-1", "replace").decode("cp1252", "replace")
             if font == "F2" and size >= 18:
-                page = {"title": text.replace(" (cont.)", ""), "subtitle": "", "sections": []}
-                pages.append(page)
+                if page is not None and not page["sections"] and not page["subtitle"]:
+                    page["title"] += " " + text.replace(" (cont.)", "")     # a title on two lines
+                else:
+                    page = {"title": text.replace(" (cont.)", ""), "subtitle": "", "sections": []}
+                    pages.append(page)
             elif page is None or size <= 8:
                 continue   # footer
-            elif font == "F2" and size >= 12:
+            elif font == "F2" and size >= 10.5:
                 section = {"heading": text, "type": "lines", "items": [], "count": 3}
                 page["sections"].append(section)
             elif section is not None and (boxed or font == "F2"):
                 section["type"] = "checklist" if boxed else "schedule"
                 section["items"].append(text)
-            elif size == 10 and not page["sections"]:
+            elif size in (10, 10.5) and not page["sections"]:
                 page["subtitle"] = text
             boxed = False
     merged = []
+    pages = [p for p in pages if not ("/ChilliStyle (" in data and p["title"] in _CODE_PAGES)]
     for p in pages:   # "(cont.)" pages belong to the page before
         if merged and merged[-1]["title"] == p["title"]:
             merged[-1]["sections"] += p["sections"]
@@ -1251,22 +1006,61 @@ def check_unchecked(db_path=None, out_dir=None, notify_fn=None):
     return done
 
 
+REBUILD_DIR = os.path.join(BASE_DIR, "specs", "rebuild")
+
+
+def rebuild_versions(db_path=None, out_dir=None, spec_dir=None, notify_fn=None):
+    """Build NEW versions of products from the hand-checked specs in specs/rebuild/<id>-<version>.json.
+
+    The new version gets its own folder (<id>-<version>-<name>); the old folder is kept, never deleted.
+    Each new version is built once, truth-checked, and becomes the product's current folder. Held products
+    (OWNER_HOLDS) are never rebuilt here. Returns [(approval_id, folder, verdict)]."""
+    out_dir, spec_dir = out_dir or PRODUCTS_DIR, spec_dir or REBUILD_DIR
+    done = []
+    if not os.path.isdir(spec_dir):
+        return done
+    for name in sorted(os.listdir(spec_dir)):
+        if not name.endswith(".json"):
+            continue
+        with open(os.path.join(spec_dir, name), encoding="utf-8") as f:
+            spec = json.load(f)
+        approval_id, version = int(spec["approval_id"]), spec["version"]
+        if approval_id in OWNER_HOLDS:
+            continue
+        folder = f"{approval_id}-{version}-{spec['short_name']}"
+        if os.path.isdir(os.path.join(out_dir, folder)):
+            continue
+        old = next((b["folder"] for b in builds(db_path) if b["approval_id"] == approval_id), "") or ""
+        build_product(spec, approval_id, out_dir, folder_name=folder)
+        _record(db_path, approval_id, "built", folder, f"{version}; older version kept in {old or '-'}")
+        verdict = truth_check_folder(approval_id, folder, db_path, out_dir, notify_fn)["verdict"]
+        done.append((approval_id, folder, verdict))
+    return done
+
+
 def write_index(db_path=None, out_dir=None):
     out_dir = out_dir or PRODUCTS_DIR
     os.makedirs(out_dir, exist_ok=True)
     lines = ["# Products", "",
-             "Built from approved drafts and checked by the Truth Checker against the real files. Only "
-             "products marked **ready** may be uploaded to Gumroad, by you. Nothing here is published "
-             "automatically.", "",
+             "Built from approved drafts and checked by the Truth Checker against the real files. Nothing "
+             "here is for sale until the owner decides; the owner uploads to Gumroad by hand. Nothing is "
+             "published automatically.", "",
              "| Draft | Folder | Status |", "|---|---|---|"]
+    current = set()
     for b in builds(db_path):
         if b["status"] in ("built", "needs_fix", "not_for_sale") and b["folder"]:
-            label = {"built": "ready (truth check passed)",
+            current.add(b["folder"])
+            label = {"built": "ready (truth check passed) - the owner decides if it goes on sale",
                      "needs_fix": "needs fix - see TRUTH_CHECK.md",
                      "not_for_sale": f"**{OWNER_HOLDS.get(b['approval_id'], 'NOT FOR SALE')}**"}[b["status"]]
             lines.append(f"| #{b['approval_id']} | [{b['folder']}]({b['folder']}/) | {label} |")
         elif b["status"] in ("retry", "failed"):
             lines.append(f"| #{b['approval_id']} | - | {b['status']} after {b['tries']} try(s): {b['note'][:80]} |")
+    older = [d for d in sorted(os.listdir(out_dir)) if os.path.isdir(os.path.join(out_dir, d)) and d not in current
+             and re.match(r"\d+-", d)]
+    if older:
+        lines += ["", "## Older versions (kept, not for sale)", "", "| Draft | Folder |", "|---|---|"]
+        lines += [f"| #{d.split('-', 1)[0]} | [{d}]({d}/) |" for d in older]
     with open(os.path.join(out_dir, "INDEX.md"), "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
 
@@ -1334,13 +1128,16 @@ def main(argv=None):
         print("Product Builder: daily rest window, nothing built.")
         return
     results = build_pending(db_path=args.db, max_builds=args.max)
+    rebuilt = rebuild_versions(args.db)
+    for approval_id, folder, verdict in rebuilt:
+        print(f"Product Builder: new version of #{approval_id} -> {folder} ({verdict})")
     for entry in add_missing_images():
         print(f"Product Builder: added listing images and LICENSE.txt to {entry}")
     held = apply_owner_holds(args.db)
     checked = check_unchecked(args.db)
     for approval_id, verdict in checked:
         print(f"Product Builder: truth check #{approval_id} -> {verdict}")
-    if results or held or checked:
+    if results or held or checked or rebuilt:
         write_index(args.db)
     if not results:
         print("Product Builder: no new approved niche drafts.")

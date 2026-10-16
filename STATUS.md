@@ -54,6 +54,15 @@ free store (Gumroad). Nothing is published, posted or sold automatically.
 14. **Rotation (2026-10-16):** Notion templates PAUSED (recipe kept). Thursday = 2027 dated planners
     (`recipes/niche_planners_2027.yaml`): all dates and month grids are made by code; one clear buyer each.
     Products #4 and #6 are NOT FOR SALE (files do not match listing); their files are kept.
+15. **Approved design (2026-10-16)** (`pdf_design.py`): Style A "Clean Accent" (teal) for every niche, Style B
+    "Soft Pastel" for ADHD planners. Every planner: cover + How to use page, footer "name · size · for personal
+    use · Page X of N", last box in each column grows to the footer, nothing cut. ADHD/time-blindness planners
+    can get the code-made "Today" page. 2027 month pages: Sunday-first 6-row grid, faded other days, shaded
+    weekends, boxes This month's focus / Key dates / Notes.
+16. **Listing images** (`mockups.py`): Inter font (`fonts/`, SIL OFL), Pillow + poppler. Cover, 3 previews and a
+    pin show REAL pages of the product; every fact on them comes from `truth_check.image_facts`.
+17. **New versions** (`specs/rebuild/`): #1, #2, #3 rebuilt as v2 in Style B (old folders kept, listed as
+    "older versions"). Nothing is for sale until the owner decides; #4 and #6 stay NOT FOR SALE.
 
 ## Where it runs
 - **GitHub Actions** (`.github/workflows/agent.yml`): tests first, then one agent cycle, Telegram inbox,
@@ -64,7 +73,7 @@ free store (Gumroad). Nothing is published, posted or sold automatically.
   on, and a Telegram "door bell" for fast replies.
 
 ## Quality
-- About 500 offline unit tests: `python3 -m unittest discover -s tests` (CI runs them with `CHILLI_TEST=1`
+- About 590 offline unit tests: `python3 -m unittest discover -s tests` (CI runs them with `CHILLI_TEST=1`
   before every cycle). Tests never call real AI models or websites.
 
 ## Known gaps / next steps

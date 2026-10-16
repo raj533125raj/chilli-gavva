@@ -51,15 +51,22 @@ def _pdf_pages(path):
     op = re.compile(r"BT /(F1|F2) ([\d.]+) Tf ([\d.]+) ([\d.]+) Td \((.*)\) Tj ET$")
     pages = []
     for stream in re.findall(r"stream\n(.*?)\nendstream", data, re.S):
-        items = []
+        items, low = [], None
         for line in stream.splitlines():
             m = op.match(line)
             if m:
                 raw = m.group(5).replace("\\(", "(").replace("\\)", ")").replace("\\\\", "\\")
                 text = raw.encode("latin-1", "replace").decode("cp1252", "replace")
                 items.append((m.group(1), float(m.group(2)), float(m.group(3)), float(m.group(4)), text))
-        lines = len(re.findall(r" l S", stream)) + len(re.findall(r" re S", stream))
-        pages.append({"items": items, "drawn": lines})
+                ys = [float(m.group(4))]
+            else:   # lines, boxes and shapes: the lowest point they reach
+                ys = [float(v) for v in re.findall(r"[\d.]+ ([\d.]+) (?:m|l)\b", line)]
+                ys += [float(v) for v in re.findall(r"[\d.]+ ([\d.]+) [\d.]+ [\d.]+ re [SfB]", line)]
+            for y in ys:
+                if y > 50 and (low is None or y < low):    # the footer (under y = 50) does not count
+                    low = y
+        drawn = len(re.findall(r" (?:l|re|h) [SfB]\b", stream))
+        pages.append({"items": items, "drawn": drawn, "low": low})
     return pages
 
 
@@ -76,13 +83,19 @@ def facts(folder):
         pages = _pdf_pages(os.path.join(folder, next((n for n in pdfs if n.endswith("-A4.pdf")), pdfs[0])))
         f["pages"] = len(pages)
         f["page_items"] = pages
+        with open(os.path.join(folder, next((n for n in pdfs if n.endswith("-A4.pdf")), pdfs[0])), "rb") as fh:
+            box = re.search(rb"/MediaBox \[0 0 [\d.]+ ([\d.]+)\]", fh.read())
+        f["page_height"] = float(box.group(1)) if box else 842
         for p in pages:
+            big = []
             for font, size, _, _, text in p["items"]:
                 f["texts"].append(text)
                 if font == "F2" and size >= 18:
-                    f["titles"].append(text)
-                elif font == "F2" and size >= 12:
+                    big.append(text)
+                elif font == "F2" and size >= 10.5:
                     f["headings"].append(text)
+            if big:      # one title per page: "January" + "2027" -> "January 2027", two-line titles joined
+                f["titles"].append(" ".join(big))
     for n in names:
         path = os.path.join(folder, n)
         if n.endswith(".zip"):
@@ -247,6 +260,8 @@ def file_quality(f, image_texts=None):
             used = (max(ys) - min(ys)) if len(ys) > 1 else 0
             if i > 1 and len(page["items"]) <= 4 and page["drawn"] < 8 and used < 300:
                 problems.append(f"page {i} is almost empty")
+            elif page.get("low") is not None and page["low"] > 0.35 * f.get("page_height", 842):
+                problems.append(f"page {i} has a big empty area at the bottom")
         broken = [t for t in f["texts"] if re.search(r"\w\?\w|\s\?\s|\(\d+\?\d+", t) or "�" in t]
         if broken:
             problems.append(f"broken characters ('?' instead of a dash or quote) in {len(broken)} line(s)")
@@ -268,33 +283,52 @@ def file_quality(f, image_texts=None):
             problems.append("raw ** symbols in the listing images")
             break
     for text in image_texts or []:
-        if text.endswith("...") and len(text) > 6:
+        if (text.endswith("...") or text.endswith("\u2026")) and len(text) > 6:
             problems.append("text cut off in the listing images")
             break
+    if image_texts:   # a number on an image must be a proven fact
+        shown = {t for t in image_texts if re.fullmatch(r"\d+ (?:pages|sheets)", t)}
+        allowed = {f"{f.get('pages', 0)} pages", f"{len(f.get('sheets') or [])} sheets"}
+        if shown - allowed:
+            problems.append(f"the listing images show '{sorted(shown - allowed)[0]}', the files do not prove it")
     return problems
 
 
-def image_texts(folder):
-    """The words the listing images show (drawn again in memory, nothing is written)."""
-    import mockups
-    import product_builder
-    drawn = []
-    real = mockups.Canvas.text
+def image_facts(folder):
+    """The facts the listing images may show, ALL proven by the files: page count, paper sizes, the year
+    of a dated planner (only when all 12 month pages exist), sheet count, formulas, drop-downs."""
+    import pdf_design
+    f = facts(folder)
+    out = {"kind": f["kind"], "pages": f["pages"], "sizes": sorted(set(f["pdf_sizes"]), key=["A4", "Letter"].index)
+           if set(f["pdf_sizes"]) <= {"A4", "Letter"} else sorted(set(f["pdf_sizes"])), "dated": None,
+           "style": "A", "sheet_count": len(f["sheets"]), "formulas": f["formulas"] > 0,
+           "dropdowns": f["validations"] > 0, "pdf_path": None,
+           "xlsx": [n for n in f["files"] if n.endswith(".xlsx")], "docx": [n for n in f["files"] if n.endswith(".docx")],
+           "zips": [n for n in f["files"] if n.endswith(".zip")]}
+    if f["kind"] == "pdf":
+        pdfs = [n for n in f["files"] if n.endswith(".pdf")]
+        out["pdf_path"] = os.path.join(folder, next((n for n in pdfs if n.endswith("-A4.pdf")), pdfs[0]))
+        out["style"] = pdf_design.pdf_style(out["pdf_path"]) or "A"
+        if _proven("12 monthly calendar pages", f)[0]:
+            years = {t.split()[1] for t in f["titles"] if len(t.split()) == 2 and t.split()[1].isdigit()}
+            out["dated"] = years.pop() if len(years) == 1 else None
+    return out
 
-    def spy(self, x, y, text, color, scale=2):
-        drawn.append(text)
-        return real(self, x, y, text, color, scale)
+
+def image_texts(folder):
+    """The words the listing images show (drawn again in memory, nothing is written). Needs the free image
+    tools (Pillow + poppler); without them there is nothing to check."""
+    import mockups
+    if not mockups.available():
+        return []
+    mockups.DRAWN = []
     try:
-        spec = product_builder.spec_from_folder(folder)
-        mockups.Canvas.text = spy
-        mockups.cover_png(spec)
-        for i, page in enumerate(mockups.preview_pages(spec), 1):
-            mockups.preview_png(spec, page, i)
+        mockups.make_images(folder)
+        return list(mockups.DRAWN)
     except Exception:
         return []
     finally:
-        mockups.Canvas.text = real
-    return drawn
+        mockups.DRAWN = None
 
 
 def check(folder, with_images=True):
