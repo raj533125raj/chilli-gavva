@@ -46,6 +46,14 @@ free store (Gumroad). Nothing is published, posted or sold automatically.
     suggests new specific topics. A done-topics list (plus every past task) blocks repeats and near-repeats.
     If no fresh topic is left and the AI is down, nothing is queued that night.
 12. **Save state** saves only when something real changed (`save_check.py`), not just timestamps.
+13. **Truth Checker** (`truth_check.py`): after every build, every promise in listing.md, README and the product
+    pages is checked against the REAL files. Default answer "needs fix"; 95+ needs extra proof (rules from the
+    MIT "Reality Checker" agent in msitarzewski/agency-agents). Also checks the files: empty pages, broken
+    characters, cut-off text (pages and images), raw ** in images, lost apostrophes. Telegram gets
+    "READY" or "NEEDS FIX" with the top 3 problems. Each folder gets TRUTH_CHECK.md.
+14. **Rotation (2026-10-16):** Notion templates PAUSED (recipe kept). Thursday = 2027 dated planners
+    (`recipes/niche_planners_2027.yaml`): all dates and month grids are made by code; one clear buyer each.
+    Products #4 and #6 are NOT FOR SALE (files do not match listing); their files are kept.
 
 ## Where it runs
 - **GitHub Actions** (`.github/workflows/agent.yml`): tests first, then one agent cycle, Telegram inbox,

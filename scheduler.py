@@ -28,7 +28,7 @@ DEFAULT_SCHEDULE = """\
 slots:
   - name: night
     hour: 21
-    rotate: niche_budget_sheets, niche_freelancer_trackers, niche_adhd_planners, niche_notion_templates, niche_resume_bundle
+    rotate: niche_budget_sheets, niche_freelancer_trackers, niche_adhd_planners, niche_planners_2027, niche_resume_bundle
     recipe: niche_budget_sheets
 """
 

@@ -20,10 +20,11 @@ PIN_SIZE = (1000, 1500)
 PALETTES = {  # background, accent, ink
     "sheets": ((232, 244, 236), (46, 125, 82), (33, 37, 41)),
     "planner": ((251, 238, 230), (201, 98, 66), (45, 35, 33)),
+    "dated_planner": ((251, 238, 230), (201, 98, 66), (45, 35, 33)),   # same look as the planners
     "notion": ((236, 238, 246), (72, 84, 160), (30, 32, 44)),
     "resume": ((234, 241, 248), (40, 96, 150), (28, 36, 46)),
 }
-KIND_LABEL = {"sheets": "Spreadsheet template", "planner": "Printable planner",
+KIND_LABEL = {"dated_planner": "2027 printable planner", "sheets": "Spreadsheet template", "planner": "Printable planner",
               "notion": "Digital workspace template", "resume": "Resume template bundle"}
 
 # Brand names of other companies are never drawn on the images.
@@ -39,11 +40,26 @@ _BRAND_WORDS = (r"google\s+sheets?|google\s+docs?|microsoft\s+excel|microsoft\s+
                 r"|payhip|goodnotes|apple\s+numbers|ipad")
 
 
+_PLAIN = {"\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"', "\u2013": "-", "\u2014": "-",
+          "\u2011": "-", "\u2010": "-", "\u2026": "...", "\u00a0": " ", "\u2022": "-"}
+
+
+def plain(text):
+    """Curly quotes and dashes become plain ones (the pixel font has them); nothing is silently dropped."""
+    out = "".join(_PLAIN.get(ch, ch) for ch in str(text or ""))
+    return unicodedata.normalize("NFKD", out).encode("ascii", "ignore").decode()
+
+
+def fit(text, n):
+    """Shorten for a narrow table cell, with a visible '...' (so a cut is never hidden)."""
+    return text if len(text) <= n else text[:max(1, n - 3)].rstrip() + "..."
+
+
 def no_brands(text):
     out = re.sub(rf"\s+(?:for|in|on|with|using)\s+(?:{_BRAND_WORDS})\b", "", str(text or ""), flags=re.IGNORECASE)
     for pattern, repl in _BRANDS:
         out = re.sub(pattern, repl, out, flags=re.IGNORECASE)
-    out = unicodedata.normalize("NFKD", out).encode("ascii", "ignore").decode()
+    out = plain(out)
     return re.sub(r"\s{2,}", " ", out).strip(" -|,")
 
 
@@ -165,6 +181,25 @@ def preview_pages(spec):
         for d in spec.get("databases", [])[:3 - len(pages)]:
             pages.append({"title": d.get("name", ""), "columns": d.get("columns", [])[:6],
                           "rows": d.get("rows", [])[:4]})
+    elif kind == "dated_planner":   # dates come from the real calendar, like the PDF itself
+        import calendar
+        year = spec.get("year", 2027)
+        days = [("li", f"{calendar.month_name[m]}: {calendar.monthrange(year, m)[1]} days, starts on a "
+                       f"{calendar.day_name[calendar.monthrange(year, m)[0]]}") for m in range(1, 7)]
+        pages.append({"title": f"{year} at a glance", "lines": days})
+        jan = [("pre", "".join(f"{d:<4}" for d in ("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")))]
+        jan += [("pre", "".join(f"{d:<4}" if d else "    " for d in week))
+                for week in calendar.Calendar(firstweekday=6).monthdayscalendar(year, 1)]
+        jan += [("h", h) for h in spec.get("monthly_sections", [])]
+        pages.append({"title": f"January {year}", "lines": jan})
+        for p in spec.get("pages", [])[:1]:
+            lines = []
+            for sec in p.get("sections", []):
+                lines.append(("h", sec.get("heading") or ""))
+                lines += [("box" if sec.get("type") == "checklist" else "li", i) for i in sec.get("items", [])[:4]]
+                if not sec.get("items"):
+                    lines += [("line", "")] * min(3, sec.get("count", 3))
+            pages.append({"title": p.get("title", ""), "lines": lines})
     elif kind == "resume":
         lines = []
         for s in spec.get("resume", [])[:4]:
@@ -186,16 +221,23 @@ def _draw_page(c, page, x, y, w, h, accent, ink):
     c.rect(x + 10, y + 10, w, h, (200, 200, 200))   # soft shadow
     c.rect(x, y, w, h, (255, 255, 255))
     c.rect(x, y, w, 12, accent)
-    title_lines = wrap(no_brands(page["title"]), max(8, (w - 60) // 24), 1)
-    c.text(x + 30, y + 40, title_lines[0] if title_lines else "", ink, 4)
-    top = y + 100
+    title = no_brands(page["title"])
+    title_lines = wrap(title, max(8, (w - 60) // 24), 2)
+    if title_lines and title_lines[-1].endswith("...") and len(title) > 3:   # too long: smaller, never cut
+        title_lines = wrap(title, max(8, (w - 60) // 18), 2)
+        size = 3
+    else:
+        size = 4
+    for i, line in enumerate(title_lines):
+        c.text(x + 30, y + 40 + i * 12 * size, line, ink, size)
+    top = y + 100 + (len(title_lines) - 1) * 12 * size
     grey, light = (120, 124, 130), (226, 229, 234)
     if page.get("columns"):
         cols = [no_brands(col) for col in page["columns"]] or ["Item"]
         cw = (w - 60) // len(cols)
         c.rect(x + 30, top, cw * len(cols), 40, accent)
         for i, col in enumerate(cols):
-            c.text(x + 38 + i * cw, top + 12, col[:max(3, (cw - 20) // 12)], (255, 255, 255), 2)
+            c.text(x + 38 + i * cw, top + 12, fit(col, max(3, (cw - 20) // 12)), (255, 255, 255), 2)
         rows = page.get("rows") or []
         for r in range(min(18, (h - (top - y) - 70) // 40)):
             ry = top + 40 + r * 40
@@ -204,17 +246,24 @@ def _draw_page(c, page, x, y, w, h, accent, ink):
                 c.rect(x + 30 + i * cw, ry, 2, 40, light)
             if r < len(rows):
                 for i, val in enumerate(rows[r][:len(cols)]):
-                    c.text(x + 38 + i * cw, ry + 13, no_brands(val)[:max(3, (cw - 20) // 12)], grey, 2)
+                    c.text(x + 38 + i * cw, ry + 13, fit(no_brands(val), max(3, (cw - 20) // 12)), grey, 2)
         return
     yy = top
     per_line = max(10, (w - 110) // 12)
     for kind, text in page.get("lines", []):
         if yy > y + h - 50:
             break
+        if kind == "pre":    # calendar rows: fixed-width font, spacing kept exactly
+            c.text(x + 60, yy + 2, plain(text), ink, 2)
+            c.rect(x + 60, yy + 26, w - 90, 1, light)
+            yy += 36
+            continue
         text = no_brands(text)
         if kind == "h":
-            c.text(x + 30, yy, text[:max(8, (w - 60) // 18)], accent, 3)
-            yy += 40
+            for line in wrap(text, max(8, (w - 60) // 18), 2):
+                c.text(x + 30, yy, line, accent, 3)
+                yy += 32
+            yy += 8
         elif kind == "line":
             c.rect(x + 30, yy + 20, w - 60, 2, light)
             yy += 34
@@ -228,7 +277,10 @@ def _draw_page(c, page, x, y, w, h, accent, ink):
                 c.outline(x + 30, yy, 18, 18, accent, 2)
             else:
                 c.rect(x + 36, yy + 6, 8, 8, accent)
-            c.text(x + 60, yy + 2, text[:per_line], ink, 2)
+            lines = wrap(text, per_line, 2)
+            for i, line in enumerate(lines):
+                c.text(x + 60, yy + 2 + 24 * i, line, ink, 2)
+            yy += 24 * (len(lines) - 1)
             c.rect(x + 60, yy + 26, w - 90, 1, light)
             yy += 36
 

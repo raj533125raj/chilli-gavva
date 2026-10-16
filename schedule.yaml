@@ -3,10 +3,11 @@
 # Only earning work runs. Old food/aquaculture slots were removed on 2026-10-14.
 slots:
 # Niche agents: ONE niche runs per night, taking turns by UTC weekday.
-# Mon budget sheets, Tue freelancer trackers, Wed ADHD planners, Thu Notion templates,
+# Mon budget sheets, Tue freelancer trackers, Wed ADHD planners, Thu 2027 dated planners,
 # Fri resume bundle, Sat budget sheets, Sun freelancer trackers.
+# Notion templates are PAUSED (owner decision 2026-10-16): recipes/niche_notion_templates.yaml is kept for later.
 # Skipped automatically while the approval queue is full (10 drafts waiting).
   - name: night
     hour: 21
-    rotate: niche_budget_sheets, niche_freelancer_trackers, niche_adhd_planners, niche_notion_templates, niche_resume_bundle
+    rotate: niche_budget_sheets, niche_freelancer_trackers, niche_adhd_planners, niche_planners_2027, niche_resume_bundle
     recipe: niche_budget_sheets

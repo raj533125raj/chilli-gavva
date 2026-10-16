@@ -55,6 +55,10 @@ NICHES = {
                                "buyer": "students, freelancers and creators who use Notion",
                                "tags": ["notion template", "notion planner", "notion dashboard",
                                         "productivity template", "notion system"]},
+    "2027 Planners Agent": {"kind": "dated_planner", "price": 9, "platform": "Gumroad",
+                            "buyer": "one clear buyer, for example teachers or small business owners",
+                            "tags": ["2027 planner", "printable planner", "monthly planner", "2027 calendar",
+                                     "dated planner"]},
     "Resume Bundle Agent": {"kind": "resume", "price": 12, "platform": "Gumroad",
                             "buyer": "job seekers who want a clean ATS-friendly resume",
                             "tags": ["ats resume", "resume template", "cover letter template",
@@ -131,6 +135,9 @@ _SHEET_EXAMPLE = {"name": "Income Log", "columns": [
     "overdue": {"due": "Due Date", "status": "Status", "done": "Paid"},
     "balance": {"in": "Amount", "out": ""}}
 EXAMPLES = {
+    "dated_planner": {"monthly_sections": ["Lesson goals", "Key dates", "Notes"],
+                      "pages": [{"title": "Class Roster", "subtitle": "One line per student",
+                                 "sections": [{"heading": "Students", "type": "lines", "count": 12}]}]},
     "sheets": {"sheets": [_SHEET_EXAMPLE]},
     "planner": {"pages": [{"title": "Energy-Based Daily Plan", "subtitle": "Plan by energy, not by the clock",
                            "sections": [{"heading": "Energy check", "type": "checklist",
@@ -156,6 +163,12 @@ KIND_RULES = {
     "planner": "Give 3-6 printable pages. Section types: checklist (items), lines (count 1-12), "
                "schedule (slots), notes (count of lines).",
     "notion": "Give 2-4 pages in Markdown and 1-3 databases with 3-6 sample rows each.",
+    "dated_planner": ("The calendar part is FIXED and made by code: a cover, a 2027 year-at-a-glance page and 12 "
+                      "monthly calendar pages (January to December 2027, weeks start on Sunday). You only choose "
+                      "2-3 short monthly section headings for ONE clear buyer and 1-4 extra planner pages "
+                      "(checklist, lines, schedule or notes sections). Printable PDF in A4 and US Letter. "
+                      "The listing may ONLY promise these things. Never promise weekly or daily dated pages, "
+                      "hyperlinks, fillable fields, stickers, a digital/tablet version, dashboards or formulas."),
     "resume": "Use [placeholders] for personal details. Single column, standard headings, no tables. "
               "The tracker is a job application sheet with an overdue follow-up flag.",
 }
@@ -216,7 +229,8 @@ def parse_spec(text, niche):
                         "platform": info["platform"]},   # always Gumroad (the store we use)
             "instructions": [_clean(s, 300) for s in (data.get("instructions") or []) if _clean(s)][:12],
             "cover_image_idea": _clean(data.get("cover_image_idea"), 400)}
-    checker = {"sheets": _norm_sheets, "planner": _norm_pages, "notion": _norm_notion, "resume": _norm_resume}[kind]
+    checker = {"sheets": _norm_sheets, "planner": _norm_pages, "notion": _norm_notion, "resume": _norm_resume,
+               "dated_planner": _norm_dated}[kind]
     reason = checker(data, spec)
     if reason:
         return None, reason
@@ -299,6 +313,19 @@ def _norm_pages(data, spec):
     if not pages:
         return "spec has no usable planner pages"
     spec["pages"] = pages
+    return None
+
+
+def _norm_dated(data, spec):
+    sections = [_clean(h, 40) for h in (data.get("monthly_sections") or []) if _clean(h, 40)][:3]
+    spec["monthly_sections"] = sections or ["Goals", "Notes"]
+    spec["year"] = PLANNER_YEAR
+    if data.get("pages"):
+        if _norm_pages(data, spec):
+            spec["pages"] = []
+        spec["pages"] = spec.get("pages", [])[:4]
+    else:
+        spec["pages"] = []
     return None
 
 
@@ -652,14 +679,57 @@ def build_docx(path, blocks, title=""):
 
 # ---- PDF (hand-written, standard fonts) -------------------------------------------------
 PAGE_SIZES = {"A4": (595.28, 841.89), "Letter": (612.0, 792.0)}
-_PDF_SUBS = {"‘": "'", "’": "'", "“": '"', "”": '"', "–": "-", "—": "-",
-             "…": "...", "•": "-", " ": " "}
+# The fonts use WinAnsi (Windows-1252), which HAS curly quotes, en/em dashes, bullets and the ellipsis.
+# Anything it does not have becomes the closest plain text: a PDF never shows "?" for a dash or quote.
+_PDF_SUBS = {"‐": "-", "‑": "-", "‒": "-", "⁃": "-", "−": "-", " ": " ",
+             " ": " ", " ": " ", "​": "", "→": "->", "←": "<-", "≤": "<=",
+             "≥": ">=", "∑": "Sum", "Σ": "Sum", "✓": "v", "✔": "v", "★": "*",
+             "☆": "*", "≈": "~", "≠": "!="}
+
+
+def _winansi(s):
+    out = []
+    for ch in str(s):
+        ch = _PDF_SUBS.get(ch, ch)
+        try:
+            ch.encode("cp1252")
+            out.append(ch)
+        except UnicodeEncodeError:
+            import unicodedata
+            plain = unicodedata.normalize("NFKD", ch).encode("ascii", "ignore").decode()
+            out.append(plain)          # unknown symbols are dropped, never shown as "?"
+    return "".join(out)
 
 
 def _pdf_text(s):
-    s = "".join(_PDF_SUBS.get(ch, ch) for ch in str(s))
-    s = s.encode("latin-1", "replace").decode("latin-1")
+    s = _winansi(s).encode("cp1252").decode("latin-1")   # one byte per character, as the PDF expects
     return s.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+
+def text_width(s, size, bold=False):
+    """Estimated width in points (Helvetica): good enough to wrap text before it runs off the page."""
+    return len(_winansi(s)) * size * (0.58 if bold else 0.53)
+
+
+def wrap_text(s, size, max_width, bold=False):
+    words, lines, cur = _winansi(s).split(), [], ""
+    for w in words:
+        trial = f"{cur} {w}".strip()
+        if cur and text_width(trial, size, bold) > max_width:
+            lines.append(cur)
+            cur = w
+        else:
+            cur = trial
+    if cur:
+        lines.append(cur)
+    out = []
+    for line in lines or [""]:       # a single very long word is split rather than cut off
+        while text_width(line, size, bold) > max_width and len(line) > 1:
+            n = max(1, int(max_width / (size * (0.58 if bold else 0.53))))
+            out.append(line[:n])
+            line = line[n:]
+        out.append(line)
+    return out
 
 
 class Pdf:
@@ -678,6 +748,9 @@ class Pdf:
 
     def box(self, x, y, size=10):
         self.pages[-1].append(f"0.3 G 0.8 w {x:.1f} {y:.1f} {size} {size} re S 0 G")
+
+    def rect(self, x, y, w, h, gray=0.7):
+        self.pages[-1].append(f"{gray} G 0.6 w {x:.1f} {y:.1f} {w:.1f} {h:.1f} re S 0 G")
 
     def save(self, path):
         objs = ["<< /Type /Catalog /Pages 2 0 R >>", None,
@@ -704,44 +777,171 @@ class Pdf:
             f.write(bytes(out))
 
 
+BOTTOM = 60            # nothing is drawn below this line (the footer lives at y = 30)
+FILL_IF_FREE = 0.40    # a page with more than 40% of its writing area empty gets a full Notes area
+
+
+def _footer(spec):
+    return f"{spec.get('name') or spec['listing']['title']}  |  for personal use"
+
+
+def _page_header(pdf, margin, title, subtitle, footer):
+    pdf.new_page()
+    y = pdf.h - 70
+    for line in wrap_text(title, 20, pdf.w - 2 * margin, True)[:3]:
+        pdf.text(margin, y, line, 20, True)
+        y -= 24
+    y += 4
+    for line in wrap_text(subtitle, 10, pdf.w - 2 * margin)[:3] if subtitle else []:
+        pdf.text(margin, y, line, 10)
+        y -= 13
+    y -= 4
+    pdf.text(margin, 30, footer, 8)
+    pdf.line(margin, y, pdf.w - margin, y, 0.3)
+    return y - 30
+
+
+def _fill_notes(pdf, margin, y, top):
+    """Turn a mostly empty page into a full page: a Notes heading and writing lines to the bottom."""
+    usable = top - BOTTOM
+    if usable <= 0 or (y - BOTTOM) / usable <= FILL_IF_FREE:
+        return
+    pdf.text(margin, y, "Notes", 13, True)
+    y -= 22
+    while y - 2 > BOTTOM:
+        pdf.line(margin, y - 2, pdf.w - margin, y - 2)
+        y -= 24
+
+
+def render_sections(pdf, margin, page, footer):
+    """Draw one planner page. Long sections continue on a '(cont.)' page; nothing is ever cut off."""
+    width = pdf.w - 2 * margin
+    y = top = _page_header(pdf, margin, page["title"], page.get("subtitle", ""), footer)
+    for sec in page["sections"]:
+        rows = sec["items"] if sec["type"] in ("checklist", "schedule") and sec["items"] else [""] * sec["count"]
+        heading = wrap_text(sec["heading"], 13, width, True) if sec["heading"] else []
+        first_row = 24
+        if y - (22 * len(heading) + first_row) < BOTTOM:
+            _fill_notes(pdf, margin, y, top)
+            y = top = _page_header(pdf, margin, page["title"] + " (cont.)", "", footer)
+        for line in heading:
+            pdf.text(margin, y, line, 13, True)
+            y -= 22
+        for item in rows:
+            if sec["type"] == "checklist" and item:
+                lines = wrap_text(item, 11, width - 18 - 40)
+            elif sec["type"] == "schedule" and item:
+                lines = wrap_text(item, 10, 104, True)
+            else:
+                lines = [""]
+            row_h = 24 + 13 * (len(lines) - 1)
+            if y - row_h < BOTTOM:
+                y = top = _page_header(pdf, margin, page["title"] + " (cont.)", "", footer)
+                if sec["heading"]:
+                    pdf.text(margin, y, _winansi(sec["heading"]) + " (cont.)", 13, True)
+                    y -= 22
+            if sec["type"] == "checklist" and item:
+                pdf.box(margin, y - 2)
+                for i, line in enumerate(lines):
+                    pdf.text(margin + 18, y - 13 * i, line, 11)
+                last = y - 13 * (len(lines) - 1)
+                end_of_text = margin + 26 + text_width(lines[-1], 11)
+                if end_of_text < pdf.w - margin - 40:
+                    pdf.line(end_of_text, last - 2, pdf.w - margin, last - 2)
+            elif sec["type"] == "schedule" and item:
+                for i, line in enumerate(lines):
+                    pdf.text(margin, y - 13 * i, line, 10, True)
+                last = y - 13 * (len(lines) - 1)
+                pdf.line(margin + 110, last - 2, pdf.w - margin, last - 2)
+            else:
+                pdf.line(margin, y - 2, pdf.w - margin, y - 2)
+            y -= row_h
+        y -= 10
+    _fill_notes(pdf, margin, y, top)
+
+
 def build_planner_pdf(path, spec, size):
     pdf, margin = Pdf(size), 50
-    footer = f"{spec['listing']['title'][:70]}  |  for personal use"
-
-    def start(title, subtitle=""):
-        pdf.new_page()
-        pdf.text(margin, pdf.h - 70, title[:44], 20, True)
-        if subtitle:
-            pdf.text(margin, pdf.h - 90, subtitle[:88], 10)
-        pdf.text(margin, 30, footer, 8)
-        pdf.line(margin, pdf.h - 100, pdf.w - margin, pdf.h - 100, 0.3)
-        return pdf.h - 130
-
     for page in spec["pages"]:
-        y = start(page["title"], page["subtitle"])
-        for sec in page["sections"]:
-            rows = sec["items"] if sec["type"] in ("checklist", "schedule") and sec["items"] else [""] * sec["count"]
-            need = 26 + 24 * len(rows)
-            if y - need < 60:
-                y = start(page["title"] + " (cont.)")
-            if sec["heading"]:
-                pdf.text(margin, y, sec["heading"][:64], 13, True)
+        render_sections(pdf, margin, page, _footer(spec))
+    pdf.save(path)
+    return len(pdf.pages)
+
+
+# ---- dated planners: every date comes from code, never from the AI ---------------------------
+import calendar as _calendar
+
+PLANNER_YEAR = 2027
+WEEKDAYS_SUN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+
+def month_weeks(year, month):
+    """Weeks of a month, Sunday first: lists of 7 day numbers (0 = blank). Made by Python's calendar."""
+    return _calendar.Calendar(firstweekday=6).monthdayscalendar(year, month)
+
+
+def _month_grid(pdf, x, y, w, h, year, month, label_size=9, numbers=True):
+    """Draw a month grid inside the box (x, y = top-left). Returns the bottom y."""
+    weeks = month_weeks(year, month)
+    col = w / 7
+    head = label_size + 6
+    for i, name in enumerate(WEEKDAYS_SUN):
+        pdf.text(x + i * col + 3, y - label_size, name if label_size >= 8 else name[0], label_size, True)
+    row = (h - head) / len(weeks)
+    for r, week in enumerate(weeks):
+        top = y - head - r * row
+        for c, day in enumerate(week):
+            pdf.rect(x + c * col, top - row, col, row)
+            if day and numbers:
+                pdf.text(x + c * col + 3, top - label_size - 2, str(day), label_size)
+    return y - h
+
+
+def build_dated_planner_pdf(path, spec, size, year=PLANNER_YEAR):
+    pdf, margin = Pdf(size), 50
+    footer = _footer(spec)
+    width = pdf.w - 2 * margin
+    # 1. cover
+    pdf.new_page()
+    y = pdf.h * 0.62
+    for line in wrap_text(spec["name"], 26, width, True)[:3]:
+        pdf.text(margin, y, line, 26, True)
+        y -= 32
+    pdf.text(margin, y - 10, str(year), 48, True)
+    for i, line in enumerate(wrap_text(spec["listing"]["buyer"], 12, width)[:3]):
+        pdf.text(margin, y - 60 - 15 * i, line, 12)
+    pdf.text(margin, 30, footer, 8)
+    # 2. year at a glance
+    y = _page_header(pdf, margin, f"{year} at a glance", "", footer) + 10
+    cols, rows_n, gap = 3, 4, 14
+    cw = (width - gap * (cols - 1)) / cols
+    ch = (y - BOTTOM - gap * (rows_n - 1)) / rows_n
+    for m in range(1, 13):
+        r, c = divmod(m - 1, cols)
+        x0, y0 = margin + c * (cw + gap), y - r * (ch + gap)
+        pdf.text(x0, y0 - 9, _calendar.month_name[m], 9, True)
+        _month_grid(pdf, x0, y0 - 14, cw, ch - 16, year, m, label_size=6)
+    # 3. one page per month: the grid, then the buyer's monthly sections
+    sections = spec.get("monthly_sections") or ["Goals", "Notes"]
+    for m in range(1, 13):
+        y = _page_header(pdf, margin, f"{_calendar.month_name[m]} {year}", "", footer)
+        grid_h = min(0.55 * (y - BOTTOM), 360)
+        y = _month_grid(pdf, margin, y, width, grid_h, year, m) - 24
+        per = max(1, int((y - BOTTOM) / max(1, len(sections)) / 22) - 1)
+        for heading in sections:
+            if y - 44 < BOTTOM:
+                break
+            pdf.text(margin, y, heading, 13, True)
+            y -= 22
+            for _ in range(per):
+                if y - 2 < BOTTOM:
+                    break
+                pdf.line(margin, y - 2, pdf.w - margin, y - 2)
                 y -= 22
-            for item in rows:
-                if sec["type"] == "checklist" and item:
-                    item = item[:70]
-                    pdf.box(margin, y - 2)
-                    pdf.text(margin + 18, y, item, 11)
-                    end_of_text = margin + 26 + 5.6 * len(item)
-                    if end_of_text < pdf.w - margin - 40:
-                        pdf.line(end_of_text, y - 2, pdf.w - margin, y - 2)
-                elif sec["type"] == "schedule" and item:
-                    pdf.text(margin, y, item[:18], 10, True)
-                    pdf.line(margin + 110, y - 2, pdf.w - margin, y - 2)
-                else:
-                    pdf.line(margin, y - 2, pdf.w - margin, y - 2)
-                y -= 24
-            y -= 10
+            y -= 6
+    # 4. the buyer's extra pages (made by the same planner page code)
+    for page in spec.get("pages") or []:
+        render_sections(pdf, margin, page, footer)
     pdf.save(path)
     return len(pdf.pages)
 
@@ -835,7 +1035,18 @@ def _build_resume(folder, spec):
 
 LICENSE_TEXT = "Personal use only. Do not resell or share the files.\n"
 
-BUILDERS = {"sheets": _build_sheets, "planner": _build_planner, "notion": _build_notion, "resume": _build_resume}
+def _build_dated_planner(folder, spec):
+    files = []
+    for size in ("A4", "Letter"):
+        name = f"{spec['short_name']}-{size}.pdf"
+        build_dated_planner_pdf(os.path.join(folder, name), spec, size)
+        files.append(name)
+    return files, ["Print the A4 or US Letter PDF at 100% scale (or use it in a PDF annotation app).",
+                   "Every month of 2027 has its own calendar page; weeks start on Sunday."]
+
+
+BUILDERS = {"sheets": _build_sheets, "planner": _build_planner, "notion": _build_notion, "resume": _build_resume,
+            "dated_planner": _build_dated_planner}
 
 
 def build_product(spec, approval_id, out_dir=None):
@@ -885,7 +1096,8 @@ def planner_pages_from_pdf(path):
             m = _PDF_OP.match(op)
             if not m:
                 continue
-            font, size, text = m.group(1), float(m.group(2)), _pdf_unescape(m.group(4))
+            font, size = m.group(1), float(m.group(2))
+            text = _pdf_unescape(m.group(4)).encode("latin-1", "replace").decode("cp1252", "replace")
             if font == "F2" and size >= 18:
                 page = {"title": text.replace(" (cont.)", ""), "subtitle": "", "sections": []}
                 pages.append(page)
@@ -959,16 +1171,100 @@ def add_missing_images(out_dir=None):
     return done
 
 
+# Owner decisions: products that must not be sold, with the reason (the files are kept).
+OWNER_HOLDS = {4: "NOT FOR SALE - files do not match listing",
+               6: "NOT FOR SALE - files do not match listing"}   # decided 2026-10-16; Notion niche paused
+
+
+def apply_owner_holds(db_path=None, out_dir=None):
+    """Mark held products NOT FOR SALE in the build table and at the top of their README. Never deletes."""
+    out_dir = out_dir or PRODUCTS_DIR
+    done = []
+    conn = connect(db_path)
+    for approval_id, reason in OWNER_HOLDS.items():
+        row = conn.execute("SELECT folder, status FROM product_builds WHERE approval_id = ?", (approval_id,)).fetchone()
+        if not row or not row[0]:
+            continue
+        if row[1] != "not_for_sale":
+            conn.execute("UPDATE product_builds SET status = 'not_for_sale', note = ? WHERE approval_id = ?",
+                         (reason, approval_id))
+            done.append(approval_id)
+        readme = os.path.join(out_dir, row[0], "README.md")
+        if os.path.exists(readme):
+            with open(readme, encoding="utf-8") as f:
+                body = f.read()
+            if not body.startswith(f"> **{reason}**"):
+                with open(readme, "w", encoding="utf-8") as f:
+                    f.write(f"> **{reason}**\n\n" + body)
+    conn.commit()
+    conn.close()
+    return done
+
+
+def truth_check_folder(approval_id, folder_name, db_path=None, out_dir=None, notify_fn=None):
+    """Run the Truth Checker on a built product: write TRUTH_CHECK.md, set the status to 'built' (ready)
+    or 'needs_fix', and send ONE Telegram line per verdict change. Returns the result."""
+    import truth_check
+    out_dir = out_dir or PRODUCTS_DIR
+    folder = os.path.join(out_dir, folder_name)
+    result = truth_check.check(folder)
+    name = spec_from_folder(folder)["name"]
+    with open(os.path.join(folder, "TRUTH_CHECK.md"), "w", encoding="utf-8") as f:
+        f.write(truth_check.report_md(name, result))
+    conn = connect(db_path)
+    conn.execute("CREATE TABLE IF NOT EXISTS truth_checks (approval_id INTEGER PRIMARY KEY, verdict TEXT, "
+                 "score INTEGER, notified TEXT)")
+    old = conn.execute("SELECT notified FROM truth_checks WHERE approval_id = ?", (approval_id,)).fetchone()
+    status = "built" if result["verdict"] == "ready" else "needs_fix"
+    held = approval_id in OWNER_HOLDS
+    if not held:
+        conn.execute("UPDATE product_builds SET status = ?, note = ? WHERE approval_id = ?",
+                     (status, ("ready" if status == "built" else "needs fix: " + "; ".join(result["problems"][:2]))[:300],
+                      approval_id))
+    sent = old[0] if old else None
+    if sent != result["verdict"]:
+        try:
+            if notify_fn is None:
+                import notify
+                notify_fn = notify.send
+            if notify_fn(truth_check.telegram_text(approval_id, name, result)):
+                sent = result["verdict"]
+        except Exception:
+            pass
+    conn.execute("INSERT OR REPLACE INTO truth_checks (approval_id, verdict, score, notified) VALUES (?, ?, ?, ?)",
+                 (approval_id, result["verdict"], result["score"], sent))
+    conn.commit()
+    conn.close()
+    return result
+
+
+def check_unchecked(db_path=None, out_dir=None, notify_fn=None):
+    """Truth-check every built product that has no TRUTH_CHECK.md yet (products built before the checker)."""
+    out_dir = out_dir or PRODUCTS_DIR
+    done = []
+    for b in builds(db_path):
+        if b["folder"] and b["status"] in ("built", "needs_fix", "not_for_sale") and \
+                os.path.isdir(os.path.join(out_dir, b["folder"])) and \
+                not os.path.exists(os.path.join(out_dir, b["folder"], "TRUTH_CHECK.md")):
+            done.append((b["approval_id"], truth_check_folder(b["approval_id"], b["folder"], db_path, out_dir,
+                                                              notify_fn)["verdict"]))
+    return done
+
+
 def write_index(db_path=None, out_dir=None):
     out_dir = out_dir or PRODUCTS_DIR
     os.makedirs(out_dir, exist_ok=True)
-    lines = ["# Ready-to-sell products", "",
-             "Built from approved drafts. Download a folder, check the files, then upload them to "
-             "Gumroad yourself. Nothing here is published automatically.", "",
+    lines = ["# Products", "",
+             "Built from approved drafts and checked by the Truth Checker against the real files. Only "
+             "products marked **ready** may be uploaded to Gumroad, by you. Nothing here is published "
+             "automatically.", "",
              "| Draft | Folder | Status |", "|---|---|---|"]
     for b in builds(db_path):
-        if b["status"] == "built" and b["folder"]:
-            lines.append(f"| #{b['approval_id']} | [{b['folder']}]({b['folder']}/) | built |")
+        if b["status"] in ("built", "needs_fix", "not_for_sale") and b["folder"]:
+            label = {"built": "ready (truth check passed)",
+                     "needs_fix": "needs fix - see TRUTH_CHECK.md",
+                     "not_for_sale": f"**{OWNER_HOLDS.get(b['approval_id'], 'NOT FOR SALE')}**"}[b["status"]]
+            lines.append(f"| #{b['approval_id']} | [{b['folder']}]({b['folder']}/) | {label} |")
         elif b["status"] in ("retry", "failed"):
             lines.append(f"| #{b['approval_id']} | - | {b['status']} after {b['tries']} try(s): {b['note'][:80]} |")
     with open(os.path.join(out_dir, "INDEX.md"), "w", encoding="utf-8") as f:
@@ -1012,7 +1308,9 @@ def build_pending(db_path=None, llm=None, max_builds=MAX_BUILDS_PER_RUN, out_dir
             continue
         folder = build_product(spec, item["id"], out_dir)
         _record(db_path, item["id"], "built", folder, f"{spec['kind']} for {niche}", add_try=True)
-        results.append({"id": item["id"], "status": "built", "folder": folder})
+        verdict = truth_check_folder(item["id"], folder, db_path, out_dir)["verdict"]
+        results.append({"id": item["id"], "status": "built" if verdict == "ready" else "needs_fix",
+                        "folder": folder})
     if results:
         write_index(db_path, out_dir)
     return results
@@ -1038,6 +1336,12 @@ def main(argv=None):
     results = build_pending(db_path=args.db, max_builds=args.max)
     for entry in add_missing_images():
         print(f"Product Builder: added listing images and LICENSE.txt to {entry}")
+    held = apply_owner_holds(args.db)
+    checked = check_unchecked(args.db)
+    for approval_id, verdict in checked:
+        print(f"Product Builder: truth check #{approval_id} -> {verdict}")
+    if results or held or checked:
+        write_index(args.db)
     if not results:
         print("Product Builder: no new approved niche drafts.")
     for r in results:
