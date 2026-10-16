@@ -1,0 +1,4 @@
+#!/bin/sh
+# Block a local commit when the secret guard finds a token, key, password, chat id or personal email.
+# Turn on once per copy:  git config core.hooksPath .githooks
+python3 secret_guard.py || { echo "Commit blocked by the secret guard (values are not shown)."; exit 1; }
