@@ -1,0 +1,75 @@
+{
+ "approval_id": 0,
+ "kind": "dated_planner",
+ "niche": "2027 Planners Agent",
+ "name": "2027 Teacher Planner",
+ "short_name": "2027-teacher-planner",
+ "year": 2027,
+ "monthly_sections": [
+  "This month’s focus",
+  "Key dates",
+  "Notes"
+ ],
+ "listing": {
+  "title": "2027 Teacher Planner for Classroom Teachers - Printable Monthly Calendar",
+  "description": "A dated 2027 planner for classroom teachers.\n\nInside: a cover, a How to use page, a 2027 year-at-a-glance page and 12 monthly calendar pages (January to December 2027, weeks start on Sunday). Every month page has This month's focus, Key dates and Notes boxes. Two extra pages: a Class Roster page and a Term Overview page.\n\nPrint it on A4 or US Letter paper.",
+  "tags": [
+   "teacher planner",
+   "2027 planner",
+   "printable",
+   "monthly calendar",
+   "classroom"
+  ],
+  "price_usd": 9.0,
+  "buyer": "classroom teachers",
+  "platform": "Gumroad"
+ },
+ "instructions": [
+  "Print the A4 or US Letter file at 100% (actual size).",
+  "Write term dates and parents' evenings in Key dates.",
+  "Keep the Class Roster page at the front of your folder."
+ ],
+ "cover_image_idea": "The January page of the planner on a teacher's desk.",
+ "pages": [
+  {
+   "title": "Class Roster",
+   "subtitle": "One line per student",
+   "sections": [
+    {
+     "heading": "Students",
+     "type": "lines",
+     "items": [],
+     "count": 30
+    }
+   ]
+  },
+  {
+   "title": "Term Overview",
+   "subtitle": "The big dates of the school year",
+   "sections": [
+    {
+     "heading": "Term dates",
+     "type": "schedule",
+     "items": [
+      "Autumn term (Sep–Dec)",
+      "Spring term (Jan–Apr)",
+      "Summer term (Apr–Jul)"
+     ],
+     "count": 3
+    },
+    {
+     "heading": "Key dates – parents’ evenings",
+     "type": "lines",
+     "items": [],
+     "count": 6
+    },
+    {
+     "heading": "Notes",
+     "type": "lines",
+     "items": [],
+     "count": 6
+    }
+   ]
+  }
+ ]
+}
