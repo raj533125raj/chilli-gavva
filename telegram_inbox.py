@@ -51,6 +51,7 @@ HELP = ("\U0001f336️ Chilli Gavva approvals\n\n"
         "/reject ID - reject\n"
         "/pause - emergency brake: stop all AI work and drafts\n"
         "/resume - start work again\n"
+        "/buttontest - send a test button (checks that button presses reach the bot)\n"
         "/help - this message\n\n"
         "New drafts come with Approve / Reject / View buttons. After Reject, pick a reason.\n"
         "The bot answers buttons and commands on its next run (about every 30 minutes), not instantly.\n\n"
@@ -165,7 +166,7 @@ def subscription_note(token):
 
 
 # ---- command handling --------------------------------------------------------
-_COMMANDS = "list|view|approve|reject|pause|resume|help|start"
+_COMMANDS = "list|view|approve|reject|pause|resume|buttontest|help|start"
 # "/approve 4", "/approve" or "/approve@bot 4 5": anything after a real slash command is fine.
 _SLASH_CMD = re.compile(rf"^/({_COMMANDS})(?:@\w+)?(?:\s+(.*))?$", re.IGNORECASE | re.DOTALL)
 # Without a slash only the bare form counts: "approve 4", "approve 4, 5", "list". A normal sentence such as
@@ -249,10 +250,13 @@ def handle_command(cmd, ids, db_path=None):
     if cmd == "resume":
         guardrails.set_paused(False, db_path)
         return "▶️ Resumed. Work starts again on the next run."
+    if cmd == "buttontest":
+        return "Button test:"
     return HELP
 
 
-_CALLBACK = re.compile(r"^(a|r|v):(\d{1,9})$|^y:(\d{1,9}):([a-z ]{1,20})$")
+_CALLBACK = re.compile(r"^(a|r|v):(\d{1,9})$|^y:(\d{1,9}):([a-z ]{1,20})$|^(t):ping$")
+BUTTON_TEST_OK = "✅ Button presses reach the bot. Nothing was changed."
 
 
 def handle_callback(token, owner_chat_id, data, db_path=None):
@@ -260,6 +264,9 @@ def handle_callback(token, owner_chat_id, data, db_path=None):
     m = _CALLBACK.match(data or "")
     if not m:
         return None
+    if m.group(5):   # the /buttontest button: only replies, changes nothing
+        send_text(token, owner_chat_id, BUTTON_TEST_OK)
+        return BUTTON_TEST_OK
     if m.group(1):
         kind, approval_id = m.group(1), int(m.group(2))
         if kind == "v":
@@ -337,6 +344,13 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
             stats["skipped"]["not a command"] += 1
             continue
         send_text(token, owner_chat_id, handle_command(cmd, ids, db_path))
+        if cmd == "list":       # fresh buttons for every waiting draft (up to 10)
+            for it in guardrails.pending(db_path)[:10]:
+                send_text(token, owner_chat_id, f"#{it['id']} {it['title'][:70]}{_score(it.get('review'))}",
+                          draft_buttons(it["id"]))
+        elif cmd == "buttontest":
+            send_text(token, owner_chat_id, "Press this test button. The reply comes on the next run "
+                      "(about 1-2 minutes with the door bell).", [[("Test button", "t:ping")]])
         handled += 1
     if last is not None:
         set_state("update_offset", int(last) + 1, db_path)
