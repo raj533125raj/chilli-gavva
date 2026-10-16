@@ -10,6 +10,8 @@ Built from approved drafts and checked by the Truth Checker against the real fil
 | #4 | [4-notion-semester-planner](4-notion-semester-planner/) | **NOT FOR SALE - files do not match listing** |
 | #6 | [6-solo-creator-notion-planner](6-solo-creator-notion-planner/) | **NOT FOR SALE - files do not match listing** |
 | #7 | [7-ats-resume-template](7-ats-resume-template/) | needs fix - see TRUTH_CHECK.md |
+| #8 | [8-cover-letter-followup-templates](8-cover-letter-followup-templates/) | needs fix - see TRUTH_CHECK.md |
+| #9 | [9-job-search-success-bundle](9-job-search-success-bundle/) | needs fix - see TRUTH_CHECK.md |
 
 ## Bundles (pages from the products above, in one file)
 
