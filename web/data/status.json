@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-16T20:32:22",
+ "generated_at": "2026-10-16T21:02:25",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 11,
+  "calls_today": 12,
   "cap": 500
  },
  "agents": [
@@ -190,13 +190,6 @@
  ],
  "pending_approvals": [
   {
-   "id": 7,
-   "ts": "2026-10-16T20:30:28.820842",
-   "kind": "public_draft",
-   "title": "Draft: [Resume Bundle Agent] ATS-friendly one-page resume template  (v4, llm)",
-   "review": "score 91/100 (checklist v2) | top: Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: PASS (AI 95) | issues: Say why it beats a free template; Title: under 80 chars, say what + who"
-  },
-  {
    "id": 8,
    "ts": "2026-10-16T20:30:30.668956",
    "kind": "public_draft",
@@ -224,7 +217,7 @@
    "name": "draft",
    "active": true,
    "trials": 6,
-   "quality": 79.2
+   "quality": 83.3
   },
   {
    "id": 1,
