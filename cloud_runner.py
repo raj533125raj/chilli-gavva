@@ -15,6 +15,13 @@ def main():
     removed = export_status.purge_simulated()
     if removed:
         print("removed old simulated rows:", removed)
+    try:  # drafts scored before the buyer checklist get a checklist score (status never changes)
+        import qa_checklist
+        rescored = qa_checklist.rescore_old_reviews()
+        if rescored:
+            print("QA checklist re-scored drafts:", rescored)
+    except Exception as exc:
+        print(f"QA re-score skipped: {type(exc).__name__}")
     if guardrails.is_killed():
         result = {"status": "killed", "ran": 0, "failed": 0}
     else:

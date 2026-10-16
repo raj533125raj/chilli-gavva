@@ -431,7 +431,10 @@ def step_review(task, ctx):
     payload = task["payload"]
     approval_id = payload["approval_id"]
     approval = guardrails.get_approval(approval_id, ctx["db_path"])
-    rule_score, notes = review_text(approval["payload"])
+    import qa_checklist
+    _, notes = review_text(approval["payload"])
+    checklist = qa_checklist.score(approval["payload"])
+    score = checklist["score"]   # the buyer checklist is THE score; the AI checker is a second opinion
     topic = payload.get("topic") or approval.get("title", "")
     is_rewrite = bool(payload.get("rewrite"))
     check = check_draft(ctx, approval["payload"], clean_topic(topic))
@@ -439,16 +442,13 @@ def step_review(task, ctx):
 
     if check is None:
         verdict = "unavailable"
-        score = rule_score
-        review = (f"score {score}/100" + (": " + "; ".join(notes) if notes else "")
-                  + " | CHECKER: unavailable (rule check only)")
+        review = qa_checklist.summary(checklist, "CHECKER: unavailable (checklist only)")
     else:
         verdict = check["verdict"]
         if verdict == "pass" and any(n.startswith("risky") for n in notes):
             verdict = "revise"  # the plain rules found a banned phrase the model let through
-        score = round((rule_score + check["score"]) / 2)
-        issues = check["issues"] + [n for n in notes if n not in check["issues"]]
-        review = f"score {score}/100 (rules {rule_score}, checker {check['score']}) | CHECKER: {verdict.upper()}"
+        issues = check["issues"] + [r for r in checklist["top_reasons"] if r not in check["issues"]]
+        review = qa_checklist.summary(checklist, f"CHECKER: {verdict.upper()} (AI {check['score']})")
         if verdict == "revise":
             if is_rewrite:
                 review += " | already rewritten once, a human decides"

@@ -185,6 +185,16 @@ def parse_command(text):
     return ("help" if cmd == "start" else cmd), ids
 
 
+def draft_card(item):
+    """Short alert text for one draft: title, QA score, then the top 3 reasons, one short line each."""
+    import qa_checklist
+    lines = [f"#{item['id']} {item['title'][:70]}"]
+    m = re.search(r"score (\d+)\s*/\s*100", item.get("review") or "")
+    lines.append(f"QA score: {m.group(1)}/100 (advice only, you decide)" if m else "QA score: not checked yet")
+    lines += [f"- {r[:60]}" for r in qa_checklist.top_reasons_from_review(item.get("review"))]
+    return "\n".join(lines)
+
+
 def _score(review):
     m = re.search(r"(\d+)\s*/\s*100", review or "")
     return f" [{m.group(1)}/100]" if m else ""
@@ -359,8 +369,7 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
         send_text(token, owner_chat_id, handle_command(cmd, ids, db_path))
         if cmd == "list":       # fresh buttons for every waiting draft (up to 10)
             for it in guardrails.pending(db_path)[:10]:
-                send_text(token, owner_chat_id, f"#{it['id']} {it['title'][:70]}{_score(it.get('review'))}",
-                          draft_buttons(it["id"]))
+                send_text(token, owner_chat_id, draft_card(it), draft_buttons(it["id"]))
         elif cmd == "buttontest":
             send_text(token, owner_chat_id, "Press this test button. The reply comes on the next run "
                       "(about 1-2 minutes with the door bell).", [[("Test button", "t:ping")]])
@@ -397,8 +406,7 @@ def alert_new_drafts(token, owner_chat_id, db_path=None):
               f"\U0001f336️ {len(new)} new draft(s) ready. Waiting in total: {len(items)}."
               + (f" Buttons for the first 10; use /list for the rest." if len(new) > 10 else ""))
     for it in new[:10]:
-        send_text(token, owner_chat_id, f"#{it['id']} {it['title'][:70]}{_score(it.get('review'))}",
-                  draft_buttons(it["id"]))
+        send_text(token, owner_chat_id, draft_card(it), draft_buttons(it["id"]))
     set_state("last_alerted_id", max(it["id"] for it in new), db_path)
     return len(new)
 
