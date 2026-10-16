@@ -13,7 +13,7 @@ import recipe_runner  # noqa: E402
 import scheduler  # noqa: E402
 
 NICHES = ["niche_budget_sheets", "niche_freelancer_trackers", "niche_adhd_planners",
-          "niche_notion_templates", "niche_resume_bundle"]
+          "niche_planners_2027", "niche_resume_bundle"]
 MONDAY = datetime.date(2026, 10, 12)
 ROTATING = {"name": "night", "hour": 21, "rotate": ", ".join(NICHES), "recipe": NICHES[0]}
 

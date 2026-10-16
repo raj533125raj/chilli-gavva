@@ -98,7 +98,8 @@ class Base(unittest.TestCase):
     def build_one(self, niche):
         aid = self.add(TITLES[niche])
         res = self.run_builder(StubLLM(reply_for_prompt))
-        self.assertEqual(res[0]["status"], "built", res)
+        # the files are built; whether they are "ready" is the Truth Checker's job (tests/test_truth_check.py)
+        self.assertIn(res[0]["status"], ("built", "needs_fix"), res)
         folder = os.path.join(self.out, res[0]["folder"])
         self.assertTrue(res[0]["folder"].startswith(f"{aid}-"))
         return folder
@@ -213,11 +214,11 @@ class FlowTests(Base):
     def test_never_rebuilds(self):
         self.add(TITLES["Budget Sheets Agent"])
         llm = StubLLM(reply_for_prompt)
-        self.assertEqual(self.run_builder(llm)[0]["status"], "built")
+        self.assertIn(self.run_builder(llm)[0]["status"], ("built", "needs_fix"))
         self.assertEqual(self.run_builder(llm), [])
         self.assertEqual(llm.calls, 1)
         with open(os.path.join(self.out, "INDEX.md"), encoding="utf-8") as f:
-            self.assertIn("built", f.read())
+            self.assertRegex(f.read(), r"ready \(truth check passed\)|needs fix - see TRUTH_CHECK.md")
 
     def test_existing_folder_counts_as_built(self):
         aid = self.add(TITLES["Budget Sheets Agent"])
@@ -241,7 +242,7 @@ class FlowTests(Base):
         replies = iter(["no json here", json.dumps(SPECS["Budget Sheets Agent"])])
         llm = StubLLM(lambda p: next(replies))
         self.assertEqual(self.run_builder(llm)[0]["status"], "retry")
-        self.assertEqual(self.run_builder(llm)[0]["status"], "built")
+        self.assertIn(self.run_builder(llm)[0]["status"], ("built", "needs_fix"))
 
     def test_model_error_is_a_retry(self):
         self.add(TITLES["Budget Sheets Agent"])
@@ -322,7 +323,7 @@ class OldProductImageTests(Base):
         aid = self.add(TITLES["ADHD Planners Agent"])
         pb._record(self.db, aid, "failed", note=pb.AI_DOWN, add_try=True)
         res = self.run_builder(StubLLM(reply_for_prompt))
-        self.assertEqual(res[0]["status"], "built")
+        self.assertIn(res[0]["status"], ("built", "needs_fix"))     # it was built this time
         pb._record(self.db, aid + 100, "failed", note="reply is not valid JSON")
         self.assertNotIn(aid + 100, [t["id"] for t in pb._todo(self.db, self.out)])
 

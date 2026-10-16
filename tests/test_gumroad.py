@@ -15,7 +15,7 @@ import workforce  # noqa: E402
 class GumroadTests(unittest.TestCase):
     def test_recipes_use_gumroad(self):
         paths = glob.glob(os.path.join(ROOT, "recipes", "niche_*.yaml"))
-        self.assertEqual(len(paths), 5)
+        self.assertEqual(len(paths), 6)   # 5 in the rotation + the paused Notion recipe (kept for later)
         for path in paths:
             with open(path, encoding="utf-8") as f:
                 text = f.read()
