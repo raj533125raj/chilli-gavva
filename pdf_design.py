@@ -334,7 +334,8 @@ class _Block:
                                            if self.heading else ([], 11))
         self.head_h = (13 * len(self.head_lines) + (8 if self.round else 16)) if self.head_lines else 0
         self.rows = self._rows()
-        self.grow_kind = {"table": "trow", "nnl": "nnl", "checkboxes": "checkbox"}.get(sec.get("type"), "line")
+        self.grow_kind = "line"     # a growing box gets WRITING LINES, never extra checkboxes or rows
+        self.needs_label = sec.get("type") not in ("lines", "notes", None)
         self.column = sec.get("column")
 
     def _rows(self):
@@ -381,7 +382,18 @@ class _Block:
         return self.pad_top + self.head_h + sum(r[2] for r in rows) + self.pad_bottom
 
     def grow_row(self):
-        return (self.grow_kind, None, ROW + (1 if self.grow_kind == "trow" else 0))
+        return ("line", None, ROW)
+
+    def grown(self, rows, room):
+        """The rows plus writing lines down to `room`. Boxes with checkboxes, a schedule or a table keep
+        exactly their own rows; below them comes a small 'Notes' label and plain lines."""
+        rows = list(rows)
+        if self.needs_label and self.height(rows + [("notes_label", None, 22), self.grow_row(),
+                                                    self.grow_row()]) <= room:
+            rows.append(("notes_label", None, 22))
+        while self.height(rows + [self.grow_row()]) <= room:
+            rows.append(self.grow_row())
+        return rows
 
     def draw(self, pdf, x, y_top, colw, height, rows, cont):
         st = self.st
@@ -455,6 +467,8 @@ class _Block:
                         by = y - 4 - (r + 1) * size - r * 4
                         pdf.round_rect(bx, by, size, size, 5 if self.round else 3,
                                        fill="#ffffff" if self.round else None, stroke=accent, width=1)
+            elif kind == "notes_label":
+                pdf.text(ix, y - 15, "NOTES", 8.5, True, accent, 0.8)
             elif kind == "caption":
                 pdf.text(ix, y - 9, data, 7.5, color=st["muted"])
             else:   # "line" and "trow"
@@ -552,9 +566,7 @@ def render_page(pdf, page, header_right=None):
                 h = b.height(rows)
                 if n == len(placed) - 1:          # the last block grows down to the footer
                     room = y - BOTTOM
-                    rows = list(rows)
-                    while b.height(rows + [b.grow_row()]) <= room:
-                        rows.append(b.grow_row())
+                    rows = b.grown(rows, room)
                     h = room
                 b.draw(pdf, x, y, colw, h, rows, cont)
                 y -= h + GAP
@@ -581,35 +593,39 @@ TODAY_PAGE = {
     ]}
 
 
-def _cover(pdf, spec, inside, year=None):
-    """A simple cover: a label, the product name, who it is for, and what is inside (with page numbers)."""
+def _cover(pdf, spec, inside, label=None):
+    """A simple cover: a compact title box (label, product name, who it is for), then what is inside
+    (with page numbers) and a 'belongs to' area. The same layout in both styles."""
     st, w, h = pdf.style, pdf.w, pdf.h
     pdf.new_page()
-    label = f"PRINTABLE PLANNER · {year}" if year else "PRINTABLE PLANNER"
-    room = w - 2 * MARGIN - (0 if not st["round"] else 40)
-    lines, size = fit_text(spec.get("name") or spec["listing"]["title"], 36, room, True, max_lines=3, min_size=24)
+    label = f"PRINTABLE PLANNER \u00b7 {label}" if label else "PRINTABLE PLANNER"
+    pad = 24
+    room = w - 2 * MARGIN - 2 * pad
+    lines, size = fit_text(spec.get("name") or spec["listing"]["title"], 34, room, True, max_lines=3, min_size=24)
     buyer = spec.get("listing", {}).get("buyer") or ""
     buyer_lines = wrap_text(f"Made for {buyer}", 12, room)[:3] if buyer else []
-    block_h = 60 + len(lines) * size * 1.12 + 18 * len(buyer_lines) + 40
-    band_bottom = h - max(h * 0.42, block_h + 60)
+    box_h = 34 + 22 + len(lines) * size * 1.12 + 8 + 16 * len(buyer_lines) + 22
+    box_top = h - MARGIN
+    box_bottom = box_top - box_h
     if st["round"]:
-        pdf.round_rect(MARGIN, band_bottom, w - 2 * MARGIN, h - band_bottom - MARGIN, 22, fill=st["header"])
-        tx, title_c, sub_c, label_c = MARGIN + 24, st["accent"], st["ink"], st["muted"]
+        pdf.round_rect(MARGIN, box_bottom, w - 2 * MARGIN, box_h, 22, fill=st["header"])
+        title_c, sub_c, label_c = st["accent"], st["ink"], st["muted"]
     else:
-        pdf.fill(0, band_bottom, w, h - band_bottom, st["accent"])
-        tx, title_c, sub_c, label_c = MARGIN, st["on_accent"], st["on_accent_soft"], st["on_accent_soft"]
-    y = band_bottom + (h - band_bottom) * 0.5 + (len(lines) * size * 1.12) / 2
-    pdf.text(tx, y + 26, label, 10, False, label_c, 2.4)
+        pdf.round_rect(MARGIN, box_bottom, w - 2 * MARGIN, box_h, 6, fill=st["accent"])
+        title_c, sub_c, label_c = st["on_accent"], st["on_accent_soft"], st["on_accent_soft"]
+    tx, y = MARGIN + pad, box_top - 34
+    pdf.text(tx, y, label, 10, False, label_c, 2.4)
+    y -= 14
     for line in lines:
-        pdf.text(tx, y - size * 0.2, line, size, True, title_c)
         y -= size * 1.12
-    y -= 10
+        pdf.text(tx, y + size * 0.25, line, size, True, title_c)
+    y -= 8
     for line in buyer_lines:
-        pdf.text(tx, y, line, 12, False, sub_c)
         y -= 16
+        pdf.text(tx, y + 4, line, 12, False, sub_c)
     width = w - 2 * MARGIN
-    top = band_bottom - 26
-    blocks = [_Block({"heading": "What’s inside", "type": "index", "items": inside}, 0, st, width),
+    top = box_bottom - 20
+    blocks = [_Block({"heading": "What\u2019s inside", "type": "index", "items": inside}, 0, st, width),
               _Block({"heading": "This planner belongs to", "type": "lines", "count": 2}, 1, st, width)]
     columns = _pack(blocks, 1, top - BOTTOM)
     yy = top
@@ -617,27 +633,31 @@ def _cover(pdf, spec, inside, year=None):
     for n, (b, rows, cont) in enumerate(placed):
         hh = b.height(rows)
         if n == len(placed) - 1:
-            rows = list(rows)
-            while b.height(rows + [b.grow_row()]) <= yy - BOTTOM:
-                rows.append(b.grow_row())
+            rows = b.grown(rows, yy - BOTTOM)
             hh = yy - BOTTOM
         b.draw(pdf, MARGIN, yy, width, hh, rows, cont)
         yy -= hh + GAP
 
 
-def _how_to(pdf, spec, dated):
+def _how_to(pdf, spec, week_start=None):
     steps = [s for s in (spec.get("instructions") or []) if s][:6] or [
         "Print the pages you need at 100% (actual size).",
         "Start with the page that fits your day, and keep the rest for later."]
     tips = ["Both paper sizes are included: print the A4 file or the US Letter file at 100% (actual size).",
             "Print as many copies as you need for your own personal use."]
-    if dated:
-        tips.append("Every date was made by a calendar program: weeks start on Sunday, weekends are shaded.")
+    if week_start:
+        tips.append(f"Every date was made by a calendar program: weeks start on {week_start}, weekends are "
+                    "shaded.")
     page = {"title": "How to use", "subtitle": "A few minutes to set up, then just print and write",
             "sections": [{"heading": "Steps", "type": "numbered", "items": steps},
                          {"heading": "Printing tips", "type": "bullets", "items": tips},
                          {"heading": "My notes", "type": "lines", "count": 3}]}
     render_page(pdf, page)
+
+
+def _is_month(title):
+    m = re.fullmatch(r"(\w+) (\d{4})", title)
+    return bool(m and m.group(1) in calendar.month_name[1:])
 
 
 def _inside(titles, offset):
@@ -646,30 +666,35 @@ def _inside(titles, offset):
     for i, t in enumerate(titles):
         number = offset + i + 1
         base = t.replace(" (cont.)", "")
-        month = re.fullmatch(r"(\w+) (\d{4})", base)
-        key = "months" if month and month.group(1) in calendar.month_name[1:] else base
+        key = "months" if _is_month(base) else base
         if groups and groups[-1][0] == key:
             groups[-1][2] = number
+            groups[-1][4] = base
         else:
-            groups.append([key, number, number, base])
+            groups.append([key, number, number, base, base])
     out = []
-    for key, a, b, base in groups:
-        label = f"January to December {base.split()[-1]} (one page per month)" if key == "months" else base
+    for key, a, b, first, last in groups:
+        if key == "months":
+            (m1, y1), (m2, y2) = first.split(), last.split()
+            span = f"{m1} to {m2} {y1}" if y1 == y2 else f"{first} to {last}"
+            label = f"{span} (one page per month)"
+        else:
+            label = first
         out.append((label, f"Page {a}" if a == b else f"Pages {a}-{b}"))
     return out
 
 
-def _finish(path, spec, size, body, year=None):
+def _finish(path, spec, size, body, label=None, week_start=None):
     """Cover + How to use + the body pages; page numbers in the cover index are exact."""
     style = style_for(spec)
-    footer = f"{spec.get('name') or spec['listing']['title']} · {size} · for personal use"
+    footer = f"{spec.get('name') or spec['listing']['title']} \u00b7 {size} \u00b7 for personal use"
     content = Pdf(size, footer, style)
     titles = body(content)
     offset = 2
     for _ in range(3):
         front = Pdf(size, footer, style)
-        _cover(front, spec, _inside(titles, offset), year)
-        _how_to(front, spec, bool(year))
+        _cover(front, spec, _inside(titles, offset), label)
+        _how_to(front, spec, week_start)
         if len(front.pages) == offset:
             break
         offset = len(front.pages)
@@ -700,21 +725,51 @@ def build_planner_pdf(path, spec, size):
 MONTH_BOXES = ["This month’s focus", "Key dates", "Notes"]
 
 
-def month_weeks(year, month):
-    """Weeks of a month, Sunday first: lists of 7 day numbers (0 = blank). Made by Python's calendar."""
-    return calendar.Calendar(firstweekday=6).monthdayscalendar(year, month)
+# Calendar kinds: a calendar year, or a school year. Start month and first weekday are fixed by code.
+CALENDARS = {"jan-dec": {"start_month": 1, "first_weekday": 6},          # 6 = Sunday (Python's calendar)
+             "us-academic": {"start_month": 8, "first_weekday": 6},      # August-July, Sunday start
+             "uk-academic": {"start_month": 9, "first_weekday": 0}}      # September-August, Monday start
+DAY_NAMES = {6: "Sunday", 0: "Monday"}
 
 
-def month_cells(year, month):
-    """6 weeks x 7 days of (day, in_this_month) for a Sunday-first grid, other months' days included."""
-    dates = list(calendar.Calendar(firstweekday=6).itermonthdates(year, month))
+def weekdays(first_weekday=6):
+    """Short day names in grid order: Sun..Sat (first_weekday 6) or Mon..Sun (first_weekday 0)."""
+    names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    return names[first_weekday:] + names[:first_weekday]
+
+
+def planner_months(spec, year=PLANNER_YEAR):
+    """The 12 (year, month) pairs of a dated planner, from its calendar kind. Made by code only."""
+    kind = CALENDARS.get(spec.get("calendar") or "jan-dec", CALENDARS["jan-dec"])
+    start_year = int(spec.get("year") or year)
+    out, y, m = [], start_year, kind["start_month"]
+    for _ in range(12):
+        out.append((y, m))
+        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+    return out, kind["first_weekday"]
+
+
+def year_label(months):
+    """'2027' for a calendar year, '2027-28' for a school year."""
+    first, last = months[0][0], months[-1][0]
+    return str(first) if first == last else f"{first}-{str(last)[2:]}"
+
+
+def month_weeks(year, month, first_weekday=6):
+    """Weeks of a month (Sunday first unless told otherwise): lists of 7 day numbers (0 = blank)."""
+    return calendar.Calendar(firstweekday=first_weekday).monthdayscalendar(year, month)
+
+
+def month_cells(year, month, first_weekday=6):
+    """6 weeks x 7 days of (day, in_this_month), other months' days included."""
+    dates = list(calendar.Calendar(firstweekday=first_weekday).itermonthdates(year, month))
     while len(dates) < 42:
         import datetime
         dates.append(dates[-1] + datetime.timedelta(days=1))
     return [[(d.day, d.month == month) for d in dates[r * 7:(r + 1) * 7]] for r in range(6)]
 
 
-def _month_page(pdf, year, month):
+def _month_page(pdf, year, month, first_weekday=6):
     st, w, h = pdf.style, pdf.w, pdf.h
     width = w - 2 * MARGIN
     pdf.new_page()
@@ -739,19 +794,20 @@ def _month_page(pdf, year, month):
     col = width / 7
     head_h = 17
     if st["round"]:
-        for i, day in enumerate(WEEKDAYS_SUN):
+        for i, day in enumerate(weekdays(first_weekday)):
             pdf.round_rect(MARGIN + i * col + 2, top - head_h, col - 4, head_h, 8.5, fill=st["pill"])
             pdf.text_center(MARGIN + i * col + col / 2, top - 12, day, 9, True, st["ink"])
     else:
         pdf.fill(MARGIN, top - head_h, width, head_h, st["accent"])
-        for i, day in enumerate(WEEKDAYS_SUN):
+        for i, day in enumerate(weekdays(first_weekday)):
             pdf.text_center(MARGIN + i * col + col / 2, top - 12, day, 9, True, st["on_accent"])
     grid_top = top - head_h - (5 if st["round"] else 0)
     row_h = (grid_top - grid_bottom) / 6
-    for r, week in enumerate(month_cells(year, month)):
+    weekend_cols = [i for i, d in enumerate(weekdays(first_weekday)) if d in ("Sat", "Sun")]
+    for r, week in enumerate(month_cells(year, month, first_weekday)):
         for c, (day, here) in enumerate(week):
             x, y = MARGIN + c * col, grid_top - (r + 1) * row_h
-            weekend = c in (0, 6) and here
+            weekend = c in weekend_cols and here
             if st["round"]:
                 pdf.round_rect(x + 2, y + 2, col - 4, row_h - 4, 8,
                                fill=st["weekend"] if weekend else "#ffffff", stroke=st["cell"], width=0.8)
@@ -786,51 +842,58 @@ def _month_page(pdf, year, month):
             pdf.line(x0, y, x1, y, color=st["line"])
 
 
-def _year_page(pdf, year):
+def _year_page(pdf, months, first_weekday=6):
     st = pdf.style
     width = pdf.w - 2 * MARGIN
     pdf.new_page()
-    top = _header(pdf, f"{year} at a glance", "Every month of the year. Weeks start on Sunday.")
+    (y1, m1), (y2, m2) = months[0], months[-1]
+    sub = (f"Every month from {calendar.month_name[m1]} {y1} to {calendar.month_name[m2]} {y2}. "
+           f"Weeks start on {DAY_NAMES[first_weekday]}.")
+    top = _header(pdf, f"{year_label(months)} at a glance", sub)
     cols, rows_n, gap = 3, 4, 14
     cw = (width - gap * (cols - 1)) / cols
     ch = (top - BOTTOM - gap * (rows_n - 1)) / rows_n
-    for m in range(1, 13):
-        r, c = divmod(m - 1, cols)
+    names = weekdays(first_weekday)
+    weekend_cols = [i for i, d in enumerate(names) if d in ("Sat", "Sun")]
+    for i_m, (year, m) in enumerate(months):
+        r, c = divmod(i_m, cols)
         x0, y0 = MARGIN + c * (cw + gap), top - r * (ch + gap)
         if st["round"]:
-            pdf.round_rect(x0, y0 - ch, cw, ch, 10, fill=st["boxes"][(m - 1) % 3])
+            pdf.round_rect(x0, y0 - ch, cw, ch, 10, fill=st["boxes"][i_m % 3])
             pad = 8
         else:
             pdf.rect(x0, y0 - ch, cw, ch, color=st["cell"], width=0.7)
             pdf.fill(x0, y0 - 18, cw, 18, st["bar"])
             pad = 6
-        pdf.text(x0 + pad, y0 - 13, calendar.month_name[m].upper(), 10.5, True, st["accent"], 0.8)
+        title = calendar.month_name[m].upper() + (f" {year}" if y1 != y2 else "")
+        pdf.text(x0 + pad, y0 - 13, title, 10.5, True, st["accent"], 0.8)
         gx, gw = x0 + pad, cw - 2 * pad
         colw = gw / 7
-        for i, day in enumerate(WEEKDAYS_SUN):
+        for i, day in enumerate(names):
             pdf.text_center(gx + i * colw + colw / 2, y0 - 30, day[0], 6.5, True, st["muted"])
-        weeks = month_cells(year, m)
         row_h = (ch - 40) / 6
-        for wr, week in enumerate(weeks):
+        for wr, week in enumerate(month_cells(year, m, first_weekday)):
             for wc, (day, here) in enumerate(week):
                 if not here:
                     continue
                 cy = y0 - 36 - (wr + 1) * row_h
-                if wc in (0, 6):
+                if wc in weekend_cols:
                     pdf.fill(gx + wc * colw + 1, cy + 1, colw - 2, row_h - 1, st["weekend"])
                 pdf.text_center(gx + wc * colw + colw / 2, cy + row_h / 2 - 2.5, str(day), 7, False, st["ink"])
 
 
 def build_dated_planner_pdf(path, spec, size, year=PLANNER_YEAR):
+    months, first_weekday = planner_months(spec, year)
+
     def body(pdf):
-        _year_page(pdf, year)
-        titles = [f"{year} at a glance"]
-        for m in range(1, 13):
-            _month_page(pdf, year, m)
-            titles.append(f"{calendar.month_name[m]} {year}")
+        _year_page(pdf, months, first_weekday)
+        titles = [f"{year_label(months)} at a glance"]
+        for y, m in months:
+            _month_page(pdf, y, m, first_weekday)
+            titles.append(f"{calendar.month_name[m]} {y}")
         for page in spec.get("pages") or []:
             before = len(pdf.pages)
             render_page(pdf, page)
             titles += [page["title"]] + [page["title"] + " (cont.)"] * (len(pdf.pages) - before - 1)
         return titles
-    return _finish(path, spec, size, body, year)
+    return _finish(path, spec, size, body, year_label(months), DAY_NAMES[first_weekday])

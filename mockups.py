@@ -295,22 +295,22 @@ def product_pages(folder, facts):
             if n == 1 or not title or title == "How to use" or title.endswith("(cont.)"):
                 continue
             month = re.fullmatch(r"(\w+) (\d{4})", title)
+            week = facts.get("week_start")
             if month and facts.get("dated"):
-                big_title = f"Monthly pages with correct {month.group(2)} dates"
-                bullets = [f"Every {month.group(2)} date, weeks start on Sunday", "Weekends shaded",
-                           _join(heads)]
+                big_title = f"Monthly pages with correct {facts['dated']} dates"
+                bullets = [f"Weeks start on {week}" if week else "Every date in the right place",
+                           "Weekends shaded", _join(heads) or "Space for notes"]
                 kind_ = "month"
             elif "at a glance" in title.lower():
                 big_title = title
-                bullets = [f"All 12 months of {facts.get('dated') or ''} on one page".replace("  ", " "),
-                           "Weeks start on Sunday", "Weekends shaded"]
+                bullets = ["All 12 months on one page", f"Weeks start on {week}" if week else "Weekends shaded",
+                           "Weekends shaded" if week else "Print and pin it up"]
                 kind_ = "year"
             else:
                 big_title = title
-                bullets = list(heads) if len(heads) <= 3 else \
-                    heads[:2] + [f"Plus {len(heads) - 2} more sections, like {heads[2][:1].lower() + heads[2][1:]}"]
+                bullets = short_bullets(heads)
                 if len(bullets) < 3:
-                    bullets.append("Writing lines down to the bottom of the page")
+                    bullets.append("Room to write down to the bottom")
                 if len(bullets) < 3 and facts.get("sizes") == ["A4", "Letter"]:
                     bullets.append("A4 and US Letter files included")
                 kind_ = "page"
@@ -366,6 +366,14 @@ def product_pages(folder, facts):
     return out
 
 
+def short_bullets(headings, n=3, limit=26):
+    """Up to n short, natural bullets from a page's own section headings (the shortest first, kept in
+    page order). 'Now · Next · Later' reads as 'Now, next, later'."""
+    clean = [h.replace(" \u00b7 ", ", ").replace("\u00b7", ",") for h in headings]
+    short = [h for h in clean if len(h) <= limit] or sorted(clean, key=len)
+    return short[:n]
+
+
 def _join(items):
     items = [i for i in items if i]
     if len(items) <= 1:
@@ -387,7 +395,7 @@ def chips(facts):
         if sizes:
             out.append(" + ".join("US Letter" if s == "Letter" else s for s in sizes))
         if facts.get("dated"):
-            out.append(f"Dated {facts['dated']}")
+            out.append(f"Dated {facts['dated']}" if "-" not in facts["dated"] else facts["dated_range"])
         out.append("Printable PDF")
     elif facts["kind"] == "sheets":
         out.append(f"{facts['sheet_count']} sheets")

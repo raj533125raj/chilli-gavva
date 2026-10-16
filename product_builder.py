@@ -136,7 +136,7 @@ _SHEET_EXAMPLE = {"name": "Income Log", "columns": [
     "overdue": {"due": "Due Date", "status": "Status", "done": "Paid"},
     "balance": {"in": "Amount", "out": ""}}
 EXAMPLES = {
-    "dated_planner": {"pages": [{"title": "Class Roster", "subtitle": "One line per student",
+    "dated_planner": {"calendar": "jan-dec", "pages": [{"title": "Class Roster", "subtitle": "One line per student",
                                  "sections": [{"heading": "Students", "type": "lines", "count": 12}]}]},
     "sheets": {"sheets": [_SHEET_EXAMPLE]},
     "planner": {"daily_page": True,
@@ -167,10 +167,11 @@ KIND_RULES = {
                "wins, guess vs real time, 15-minute focus blocks, tomorrow's first step, brain dump). Code also "
                "adds a cover and a 'How to use' page to every planner.",
     "notion": "Give 2-4 pages in Markdown and 1-3 databases with 3-6 sample rows each.",
-    "dated_planner": ("The calendar part is FIXED and made by code: a cover, a 2027 year-at-a-glance page and 12 "
-                      "monthly calendar pages (January to December 2027, weeks start on Sunday, each with the boxes "
-                      "This month's focus, Key dates and Notes), plus a cover and a How to use page. You only "
-                      "choose 1-4 extra planner pages for ONE clear buyer "
+    "dated_planner": ("The calendar part is FIXED and made by code: a cover, a How to use page, a year-at-a-glance "
+                      "page and 12 monthly calendar pages, each with the boxes This month's focus, Key dates and "
+                      "Notes. Set \"calendar\" to \"jan-dec\" (January-December 2027, weeks start on Sunday), "
+                      "\"us-academic\" (August 2027 - July 2028, Sunday start) or \"uk-academic\" (September 2027 - "
+                      "August 2028, Monday start). You only choose 1-4 extra planner pages for ONE clear buyer "
                       "(checklist, lines, schedule or notes sections). Printable PDF in A4 and US Letter. "
                       "The listing may ONLY promise these things. Never promise weekly or daily dated pages, "
                       "hyperlinks, fillable fields, stickers, a digital/tablet version, dashboards or formulas."),
@@ -330,6 +331,7 @@ def _norm_dated(data, spec):
     import pdf_design
     spec["monthly_sections"] = list(pdf_design.MONTH_BOXES)   # fixed by the design, the same every month
     spec["year"] = PLANNER_YEAR
+    spec["calendar"] = data.get("calendar") if data.get("calendar") in pdf_design.CALENDARS else "jan-dec"
     if data.get("pages"):
         if _norm_pages(data, spec):
             spec["pages"] = []
@@ -702,7 +704,8 @@ def _listing_md(spec):
         "## Description", "", l["description"], "",
         "## Tags (5)", "", *[f"- {t}" for t in l["tags"]], "",
         "## Cover image idea", "", spec["cover_image_idea"] or "A clean flat-lay of the product on a laptop screen.",
-        "", "---", f"Built by the Product Builder from approved draft #{spec['approval_id']}. "
+        "", "---", (spec.get("source_note") or f"Built by the Product Builder from approved draft #{spec['approval_id']}.")
+        + " "
         "Check the files, then upload them to the store yourself.", ""])
 
 
@@ -788,8 +791,17 @@ def _build_dated_planner(folder, spec):
         name = f"{spec['short_name']}-{size}.pdf"
         build_dated_planner_pdf(os.path.join(folder, name), spec, size)
         files.append(name)
+    import pdf_design
+    months, first = pdf_design.planner_months(spec)
+    span = (f"{_calendar_name(months[0])} to {_calendar_name(months[-1])}")
     return files, ["Print the A4 or US Letter PDF at 100% scale (or use it in a PDF annotation app).",
-                   "Every month of 2027 has its own calendar page; weeks start on Sunday."]
+                   f"Every month from {span} has its own calendar page; weeks start on "
+                   f"{pdf_design.DAY_NAMES[first]}."]
+
+
+def _calendar_name(year_month):
+    import calendar
+    return f"{calendar.month_name[year_month[1]]} {year_month[0]}"
 
 
 BUILDERS = {"sheets": _build_sheets, "planner": _build_planner, "notion": _build_notion, "resume": _build_resume,
@@ -1028,14 +1040,105 @@ def rebuild_versions(db_path=None, out_dir=None, spec_dir=None, notify_fn=None):
         if approval_id in OWNER_HOLDS:
             continue
         folder = f"{approval_id}-{version}-{spec['short_name']}"
-        if os.path.isdir(os.path.join(out_dir, folder)):
+        revision = int(spec.get("revision") or 1)
+        if os.path.isdir(os.path.join(out_dir, folder)) and _built_revision(db_path, folder) >= revision:
             continue
         old = next((b["folder"] for b in builds(db_path) if b["approval_id"] == approval_id), "") or ""
-        build_product(spec, approval_id, out_dir, folder_name=folder)
-        _record(db_path, approval_id, "built", folder, f"{version}; older version kept in {old or '-'}")
+        build_product(spec, approval_id, out_dir, folder_name=folder)   # same folder: files are replaced
+        _set_revision(db_path, folder, revision)
+        _record(db_path, approval_id, "built", folder, f"{version} rev {revision}; older version kept in "
+                                                        f"{old if old != folder else '-'}")
         verdict = truth_check_folder(approval_id, folder, db_path, out_dir, notify_fn)["verdict"]
         done.append((approval_id, folder, verdict))
     return done
+
+
+def _built_revision(db_path, folder):
+    """Which revision of a hand-checked spec a folder was built from (1 when it was built before revisions)."""
+    conn = connect(db_path)
+    conn.execute("CREATE TABLE IF NOT EXISTS spec_revisions (folder TEXT PRIMARY KEY, revision INTEGER)")
+    row = conn.execute("SELECT revision FROM spec_revisions WHERE folder = ?", (folder,)).fetchone()
+    conn.close()
+    return row[0] if row else 1
+
+
+def _set_revision(db_path, folder, revision):
+    conn = connect(db_path)
+    conn.execute("CREATE TABLE IF NOT EXISTS spec_revisions (folder TEXT PRIMARY KEY, revision INTEGER)")
+    conn.execute("INSERT OR REPLACE INTO spec_revisions (folder, revision) VALUES (?, ?)", (folder, revision))
+    conn.commit()
+    conn.close()
+
+
+BUNDLE_DIR = os.path.join(BASE_DIR, "specs", "bundles")
+
+
+def bundle_spec(path):
+    """A bundle spec with its pages taken from the hand-checked specs it names (the real pages, in order)."""
+    with open(path, encoding="utf-8") as f:
+        spec = json.load(f)
+    pages, daily = [], False
+    for part in spec["bundle_of"]:
+        with open(os.path.join(BASE_DIR, part), encoding="utf-8") as f:
+            source = json.load(f)
+        daily = daily or bool(source.get("daily_page"))
+        pages += source.get("pages") or []
+    spec.update({"kind": "planner", "pages": pages, "daily_page": daily})
+    return spec
+
+
+def build_bundles(db_path=None, out_dir=None, spec_dir=None, notify_fn=None):
+    """Build each bundle in specs/bundles once per revision into bundle-<name>/, truth-check it, and send one
+    Telegram line when its verdict changes. A bundle is never marked for sale: the owner decides.
+    Returns [(folder, verdict)]."""
+    import truth_check
+    out_dir, spec_dir = out_dir or PRODUCTS_DIR, spec_dir or BUNDLE_DIR
+    done = []
+    if not os.path.isdir(spec_dir):
+        return done
+    for name in sorted(os.listdir(spec_dir)):
+        if not name.endswith(".json"):
+            continue
+        spec = bundle_spec(os.path.join(spec_dir, name))
+        folder = f"bundle-{spec['short_name']}"
+        revision = int(spec.get("revision") or 1)
+        if os.path.isdir(os.path.join(out_dir, folder)) and _built_revision(db_path, folder) >= revision:
+            continue
+        build_product(spec, "bundle", out_dir, folder_name=folder)
+        _set_revision(db_path, folder, revision)
+        result = truth_check.check(os.path.join(out_dir, folder))
+        with open(os.path.join(out_dir, folder, "TRUTH_CHECK.md"), "w", encoding="utf-8") as f:
+            f.write(truth_check.report_md(spec["name"], result))
+        conn = connect(db_path)
+        conn.execute("CREATE TABLE IF NOT EXISTS bundle_builds (folder TEXT PRIMARY KEY, verdict TEXT, "
+                     "score INTEGER, notified TEXT)")
+        old = conn.execute("SELECT notified FROM bundle_builds WHERE folder = ?", (folder,)).fetchone()
+        sent = old[0] if old else None
+        if sent != result["verdict"]:
+            try:
+                if notify_fn is None:
+                    import notify
+                    notify_fn = notify.send
+                text = truth_check.telegram_text("bundle", spec["name"], result).replace("Product #bundle", "Bundle:")
+                if notify_fn(text):
+                    sent = result["verdict"]
+            except Exception:
+                pass
+        conn.execute("INSERT OR REPLACE INTO bundle_builds (folder, verdict, score, notified) VALUES (?, ?, ?, ?)",
+                     (folder, result["verdict"], result["score"], sent))
+        conn.commit()
+        conn.close()
+        done.append((folder, result["verdict"]))
+    return done
+
+
+def bundles(db_path=None):
+    conn = connect(db_path)
+    conn.execute("CREATE TABLE IF NOT EXISTS bundle_builds (folder TEXT PRIMARY KEY, verdict TEXT, "
+                 "score INTEGER, notified TEXT)")
+    rows = conn.execute("SELECT folder, verdict, score FROM bundle_builds ORDER BY folder").fetchall()
+    conn.close()
+    return rows
 
 
 def write_index(db_path=None, out_dir=None):
@@ -1056,6 +1159,13 @@ def write_index(db_path=None, out_dir=None):
             lines.append(f"| #{b['approval_id']} | [{b['folder']}]({b['folder']}/) | {label} |")
         elif b["status"] in ("retry", "failed"):
             lines.append(f"| #{b['approval_id']} | - | {b['status']} after {b['tries']} try(s): {b['note'][:80]} |")
+    made = [(f, v) for f, v, _ in bundles(db_path) if os.path.isdir(os.path.join(out_dir, f))]
+    if made:
+        lines += ["", "## Bundles (pages from the products above, in one file)", "", "| Bundle | Status |",
+                  "|---|---|"]
+        lines += [f"| [{f}]({f}/) | " + ("ready (truth check passed) - the owner decides if it goes on sale"
+                                         if v == "ready" else "needs fix - see TRUTH_CHECK.md") + " |"
+                  for f, v in made]
     older = [d for d in sorted(os.listdir(out_dir)) if os.path.isdir(os.path.join(out_dir, d)) and d not in current
              and re.match(r"\d+-", d)]
     if older:
@@ -1131,6 +1241,9 @@ def main(argv=None):
     rebuilt = rebuild_versions(args.db)
     for approval_id, folder, verdict in rebuilt:
         print(f"Product Builder: new version of #{approval_id} -> {folder} ({verdict})")
+    for folder, verdict in build_bundles(args.db):
+        rebuilt.append((None, folder, verdict))
+        print(f"Product Builder: bundle {folder} ({verdict})")
     for entry in add_missing_images():
         print(f"Product Builder: added listing images and LICENSE.txt to {entry}")
     held = apply_owner_holds(args.db)

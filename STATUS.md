@@ -63,6 +63,13 @@ free store (Gumroad). Nothing is published, posted or sold automatically.
     pin show REAL pages of the product; every fact on them comes from `truth_check.image_facts`.
 17. **New versions** (`specs/rebuild/`): #1, #2, #3 rebuilt as v2 in Style B (old folders kept, listed as
     "older versions"). Nothing is for sale until the owner decides; #4 and #6 stay NOT FOR SALE.
+18. **Fixes after the v2 review:** a growing box gets a small "Notes" label and writing lines, never extra
+    checkboxes (v2 rebuilt as revision 2 in the same folders). Compact cover title box. Short preview bullets.
+    Dated planners can be a school year: "us-academic" (Aug-Jul, Sunday start) or "uk-academic" (Sep-Aug,
+    Monday start); samples in `specs/samples/`.
+19. **Bundle** (`specs/bundles/`): "ADHD Printable Planner Kit" = the real pages of #1 v2 + #2 v2 + #3 v2 in one
+    Style B PDF, price idea 7 USD, built into `bundle-adhd-printable-planner-kit/`. Not for sale until the owner
+    reads the listing and decides.
 
 ## Where it runs
 - **GitHub Actions** (`.github/workflows/agent.yml`): tests first, then one agent cycle, Telegram inbox,
@@ -73,7 +80,7 @@ free store (Gumroad). Nothing is published, posted or sold automatically.
   on, and a Telegram "door bell" for fast replies.
 
 ## Quality
-- About 590 offline unit tests: `python3 -m unittest discover -s tests` (CI runs them with `CHILLI_TEST=1`
+- About 600 offline unit tests: `python3 -m unittest discover -s tests` (CI runs them with `CHILLI_TEST=1`
   before every cycle). Tests never call real AI models or websites.
 
 ## Known gaps / next steps

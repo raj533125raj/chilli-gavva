@@ -310,8 +310,20 @@ def image_facts(folder):
         out["pdf_path"] = os.path.join(folder, next((n for n in pdfs if n.endswith("-A4.pdf")), pdfs[0]))
         out["style"] = pdf_design.pdf_style(out["pdf_path"]) or "A"
         if _proven("12 monthly calendar pages", f)[0]:
-            years = {t.split()[1] for t in f["titles"] if len(t.split()) == 2 and t.split()[1].isdigit()}
-            out["dated"] = years.pop() if len(years) == 1 else None
+            import calendar
+            months = [(int(t.split()[1]), list(calendar.month_name).index(t.split()[0])) for t in f["titles"]
+                      if len(t.split()) == 2 and t.split()[0] in calendar.month_name[1:] and t.split()[1].isdigit()]
+            first, last = months[0], months[-1]
+            out["dated"] = pdf_design.year_label(months)                      # "2027" or "2027-28"
+            out["dated_range"] = (f"{calendar.month_abbr[first[1]]} {first[0]} - "
+                                  f"{calendar.month_abbr[last[1]]} {last[0]}")
+            for page in f["page_items"]:                                       # the first month page's grid
+                big = " ".join(t for fo, s, _, _, t in page["items"] if fo == "F2" and s >= 18)
+                if big == f"{calendar.month_name[first[1]]} {first[0]}":
+                    heads = sorted((x, t) for fo, s, x, _, t in page["items"] if s == 9 and t in
+                                   ("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"))
+                    out["week_start"] = {"Sun": "Sunday", "Mon": "Monday"}.get(heads[0][1]) if heads else None
+                    break
     return out
 
 
