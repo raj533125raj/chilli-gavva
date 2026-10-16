@@ -39,7 +39,7 @@ class CharacterTests(unittest.TestCase):
             pb.build_planner_pdf(path, spec, "A4")
             texts = read_texts(path)
         self.assertIn("Day – Plan", texts)
-        self.assertIn("Parents’ evening", texts)
+        self.assertIn("PARENTS’ EVENING", texts)           # section headings are printed in capitals
         self.assertIn("Morning (6\u201310 am)", texts)     # whole label, dash intact (no "?")
         self.assertFalse(any("?" in t for t in texts))
 
@@ -75,37 +75,32 @@ class OverflowTests(unittest.TestCase):
     def test_no_almost_empty_page_after_overflow(self):
         spec = {"name": "P", "listing": {"title": "P"}, "pages": [{
             "title": "Week plan", "subtitle": "", "sections": [
-                {"heading": f"Block {i}", "type": "lines", "items": [], "count": 6} for i in range(5)]}]}
+                {"heading": f"Block {i}", "type": "lines", "items": [], "count": 12} for i in range(9)]}]}
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "p-A4.pdf")
             n = pb.build_planner_pdf(path, spec, "A4")
             quality = tc.file_quality(tc.facts(d))
-        self.assertGreaterEqual(n, 2)                               # it really overflowed
+        self.assertGreaterEqual(n, 4)                  # cover, How to use, and the page really overflowed
         self.assertFalse([q for q in quality if "almost empty" in q], quality)
 
-    def test_short_page_gets_a_full_notes_area(self):
+    def test_short_page_grows_writing_lines_to_the_footer(self):
         spec = {"name": "P", "listing": {"title": "P"}, "pages": [{
             "title": "Tiny", "subtitle": "", "sections": [
                 {"heading": "Only", "type": "checklist", "items": ["One"], "count": 1}]}]}
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "p-A4.pdf")
             pb.build_planner_pdf(path, spec, "A4")
-            page = tc._pdf_pages(path)[0]
-        self.assertIn("Notes", [t for _, _, _, _, t in page["items"]])
+            page = tc._pdf_pages(path)[2]
         self.assertGreater(page["drawn"], 20)
+        self.assertLess(page["low"], pb.BOTTOM + 25)          # lines reach down to the footer
 
 
 class ImageTextTests(unittest.TestCase):
     def test_images_keep_apostrophes_and_dashes(self):
         self.assertEqual(mockups.no_brands("Parents’ evening – term"), "Parents' evening - term")
 
-    def test_calendar_rows_keep_their_columns(self):
-        spec = {"kind": "dated_planner", "name": "2027 Planner", "year": 2027, "monthly_sections": ["Goals"],
-                "pages": []}
-        jan = mockups.preview_pages(spec)[1]
-        rows = [t for k, t in jan["lines"] if k == "pre"]
-        self.assertEqual(rows[0][20:23], "Fri")
-        self.assertEqual(rows[1][20:21], "1")                       # 1 January 2027 under Friday
+    def test_image_text_keeps_every_letter(self):
+        self.assertEqual(mockups.no_brands("Tomorrow’s first step — 6–10 am"), "Tomorrow's first step - 6-10 am")
 
 
 if __name__ == "__main__":

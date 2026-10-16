@@ -103,7 +103,7 @@ class PlannerTruthTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             r = tc.check(planner_folder(d, listing, PAGES, sizes=("A4",)), with_images=False)
         text = " ".join(r["problems"])
-        self.assertIn("promises 6 pages, the files have only 2", text)
+        self.assertIn("promises 6 pages, the files have only 4", text)    # cover + How to use + 2
         self.assertIn("no Letter file", text)
         self.assertIn("fillable", text)
         self.assertIn("weekly or daily dated pages", text)

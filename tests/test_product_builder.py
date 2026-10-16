@@ -157,10 +157,11 @@ class FileTypeTests(Base):
             self.assertTrue(data.startswith(b"%PDF-1.4"))
             self.assertTrue(data.rstrip().endswith(b"%%EOF"))
             pages = len(re.findall(rb"/Type /Page ", data))
-            self.assertGreaterEqual(pages, 3)  # the long second page flows onto a third
+            self.assertGreaterEqual(pages, 5)  # cover, How to use, then the planner pages
             self.assertIn(f"/Count {pages}".encode(), data)
             self.assertIn(f"/MediaBox [0 0 {box}]".encode(), data)
-            self.assertIn(b"(Energy check) Tj", data)
+            self.assertIn(b"(ENERGY CHECK) Tj", data)
+            self.assertIn(f"(Page {pages} of {pages}) Tj".encode(), data)
             # every xref offset must point at its object
             xref = int(re.search(rb"startxref\n(\d+)", data).group(1))
             offsets = re.findall(rb"(\d{10}) 00000 n", data[xref:])
@@ -309,7 +310,7 @@ class OldProductImageTests(Base):
         spec = SPECS["ADHD Planners Agent"]
         self.assertEqual([p["title"] for p in pages], [p["title"] for p in spec["pages"]])
         first = pages[0]["sections"][0]
-        self.assertEqual(first["heading"], spec["pages"][0]["sections"][0]["heading"])
+        self.assertEqual(first["heading"].lower(), spec["pages"][0]["sections"][0]["heading"].lower())
 
     def test_ai_down_does_not_use_up_tries(self):
         aid = self.add(TITLES["ADHD Planners Agent"])

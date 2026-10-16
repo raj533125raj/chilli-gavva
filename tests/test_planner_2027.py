@@ -44,12 +44,13 @@ def month_pages(pdf_path):
     pages = truth_check._pdf_pages(pdf_path)
     out = {}
     for page in pages:
-        titles = [t for font, size, _, _, t in page["items"] if font == "F2" and size >= 18]
-        m = re.fullmatch(r"(\w+) 2027", titles[0]) if titles else None
+        titles = " ".join(t for font, size, _, _, t in page["items"] if font == "F2" and size >= 18)
+        m = re.fullmatch(r"(\w+) 2027", titles)
         if not m or m.group(1) not in calendar.month_name[1:]:
             continue
         heads = sorted(x for font, size, x, _, t in page["items"] if t in pb.WEEKDAYS_SUN and size == 9)
-        days = [(int(t), x) for font, size, x, _, t in page["items"] if font == "F1" and size == 9 and t.isdigit()]
+        # this month's days are bold; the faded days of the months before and after are not
+        days = [(int(t), x) for font, size, x, _, t in page["items"] if font == "F2" and size == 9 and t.isdigit()]
         cols = [min(range(7), key=lambda c: abs(heads[c] - x)) for _, x in days]
         out[list(calendar.month_name).index(m.group(1))] = [(d, c) for (d, _), c in zip(days, cols)]
     return out
@@ -89,11 +90,10 @@ class CalendarTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "p-A4.pdf")
             pages = pb.build_dated_planner_pdf(path, spec(), "A4")
-            f_titles = [t for p in truth_check._pdf_pages(path) for font, size, _, _, t in p["items"]
-                        if font == "F2" and size >= 18]
-        self.assertEqual(pages, 16)    # cover, year overview, 12 months, 2 extra pages
-        self.assertEqual(f_titles[2:], ["2027 at a glance"] + [f"{calendar.month_name[m]} 2027" for m in range(1, 13)]
-                         + ["Class Roster", "Term Overview"])
+            f_titles = truth_check.facts(d)["titles"]
+        self.assertEqual(pages, 17)    # cover, How to use, year overview, 12 months, 2 extra pages
+        self.assertEqual(f_titles, ["2027 Teacher Planner", "How to use", "2027 at a glance"]
+                         + [f"{calendar.month_name[m]} 2027" for m in range(1, 13)] + ["Class Roster", "Term Overview"])
 
     def test_dates_are_never_asked_from_the_ai(self):
         prompt = pb.spec_prompt("2027 Planners Agent", "draft")
