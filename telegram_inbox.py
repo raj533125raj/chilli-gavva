@@ -117,29 +117,70 @@ def reason_buttons(approval_id):
     return [items[:3], items[3:]]
 
 
+ALLOWED_UPDATES = ["message", "callback_query"]   # text messages AND button presses
+LAST_FETCH_ERROR = None   # short reason when Telegram could not be read (never contains the token)
+
+
+def _error_reason(exc):
+    code = getattr(exc, "code", None)
+    if code == 401:
+        return "401 (bot token not accepted)"
+    if code == 409:
+        return "409 (another program or a webhook is reading this bot)"
+    return str(code) if code else type(exc).__name__
+
+
 def fetch_updates(token, offset):
-    params = {"timeout": 0, "limit": MAX_UPDATES, "allowed_updates": ["message", "callback_query"]}
+    """New updates. Always asks for text messages AND button presses: Telegram only stores the update
+    types the bot last asked for, so a reader that asks for text only would make button presses vanish."""
+    global LAST_FETCH_ERROR
+    LAST_FETCH_ERROR = None
+    params = {"timeout": 0, "limit": MAX_UPDATES, "allowed_updates": ALLOWED_UPDATES}
     if offset:
         params["offset"] = int(offset)
     try:
         data = _call(token, "getUpdates", params)
-    except Exception:
+    except Exception as exc:
+        LAST_FETCH_ERROR = _error_reason(exc)
         return []
-    return data.get("result", []) if data.get("ok") else []
+    if not data.get("ok"):
+        LAST_FETCH_ERROR = str(data.get("error_code") or "not ok")
+        return []
+    return data.get("result", [])
+
+
+def subscription_note(token):
+    """Safe one-line note on what Telegram will deliver to this bot (no token, ids or text)."""
+    try:
+        info = _call(token, "getWebhookInfo", {}).get("result") or {}
+    except Exception as exc:
+        return f"subscription check failed: {_error_reason(exc)}"
+    parts = ["webhook set: " + ("YES (blocks reading updates)" if info.get("url") else "no")]
+    if info.get("allowed_updates") is not None:
+        allowed = info.get("allowed_updates") or ["all"]
+        parts.append("bot asks for: " + ", ".join(allowed))
+        if "callback_query" not in allowed and allowed != ["all"]:
+            parts.append("WARNING button presses are not delivered")
+    return "; ".join(parts)
 
 
 # ---- command handling --------------------------------------------------------
-_CMD = re.compile(r"^/?(list|view|approve|reject|pause|resume|help|start)(?:@\w+)?\b(.*)$",
-                  re.IGNORECASE | re.DOTALL)
+_COMMANDS = "list|view|approve|reject|pause|resume|help|start"
+# "/approve 4", "/approve" or "/approve@bot 4 5": anything after a real slash command is fine.
+_SLASH_CMD = re.compile(rf"^/({_COMMANDS})(?:@\w+)?(?:\s+(.*))?$", re.IGNORECASE | re.DOTALL)
+# Without a slash only the bare form counts: "approve 4", "approve 4, 5", "list". A normal sentence such as
+# "Approve button edhuku work avadam ledhu?" is NOT a command.
+_PLAIN_CMD = re.compile(rf"^({_COMMANDS})((?:[\s,#]+\d+)*)\s*$", re.IGNORECASE)
 
 
 def parse_command(text):
     """Return (command, [ids]) or (None, []) for anything that is not a command."""
-    m = _CMD.match((text or "").strip())
+    text = (text or "").strip()
+    m = _SLASH_CMD.match(text) or _PLAIN_CMD.match(text)
     if not m:
         return None, []
     cmd = m.group(1).lower()
-    ids = [int(x) for x in re.findall(r"\d+", m.group(2))][:20]
+    ids = [int(x) for x in re.findall(r"\d+", m.group(2) or "")][:20]
     return ("help" if cmd == "start" else cmd), ids
 
 
@@ -167,9 +208,19 @@ def view_text(approval_id, db_path=None):
             f"{item.get('payload') or ''}")
 
 
+def missing_number_text(cmd, db_path=None):
+    """Shown when a command needs a draft number: list the REAL waiting drafts, not a made-up example."""
+    items = guardrails.pending(db_path)
+    if not items:
+        return "No drafts are waiting right now."
+    ids = [f"#{it['id']}" for it in items[:15]]
+    more = f" and {len(items) - 15} more" if len(items) > 15 else ""
+    return f"Waiting: {', '.join(ids)}{more}. Send /{cmd} {items[0]['id']}"
+
+
 def decide_text(ids, approved, db_path=None):
     if not ids:
-        return "Please add the draft number, e.g. /approve 12"
+        return missing_number_text("approve" if approved else "reject", db_path)
     done, skipped = [], []
     for i in ids:
         (done if guardrails.decide(i, approved, db_path) else skipped).append(i)
@@ -186,7 +237,7 @@ def handle_command(cmd, ids, db_path=None):
     if cmd == "list":
         return list_text(db_path)
     if cmd == "view":
-        return view_text(ids[0], db_path) if ids else "Please add the draft number, e.g. /view 12"
+        return view_text(ids[0], db_path) if ids else missing_number_text("view", db_path)
     if cmd == "approve":
         return decide_text(ids, True, db_path)
     if cmd == "reject":
@@ -237,8 +288,17 @@ def handle_callback(token, owner_chat_id, data, db_path=None):
     return reply
 
 
-def process_updates(token, owner_chat_id, db_path=None):
-    """Handle new commands from the owner. Returns number of commands handled."""
+def new_stats():
+    return {"text": 0, "button": 0, "other": 0, "handled": 0,
+            "skipped": {"not owner chat": 0, "not a command": 0, "unknown button": 0}}
+
+
+def process_updates(token, owner_chat_id, db_path=None, stats=None):
+    """Handle new commands and button presses from the owner chat. Returns number handled.
+
+    stats (optional dict from new_stats()) is filled with counts only: never ids, tokens or text.
+    """
+    stats = stats if stats is not None else new_stats()
     offset = get_state("update_offset", None, db_path)
     updates = fetch_updates(token, offset)
     handled = 0
@@ -247,28 +307,51 @@ def process_updates(token, owner_chat_id, db_path=None):
         last = upd.get("update_id", last)
         cb = upd.get("callback_query")
         if cb:
+            stats["button"] += 1
+            # Same rule as typed commands: the press must come from the owner chat. (Before, the presser's
+            # personal id also had to equal the chat id, which is never true in a group chat.)
             cb_chat = str(((cb.get("message") or {}).get("chat") or {}).get("id", ""))
-            if cb_chat != str(owner_chat_id) or str((cb.get("from") or {}).get("id", "")) != str(owner_chat_id):
-                continue  # buttons only work for the owner, in the owner chat
+            if cb_chat != str(owner_chat_id):
+                stats["skipped"]["not owner chat"] += 1
+                continue
             try:
                 _call(token, "answerCallbackQuery", {"callback_query_id": cb.get("id")})
             except Exception:
                 pass  # old button presses can no longer be answered; the reply message still goes out
             if handle_callback(token, owner_chat_id, cb.get("data", ""), db_path) is not None:
                 handled += 1
+            else:
+                stats["skipped"]["unknown button"] += 1
             continue
-        msg = upd.get("message") or {}
+        msg = upd.get("message")
+        if not msg or "text" not in msg:
+            stats["other"] += 1
+            continue
+        stats["text"] += 1
         chat_id = str((msg.get("chat") or {}).get("id", ""))
         if chat_id != str(owner_chat_id):
+            stats["skipped"]["not owner chat"] += 1
             continue  # ignore everyone except the owner
         cmd, ids = parse_command(msg.get("text", ""))
         if not cmd:
+            stats["skipped"]["not a command"] += 1
             continue
         send_text(token, owner_chat_id, handle_command(cmd, ids, db_path))
         handled += 1
     if last is not None:
         set_state("update_offset", int(last) + 1, db_path)
+    stats["handled"] = handled
     return handled
+
+
+def stats_line(stats, note=""):
+    """One safe log line: counts and reasons only."""
+    skipped = ", ".join(f"{n} {why}" for why, n in stats["skipped"].items() if n) or "none"
+    line = (f"Telegram updates: {stats['text']} text, {stats['button']} button, {stats['other']} other; "
+            f"handled {stats['handled']}; skipped: {skipped}")
+    if LAST_FETCH_ERROR:
+        line += f"; READ FAILED: {LAST_FETCH_ERROR}"
+    return line + (f"; {note}" if note else "") + "."
 
 
 def alert_new_drafts(token, owner_chat_id, db_path=None):
@@ -298,7 +381,9 @@ def run(db_path=None):
     if not configured:
         print("Telegram not configured: skipping inbox.")
         return {"configured": False, "commands": 0, "alerts": 0}
-    commands = process_updates(token, chat_id, db_path)
+    stats = new_stats()
+    commands = process_updates(token, chat_id, db_path, stats)
+    print(stats_line(stats, subscription_note(token)))
     alerts = alert_new_drafts(token, chat_id, db_path)
     try:  # one short health report a day (first run after 03:30 UTC), weekly letter on Sundays
         import daily_report
