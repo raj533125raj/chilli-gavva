@@ -1,0 +1,34 @@
+{
+ "name": "ADHD Printable Planner Kit",
+ "short_name": "adhd-printable-planner-kit",
+ "revision": 1,
+ "niche": "ADHD Planners Agent",
+ "style": "B",
+ "bundle_of": [
+  "specs/rebuild/1-v2.json",
+  "specs/rebuild/2-v2.json",
+  "specs/rebuild/3-v2.json"
+ ],
+ "source_note": "Bundle built by the Product Builder from the pages of products #1 v2, #2 v2 and #3 v2.",
+ "listing": {
+  "title": "ADHD Printable Planner Kit - Today Page, Energy Planner and Focus Sheets (A4 + US Letter)",
+  "description": "Three printable planners in one PDF, for adults who want simple paper pages that work with their energy and attention.\n\nInside: a cover, a How to use page, the Today page (time anchors, Top 3, now / next / later, waiting for / errands, wins, guess vs real time, sixteen 15-minute focus blocks, tomorrow's first step and a brain dump), the Energy-Based Daily Plan page, the Low-Energy Reset Sheet, the Weekly Capacity & Rhythm page, the Unload & Sort page, the Weekly Overview page, the Monthly Review page, the Notes & Reflections page, the Brain Dump & Sort page, the Daily Focus Sheet, the Project Micro-Step Breakdown page and the Weekly Reset & Clear Out page.\n\nPrint it on A4 or US Letter paper, as often as you need, for personal use.",
+  "tags": [
+   "adhd planner",
+   "printable planner",
+   "daily planner",
+   "time blindness",
+   "focus sheets"
+  ],
+  "price_usd": 7.0,
+  "buyer": "adults with ADHD or time blindness who like simple printable planners",
+  "platform": "Gumroad"
+ },
+ "instructions": [
+  "Print the A4 or US Letter file at 100% (actual size).",
+  "Start each day with the Today page. On hard days, use the Low-Energy Reset Sheet instead.",
+  "When your head feels full, use the Brain Dump & Sort page, then move three things to the Daily Focus Sheet.",
+  "Plan the week with the Weekly Overview and look back with the Monthly Review."
+ ],
+ "cover_image_idea": "The Today page and the Energy-Based Daily Plan page on soft pastel paper."
+}
