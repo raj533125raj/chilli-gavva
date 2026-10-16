@@ -162,6 +162,9 @@ jobs:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           GITHUB_MODELS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_MODELS: ${{ vars.GITHUB_MODELS }}
+          # only for the one-line "ready / needs fix" build message to the owner chat
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python3 product_builder.py --max 2 || echo "Product Builder hit an error; it will retry next run."
 
       - name: Save state
