@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-16T07:44:19",
+ "generated_at": "2026-10-16T08:03:33",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 1,
+  "calls_today": 2,
   "cap": 500
  },
  "agents": [
@@ -194,14 +194,7 @@
    "ts": "2026-10-15T20:46:29.582624",
    "kind": "public_draft",
    "title": "Draft: [Notion Templates Agent] Notion client CRM for freelancers w (v4, llm) (rewritten)",
-   "review": "score 78/100 (rules 60, checker 95) | CHECKER: PASS | issues: missing: product name, buyer, price, platform, what's inside, how to use, listing title, listing description, search tags"
-  },
-  {
-   "id": 6,
-   "ts": "2026-10-15T20:46:32.127870",
-   "kind": "public_draft",
-   "title": "Draft: [Notion Templates Agent] Notion content calendar for solo cr (v4, llm)",
-   "review": "score 98/100 (rules 100, checker 95) | CHECKER: PASS"
+   "review": "score 93/100 (checklist v2) | top: Say why it beats a free template; Title: under 80 chars, say what + who | before: score 78/100 (rules 60, checker 95) | CHECKER: PASS"
   }
  ],
  "prompts": [
