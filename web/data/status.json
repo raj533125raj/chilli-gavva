@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-16T20:30:33",
+ "generated_at": "2026-10-16T20:32:22",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 8,
+  "calls_today": 11,
   "cap": 500
  },
  "agents": [
@@ -78,7 +78,7 @@
     "review"
    ],
    "state": "idle",
-   "tasks_done": 7
+   "tasks_done": 10
   },
   {
    "name": "Review Worker",
@@ -100,30 +100,29 @@
   }
  ],
  "task_counts": {
-  "done": 26,
-  "queued": 3
+  "done": 29
  },
  "recent_tasks": [
   {
    "id": 29,
    "kind": "review",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 28,
    "kind": "review",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 27,
    "kind": "review",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 26,
@@ -195,21 +194,21 @@
    "ts": "2026-10-16T20:30:28.820842",
    "kind": "public_draft",
    "title": "Draft: [Resume Bundle Agent] ATS-friendly one-page resume template  (v4, llm)",
-   "review": null
+   "review": "score 91/100 (checklist v2) | top: Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: PASS (AI 95) | issues: Say why it beats a free template; Title: under 80 chars, say what + who"
   },
   {
    "id": 8,
    "ts": "2026-10-16T20:30:30.668956",
    "kind": "public_draft",
    "title": "Draft: [Resume Bundle Agent] matching cover letter and follow-up em (v4, llm)",
-   "review": null
+   "review": "score 83/100 (checklist v2) | top: Only 4 part(s) listed (want 6+); Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: PASS (AI 95) | issues: Only 4 part(s) listed (want 6+); Say why it beats a free template; Title: under 80 chars, say what + who"
   },
   {
    "id": 9,
    "ts": "2026-10-16T20:30:33.440411",
    "kind": "public_draft",
    "title": "Draft: [Resume Bundle Agent] job-search bundle of ATS resume templa (v4, llm)",
-   "review": null
+   "review": "score 91/100 (checklist v2) | top: Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: PASS (AI 95) | issues: None significant; content meets brief, no risky claims, all required elements present. Minor note: listing title includes a year (2026) which may become outdated.; Say why it beats a free template; Title: under 80 chars, say what + who"
   }
  ],
  "prompts": [
@@ -224,8 +223,8 @@
    "id": 4,
    "name": "draft",
    "active": true,
-   "trials": 3,
-   "quality": 80.8
+   "trials": 6,
+   "quality": 79.2
   },
   {
    "id": 1,

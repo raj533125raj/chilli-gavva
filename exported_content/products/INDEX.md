@@ -9,6 +9,7 @@ Built from approved drafts and checked by the Truth Checker against the real fil
 | #3 | [3-v2-printable-focus-sheets](3-v2-printable-focus-sheets/) | ready (truth check passed) - the owner decides if it goes on sale |
 | #4 | [4-notion-semester-planner](4-notion-semester-planner/) | **NOT FOR SALE - files do not match listing** |
 | #6 | [6-solo-creator-notion-planner](6-solo-creator-notion-planner/) | **NOT FOR SALE - files do not match listing** |
+| #7 | [7-ats-resume-template](7-ats-resume-template/) | needs fix - see TRUTH_CHECK.md |
 
 ## Bundles (pages from the products above, in one file)
 
