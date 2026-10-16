@@ -1,3 +1,5 @@
+> **NOT FOR SALE - files do not match listing**
+
 # Solo Creator Notion Content Calendar & Repurposing Planner
 
 ## What's inside

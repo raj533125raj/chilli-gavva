@@ -1,3 +1,5 @@
+> **NOT FOR SALE - files do not match listing**
+
 # Notion Student Semester Planner & Grade Tracker
 
 ## What's inside
