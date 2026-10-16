@@ -295,6 +295,18 @@ def handle_callback(token, owner_chat_id, data, db_path=None):
     return reply
 
 
+def log_button(db_path=None):
+    """Remember WHEN a button press from the owner chat arrived (time only), for the daily report."""
+    import datetime
+    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    conn = _state_conn(db_path)
+    conn.execute("CREATE TABLE IF NOT EXISTS button_log (ts TEXT)")
+    conn.execute("INSERT INTO button_log (ts) VALUES (?)", (now.isoformat(timespec="seconds"),))
+    conn.execute("DELETE FROM button_log WHERE ts < ?", ((now - datetime.timedelta(days=30)).isoformat(),))
+    conn.commit()
+    conn.close()
+
+
 def new_stats():
     return {"text": 0, "button": 0, "other": 0, "handled": 0,
             "skipped": {"not owner chat": 0, "not a command": 0, "unknown button": 0}}
@@ -321,6 +333,7 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
             if cb_chat != str(owner_chat_id):
                 stats["skipped"]["not owner chat"] += 1
                 continue
+            log_button(db_path)
             try:
                 _call(token, "answerCallbackQuery", {"callback_query_id": cb.get("id")})
             except Exception:

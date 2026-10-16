@@ -41,14 +41,29 @@ def _providers(conn, since_day):
     return "AI: " + "; ".join(parts)
 
 
-def _minutes(status_fn=None):
+def _clock_status(status_fn=None):
     try:
         if status_fn is None:
             import always_on
             status_fn = always_on.status
-        reply = status_fn() or {}
+        return status_fn() or {}
     except Exception:
-        reply = {}
+        return {}
+
+
+def door_bell_line(reply):
+    """Door bell on/off from the alarm clock status (never shows the token)."""
+    if "door_bell" not in reply:
+        return "Door bell: unknown (alarm clock not reachable)"
+    if not reply.get("door_bell"):
+        return "Door bell: off"
+    if reply.get("telegram_token_ok") == "no":
+        return "Door bell: on, but Telegram does NOT accept its bot token (update it in Cloudflare)"
+    return "Door bell: on"
+
+
+def _minutes(status_fn=None, reply=None):
+    reply = reply if reply is not None else _clock_status(status_fn)
     if "month_minutes" not in reply:
         return "GitHub minutes this month: unknown (alarm clock not reachable)"
     return f"GitHub minutes this month: {reply['month_minutes']} of 2000 free ({reply.get('month_runs', '?')} runs)"
@@ -65,8 +80,10 @@ def daily_text(db_path=None, now=None, status_fn=None):
     failed = _count(conn, "SELECT COUNT(*) FROM tasks WHERE status = 'failed' AND finished_ts >= ?", (since,))
     retries = _count(conn, "SELECT COUNT(*) FROM tasks WHERE status = 'queued' AND error IS NOT NULL")
     providers = _providers(conn, (now - datetime.timedelta(days=1)).date().isoformat())
+    buttons = _count(conn, "SELECT COUNT(*) FROM button_log WHERE ts >= ?", (since,))
     paused = guardrails.is_paused(db_path)
     conn.close()
+    clock = _clock_status(status_fn)
     errors = []
     if failed:
         errors.append(f"{failed} task(s) failed for good")
@@ -76,7 +93,9 @@ def daily_text(db_path=None, now=None, status_fn=None):
              providers,
              f"Drafts: {made} made, {waiting} waiting, {approved} approved (last 24h)",
              f"Products built: {built}",
-             _minutes(status_fn),
+             _minutes(reply=clock),
+             door_bell_line(clock),
+             f"Button presses received in the last 24h: {buttons}",
              "Errors: " + ("; ".join(errors) if errors else "none")]
     if paused:
         lines.append("Status: PAUSED (send /resume to start again)")
