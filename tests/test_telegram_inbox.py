@@ -261,6 +261,35 @@ class PauseTests(InboxBase):
             self.assertFalse(guardrails.is_killed())
 
 
+class FreshButtonTests(InboxBase):
+    def run_updates(self, updates):
+        with mock.patch.object(ti, "fetch_updates", return_value=updates), \
+                mock.patch.object(ti, "_call", return_value={"ok": True}):
+            return ti.process_updates("tok", OWNER, self.db)
+
+    def test_list_sends_fresh_buttons_for_each_waiting_draft(self):
+        a, b = self.add(), self.add()
+        self.run_updates([_upd(1, "/list")])
+        self.assertIn("2 draft(s) waiting", self.sent[0][1])
+        self.assertIsNone(self.buttons[0])
+        self.assertEqual([row[0][1] for row in (self.buttons[1][0], self.buttons[2][0])], [f"a:{a}", f"a:{b}"])
+        self.assertEqual(guardrails.get_approval(a, self.db)["status"], "pending")
+
+    def test_button_test_round_trip_changes_nothing(self):
+        a = self.add()
+        self.assertEqual(ti.parse_command("/buttontest"), ("buttontest", []))
+        self.run_updates([_upd(1, "/buttontest")])
+        self.assertEqual(self.buttons[-1], [[("Test button", "t:ping")]])
+        stats = ti.new_stats()
+        with mock.patch.object(ti, "fetch_updates", return_value=[_cb(2, "t:ping")]), \
+                mock.patch.object(ti, "_call", return_value={"ok": True}):
+            self.assertEqual(ti.process_updates("tok", OWNER, self.db, stats), 1)
+        self.assertEqual(self.sent[-1][1], ti.BUTTON_TEST_OK)
+        self.assertEqual((stats["button"], stats["handled"]), (1, 1))
+        self.assertEqual(guardrails.get_approval(a, self.db)["status"], "pending")
+        self.assertIn("/buttontest", ti.HELP)
+
+
 class StrictCommandTests(unittest.TestCase):
     def test_real_commands_still_work(self):
         self.assertEqual(ti.parse_command("/approve 4"), ("approve", [4]))
