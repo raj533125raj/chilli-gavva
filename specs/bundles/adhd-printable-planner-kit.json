@@ -1,7 +1,7 @@
 {
  "name": "ADHD Printable Planner Kit",
  "short_name": "adhd-printable-planner-kit",
- "revision": 4,
+ "revision": 5,
  "niche": "ADHD Planners Agent",
  "style": "B",
  "bundle_of": [
@@ -25,7 +25,7 @@
    "brain dump",
    "low energy planner"
   ],
-  "price_usd": 5.0,
+  "price_usd": 3.0,
   "buyer": "adults with ADHD or time blindness who like simple printable planners",
   "platform": "Gumroad"
  },
