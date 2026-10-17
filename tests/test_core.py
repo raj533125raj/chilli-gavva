@@ -141,6 +141,26 @@ class WorkforceTests(Base):
         self.assertEqual(workforce.sync_human_decisions(self.db), 1)
         self.assertEqual(workforce.sync_human_decisions(self.db), 0)   # not counted twice
 
+    def test_several_human_decisions_at_once_do_not_lock_the_database(self):
+        """Owner approved drafts #7, #8, #9 together -> 'database is locked' in every run (fixed 2026-10-17)."""
+        version_id, _ = improver.get_active("draft", self.db)
+        ids = [guardrails.request_approval("public_draft", f"Draft {i}", "x", db_path=self.db) for i in range(3)]
+        conn = workforce.connect(self.db)
+        conn.executemany("INSERT INTO draft_meta (approval_id, version_id) VALUES (?, ?)",
+                         [(a, version_id) for a in ids])
+        conn.commit()
+        conn.close()
+        guardrails.decide(ids[0], True, self.db)
+        guardrails.decide(ids[1], True, self.db)
+        guardrails.decide(ids[2], False, self.db)
+        before = improver.connect(self.db).execute("SELECT decisions, approvals FROM prompt_versions WHERE id = ?",
+                                                    (version_id,)).fetchone()
+        self.assertEqual(workforce.sync_human_decisions(self.db), 3)      # used to raise "database is locked"
+        self.assertEqual(workforce.sync_human_decisions(self.db), 0)      # each counted once
+        after = improver.connect(self.db).execute("SELECT decisions, approvals FROM prompt_versions WHERE id = ?",
+                                                   (version_id,)).fetchone()
+        self.assertEqual((after[0] - before[0], after[1] - before[1]), (3, 2))
+
 
 class ImproverTests(Base):
     def test_promote_and_revert(self):
