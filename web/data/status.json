@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-17T20:43:25",
+ "generated_at": "2026-10-17T21:13:55",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 9,
+  "calls_today": 11,
   "cap": 500
  },
  "agents": [
@@ -68,7 +68,7 @@
     "rewrite"
    ],
    "state": "idle",
-   "tasks_done": 13
+   "tasks_done": 14
   },
   {
    "name": "QA Checker",
@@ -78,7 +78,7 @@
     "review"
    ],
    "state": "idle",
-   "tasks_done": 13
+   "tasks_done": 14
   },
   {
    "name": "Review Worker",
@@ -100,16 +100,22 @@
   }
  ],
  "task_counts": {
-  "done": 38,
-  "queued": 1
+  "done": 40
  },
  "recent_tasks": [
   {
+   "id": 40,
+   "kind": "review",
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
+  },
+  {
    "id": 39,
    "kind": "rewrite",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 38,
@@ -180,13 +186,6 @@
    "status": "done",
    "agent": "QA Checker",
    "attempts": 1
-  },
-  {
-   "id": 28,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1
   }
  ],
  "pending_approvals": [
@@ -194,8 +193,8 @@
    "id": 10,
    "ts": "2026-10-17T20:40:58.855980",
    "kind": "public_draft",
-   "title": "Draft: [Budget Sheets Agent] Google Sheets irregular-income monthly (v4, llm)",
-   "review": "score 40/100 (checklist v2) | top: Risky claim: 'cure'; Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: REVISE (AI 97) | one rewrite queued | issues: Risky claim: 'cure'; Say why it beats a free template; Title: under 80 chars, say what + who"
+   "title": "Draft: [Budget Sheets Agent] Google Sheets irregular-income monthly (v4, llm) (rewritten)",
+   "review": "score 40/100 (checklist v2) | top: Risky claim: 'cure'; Say why it beats a free template | CHECKER: PASS (AI 92) | issues: The claim that multi\u2011currency columns sum amounts regardless of the symbol may be inaccurate without proper conversion formulas. Consider clarifying that users must ensure consistent currency or add c; Risky claim: 'cure'; Say why it beats a free template"
   },
   {
    "id": 11,
