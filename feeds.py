@@ -10,11 +10,47 @@ Usage:
 
     text = feeds.for_prompt(max_per_feed=2)
     # Returns a formatted string ready to inject into an LLM prompt.
+
+Prompt-injection guard (roadmap #55), OFF by default (CHILLI_GUARD_ENABLED=1 turns it on). When on, each
+item's title and snippet is scanned with injection_guard; an item with a HIGH-severity finding is dropped
+and a "dropped: <source>#<hash> ..." line is recorded instead. That line never contains the item's title,
+snippet or URL text, only the source name and a short sha256 hash of the URL. When off, for_prompt()
+output is exactly as before.
 """
 
+import hashlib
 import json
+import os
 import xml.etree.ElementTree as ET
+
+import injection_guard
 from web_fetcher import fetch_text
+
+GUARD_ENABLED = os.environ.get("CHILLI_GUARD_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _high_guard_reasons(text):
+    """High-severity injection pattern names found in ``text`` (never the match text)."""
+    if not text:
+        return []
+    try:
+        findings = injection_guard.scan_text(text)
+    except Exception:
+        return []
+    reasons = []
+    for finding in findings:
+        if finding.severity == "high" and finding.pattern not in reasons:
+            reasons.append(finding.pattern)
+    return reasons
+
+
+def _dropped_label(item):
+    """A non-sensitive identifier for a dropped item: source name + a short sha256 hash of its URL.
+    The raw URL is untrusted external text (it can carry a token or an injection phrase), so it is
+    never echoed into the digest."""
+    source = (item.get("source") or "unknown").strip() or "unknown"
+    digest = hashlib.sha256((item.get("url") or "").encode("utf-8", "surrogatepass")).hexdigest()[:8]
+    return f"{source}#{digest}"
 
 # ---------------------------------------------------------------------------
 # Feed definitions — each is (name, url, parser_fn)
@@ -149,13 +185,26 @@ def for_prompt(max_per_feed: int = 2) -> str:
     """Return a compact feed digest ready to paste into an LLM prompt.
 
     Returns empty string if all feeds fail (so callers can skip injection).
+    When GUARD_ENABLED is on, items whose title or snippet trips a HIGH-severity injection pattern are
+    dropped and recorded as "dropped: <source>#<hash> ..." lines (never the title, snippet or URL text).
     """
     items = fetch_all(max_per_feed=max_per_feed)
     if not items:
         return ""
-    lines = ["[Live Feed Digest — use as background context only]"]
+    kept, dropped = [], []
     for item in items:
+        if GUARD_ENABLED:
+            reasons = _high_guard_reasons(item.get("title") or "")
+            reasons += [r for r in _high_guard_reasons(item.get("snippet") or "") if r not in reasons]
+            if reasons:
+                dropped.append(f"dropped: {_dropped_label(item)} reason: high-severity "
+                               f"prompt-injection pattern(s): {', '.join(reasons)}")
+                continue
+        kept.append(item)
+    lines = ["[Live Feed Digest — use as background context only]"]
+    for item in kept:
         lines.append(f"• [{item['source']}] {item['title']}")
         if item.get("snippet"):
             lines.append(f"  {item['snippet'][:150]}")
+    lines.extend(dropped)
     return "\n".join(lines)

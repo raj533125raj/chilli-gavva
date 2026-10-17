@@ -595,8 +595,37 @@ def make_images(folder, spec=None):
     return out
 
 
+THUMB_SIZE = (600, 600)
+
+
+def thumbnail_image(info, cover):
+    """600x600 store thumbnail made from the REAL cover: the product name on top, the whole cover in the
+    middle (scaled, never cropped) and the first two proven facts below."""
+    from PIL import Image, ImageDraw
+    theme, w, h = info["theme"], *THUMB_SIZE
+    im = Image.new("RGB", (w, h), theme["bg"])
+    d = ImageDraw.Draw(im)
+    lines, f = fit(info["name"], "bold", 44, 26, w - 60, 2)
+    y = 40
+    for line in lines:
+        draw_text(d, ((w - text_w(line, f)) / 2, y), line, f, theme["ink"])
+        y += _line_h(f)
+    small = cover.resize((w, round(cover.height * w / cover.width)), Image.LANCZOS)
+    top = max(y + 16, (h - small.height) // 2)
+    im.paste(small, (0, top))
+    facts = " \u00b7 ".join(info["chips"][:2])
+    f_lines, ff = fit(facts, "semibold", 26, 18, w - 60, 2)
+    yy = top + small.height + max(14, (h - top - small.height - len(f_lines) * _line_h(ff)) // 2 - 4)
+    for line in f_lines:
+        draw_text(d, ((w - text_w(line, ff)) / 2, yy), line, ff, theme["accent"])
+        yy += _line_h(ff)
+    return im
+
+
 def write_mockups(folder, spec=None):
-    """Write cover, 3 previews and the Pinterest image into folder. Returns the file names."""
-    for name, im in make_images(folder, spec).items():
+    """Write cover, 3 previews, the Pinterest image and a 600x600 thumbnail into folder. Returns the names."""
+    images = make_images(folder, spec)
+    images["thumbnail.png"] = thumbnail_image(product_info(folder, spec), images["cover.png"])
+    for name, im in images.items():
         im.save(os.path.join(folder, name), optimize=True)
-    return ["cover.png", "preview-1.png", "preview-2.png", "preview-3.png", "pinterest.png"]
+    return ["cover.png", "preview-1.png", "preview-2.png", "preview-3.png", "pinterest.png", "thumbnail.png"]

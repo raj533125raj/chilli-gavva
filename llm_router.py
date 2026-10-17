@@ -32,6 +32,10 @@ Behaviour:
       COOLDOWN_MINUTES (remembered in agent_data.db across cloud runs), so the next
       free provider takes over automatically until the limit resets
     - Returns None if every provider fails or all keys are absent
+    - Prompt-injection guard (roadmap #55), OFF by default: set CHILLI_GUARD_ENABLED=1 (or true/yes/on)
+      to turn it on. When on, chat() scans the scrubbed prompt with injection_guard before any provider
+      call; a HIGH-severity finding blocks the call and returns a "blocked_by_guard" result that names
+      the pattern only (never the text). When off, behaviour is exactly as before.
 """
 import datetime
 import json
@@ -45,6 +49,32 @@ import urllib.error
 import urllib.request
 
 import guardrails
+import injection_guard
+
+# --- Prompt-injection guard flag (OFF by default) --------------------------
+GUARD_ENABLED = os.environ.get("CHILLI_GUARD_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
+BLOCKED_BY_GUARD = "blocked_by_guard"
+
+
+def _high_guard_reasons(text):
+    """High-severity injection pattern names found in ``text`` (never the match text)."""
+    if not text:
+        return []
+    try:
+        findings = injection_guard.scan_text(text)
+    except Exception:
+        return []
+    reasons = []
+    for finding in findings:
+        if finding.severity == "high" and finding.pattern not in reasons:
+            reasons.append(finding.pattern)
+    return reasons
+
+
+def blocked_by_guard_result(reasons):
+    """A clear, secret-free result string for a prompt blocked by the guard."""
+    return (f"{BLOCKED_BY_GUARD}: high-severity prompt-injection pattern(s) refused: " + ", ".join(reasons))
+
 
 _TIMEOUT = 25  # seconds per request
 _TIMEOUT_LARGE = 60  # long answers (product drafts) on the large model need more time
@@ -444,6 +474,12 @@ def chat(prompt: str, *, db_path=None, size: str | None = None) -> str | None:
         return None
 
     prompt = scrub(prompt)
+    if GUARD_ENABLED:
+        guard_reasons = _high_guard_reasons(prompt)
+        if guard_reasons:
+            # Defense in depth: do not dispatch an untrusted instruction to any provider.
+            # The reason lists pattern names only (no secret text).
+            return blocked_by_guard_result(guard_reasons)
     resolved = pick_size(prompt, size)
     _mod_globals = globals()
     order = [(name, fn.__name__) for name, fn in _PROVIDERS]

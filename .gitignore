@@ -14,3 +14,13 @@ site/*
 proposals/
 # Daily reports
 reports/
+# Local-only files (roadmap #41). agent_data.db stays tracked on purpose (private repo, saved by the bot).
+*.sqlite
+.env
+.env.*
+archive/
+old_copy_*/
+team/
+logs/
+# NOT ignored on purpose: .scheduler_locks/ - the "Save state" step must commit the night-run locks, and
+# `git add .scheduler_locks` fails (exit 1) when that folder is in .gitignore.
