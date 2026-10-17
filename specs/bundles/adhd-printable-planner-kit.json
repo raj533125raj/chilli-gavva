@@ -1,7 +1,7 @@
 {
  "name": "ADHD Printable Planner Kit",
  "short_name": "adhd-printable-planner-kit",
- "revision": 3,
+ "revision": 4,
  "niche": "ADHD Planners Agent",
  "style": "B",
  "bundle_of": [
@@ -35,5 +35,83 @@
   "When your head feels full, use the Brain Dump & Sort page, then move three things to the Daily Focus Sheet.",
   "Plan the week with the Weekly Overview and look back with the Monthly Review."
  ],
- "cover_image_idea": "The Today page and the Energy-Based Daily Plan page on soft pastel paper."
+ "cover_image_idea": "The Today page and the Energy-Based Daily Plan page on soft pastel paper.",
+ "pins": [
+  {
+   "file": "pin-1-today.png",
+   "angle": "Today page",
+   "pages": [
+    "Today",
+    "Weekly Overview"
+   ],
+   "headline": "A Today page for time blindness",
+   "subline": "Plan by anchors, not by the clock",
+   "title": "Today Page for Time Blindness - ADHD Printable Planner (A4 + US Letter)",
+   "description": "Plan your day by anchors, not by the clock. The Today page has time anchors, a Top 3 (only 3), now / next / later, a guess vs real time table, sixteen 15-minute focus blocks, tomorrow's first step and a brain dump. Part of the ADHD Printable Planner Kit: 14 undated printable pages, A4 and US Letter PDFs, for personal use. Designed with help from AI tools."
+  },
+  {
+   "file": "pin-2-energy-planner.png",
+   "angle": "Energy planner",
+   "pages": [
+    "Energy-Based Daily Plan",
+    "Weekly Capacity & Rhythm"
+   ],
+   "headline": "Match your tasks to your energy",
+   "subline": "Energy-Based Daily Plan page",
+   "title": "Energy-Based Daily Planner Page - Printable ADHD Planner (A4 + US Letter)",
+   "description": "Tick your energy level (high, medium or low), write one top priority and use flexible time windows instead of hour-by-hour slots. A Weekly Capacity & Rhythm page helps you plan the week by expected energy. Part of the ADHD Printable Planner Kit: 14 undated printable pages, A4 and US Letter PDFs, for personal use. Designed with help from AI tools."
+  },
+  {
+   "file": "pin-3-low-energy-reset.png",
+   "angle": "Low-energy reset",
+   "pages": [
+    "Low-Energy Reset Sheet",
+    "Unload & Sort"
+   ],
+   "headline": "A gentle page for hard days",
+   "subline": "Low-Energy Reset Sheet",
+   "title": "Low-Energy Reset Sheet for Hard Days - Printable ADHD Planner Page",
+   "description": "For tough or low-capacity days: a bare-minimum checklist (water, a simple meal, a stretch, a screen break), three tiny next steps and space for notes and reminders to rest. Part of the ADHD Printable Planner Kit: 14 undated printable pages, A4 and US Letter PDFs, for personal use. Designed with help from AI tools."
+  },
+  {
+   "file": "pin-4-whats-inside.png",
+   "angle": "What's inside",
+   "pages": [
+    "cover",
+    "Today"
+   ],
+   "headline": "14 printable pages in one kit",
+   "subline": "See what's inside",
+   "title": "What's Inside the ADHD Printable Planner Kit - 14 Undated Pages (A4 + US Letter)",
+   "description": "Inside: a Today page, an Energy-Based Daily Plan, a Low-Energy Reset Sheet, Weekly Capacity & Rhythm, Unload & Sort, Weekly Overview, Monthly Review, Notes & Reflections, Brain Dump & Sort, a Daily Focus Sheet, Project Micro-Step Breakdown and Weekly Reset & Clear Out, plus a cover and a How to use page. 2 PDF files: A4 and US Letter. Designed with help from AI tools."
+  },
+  {
+   "file": "pin-5-who-its-for.png",
+   "angle": "Who it is for",
+   "pages": [
+    "Daily Focus Sheet",
+    "Brain Dump & Sort"
+   ],
+   "headline": "For adults with ADHD or time blindness",
+   "subline": "Simple paper pages, start any day",
+   "title": "Printable Planner for Adults with ADHD or Time Blindness - Undated Kit",
+   "description": "Simple paper pages for adults with ADHD or time blindness who like printable planners. Undated: start any day and print as many times as you need for personal use. Instant download, nothing is shipped. A planning tool, not medical advice. Designed with help from AI tools."
+  }
+ ],
+ "pin_keywords": [
+  "adhd planner",
+  "printable planner",
+  "time blindness",
+  "adhd printable",
+  "daily planner",
+  "undated planner",
+  "focus sheets",
+  "brain dump",
+  "low energy planner",
+  "executive function"
+ ],
+ "pin_boards": [
+  "ADHD Planners & Printables",
+  "Time Blindness Tools"
+ ]
 }
