@@ -826,6 +826,7 @@ def build_product(spec, approval_id, out_dir=None, folder_name=None):
     try:  # listing images; a drawing problem never blocks the product files
         import mockups
         extra += mockups.write_mockups(folder, spec)
+        extra += mockups.write_pins(folder, spec)      # draft Pinterest pins, only when the spec lists them
     except Exception as exc:
         print(f"Product Builder: listing images skipped for #{approval_id}: {type(exc).__name__}", file=sys.stderr)
     with open(os.path.join(folder, "README.md"), "w", encoding="utf-8") as f:

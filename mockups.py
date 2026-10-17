@@ -528,7 +528,9 @@ def preview_image(info, page):
     return im.convert("RGB")
 
 
-def pin_image(info):
+def pin_image(info, pages=None, headline=None, subline=None):
+    """A 1000x1500 pin: label, headline (the product name unless given), an optional line under it,
+    1-2 tilted REAL pages, and a colour bar with proven facts."""
     from PIL import Image, ImageDraw
     theme, w, h = info["theme"], *PIN_SIZE
     im = Image.new("RGBA", (w, h), theme["bg"] + (255,))
@@ -536,15 +538,21 @@ def pin_image(info):
     lab_f = font("semibold", 22)
     label_w = text_w(info["label"], lab_f, 4)
     draw_text(d, ((w - label_w) / 2, 70), info["label"], lab_f, theme["accent"], 4)
-    t_lines, t_f = fit(info["name"], "bold", 76, 44, 860, 3)
+    t_lines, t_f = fit(headline or info["name"], "bold", 76, 44, 860, 3)
     y = 118
     for line in t_lines:
         draw_text(d, ((w - text_w(line, t_f)) / 2, y), line, t_f, theme["ink"])
         y += _line_h(t_f)
+    if subline:
+        s_lines, s_f = fit(subline, "semibold", 30, 22, 860, 2)
+        y += 6
+        for line in s_lines:
+            draw_text(d, ((w - text_w(line, s_f)) / 2, y), line, s_f, theme["accent"])
+            y += _line_h(s_f)
     bar = 250
     mid = (y + 30 + (h - bar - 20)) / 2
     room = h - bar - 40 - (y + 30)
-    shown = info["pages"][:2]
+    shown = (pages if pages is not None else info["pages"])[:2]
     page_h = int(min(760, room * 0.92))
     if len(shown) > 1:
         _tilted(im, shown[1]["picture"](int(page_h * 0.94)), (w / 2 + 150, mid), -5)
@@ -593,6 +601,47 @@ def make_images(folder, spec=None):
     for i, page in enumerate(previews, 1):
         out[f"preview-{i}.png"] = preview_image(info, page)
     return out
+
+
+def _page_by_title(folder, info, title):
+    """A real page of the product by its printed title ("cover" = page 1). Never an invented page."""
+    import truth_check
+    facts = truth_check.image_facts(folder)
+    pages = truth_check._pdf_pages(facts["pdf_path"])
+    for n, page in enumerate(pages, 1):
+        big = " ".join(t for f_, s, _, _, t in page["items"] if f_ == "F2" and s >= 18)
+        if (title == "cover" and n == 1) or big == title:
+            return {"number": n, "title": big, "picture": (lambda h, n=n: render_pdf_page(facts["pdf_path"], n, h))}
+    raise ValueError(f"no page titled {title!r} in this product")
+
+
+def write_pins(folder, spec):
+    """Draft Pinterest pins (1000x1500) for spec["pins"]: each pin shows REAL pages found by their printed
+    title, with its own headline. Writes pins/<file>.png and pins/PINS.md (titles, descriptions,
+    keywords, boards). Drafts only: nothing is posted. Returns the file names (relative to folder)."""
+    pins = spec.get("pins") or []
+    if not pins:
+        return []
+    info = product_info(folder, spec)
+    out_dir = os.path.join(folder, "pins")
+    os.makedirs(out_dir, exist_ok=True)
+    names = []
+    for pin in pins:
+        pages = [_page_by_title(folder, info, t) for t in pin["pages"]]
+        pin_image(info, pages, no_brands(pin["headline"]), no_brands(pin.get("subline") or "")).save(
+            os.path.join(out_dir, pin["file"]), optimize=True)
+        names.append(f"pins/{pin['file']}")
+    lines = [f"# Pinterest pin drafts: {spec['name']}", "",
+             "DRAFTS ONLY - nothing is posted. The owner reviews and posts by hand.", "",
+             "**Keywords (10):** " + ", ".join(spec.get("pin_keywords") or []), "",
+             "**Boards:** " + " / ".join(spec.get("pin_boards") or []), ""]
+    for i, pin in enumerate(pins, 1):
+        lines += [f"## {i}. {pin['file']} ({pin['angle']})", "",
+                  f"**Pin title:** {pin['title']}", "", f"**Description:** {pin['description']}", "",
+                  "**Shows real pages:** " + ", ".join(pin["pages"]), ""]
+    with open(os.path.join(out_dir, "PINS.md"), "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+    return names + ["pins/PINS.md"]
 
 
 THUMB_SIZE = (600, 600)
