@@ -1,6 +1,6 @@
 # STATUS (read this first)
 
-Last updated: 2026-10-15.
+Last updated: 2026-10-17.
 
 ## Goal
 A zero-cost team of AI agents that researches and drafts low-cost digital products (Google Sheets
@@ -9,7 +9,8 @@ A human approves every draft; approved drafts become ready-to-sell files that th
 free store (Gumroad). Nothing is published, posted or sold automatically.
 
 ## Honest state
-- Real money earned so far: **$0.00**. No product has been listed or sold yet.
+- First product LIVE (2026-10-17, done by the owner): the ADHD Printable Planner Kit on Gumroad at 3 USD,
+  payout connected, downloads tested (roadmap #59 DONE). No sale recorded yet: real money earned so far **$0.00**.
 - Drafts 1-3 (ADHD planners) were written while the AI was down and approved; products #1 and #3 are built,
   #2 is retried by the Product Builder now that the AI works.
 - `engine.py` is an old simulation; its numbers are labelled `simulated` in the database and are not income.
@@ -68,8 +69,8 @@ free store (Gumroad). Nothing is published, posted or sold automatically.
     Dated planners can be a school year: "us-academic" (Aug-Jul, Sunday start) or "uk-academic" (Sep-Aug,
     Monday start); samples in `specs/samples/`.
 19. **Bundle** (`specs/bundles/`): "ADHD Printable Planner Kit" = the real pages of #1 v2 + #2 v2 + #3 v2 in one
-    Style B PDF, price 3 USD, built into `bundle-adhd-printable-planner-kit/`. Not for sale until the owner
-    reads the listing and decides.
+    Style B PDF, price 3 USD, built into `bundle-adhd-printable-planner-kit/`. LIVE on Gumroad at 3 USD since 2026-10-17
+    (listed by the owner; payout connected, downloads tested). Roadmap #59 done.
 
 ## Where it runs
 - **GitHub Actions** (`.github/workflows/agent.yml`): tests first, then one agent cycle, Telegram inbox,
@@ -88,7 +89,7 @@ free store (Gumroad). Nothing is published, posted or sold automatically.
 - The schedule has only the night niche slot. Old food/fishery recipe files remain in `recipes/` but are
   not scheduled, and their topics are blocked by the research guard.
 - `feeds.py` and `web_fetcher.py` are no longer used by the agents and can be removed later.
-- Pick prices and upload the first approved products by hand, then measure real sales.
+- First product is live (ADHD Printable Planner Kit, 3 USD). Next: measure real sales; list more products by hand.
 
 ## Safety rules
 - Nothing auto-publishes; a human approves every draft and uploads every product.
