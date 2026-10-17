@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-17T20:41:03",
+ "generated_at": "2026-10-17T20:43:25",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 6,
+  "calls_today": 9,
   "cap": 500
  },
  "agents": [
@@ -78,7 +78,7 @@
     "review"
    ],
    "state": "idle",
-   "tasks_done": 10
+   "tasks_done": 13
   },
   {
    "name": "Review Worker",
@@ -100,30 +100,37 @@
   }
  ],
  "task_counts": {
-  "done": 35,
-  "queued": 3
+  "done": 38,
+  "queued": 1
  },
  "recent_tasks": [
   {
-   "id": 38,
-   "kind": "review",
+   "id": 39,
+   "kind": "rewrite",
    "status": "queued",
    "agent": null,
    "attempts": 0
+  },
+  {
+   "id": 38,
+   "kind": "review",
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 37,
    "kind": "review",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 36,
    "kind": "review",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 35,
@@ -180,13 +187,6 @@
    "status": "done",
    "agent": "QA Checker",
    "attempts": 1
-  },
-  {
-   "id": 27,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1
   }
  ],
  "pending_approvals": [
@@ -195,21 +195,21 @@
    "ts": "2026-10-17T20:40:58.855980",
    "kind": "public_draft",
    "title": "Draft: [Budget Sheets Agent] Google Sheets irregular-income monthly (v4, llm)",
-   "review": null
+   "review": "score 40/100 (checklist v2) | top: Risky claim: 'cure'; Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: REVISE (AI 97) | one rewrite queued | issues: Risky claim: 'cure'; Say why it beats a free template; Title: under 80 chars, say what + who"
   },
   {
    "id": 11,
    "ts": "2026-10-17T20:41:01.339815",
    "kind": "public_draft",
    "title": "Draft: [Budget Sheets Agent] Google Sheets shared budget for couple (v4, llm)",
-   "review": null
+   "review": "score 93/100 (checklist v2) | top: Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: PASS (AI 95) | issues: Say why it beats a free template; Title: under 80 chars, say what + who"
   },
   {
    "id": 12,
    "ts": "2026-10-17T20:41:03.493713",
    "kind": "public_draft",
    "title": "Draft: [Budget Sheets Agent] Google Sheets debt snowball payoff tra (v4, llm)",
-   "review": null
+   "review": "score 83/100 (checklist v2) | top: Only 5 part(s) listed (want 6+); Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: PASS (AI 95) | issues: Only 5 part(s) listed (want 6+); Say why it beats a free template; Title: under 80 chars, say what + who"
   }
  ],
  "prompts": [
@@ -224,8 +224,8 @@
    "id": 4,
    "name": "draft",
    "active": true,
-   "trials": 6,
-   "quality": 87.5
+   "trials": 9,
+   "quality": 84.2
   },
   {
    "id": 1,
