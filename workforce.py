@@ -524,9 +524,11 @@ def sync_human_decisions(db_path=None):
                         "JOIN approvals a ON a.id = m.approval_id "
                         "WHERE m.synced = 0 AND a.status IN ('approved', 'rejected')").fetchall()
     for approval_id, version_id, status in rows:
-        improver.record_human_decision(version_id, status == "approved", db_path)
+        # Same connection, one commit per draft: the count and the "synced" mark are saved together
+        # (a second connection here was locked out by this one's open write: "database is locked").
+        improver.record_human_decision(version_id, status == "approved", db_path, conn=conn)
         conn.execute("UPDATE draft_meta SET synced = 1 WHERE approval_id = ?", (approval_id,))
-    conn.commit()
+        conn.commit()
     conn.close()
     return len(rows)
 

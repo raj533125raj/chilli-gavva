@@ -154,12 +154,16 @@ def record_result(version_id, review_score, db_path=None):
     conn.close()
 
 
-def record_human_decision(version_id, approved, db_path=None):
-    conn = connect(db_path)
+def record_human_decision(version_id, approved, db_path=None, conn=None):
+    """Count one human approve/reject for a prompt version. Pass `conn` to do it inside the caller's own
+    transaction (a second connection would be locked out while the caller holds a write)."""
+    own = conn is None
+    conn = connect(db_path) if own else conn
     conn.execute("UPDATE prompt_versions SET decisions = decisions + 1, approvals = approvals + ? WHERE id = ?",
                  (1 if approved else 0, version_id))
-    conn.commit()
-    conn.close()
+    if own:
+        conn.commit()
+        conn.close()
 
 
 def quality(row):
