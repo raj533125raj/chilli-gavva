@@ -1,6 +1,6 @@
 # ADHD Printable Planner Kit – Today Page, Energy Planner & Focus Sheets (Undated, A4 + US Letter)
 
-**Price:** 5.00 USD  
+**Price:** 3.00 USD  
 **Buyer:** adults with ADHD or time blindness who like simple printable planners  
 **Platform:** Gumroad
 
