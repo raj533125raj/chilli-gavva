@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-16T21:25:04",
+ "generated_at": "2026-10-17T03:14:01",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 12,
+  "calls_today": 0,
   "cap": 500
  },
  "agents": [
@@ -188,22 +188,7 @@
    "attempts": 1
   }
  ],
- "pending_approvals": [
-  {
-   "id": 8,
-   "ts": "2026-10-16T20:30:30.668956",
-   "kind": "public_draft",
-   "title": "Draft: [Resume Bundle Agent] matching cover letter and follow-up em (v4, llm)",
-   "review": "score 83/100 (checklist v2) | top: Only 4 part(s) listed (want 6+); Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: PASS (AI 95) | issues: Only 4 part(s) listed (want 6+); Say why it beats a free template; Title: under 80 chars, say what + who"
-  },
-  {
-   "id": 9,
-   "ts": "2026-10-16T20:30:33.440411",
-   "kind": "public_draft",
-   "title": "Draft: [Resume Bundle Agent] job-search bundle of ATS resume templa (v4, llm)",
-   "review": "score 91/100 (checklist v2) | top: Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: PASS (AI 95) | issues: None significant; content meets brief, no risky claims, all required elements present. Minor note: listing title includes a year (2026) which may become outdated.; Say why it beats a free template; Title: under 80 chars, say what + who"
-  }
- ],
+ "pending_approvals": [],
  "prompts": [
   {
    "id": 2,
@@ -217,7 +202,7 @@
    "name": "draft",
    "active": true,
    "trials": 6,
-   "quality": 83.3
+   "quality": 87.5
   },
   {
    "id": 1,
