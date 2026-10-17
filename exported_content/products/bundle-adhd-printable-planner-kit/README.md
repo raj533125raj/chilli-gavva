@@ -13,6 +13,12 @@
 - `preview-3.png`
 - `pinterest.png`
 - `thumbnail.png`
+- `pins/pin-1-today.png`
+- `pins/pin-2-energy-planner.png`
+- `pins/pin-3-low-energy-reset.png`
+- `pins/pin-4-whats-inside.png`
+- `pins/pin-5-who-its-for.png`
+- `pins/PINS.md`
 
 ## How to use
 
