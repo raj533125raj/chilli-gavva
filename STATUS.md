@@ -68,7 +68,7 @@ free store (Gumroad). Nothing is published, posted or sold automatically.
     Dated planners can be a school year: "us-academic" (Aug-Jul, Sunday start) or "uk-academic" (Sep-Aug,
     Monday start); samples in `specs/samples/`.
 19. **Bundle** (`specs/bundles/`): "ADHD Printable Planner Kit" = the real pages of #1 v2 + #2 v2 + #3 v2 in one
-    Style B PDF, price idea 7 USD, built into `bundle-adhd-printable-planner-kit/`. Not for sale until the owner
+    Style B PDF, price 3 USD, built into `bundle-adhd-printable-planner-kit/`. Not for sale until the owner
     reads the listing and decides.
 
 ## Where it runs
