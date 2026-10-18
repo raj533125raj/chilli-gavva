@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-18T20:49:07",
+ "generated_at": "2026-10-18T21:02:22",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 12,
+  "calls_today": 14,
   "cap": 500
  },
  "agents": [
@@ -68,7 +68,7 @@
     "rewrite"
    ],
    "state": "idle",
-   "tasks_done": 17
+   "tasks_done": 18
   },
   {
    "name": "QA Checker",
@@ -78,7 +78,7 @@
     "review"
    ],
    "state": "idle",
-   "tasks_done": 17
+   "tasks_done": 18
   },
   {
    "name": "Review Worker",
@@ -100,16 +100,22 @@
   }
  ],
  "task_counts": {
-  "done": 49,
-  "queued": 1
+  "done": 51
  },
  "recent_tasks": [
   {
+   "id": 51,
+   "kind": "review",
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
+  },
+  {
    "id": 50,
    "kind": "rewrite",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 49,
@@ -180,13 +186,6 @@
    "status": "done",
    "agent": "QA Checker",
    "attempts": 1
-  },
-  {
-   "id": 39,
-   "kind": "rewrite",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
   }
  ],
  "pending_approvals": [
@@ -208,8 +207,8 @@
    "id": 15,
    "ts": "2026-10-18T20:32:52.123263",
    "kind": "public_draft",
-   "title": "Draft: [Freelancer Trackers Agent] Google Sheets inventory and orde (v4, llm)",
-   "review": "score 93/100 (checklist v2) | top: Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: REVISE (AI 70) | one rewrite queued | issues: Dashboard low\u2011stock count formula is incorrect and will not work as written; Description calls the solution \"zero\u2011cost\" despite a $14 price, which is misleading; Minor inconsistency: formula syntax in Dashboard uses COUNTIF with a range-to-range comparison, which is invalid in Google Sheets; Say why it beats a free template; Title: under 80 chars, say what + who"
+   "title": "Draft: [Freelancer Trackers Agent] Google Sheets inventory and orde (v4, llm) (rewritten)",
+   "review": "score 90/100 (checklist v2) | top: How-to-use needs 3+ steps; Say why it beats a free template | CHECKER: PASS (AI 95) | issues: How-to-use needs 3+ steps; Say why it beats a free template"
   }
  ],
  "prompts": [
