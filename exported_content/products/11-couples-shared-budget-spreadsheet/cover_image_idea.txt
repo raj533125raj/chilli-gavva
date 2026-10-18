@@ -1,0 +1,1 @@
+A clean split‑screen view of a Google Sheet showing a colorful Overview tab on the left and an Expenses tab with highlighted overdue rows on the right.
