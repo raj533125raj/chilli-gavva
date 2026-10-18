@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-18T20:02:45",
+ "generated_at": "2026-10-18T20:32:52",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 6,
+  "calls_today": 9,
   "cap": 500
  },
  "agents": [
@@ -68,7 +68,7 @@
     "rewrite"
    ],
    "state": "idle",
-   "tasks_done": 14
+   "tasks_done": 17
   },
   {
    "name": "QA Checker",
@@ -100,30 +100,51 @@
   }
  ],
  "task_counts": {
-  "done": 43,
+  "done": 46,
   "queued": 3
  },
  "recent_tasks": [
   {
-   "id": 46,
-   "kind": "draft",
+   "id": 49,
+   "kind": "review",
    "status": "queued",
    "agent": null,
    "attempts": 0
+  },
+  {
+   "id": 48,
+   "kind": "review",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 47,
+   "kind": "review",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 46,
+   "kind": "draft",
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 45,
    "kind": "draft",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 44,
    "kind": "draft",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 43,
@@ -166,30 +187,31 @@
    "status": "done",
    "agent": "QA Checker",
    "attempts": 1
-  },
-  {
-   "id": 37,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1
-  },
-  {
-   "id": 36,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1
-  },
-  {
-   "id": 35,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
   }
  ],
- "pending_approvals": [],
+ "pending_approvals": [
+  {
+   "id": 13,
+   "ts": "2026-10-18T20:32:45.880855",
+   "kind": "public_draft",
+   "title": "Draft: [Freelancer Trackers Agent] Google Sheets invoice tracker wi (v4, llm)",
+   "review": null
+  },
+  {
+   "id": 14,
+   "ts": "2026-10-18T20:32:49.396207",
+   "kind": "public_draft",
+   "title": "Draft: [Freelancer Trackers Agent] Google Sheets profit calculator  (v4, llm)",
+   "review": null
+  },
+  {
+   "id": 15,
+   "ts": "2026-10-18T20:32:52.123263",
+   "kind": "public_draft",
+   "title": "Draft: [Freelancer Trackers Agent] Google Sheets inventory and orde (v4, llm)",
+   "review": null
+  }
+ ],
  "prompts": [
   {
    "id": 2,
