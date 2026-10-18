@@ -14,6 +14,7 @@ Built from approved drafts and checked by the Truth Checker against the real fil
 | #9 | [9-job-search-success-bundle](9-job-search-success-bundle/) | needs fix - see TRUTH_CHECK.md |
 | #10 | [10-freelance-budget-tracker](10-freelance-budget-tracker/) | needs fix - see TRUTH_CHECK.md |
 | #11 | [11-couples-shared-budget-spreadsheet](11-couples-shared-budget-spreadsheet/) | ready (truth check passed) - the owner decides if it goes on sale |
+| #12 | [12-debt-snowball-payoff-tracker](12-debt-snowball-payoff-tracker/) | needs fix - see TRUTH_CHECK.md |
 
 ## Bundles (pages from the products above, in one file)
 

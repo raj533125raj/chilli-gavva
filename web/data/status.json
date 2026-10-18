@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-18T04:21:41",
+ "generated_at": "2026-10-18T04:40:19",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 0,
+  "calls_today": 2,
   "cap": 500
  },
  "agents": [
@@ -188,29 +188,7 @@
    "attempts": 1
   }
  ],
- "pending_approvals": [
-  {
-   "id": 10,
-   "ts": "2026-10-17T20:40:58.855980",
-   "kind": "public_draft",
-   "title": "Draft: [Budget Sheets Agent] Google Sheets irregular-income monthly (v4, llm) (rewritten)",
-   "review": "score 40/100 (checklist v2) | top: Risky claim: 'cure'; Say why it beats a free template | CHECKER: PASS (AI 92) | issues: The claim that multi\u2011currency columns sum amounts regardless of the symbol may be inaccurate without proper conversion formulas. Consider clarifying that users must ensure consistent currency or add c; Risky claim: 'cure'; Say why it beats a free template"
-  },
-  {
-   "id": 11,
-   "ts": "2026-10-17T20:41:01.339815",
-   "kind": "public_draft",
-   "title": "Draft: [Budget Sheets Agent] Google Sheets shared budget for couple (v4, llm)",
-   "review": "score 93/100 (checklist v2) | top: Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: PASS (AI 95) | issues: Say why it beats a free template; Title: under 80 chars, say what + who"
-  },
-  {
-   "id": 12,
-   "ts": "2026-10-17T20:41:03.493713",
-   "kind": "public_draft",
-   "title": "Draft: [Budget Sheets Agent] Google Sheets debt snowball payoff tra (v4, llm)",
-   "review": "score 83/100 (checklist v2) | top: Only 5 part(s) listed (want 6+); Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: PASS (AI 95) | issues: Only 5 part(s) listed (want 6+); Say why it beats a free template; Title: under 80 chars, say what + who"
-  }
- ],
+ "pending_approvals": [],
  "prompts": [
   {
    "id": 2,
@@ -224,7 +202,7 @@
    "name": "draft",
    "active": true,
    "trials": 9,
-   "quality": 84.2
+   "quality": 87.0
   },
   {
    "id": 1,
