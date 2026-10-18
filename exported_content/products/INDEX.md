@@ -17,6 +17,7 @@ Built from approved drafts and checked by the Truth Checker against the real fil
 | #12 | [12-debt-snowball-payoff-tracker](12-debt-snowball-payoff-tracker/) | needs fix - see TRUTH_CHECK.md |
 | #13 | [13-freelance-invoice-tracker](13-freelance-invoice-tracker/) | needs fix - see TRUTH_CHECK.md |
 | #14 | [14-etsy-handmade-profit-calculator](14-etsy-handmade-profit-calculator/) | needs fix - see TRUTH_CHECK.md |
+| #15 | [15-inventory-order-tracker](15-inventory-order-tracker/) | needs fix - see TRUTH_CHECK.md |
 
 ## Bundles (pages from the products above, in one file)
 

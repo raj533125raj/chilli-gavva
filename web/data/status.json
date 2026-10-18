@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-18T21:59:57",
+ "generated_at": "2026-10-18T22:29:41",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 14,
+  "calls_today": 16,
   "cap": 500
  },
  "agents": [
@@ -188,29 +188,7 @@
    "attempts": 1
   }
  ],
- "pending_approvals": [
-  {
-   "id": 13,
-   "ts": "2026-10-18T20:32:45.880855",
-   "kind": "public_draft",
-   "title": "Draft: [Freelancer Trackers Agent] Google Sheets invoice tracker wi (v4, llm)",
-   "review": "score 93/100 (checklist v2) | top: Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: PASS (AI 95) | issues: Say why it beats a free template; Title: under 80 chars, say what + who"
-  },
-  {
-   "id": 14,
-   "ts": "2026-10-18T20:32:49.396207",
-   "kind": "public_draft",
-   "title": "Draft: [Freelancer Trackers Agent] Google Sheets profit calculator  (v4, llm)",
-   "review": "score 93/100 (checklist v2) | top: Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: PASS (AI 95) | issues: Say why it beats a free template; Title: under 80 chars, say what + who"
-  },
-  {
-   "id": 15,
-   "ts": "2026-10-18T20:32:52.123263",
-   "kind": "public_draft",
-   "title": "Draft: [Freelancer Trackers Agent] Google Sheets inventory and orde (v4, llm) (rewritten)",
-   "review": "score 90/100 (checklist v2) | top: How-to-use needs 3+ steps; Say why it beats a free template | CHECKER: PASS (AI 95) | issues: How-to-use needs 3+ steps; Say why it beats a free template"
-  }
- ],
+ "pending_approvals": [],
  "prompts": [
   {
    "id": 2,
@@ -224,7 +202,7 @@
    "name": "draft",
    "active": true,
    "trials": 12,
-   "quality": 88.0
+   "quality": 89.4
   },
   {
    "id": 1,
