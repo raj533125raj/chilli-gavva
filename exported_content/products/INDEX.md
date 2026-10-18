@@ -15,6 +15,8 @@ Built from approved drafts and checked by the Truth Checker against the real fil
 | #10 | [10-freelance-budget-tracker](10-freelance-budget-tracker/) | needs fix - see TRUTH_CHECK.md |
 | #11 | [11-couples-shared-budget-spreadsheet](11-couples-shared-budget-spreadsheet/) | ready (truth check passed) - the owner decides if it goes on sale |
 | #12 | [12-debt-snowball-payoff-tracker](12-debt-snowball-payoff-tracker/) | needs fix - see TRUTH_CHECK.md |
+| #13 | [13-freelance-invoice-tracker](13-freelance-invoice-tracker/) | needs fix - see TRUTH_CHECK.md |
+| #14 | [14-etsy-handmade-profit-calculator](14-etsy-handmade-profit-calculator/) | needs fix - see TRUTH_CHECK.md |
 
 ## Bundles (pages from the products above, in one file)
 
