@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-19T20:38:11",
+ "generated_at": "2026-10-19T21:05:22",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 10,
+  "calls_today": 12,
   "cap": 500
  },
  "agents": [
@@ -68,7 +68,7 @@
     "rewrite"
    ],
    "state": "idle",
-   "tasks_done": 21
+   "tasks_done": 22
   },
   {
    "name": "QA Checker",
@@ -78,7 +78,7 @@
     "review"
    ],
    "state": "idle",
-   "tasks_done": 21
+   "tasks_done": 22
   },
   {
    "name": "Review Worker",
@@ -100,16 +100,22 @@
   }
  ],
  "task_counts": {
-  "done": 60,
-  "queued": 1
+  "done": 62
  },
  "recent_tasks": [
   {
+   "id": 62,
+   "kind": "review",
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
+  },
+  {
    "id": 61,
    "kind": "rewrite",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 60,
@@ -180,13 +186,6 @@
    "status": "done",
    "agent": "QA Checker",
    "attempts": 1
-  },
-  {
-   "id": 50,
-   "kind": "rewrite",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
   }
  ],
  "pending_approvals": [
@@ -194,8 +193,8 @@
    "id": 16,
    "ts": "2026-10-19T20:35:23.358076",
    "kind": "public_draft",
-   "title": "Draft: [Budget Sheets Agent] Google Sheets textbook expense tracker (v4, llm)",
-   "review": "score 85/100 (checklist v2) | top: Only 5 part(s) listed (want 6+); Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: REVISE (AI 85) | one rewrite queued | issues: Step 1 mentions downloading an .xlsx file, but the product is a Google Sheets template; clarify the file format to avoid confusion.; Only 5 part(s) listed (want 6+); Say why it beats a free template; Title: under 80 chars, say what + who"
+   "title": "Draft: [Budget Sheets Agent] Google Sheets textbook expense tracker (v4, llm) (rewritten)",
+   "review": "score 95/100 (checklist v2) | top: Say why it beats a free template | CHECKER: PASS (AI 95) | issues: Say why it beats a free template"
   },
   {
    "id": 17,
