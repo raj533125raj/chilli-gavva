@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-19T17:36:42",
+ "generated_at": "2026-10-19T20:05:48",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 0,
+  "calls_today": 4,
   "cap": 500
  },
  "agents": [
@@ -57,7 +57,7 @@
     "research"
    ],
    "state": "idle",
-   "tasks_done": 15
+   "tasks_done": 18
   },
   {
    "name": "Draft Worker",
@@ -100,9 +100,52 @@
   }
  ],
  "task_counts": {
-  "done": 51
+  "done": 54,
+  "queued": 3
  },
  "recent_tasks": [
+  {
+   "id": 57,
+   "kind": "draft",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 56,
+   "kind": "draft",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 55,
+   "kind": "draft",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 54,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1
+  },
+  {
+   "id": 53,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1
+  },
+  {
+   "id": 52,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1
+  },
   {
    "id": 51,
    "kind": "review",
@@ -143,48 +186,6 @@
    "kind": "draft",
    "status": "done",
    "agent": "Draft Worker",
-   "attempts": 1
-  },
-  {
-   "id": 45,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
-  },
-  {
-   "id": 44,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
-  },
-  {
-   "id": 43,
-   "kind": "research",
-   "status": "done",
-   "agent": "Research Worker",
-   "attempts": 1
-  },
-  {
-   "id": 42,
-   "kind": "research",
-   "status": "done",
-   "agent": "Research Worker",
-   "attempts": 1
-  },
-  {
-   "id": 41,
-   "kind": "research",
-   "status": "done",
-   "agent": "Research Worker",
-   "attempts": 1
-  },
-  {
-   "id": 40,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
    "attempts": 1
   }
  ],
