@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-19T20:05:48",
+ "generated_at": "2026-10-19T20:35:28",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 4,
+  "calls_today": 7,
   "cap": 500
  },
  "agents": [
@@ -68,7 +68,7 @@
     "rewrite"
    ],
    "state": "idle",
-   "tasks_done": 18
+   "tasks_done": 21
   },
   {
    "name": "QA Checker",
@@ -100,30 +100,51 @@
   }
  ],
  "task_counts": {
-  "done": 54,
+  "done": 57,
   "queued": 3
  },
  "recent_tasks": [
   {
-   "id": 57,
-   "kind": "draft",
+   "id": 60,
+   "kind": "review",
    "status": "queued",
    "agent": null,
    "attempts": 0
+  },
+  {
+   "id": 59,
+   "kind": "review",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 58,
+   "kind": "review",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 57,
+   "kind": "draft",
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 56,
    "kind": "draft",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 55,
    "kind": "draft",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 54,
@@ -166,30 +187,31 @@
    "status": "done",
    "agent": "QA Checker",
    "attempts": 1
-  },
-  {
-   "id": 48,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1
-  },
-  {
-   "id": 47,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1
-  },
-  {
-   "id": 46,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
   }
  ],
- "pending_approvals": [],
+ "pending_approvals": [
+  {
+   "id": 16,
+   "ts": "2026-10-19T20:35:23.358076",
+   "kind": "public_draft",
+   "title": "Draft: [Budget Sheets Agent] Google Sheets textbook expense tracker (v4, llm)",
+   "review": null
+  },
+  {
+   "id": 17,
+   "ts": "2026-10-19T20:35:25.679428",
+   "kind": "public_draft",
+   "title": "Draft: [Budget Sheets Agent] Google Sheets home maintenance budget  (v4, llm)",
+   "review": null
+  },
+  {
+   "id": 18,
+   "ts": "2026-10-19T20:35:28.404954",
+   "kind": "public_draft",
+   "title": "Draft: [Budget Sheets Agent] Google Sheets travel gear inventory tr (v4, llm)",
+   "review": null
+  }
+ ],
  "prompts": [
   {
    "id": 2,
