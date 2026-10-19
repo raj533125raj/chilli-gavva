@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-19T20:35:28",
+ "generated_at": "2026-10-19T20:38:11",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 7,
+  "calls_today": 10,
   "cap": 500
  },
  "agents": [
@@ -78,7 +78,7 @@
     "review"
    ],
    "state": "idle",
-   "tasks_done": 18
+   "tasks_done": 21
   },
   {
    "name": "Review Worker",
@@ -100,30 +100,37 @@
   }
  ],
  "task_counts": {
-  "done": 57,
-  "queued": 3
+  "done": 60,
+  "queued": 1
  },
  "recent_tasks": [
   {
-   "id": 60,
-   "kind": "review",
+   "id": 61,
+   "kind": "rewrite",
    "status": "queued",
    "agent": null,
    "attempts": 0
+  },
+  {
+   "id": 60,
+   "kind": "review",
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 59,
    "kind": "review",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 58,
    "kind": "review",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 57,
@@ -180,13 +187,6 @@
    "status": "done",
    "agent": "Draft Worker",
    "attempts": 1
-  },
-  {
-   "id": 49,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1
   }
  ],
  "pending_approvals": [
@@ -195,21 +195,21 @@
    "ts": "2026-10-19T20:35:23.358076",
    "kind": "public_draft",
    "title": "Draft: [Budget Sheets Agent] Google Sheets textbook expense tracker (v4, llm)",
-   "review": null
+   "review": "score 85/100 (checklist v2) | top: Only 5 part(s) listed (want 6+); Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: REVISE (AI 85) | one rewrite queued | issues: Step 1 mentions downloading an .xlsx file, but the product is a Google Sheets template; clarify the file format to avoid confusion.; Only 5 part(s) listed (want 6+); Say why it beats a free template; Title: under 80 chars, say what + who"
   },
   {
    "id": 17,
    "ts": "2026-10-19T20:35:25.679428",
    "kind": "public_draft",
    "title": "Draft: [Budget Sheets Agent] Google Sheets home maintenance budget  (v4, llm)",
-   "review": null
+   "review": "score 93/100 (checklist v2) | top: Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: PASS (AI 95) | issues: Say why it beats a free template; Title: under 80 chars, say what + who"
   },
   {
    "id": 18,
    "ts": "2026-10-19T20:35:28.404954",
    "kind": "public_draft",
    "title": "Draft: [Budget Sheets Agent] Google Sheets travel gear inventory tr (v4, llm)",
-   "review": null
+   "review": "score 95/100 (checklist v2) | top: Say why it beats a free template | CHECKER: PASS (AI 95) | issues: Say why it beats a free template"
   }
  ],
  "prompts": [
@@ -224,8 +224,8 @@
    "id": 4,
    "name": "draft",
    "active": true,
-   "trials": 12,
-   "quality": 89.4
+   "trials": 15,
+   "quality": 89.8
   },
   {
    "id": 1,
