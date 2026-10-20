@@ -1,0 +1,1 @@
+A clean spreadsheet view showing colorful task rows, a calendar icon, and a pie chart overlay to convey budgeting and scheduling.
