@@ -21,6 +21,8 @@ Built from approved drafts and checked by the Truth Checker against the real fil
 | #16 | [16-college-textbook-expense-tracker](16-college-textbook-expense-tracker/) | needs fix - see TRUTH_CHECK.md |
 | #17 | [17-home-maintenance-budget-planner](17-home-maintenance-budget-planner/) | needs fix - see TRUTH_CHECK.md |
 | #18 | [18-travel-gear-inventory-tracker](18-travel-gear-inventory-tracker/) | needs fix - see TRUTH_CHECK.md |
+| #19 | [19-influencer-content-calendar-growth-track](19-influencer-content-calendar-growth-track/) | ready (truth check passed) - the owner decides if it goes on sale |
+| #20 | [20-design-agency-timeline-tracker](20-design-agency-timeline-tracker/) | needs fix - see TRUTH_CHECK.md |
 
 ## Bundles (pages from the products above, in one file)
 
