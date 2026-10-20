@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-20T20:10:47",
+ "generated_at": "2026-10-20T20:41:00",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 7,
+  "calls_today": 10,
   "cap": 500
  },
  "agents": [
@@ -68,7 +68,7 @@
     "rewrite"
    ],
    "state": "idle",
-   "tasks_done": 22
+   "tasks_done": 25
   },
   {
    "name": "QA Checker",
@@ -100,30 +100,51 @@
   }
  ],
  "task_counts": {
-  "done": 65,
+  "done": 68,
   "queued": 3
  },
  "recent_tasks": [
   {
-   "id": 68,
-   "kind": "draft",
+   "id": 71,
+   "kind": "review",
    "status": "queued",
    "agent": null,
    "attempts": 0
+  },
+  {
+   "id": 70,
+   "kind": "review",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 69,
+   "kind": "review",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 68,
+   "kind": "draft",
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 67,
    "kind": "draft",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 66,
    "kind": "draft",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 65,
@@ -166,30 +187,31 @@
    "status": "done",
    "agent": "QA Checker",
    "attempts": 1
-  },
-  {
-   "id": 59,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1
-  },
-  {
-   "id": 58,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1
-  },
-  {
-   "id": 57,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
   }
  ],
- "pending_approvals": [],
+ "pending_approvals": [
+  {
+   "id": 19,
+   "ts": "2026-10-20T20:40:55.476604",
+   "kind": "public_draft",
+   "title": "Draft: [Freelancer Trackers Agent] Social media content calendar fo (v4, llm)",
+   "review": null
+  },
+  {
+   "id": 20,
+   "ts": "2026-10-20T20:40:57.704215",
+   "kind": "public_draft",
+   "title": "Draft: [Freelancer Trackers Agent] Project timeline tracker for sma (v4, llm)",
+   "review": null
+  },
+  {
+   "id": 21,
+   "ts": "2026-10-20T20:41:00.067988",
+   "kind": "public_draft",
+   "title": "Draft: [Freelancer Trackers Agent] Client onboarding checklist for  (v4, llm)",
+   "review": null
+  }
+ ],
  "prompts": [
   {
    "id": 2,
