@@ -23,6 +23,7 @@ Built from approved drafts and checked by the Truth Checker against the real fil
 | #18 | [18-travel-gear-inventory-tracker](18-travel-gear-inventory-tracker/) | needs fix - see TRUTH_CHECK.md |
 | #19 | [19-influencer-content-calendar-growth-track](19-influencer-content-calendar-growth-track/) | ready (truth check passed) - the owner decides if it goes on sale |
 | #20 | [20-design-agency-timeline-tracker](20-design-agency-timeline-tracker/) | needs fix - see TRUTH_CHECK.md |
+| #21 | [21-independent-consultant-onboarding-checkl](21-independent-consultant-onboarding-checkl/) | needs fix - see TRUTH_CHECK.md |
 
 ## Bundles (pages from the products above, in one file)
 

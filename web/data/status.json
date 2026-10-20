@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-20T20:43:44",
+ "generated_at": "2026-10-20T21:13:43",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 13,
+  "calls_today": 15,
   "cap": 500
  },
  "agents": [
@@ -188,29 +188,7 @@
    "attempts": 1
   }
  ],
- "pending_approvals": [
-  {
-   "id": 19,
-   "ts": "2026-10-20T20:40:55.476604",
-   "kind": "public_draft",
-   "title": "Draft: [Freelancer Trackers Agent] Social media content calendar fo (v4, llm)",
-   "review": "score 93/100 (checklist v2) | top: Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: PASS (AI 95) | issues: Say why it beats a free template; Title: under 80 chars, say what + who"
-  },
-  {
-   "id": 20,
-   "ts": "2026-10-20T20:40:57.704215",
-   "kind": "public_draft",
-   "title": "Draft: [Freelancer Trackers Agent] Project timeline tracker for sma (v4, llm)",
-   "review": "score 93/100 (checklist v2) | top: Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: PASS (AI 95) | issues: Say why it beats a free template; Title: under 80 chars, say what + who"
-  },
-  {
-   "id": 21,
-   "ts": "2026-10-20T20:41:00.067988",
-   "kind": "public_draft",
-   "title": "Draft: [Freelancer Trackers Agent] Client onboarding checklist for  (v4, llm)",
-   "review": "score 98/100 (checklist v2) | top: Title: under 80 chars, say what + who | CHECKER: PASS (AI 95) | issues: Title: under 80 chars, say what + who"
-  }
- ],
+ "pending_approvals": [],
  "prompts": [
   {
    "id": 2,
@@ -224,7 +202,7 @@
    "name": "draft",
    "active": true,
    "trials": 18,
-   "quality": 91.2
+   "quality": 91.7
   },
   {
    "id": 1,
