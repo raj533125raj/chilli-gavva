@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-20T03:47:27",
+ "generated_at": "2026-10-20T04:17:45",
  "money": {
   "real_usd": 0
  },
@@ -11,7 +11,7 @@
   "info": "never started"
  },
  "llm": {
-  "calls_today": 0,
+  "calls_today": 2,
   "cap": 500
  },
  "agents": [
@@ -188,29 +188,7 @@
    "attempts": 1
   }
  ],
- "pending_approvals": [
-  {
-   "id": 16,
-   "ts": "2026-10-19T20:35:23.358076",
-   "kind": "public_draft",
-   "title": "Draft: [Budget Sheets Agent] Google Sheets textbook expense tracker (v4, llm) (rewritten)",
-   "review": "score 95/100 (checklist v2) | top: Say why it beats a free template | CHECKER: PASS (AI 95) | issues: Say why it beats a free template"
-  },
-  {
-   "id": 17,
-   "ts": "2026-10-19T20:35:25.679428",
-   "kind": "public_draft",
-   "title": "Draft: [Budget Sheets Agent] Google Sheets home maintenance budget  (v4, llm)",
-   "review": "score 93/100 (checklist v2) | top: Say why it beats a free template; Title: under 80 chars, say what + who | CHECKER: PASS (AI 95) | issues: Say why it beats a free template; Title: under 80 chars, say what + who"
-  },
-  {
-   "id": 18,
-   "ts": "2026-10-19T20:35:28.404954",
-   "kind": "public_draft",
-   "title": "Draft: [Budget Sheets Agent] Google Sheets travel gear inventory tr (v4, llm)",
-   "review": "score 95/100 (checklist v2) | top: Say why it beats a free template | CHECKER: PASS (AI 95) | issues: Say why it beats a free template"
-  }
- ],
+ "pending_approvals": [],
  "prompts": [
   {
    "id": 2,
@@ -224,7 +202,7 @@
    "name": "draft",
    "active": true,
    "trials": 15,
-   "quality": 89.8
+   "quality": 90.6
   },
   {
    "id": 1,

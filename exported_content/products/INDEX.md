@@ -20,6 +20,7 @@ Built from approved drafts and checked by the Truth Checker against the real fil
 | #15 | [15-inventory-order-tracker](15-inventory-order-tracker/) | needs fix - see TRUTH_CHECK.md |
 | #16 | [16-college-textbook-expense-tracker](16-college-textbook-expense-tracker/) | needs fix - see TRUTH_CHECK.md |
 | #17 | [17-home-maintenance-budget-planner](17-home-maintenance-budget-planner/) | needs fix - see TRUTH_CHECK.md |
+| #18 | [18-travel-gear-inventory-tracker](18-travel-gear-inventory-tracker/) | needs fix - see TRUTH_CHECK.md |
 
 ## Bundles (pages from the products above, in one file)
 
