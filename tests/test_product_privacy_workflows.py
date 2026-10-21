@@ -1,9 +1,14 @@
 """Static checks for encrypted product handling in workflows."""
 import os
 import re
+import sys
+import tempfile
 import unittest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, REPO)
+
+import site_builder  # noqa: E402
 
 
 class ProductPrivacyWorkflowTests(unittest.TestCase):
@@ -29,6 +34,20 @@ class ProductPrivacyWorkflowTests(unittest.TestCase):
             if re.search(r"\becho\b|\bprintf\b", line):
                 self.assertNotRegex(line, r"\$\{?DB_KEY|secrets\.DB_KEY")
         self.assertNotIn("set -x", text)
+
+    def test_unapproved_markdown_file_is_not_published(self):
+        text = self.read(".github/workflows/publish.yml")
+        self.assertNotRegex(text, r"exported_content/\*\.md|for md in exported_content")
+        with tempfile.TemporaryDirectory() as tmp:
+            exported = os.path.join(tmp, "exported_content")
+            os.makedirs(exported)
+            unapproved = os.path.join(exported, "unapproved.md")
+            with open(unapproved, "w", encoding="utf-8") as handle:
+                handle.write("# Fake unapproved draft\nPrivate sample body\n")
+            built = site_builder.build(db_path=os.path.join(tmp, "empty.db"),
+                                       site_dir=os.path.join(tmp, "site"))
+            self.assertEqual(built, [])
+            self.assertFalse(os.path.exists(os.path.join(tmp, "site", "index.html")))
 
 
 if __name__ == "__main__":
