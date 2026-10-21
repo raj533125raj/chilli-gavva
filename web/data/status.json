@@ -1,15 +1,6 @@
 {
- "generated_at": "2026-10-21T03:45:42",
- "money": {
-  "real_usd": 0
- },
+ "generated_at": "2026-10-21T18:24:26Z",
  "kill_switch": false,
- "worker": {
-  "running": false,
-  "last_seen": null,
-  "age_seconds": null,
-  "info": "never started"
- },
  "llm": {
   "calls_today": 0,
   "cap": 500
@@ -189,64 +180,8 @@
   }
  ],
  "pending_approvals": [],
- "prompts": [
-  {
-   "id": 2,
-   "name": "draft",
-   "active": false,
-   "trials": 3,
-   "quality": 59.7
-  },
-  {
-   "id": 4,
-   "name": "draft",
-   "active": true,
-   "trials": 18,
-   "quality": 91.7
-  },
-  {
-   "id": 1,
-   "name": "research",
-   "active": false,
-   "trials": 0,
-   "quality": 0.0
-  },
-  {
-   "id": 3,
-   "name": "research",
-   "active": true,
-   "trials": 0,
-   "quality": 0.0
-  }
- ],
- "validation": null,
- "logs": [],
- "service_requests": [],
- "built_tools": [],
- "llm_providers": [
-  {
-   "provider": "Groq",
-   "configured": true
-  },
-  {
-   "provider": "Gemini",
-   "configured": true
-  },
-  {
-   "provider": "GitHubModels",
-   "configured": false
-  },
-  {
-   "provider": "Cloudflare",
-   "configured": true
-  },
-  {
-   "provider": "OpenRouter",
-   "configured": false
-  },
-  {
-   "provider": "FreeLLMAPI",
-   "configured": false
-  }
- ]
+ "worker": {
+  "running": false,
+  "age_seconds": null
+ }
 }
