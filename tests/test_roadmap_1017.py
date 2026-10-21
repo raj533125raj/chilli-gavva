@@ -25,19 +25,22 @@ class GitignoreTests(unittest.TestCase):
 
     def test_saved_state_is_never_ignored(self):
         # "Save state" commits these every run; `git add` fails on an ignored path.
+        # The database is the exception: only its encrypted copy is committed, so the plaintext is ignored.
         lines = gitignore_lines()
-        for kept in ("agent_data.db", ".scheduler_locks/", ".scheduler_locks", "*.db", "exported_content/"):
+        self.assertIn("agent_data.db", lines)
+        for kept in (".scheduler_locks/", ".scheduler_locks", "agent_data.db.enc", "exported_content/"):
             self.assertNotIn(kept, lines)
 
     def test_git_agrees(self):
         try:
-            out = subprocess.run(["git", "check-ignore", "--no-index", "agent_data.db", ".scheduler_locks/x.lock",
-                                  "team/a.md", ".env", "x.sqlite", "logs/run.txt"], cwd=ROOT,
+            out = subprocess.run(["git", "check-ignore", "--no-index", "agent_data.db", "agent_data.db.enc",
+                                  ".scheduler_locks/x.lock", "team/a.md", ".env", "x.sqlite", "logs/run.txt"], cwd=ROOT,
                                  capture_output=True, text=True, timeout=20)
         except (OSError, subprocess.SubprocessError):
             self.skipTest("git not available")
         ignored = set(out.stdout.split())
-        self.assertNotIn("agent_data.db", ignored)
+        self.assertIn("agent_data.db", ignored, "the plaintext database is ignored")
+        self.assertNotIn("agent_data.db.enc", ignored, "the encrypted database is committed")
         self.assertNotIn(".scheduler_locks/x.lock", ignored)
         self.assertTrue({"team/a.md", ".env", "x.sqlite", "logs/run.txt"} <= ignored)
 
