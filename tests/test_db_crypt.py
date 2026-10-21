@@ -77,6 +77,40 @@ class DbCryptTests(unittest.TestCase):
             db_crypt.decrypt(os.path.join(self.tmp.name, "nope.enc"), self.back, environ={"DB_KEY": TEST_KEY})
         self.assertIn("not found", str(ctx.exception))
 
+    def test_products_bundle_roundtrip_and_checksum_comparison(self):
+        source = os.path.join(self.tmp.name, "products")
+        restored = os.path.join(self.tmp.name, "restored")
+        os.makedirs(os.path.join(source, "fake-product"))
+        with open(os.path.join(source, "fake-product", "sample.txt"), "wb") as handle:
+            handle.write(b"fake product fixture only")
+        bundle = os.path.join(self.tmp.name, "products.tar.gz.enc")
+        db_crypt.pack_products(source, bundle, environ={"DB_KEY": TEST_KEY})
+        db_crypt.unpack_products(bundle, restored, environ={"DB_KEY": TEST_KEY})
+        self.assertTrue(db_crypt.compare_product_trees(source, restored))
+
+    def test_products_bundle_repack_is_stable_when_contents_match(self):
+        source = os.path.join(self.tmp.name, "products")
+        os.mkdir(source)
+        with open(os.path.join(source, "sample.txt"), "wb") as handle:
+            handle.write(b"fake fixture")
+        bundle = os.path.join(self.tmp.name, "products.tar.gz.enc")
+        db_crypt.pack_products(source, bundle, environ={"DB_KEY": TEST_KEY})
+        before = db_crypt._file_digest(bundle)
+        db_crypt.pack_products(source, bundle, environ={"DB_KEY": TEST_KEY})
+        self.assertEqual(before, db_crypt._file_digest(bundle))
+
+    def test_product_pack_requires_key_before_reading_source(self):
+        with self.assertRaises(db_crypt.CryptError) as ctx:
+            db_crypt.pack_products(os.path.join(self.tmp.name, "missing"), environ={})
+        self.assertIn("DB_KEY is not set", str(ctx.exception))
+
+    def test_product_unpack_requires_key_and_writes_nothing(self):
+        destination = os.path.join(self.tmp.name, "restored")
+        with self.assertRaises(db_crypt.CryptError) as ctx:
+            db_crypt.unpack_products(os.path.join(self.tmp.name, "missing.enc"), destination, environ={})
+        self.assertIn("DB_KEY is not set", str(ctx.exception))
+        self.assertFalse(os.path.exists(destination))
+
 
 class CliTests(unittest.TestCase):
     def test_cli_without_key_exits_with_an_error(self):

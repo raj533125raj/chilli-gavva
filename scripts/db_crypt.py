@@ -7,16 +7,21 @@ Uses the openssl command: AES-256-CBC, PBKDF2 with 200000 iterations, salted. Th
 openssl through an environment variable, never on the command line. Without DB_KEY nothing is read
 or written. A failed decrypt leaves no partial file behind. Only the encrypted file goes into git.
 """
+import gzip
+import hashlib
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
+import tarfile
 
 PLAIN = "agent_data.db"
 ENCRYPTED = "agent_data.db.enc"
 OPENSSL_ARGS = ["-aes-256-cbc", "-pbkdf2", "-iter", "200000", "-salt"]
 KEY_VAR = "DB_KEY"
+PRODUCTS = os.path.join("exported_content", "products")
+PRODUCTS_ENCRYPTED = "products.tar.gz.enc"
 
 
 class CryptError(Exception):
@@ -63,12 +68,112 @@ def decrypt(src=ENCRYPTED, dst=PLAIN, environ=None):
     _openssl("decrypt", src, dst, require_key(environ))
 
 
+def _products_archive(source):
+    """Build a stable tar.gz of regular product files, without following symlinks."""
+    if not os.path.isdir(source):
+        raise CryptError("exported_content/products not found. Nothing was written.")
+    fd, archive = tempfile.mkstemp(prefix=".products-", suffix=".tar.gz")
+    os.close(fd)
+    try:
+        with open(archive, "wb") as raw, gzip.GzipFile(filename="", fileobj=raw, mode="wb", mtime=0) as gz:
+            with tarfile.open(fileobj=gz, mode="w|") as tar:
+                for root, dirs, files in os.walk(source, followlinks=False):
+                    dirs[:] = sorted(d for d in dirs if not os.path.islink(os.path.join(root, d)))
+                    for name in sorted(files):
+                        path = os.path.join(root, name)
+                        if os.path.islink(path):
+                            raise CryptError("Product bundle contains an unsupported file. Nothing was written.")
+                        info = tar.gettarinfo(path, arcname=os.path.relpath(path, source))
+                        info.mtime = 0
+                        with open(path, "rb") as content:
+                            tar.addfile(info, content)
+        return archive
+    except Exception:
+        if os.path.exists(archive):
+            os.remove(archive)
+        raise
+
+
+def pack_products(source=PRODUCTS, dst=PRODUCTS_ENCRYPTED, environ=None):
+    key = require_key(environ)
+    archive = _products_archive(source)
+    plain_existing = None
+    try:
+        if os.path.exists(dst):
+            existing_fd, plain_existing = tempfile.mkstemp(prefix=".products-existing-")
+            os.close(existing_fd)
+            try:
+                _openssl("decrypt", dst, plain_existing, key)
+                if _file_digest(archive) == _file_digest(plain_existing):
+                    return
+            except CryptError:
+                pass
+        _openssl("encrypt", archive, dst, key)
+    finally:
+        for path in (archive, plain_existing):
+            if path and os.path.exists(path):
+                os.remove(path)
+
+
+def unpack_products(src=PRODUCTS_ENCRYPTED, destination="exported_content/products", environ=None):
+    key = require_key(environ)
+    fd, archive = tempfile.mkstemp(prefix=".products-unpack-")
+    os.close(fd)
+    try:
+        _openssl("decrypt", src, archive, key)
+        os.makedirs(destination, exist_ok=True)
+        with tarfile.open(archive, "r:gz") as tar:
+            root = os.path.realpath(destination)
+            for member in tar.getmembers():
+                target = os.path.realpath(os.path.join(root, member.name))
+                if not member.name or os.path.commonpath((root, target)) != root or not member.isfile():
+                    raise CryptError("Product bundle contains an unsafe entry. Nothing was extracted.")
+            tar.extractall(root)
+    except (tarfile.TarError, OSError, ValueError) as error:
+        if isinstance(error, CryptError):
+            raise
+        raise CryptError("Product bundle is damaged. Nothing was extracted.") from error
+    finally:
+        if os.path.exists(archive):
+            os.remove(archive)
+
+
+def _file_digest(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def compare_product_trees(left, right):
+    """Compare relative file lists and content checksums without revealing file names."""
+    def contents(root):
+        result = {}
+        for base, dirs, files in os.walk(root, followlinks=False):
+            dirs[:] = [d for d in dirs if not os.path.islink(os.path.join(base, d))]
+            for name in files:
+                path = os.path.join(base, name)
+                if os.path.islink(path):
+                    raise CryptError("Product tree contains an unsupported file.")
+                result[os.path.relpath(path, root)] = _file_digest(path)
+        return result
+    return contents(left) == contents(right)
+
+
 def main(argv):
-    if len(argv) != 2 or argv[1] not in ("encrypt", "decrypt"):
-        print("usage: db_crypt.py encrypt|decrypt", file=sys.stderr)
+    if len(argv) < 2 or argv[1] not in ("encrypt", "decrypt", "pack-products", "unpack-products") or len(argv) > 4:
+        print("usage: db_crypt.py encrypt|decrypt|pack-products|unpack-products [path] [destination]", file=sys.stderr)
         return 2
     try:
-        (encrypt if argv[1] == "encrypt" else decrypt)()
+        if argv[1] == "encrypt":
+            encrypt()
+        elif argv[1] == "decrypt":
+            decrypt()
+        elif argv[1] == "pack-products":
+            pack_products(*(argv[2:]))
+        else:
+            unpack_products(*(argv[2:]))
     except CryptError as error:
         print(f"db_crypt: {error}", file=sys.stderr)
         return 1
