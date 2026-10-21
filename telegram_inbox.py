@@ -36,6 +36,8 @@ import base64
 import binascii
 import re
 import sys
+import time
+import urllib.error
 import urllib.request
 
 import guardrails
@@ -86,12 +88,48 @@ def set_state(key, value, db_path=None):
 
 
 # ---- Telegram API ------------------------------------------------------------
-def _call(token, method, params):
+def _call(token, method, params, opener=None, sleep_fn=None):
+    """Call Telegram with bounded retries; never expose the token in an error log."""
     url = API.format(token=token, method=method)
     data = json.dumps(params).encode()
     req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
-        return json.loads(resp.read().decode())
+    open_request = opener or urllib.request.urlopen
+    sleep = sleep_fn or time.sleep
+
+    def safe_error(label, detail):
+        print(f"Telegram API {label}: {detail}", file=sys.stderr)
+
+    attempt = 0
+    while True:
+        try:
+            with open_request(req, timeout=_TIMEOUT) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429 and attempt == 0:
+                retry_after = None
+                try:
+                    retry_after = float((exc.headers or {}).get("Retry-After"))
+                except (TypeError, ValueError):
+                    try:
+                        body = json.loads(exc.read().decode("utf-8"))
+                        retry_after = float(body.get("parameters", {}).get("retry_after", 0))
+                    except (AttributeError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
+                        retry_after = 0
+                sleep(max(0, min(retry_after or 0, 30)))
+                attempt += 1
+                continue
+            if 500 <= exc.code <= 599 and attempt == 0:
+                sleep(2)
+                attempt += 1
+                continue
+            safe_error("HTTP error", str(exc.code))
+            return None
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            safe_error("network error", type(exc).__name__)
+            return None
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            safe_error("response error", "invalid JSON")
+            return None
 
 
 def send_text(token, chat_id, text, buttons=None):
@@ -145,6 +183,9 @@ def fetch_updates(token, offset):
         data = _call(token, "getUpdates", params)
     except Exception as exc:
         LAST_FETCH_ERROR = _error_reason(exc)
+        return []
+    if not isinstance(data, dict):
+        LAST_FETCH_ERROR = "API unavailable"
         return []
     if not data.get("ok"):
         LAST_FETCH_ERROR = str(data.get("error_code") or "not ok")
