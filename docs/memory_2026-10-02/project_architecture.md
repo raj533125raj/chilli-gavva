@@ -27,5 +27,5 @@
 
 ## 💡 How It Works (Zero-Cost Affiliate Model)
 - The agent simulates automated content creation and affiliate link click generation.
-- Generates simulated revenue ($24.50 per campaign) and clicks (165 clicks).
+- Generates simulated revenue (private, see the office per campaign) and clicks (165 clicks).
 - Real money integration plan: Replace simulated links with free affiliate networks (Amazon Associates, ClickBank, Digistore24) and connect Groq API for real-time article generation.
