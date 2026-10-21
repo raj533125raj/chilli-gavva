@@ -158,9 +158,14 @@ function renderList(id, items, build, emptyText) {
   if (!items.length) { box.appendChild(el("div", emptyText, "muted")); return; }
   items.forEach(function (it) { box.appendChild(build(it)); });
 }
+// Fields the public snapshot leaves out (money, validation, logs, ...) show a plain note, never an error.
+function notPublic(boxId) {
+  var box = document.getElementById(boxId);
+  if (box) { box.textContent = ""; box.appendChild(el("div", "Not in the public snapshot.", "muted")); }
+}
 function render(s) {
   state = s;
-  document.getElementById("real").textContent = money(s.money.real_usd);
+  document.getElementById("real").textContent = s.money ? money(s.money.real_usd) : "not in the public snapshot";
   document.getElementById("llm").textContent = s.llm.calls_today + " / " + s.llm.cap;
   var w = document.getElementById("worker"), ws = s.worker || {};
   w.textContent = ws.running ? "Worker: running (" + ws.age_seconds + "s ago)" : "Worker: stopped";
@@ -185,7 +190,6 @@ function render(s) {
     var card = el("div", undefined, "approval-card");
     card.appendChild(el("div", a.kind || "", "akind"));
     card.appendChild(el("div", "#" + a.id + " " + a.title, "atitle"));
-    card.appendChild(el("div", a.review || "not reviewed yet", "arev"));
     if (live) {
       var btns = el("div", undefined, "abtns");
       [["✓ Approve", true, "ok"], ["✗ Reject", false, "danger"]].forEach(function (x) {
@@ -198,7 +202,7 @@ function render(s) {
     return card;
   }, "Nothing waiting. ✓");
   // Service requests
-  renderList("services", s.service_requests || [], function (r) {
+  if (s.service_requests === undefined) notPublic("services"); else renderList("services", s.service_requests, function (r) {
     var row = el("div", undefined, "service-row");
     var left = el("div");
     left.appendChild(el("div", "#" + r.id + " " + r.title));
@@ -208,14 +212,15 @@ function render(s) {
     return row;
   }, "No service requests yet. Add: python3 service_intake.py add bio ...");
   // Built tools
-  renderList("tools-built", s.built_tools || [], function (t) {
+  if (s.built_tools === undefined) notPublic("tools-built"); else renderList("tools-built", s.built_tools, function (t) {
     var row = el("div", undefined, "tool-row");
     row.appendChild(el("span", t.title || t.slug));
     row.appendChild(el("span", t.slug, "muted"));
     return row;
   }, "No tools built yet. Approve a tool_draft first.");
   var v = s.validation, vbox = document.getElementById("validation"); vbox.textContent = "";
-  if (!v) { vbox.appendChild(el("div", "No days logged yet (python3 log_validation.py add ...).", "muted")); }
+  if (s.validation === undefined) { notPublic("validation"); }
+  else if (!v) { vbox.appendChild(el("div", "No days logged yet (python3 log_validation.py add ...).", "muted")); }
   else {
     var engaged = v.visitors ? 100 * v.engaged / v.visitors : 0;
     [["Visitors", v.visitors, v.targets.visitors], ["Signups", v.signups, v.targets.signups], ["Engaged %", engaged, v.targets.engaged_pct]].forEach(function (m) {
@@ -228,11 +233,11 @@ function render(s) {
     var r = el("div", undefined, "row"); r.appendChild(el("span", "#" + t.id + " " + t.kind));
     r.appendChild(el("span", t.status + (t.agent ? " · " + t.agent : ""), "muted")); return r;
   }, "No tasks yet.");
-  renderList("prompts", s.prompts, function (p) {
+  if (s.prompts === undefined) notPublic("prompts"); else renderList("prompts", s.prompts, function (p) {
     var r = el("div", undefined, "row"); r.appendChild(el("span", "v" + p.id + " " + p.name + (p.active ? " (active)" : "")));
     r.appendChild(el("span", "trials " + p.trials + " · quality " + p.quality, "muted")); return r;
   }, "No prompts yet.");
-  renderList("logs", s.logs, function (l) { return el("div", l.ts + " " + l.agent + ": " + l.message); }, "No activity yet.");
+  if (s.logs === undefined) notPublic("logs"); else renderList("logs", s.logs, function (l) { return el("div", l.ts + " " + l.agent + ": " + l.message); }, "No activity yet.");
 }
 function loadRecipes() {
   api("/api/recipes", {}).then(function (r) {
@@ -252,7 +257,7 @@ function loadRecipes() {
         var res = document.getElementById("run-result");
         api("/api/run_recipe", { name: name }).then(function (r) {
           if (r.error) { res.textContent = "Error: " + r.error; res.style.color = "var(--bad)"; }
-          else { res.textContent = "Queued " + r.enqueued.length + " task(s) from "" + name + """; res.style.color = "var(--good)"; }
+          else { res.textContent = "Queued " + r.enqueued.length + " task(s) from " + name; res.style.color = "var(--good)"; }
           btn.disabled = !live; btn.textContent = "▶ Run";
           setTimeout(function () { res.textContent = ""; }, 5000);
         }).catch(function () { btn.disabled = !live; btn.textContent = "▶ Run"; });

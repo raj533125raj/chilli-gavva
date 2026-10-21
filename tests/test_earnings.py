@@ -36,10 +36,10 @@ class EarningsTests(unittest.TestCase):
         a = re_.add(10, "INV-1", "a", db_path=self.db)
         re_.add(5.5, "INV-2", "b", db_path=self.db)
         self.assertEqual(re_.total(self.db), 15.5)
-        self.assertEqual(export_status.build_status(self.db)["money"]["real_usd"], 15.5)
+        self.assertEqual(export_status.build_status_private(self.db)["money"]["real_usd"], 15.5)
         re_.void(a, "refunded", self.db)
         self.assertEqual(re_.total(self.db), 5.5)
-        self.assertEqual(export_status.build_status(self.db)["money"]["real_usd"], 5.5)
+        self.assertEqual(export_status.build_status_private(self.db)["money"]["real_usd"], 5.5)
         self.assertEqual(engine.EnterpriseStorage(self.db).get_summary()["real_earnings_usd"], 5.5)
         with self.assertRaises(ValueError):
             re_.void(a, "again", self.db)
@@ -58,7 +58,7 @@ class EarningsTests(unittest.TestCase):
     def test_dashboard_shows_only_real_money(self):
         engine.EnterpriseStorage(self.db).save_campaign("n", "t", 1, 99.0, "COMPLETED")   # simulated
         re_.add(3, "INV-9", "c", db_path=self.db)
-        self.assertEqual(export_status.build_status(self.db)["money"], {"real_usd": 3.0})
+        self.assertEqual(export_status.build_status_private(self.db)["money"], {"real_usd": 3.0})
 
 
 if __name__ == "__main__":

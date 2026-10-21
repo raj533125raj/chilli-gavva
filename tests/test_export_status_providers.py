@@ -1,4 +1,4 @@
-"""Tests for llm_providers key in export_status.build_status()."""
+"""Tests for llm_providers key in export_status.build_status_private()."""
 import importlib
 import os
 import sys
@@ -30,21 +30,21 @@ class TestLlmProvidersKey(unittest.TestCase):
         """build_status() dict must have 'llm_providers' key."""
         import export_status
         db = self._make_db()
-        status = export_status.build_status(db_path=db)
+        status = export_status.build_status_private(db_path=db)
         self.assertIn("llm_providers", status)
 
     def test_llm_providers_is_list(self):
         """llm_providers value must be a list."""
         import export_status
         db = self._make_db()
-        status = export_status.build_status(db_path=db)
+        status = export_status.build_status_private(db_path=db)
         self.assertIsInstance(status["llm_providers"], list)
 
     def test_llm_providers_entries_have_required_keys(self):
         """Each provider entry must have 'provider' and 'configured' keys."""
         import export_status
         db = self._make_db()
-        status = export_status.build_status(db_path=db)
+        status = export_status.build_status_private(db_path=db)
         for entry in status["llm_providers"]:
             self.assertIn("provider", entry)
             self.assertIn("configured", entry)
@@ -53,7 +53,7 @@ class TestLlmProvidersKey(unittest.TestCase):
         """'configured' field must be bool."""
         import export_status
         db = self._make_db()
-        status = export_status.build_status(db_path=db)
+        status = export_status.build_status_private(db_path=db)
         for entry in status["llm_providers"]:
             self.assertIsInstance(entry["configured"], bool)
 
@@ -107,14 +107,14 @@ class TestLlmProvidersKey(unittest.TestCase):
             importlib.reload(export_status)
             db = self._make_db()
             try:
-                status = export_status.build_status(db_path=db)
+                status = export_status.build_status_private(db_path=db)
                 self.assertIn("llm_providers", status)
                 self.assertIsInstance(status["llm_providers"], list)
             finally:
                 importlib.reload(export_status)
 
-    def test_write_status_includes_providers(self):
-        """write_status() serialises llm_providers to JSON without error."""
+    def test_write_status_leaves_providers_out_of_the_public_file(self):
+        """The public file has no llm_providers (provider setup is private); the local snapshot still has it."""
         import export_status, json, tempfile as tf
         db = self._make_db()
         out = tf.NamedTemporaryFile(suffix=".json", delete=False)
@@ -123,8 +123,8 @@ class TestLlmProvidersKey(unittest.TestCase):
             export_status.write_status(path=out.name, db_path=db)
             with open(out.name) as f:
                 data = json.load(f)
-            self.assertIn("llm_providers", data)
-            self.assertIsInstance(data["llm_providers"], list)
+            self.assertNotIn("llm_providers", data)
+            self.assertIsInstance(export_status.build_status_private(db_path=db)["llm_providers"], list)
         finally:
             os.unlink(out.name)
 

@@ -37,7 +37,7 @@ class StatusTests(unittest.TestCase):
     def test_snapshot_shape_and_no_secrets(self):
         workforce.enqueue("plan", {"topic": "demo"}, db_path=self.db)
         workforce.run_once(max_tasks=10, db_path=self.db, llm=lambda p, size=None: "PRODUCT NAME: Demo\nPRICE: 5 USD")
-        status = export_status.build_status(self.db)
+        status = export_status.build_status_private(self.db)
         self.assertNotIn("mode", status)
         self.assertEqual(status["money"], {"real_usd": 0.0})
         self.assertEqual(len(status["agents"]), len(workforce.AGENTS))
@@ -47,7 +47,9 @@ class StatusTests(unittest.TestCase):
             self.assertNotIn(secret_word, blob)
         out = export_status.write_status(os.path.join(self.tmp.name, "out", "status.json"), self.db)
         with open(out) as f:
-            self.assertEqual(json.load(f)["money"], {"real_usd": 0.0})
+            written = json.load(f)
+        self.assertNotIn("money", written, "money never goes into the public file")
+        self.assertEqual(set(written), {"generated_at", "kill_switch", "llm", "agents", "task_counts", "recent_tasks", "pending_approvals", "worker"})
 
     def test_real_money_is_shown(self):
         import sqlite3
@@ -57,7 +59,7 @@ class StatusTests(unittest.TestCase):
         conn.execute("INSERT INTO campaigns (timestamp, niche, content_title, clicks, earnings, status, source) "
                      "VALUES ('t','n','c',1,5.0,'DONE','real')")
         conn.commit(); conn.close()
-        status = export_status.build_status(self.db)
+        status = export_status.build_status_private(self.db)
         self.assertEqual(status["money"]["real_usd"], 5.0)
 
     def test_old_database_without_source_column(self):
@@ -68,7 +70,7 @@ class StatusTests(unittest.TestCase):
         conn.execute("INSERT INTO campaigns (timestamp, niche, content_title, clicks, earnings, status) "
                      "VALUES ('t', 'n', 'c', 10, 120.0, 'COMPLETED')")
         conn.commit(); conn.close()
-        status = export_status.build_status(self.db)       # must migrate, not crash
+        status = export_status.build_status_private(self.db)       # must migrate, not crash
         self.assertEqual(status["money"], {"real_usd": 0.0})   # old fake money is never shown
 
     def make_old_simulation_rows(self):
@@ -97,7 +99,7 @@ class StatusTests(unittest.TestCase):
         self.assertEqual(self.count("campaigns"), 1)                    # the real sale stays
         self.assertEqual(self.count("campaigns", "source = 'real'"), 1)
         self.assertEqual(guardrails.get_approval(approval, self.db)["status"], "approved")   # untouched
-        status = export_status.build_status(self.db)
+        status = export_status.build_status_private(self.db)
         self.assertEqual(status["money"], {"real_usd": 4.5})
         self.assertEqual(status["logs"], [])
         self.assertEqual(export_status.purge_simulated(self.db), {})     # second run: nothing left
@@ -123,7 +125,7 @@ class StatusTests(unittest.TestCase):
         self.assertNotIn("SIMULATION", page)
 
     def test_chat_answers_are_honest(self):
-        status = export_status.build_status(self.db)
+        status = export_status.build_status_private(self.db)
         answer = chat.reply("how much money did we earn?", status)
         self.assertIn("Real money earned so far: $0.00", answer)
         self.assertNotIn("imulated", answer)

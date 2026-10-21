@@ -48,7 +48,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(403, {"error": "bad host"})
         path = self.path.split("?")[0]
         if path == "/api/status":
-            return self._send(200, export_status.build_status())
+            return self._send(200, export_status.build_status_private())
         rel = "index.html" if path == "/" else path.lstrip("/")
         full = os.path.realpath(os.path.join(WEB_DIR, rel))
         if not full.startswith(os.path.realpath(WEB_DIR) + os.sep) or not os.path.isfile(full):
@@ -65,7 +65,7 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             return self._send(400, {"error": "bad json"})
         if self.path == "/api/chat":
-            status = export_status.build_status()
+            status = export_status.build_status_private()
             return self._send(200, {"reply": chat.reply(body.get("message", ""), status, workforce.default_llm())})
         if self.path == "/api/kill":
             guardrails.kill("dashboard button")

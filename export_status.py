@@ -73,7 +73,8 @@ def _llm_providers() -> list:
     except Exception:
         return []
 
-def build_status(db_path=None):
+def build_status_private(db_path=None):
+    """The full local snapshot (money, prompts, logs, ...). Used by the local server only; never written to the repo."""
     real, logs = _money(db_path)
     conn = workforce.connect(db_path)
     counts = dict(conn.execute("SELECT status, COUNT(*) FROM tasks GROUP BY status").fetchall())
@@ -98,7 +99,7 @@ def build_status(db_path=None):
                    tb_conn.execute("SELECT slug, title, built_ts FROM tool_pages ORDER BY approval_id DESC LIMIT 10").fetchall()]
     tb_conn.close()
     return {
-        "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
+        "generated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "money": {"real_usd": round(real, 2)},
         "kill_switch": guardrails.is_killed(),
         "worker": workforce.worker_status(db_path),
@@ -113,6 +114,28 @@ def build_status(db_path=None):
         "service_requests": svc_reqs,
         "built_tools": built_tools,
         "llm_providers": _llm_providers(),
+    }
+
+
+# The public snapshot: only these fields. No money, prompts, logs, validation, service requests, built tools,
+# worker info or approval review text. The robot's own files and the dashboard are the only readers.
+PUBLIC_AGENT_KEYS = ("name", "level", "role", "kinds", "state", "tasks_done")
+PUBLIC_TASK_KEYS = ("id", "kind", "status", "agent", "attempts")
+PUBLIC_APPROVAL_KEYS = ("id", "ts", "kind", "title")
+
+
+def build_status(db_path=None):
+    """The snapshot written to web/data/status.json (safe for a public repo)."""
+    full = build_status_private(db_path)
+    return {
+        "generated_at": full["generated_at"],
+        "kill_switch": full["kill_switch"],
+        "llm": {"calls_today": full["llm"]["calls_today"], "cap": full["llm"]["cap"]},
+        "agents": [{k: a.get(k) for k in PUBLIC_AGENT_KEYS} for a in full["agents"]],
+        "task_counts": full["task_counts"],
+        "recent_tasks": [{k: t.get(k) for k in PUBLIC_TASK_KEYS} for t in full["recent_tasks"]],
+        "pending_approvals": [{k: a.get(k) for k in PUBLIC_APPROVAL_KEYS} for a in full["pending_approvals"]],
+        "worker": {"running": full["worker"].get("running"), "age_seconds": full["worker"].get("age_seconds")},
     }
 
 
