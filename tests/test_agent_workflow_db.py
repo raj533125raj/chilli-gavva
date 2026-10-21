@@ -26,8 +26,36 @@ class AgentWorkflowDbTests(unittest.TestCase):
     def test_database_is_opened_before_it_is_used(self):
         text = workflow_text()
         opened = text.index("scripts/db_crypt.py decrypt")
+        unpacked = text.index("scripts/db_crypt.py unpack-products")
+        self.assertGreater(unpacked, opened)
+        self.assertLess(unpacked, text.index("- name: AI health check"))
         self.assertLess(opened, text.index("- name: Run tests first"))
         self.assertLess(opened, text.index("- name: Run one agent cycle"))
+
+    def test_product_bundle_is_packed_before_save_and_only_bundle_is_staged(self):
+        text = workflow_text()
+        packed = text.index("- name: Pack private products")
+        saved = text.index("- name: Save state")
+        self.assertLess(packed, saved)
+        pack_step = text[packed:saved]
+        self.assertIn("DB_KEY: ${{ secrets.DB_KEY }}", pack_step)
+        save = text[saved:]
+        loop = re.search(r"for p in ([^;]+); do", save).group(1).split()
+        state = re.search(r'STATE="([^"]+)"', save).group(1).split()
+        self.assertIn("products.tar.gz.enc", loop)
+        self.assertIn("products.tar.gz.enc", state)
+        self.assertNotIn("exported_content", loop)
+        self.assertNotIn("exported_content", state)
+
+    def test_product_unpack_has_key_and_workflow_does_not_echo_it(self):
+        text = workflow_text()
+        step = text[text.index("- name: Unpack private products"):text.index("- name: AI health check")]
+        self.assertIn("DB_KEY: ${{ secrets.DB_KEY }}", step)
+        self.assertIn("scripts/db_crypt.py unpack-products", step)
+        self.assertNotIn("set -x", text)
+        for line in text.splitlines():
+            if re.search(r"\becho\b|\bprintf\b", line):
+                self.assertNotRegex(line, r"\$\{?DB_KEY|secrets\.DB_KEY")
 
     def test_workflow_never_commits_the_plaintext_database(self):
         text = workflow_text()

@@ -63,6 +63,11 @@ jobs:
           DB_KEY: ${{ secrets.DB_KEY }}
         run: python3 scripts/db_crypt.py decrypt
 
+      - name: Unpack private products
+        env:
+          DB_KEY: ${{ secrets.DB_KEY }}
+        run: python3 scripts/db_crypt.py unpack-products
+
       # Manual only (Run workflow -> health = yes): one tiny test per AI model + one long-answer test.
       # Prints provider, model, OK/FAIL, error number or timeout, seconds. Never prints keys.
       - name: AI health check (manual only)
@@ -199,6 +204,12 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python3 product_builder.py --max 2 || echo "Product Builder hit an error; it will retry next run."
 
+      - name: Pack private products
+        if: steps.gate.outputs.run == 'true'
+        env:
+          DB_KEY: ${{ secrets.DB_KEY }}
+        run: python3 scripts/db_crypt.py pack-products
+
       - name: Save state
         if: steps.gate.outputs.run == 'true'
         env:
@@ -232,7 +243,7 @@ jobs:
           # Encrypt the database. Only the encrypted file (agent_data.db.enc) is committed, never the plaintext.
           python3 scripts/db_crypt.py encrypt
           # Add each path on its own: one missing folder must not stop everything else being saved
-          for p in agent_data.db.enc web/data/status.json exported_content .scheduler_locks; do
+          for p in agent_data.db.enc products.tar.gz.enc web/data/status.json .scheduler_locks; do
             if [ -e "$p" ]; then git add "$p"; fi
           done
           if git diff --cached --quiet; then
@@ -240,7 +251,7 @@ jobs:
             exit 0
           fi
           git commit -q -m "agent: state + content update [skip ci]"
-          STATE="agent_data.db.enc web/data/status.json exported_content .scheduler_locks"
+          STATE="agent_data.db.enc products.tar.gz.enc web/data/status.json .scheduler_locks"
           for attempt in 1 2; do
             if git push -q origin HEAD:main; then
               echo "State saved."

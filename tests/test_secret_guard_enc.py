@@ -14,6 +14,13 @@ class EncryptedFileTests(unittest.TestCase):
                 f.write(b"Salted__" + b"x" * 20 + b" someone@example.org " + os.urandom(64))
             self.assertEqual(sg.scan_file(path), [])
 
+    def test_private_products_bundle_is_skipped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "products.tar.gz.enc")
+            with open(path, "wb") as f:
+                f.write(b"random encrypted bytes")
+            self.assertEqual(sg.scan_file(path), [])
+
     def test_plain_text_is_still_scanned(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "notes.txt")

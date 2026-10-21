@@ -79,10 +79,9 @@ class SaveCheckTests(unittest.TestCase):
         self.write_status("2026-10-15T10:30:00", 4)
         self.assertEqual(save_check.real_changes(self.dir), ["dashboard numbers"])
 
-    def test_new_product_file_is_saved(self):
-        os.makedirs(os.path.join(self.dir, "exported_content", "products", "9-x"))
-        with open(os.path.join(self.dir, "exported_content", "products", "9-x", "cover.png"), "wb") as f:
-            f.write(b"png")
+    def test_new_encrypted_products_bundle_is_saved(self):
+        with open(os.path.join(self.dir, "products.tar.gz.enc"), "wb") as f:
+            f.write(b"fake encrypted bundle")
         self.assertEqual(save_check.real_changes(self.dir), ["product or lock files"])
 
     def test_problems_count_as_changed(self):

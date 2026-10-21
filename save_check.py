@@ -20,7 +20,7 @@ import tempfile
 DB = "agent_data.db"
 DB_ENCRYPTED = "agent_data.db.enc"   # the database is committed encrypted; its key is in the DB_KEY secret
 STATUS = os.path.join("web", "data", "status.json")
-OTHER_PATHS = ["exported_content", ".scheduler_locks"]
+OTHER_PATHS = ["products.tar.gz.enc", ".scheduler_locks"]
 VOLATILE_STATUS_KEYS = {"generated_at", "worker"}
 
 
