@@ -28,7 +28,7 @@ class MigrateProductsTests(unittest.TestCase):
         with open(os.path.join(self.repo, "exported_content", "products", "fixture", "sample.txt"), "wb") as f:
             f.write(b"fake fixture content")
         with open(os.path.join(self.repo, ".gitignore"), "w", encoding="utf-8") as f:
-            f.write("exported_content/products/\n")
+            f.write("exported_content/products/\n__pycache__/\n")
         git(self.repo, "add", "scripts", ".gitignore")
         git(self.repo, "add", "-f", "exported_content/products")
         git(self.repo, "commit", "-qm", "base")
@@ -37,7 +37,8 @@ class MigrateProductsTests(unittest.TestCase):
         env = dict(os.environ)
         env.pop("DB_KEY", None)
         env.update(GIT_AUTHOR_NAME="fixture-owner", GIT_AUTHOR_EMAIL="fixture@example.org",
-                   GIT_COMMITTER_NAME="fixture-owner", GIT_COMMITTER_EMAIL="fixture@example.org")
+                   GIT_COMMITTER_NAME="fixture-owner", GIT_COMMITTER_EMAIL="fixture@example.org",
+                   PYTHONDONTWRITEBYTECODE="1")
         return subprocess.run(["bash", "scripts/migrate_products.sh"], cwd=self.repo, input=key + "\n",
                               capture_output=True, text=True, env=env)
 
