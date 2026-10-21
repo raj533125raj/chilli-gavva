@@ -36,8 +36,11 @@ class MigrateDbTests(unittest.TestCase):
         git(self.dir, "commit", "-qm", "base")
 
     def run_migrate(self, key):
+        # A test git identity, so the commit works on CI runners that have no global git user.
+        env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
+                   GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
         return subprocess.run(["bash", "scripts/migrate_db.sh"], cwd=self.dir, input=key + "\n",
-                              capture_output=True, text=True)
+                              capture_output=True, text=True, env=env)
 
     def test_encrypts_checks_and_commits_only_the_encrypted_file(self):
         result = self.run_migrate(TEST_KEY)
