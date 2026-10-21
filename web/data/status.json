@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-21T21:11:02Z",
+ "generated_at": "2026-10-21T21:40:49Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 10,
+  "calls_today": 12,
   "cap": 500
  },
  "agents": [
@@ -59,7 +59,7 @@
     "rewrite"
    ],
    "state": "idle",
-   "tasks_done": 28
+   "tasks_done": 29
   },
   {
    "name": "QA Checker",
@@ -69,7 +69,7 @@
     "review"
    ],
    "state": "idle",
-   "tasks_done": 28
+   "tasks_done": 29
   },
   {
    "name": "Review Worker",
@@ -91,16 +91,22 @@
   }
  ],
  "task_counts": {
-  "done": 80,
-  "queued": 1
+  "done": 82
  },
  "recent_tasks": [
   {
+   "id": 82,
+   "kind": "review",
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
+  },
+  {
    "id": 81,
    "kind": "rewrite",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 80,
@@ -171,13 +177,6 @@
    "status": "done",
    "agent": "QA Checker",
    "attempts": 1
-  },
-  {
-   "id": 70,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1
   }
  ],
  "pending_approvals": [
@@ -191,7 +190,7 @@
    "id": 23,
    "ts": "2026-10-21T20:40:16.447891",
    "kind": "public_draft",
-   "title": "Draft: [ADHD Planners Agent] Social event organizer for neurodiverg (v4, llm)"
+   "title": "Draft: [ADHD Planners Agent] Social event organizer for neurodiverg (v4, llm) (rewritten)"
   },
   {
    "id": 24,
