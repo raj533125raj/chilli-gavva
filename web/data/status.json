@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-21T20:10:53Z",
+ "generated_at": "2026-10-21T20:40:18Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 4,
+  "calls_today": 7,
   "cap": 500
  },
  "agents": [
@@ -59,7 +59,7 @@
     "rewrite"
    ],
    "state": "idle",
-   "tasks_done": 25
+   "tasks_done": 28
   },
   {
    "name": "QA Checker",
@@ -91,30 +91,51 @@
   }
  ],
  "task_counts": {
-  "done": 74,
+  "done": 77,
   "queued": 3
  },
  "recent_tasks": [
   {
-   "id": 77,
-   "kind": "draft",
+   "id": 80,
+   "kind": "review",
    "status": "queued",
    "agent": null,
    "attempts": 0
+  },
+  {
+   "id": 79,
+   "kind": "review",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 78,
+   "kind": "review",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 77,
+   "kind": "draft",
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 76,
    "kind": "draft",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 75,
    "kind": "draft",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 74,
@@ -157,30 +178,28 @@
    "status": "done",
    "agent": "QA Checker",
    "attempts": 1
-  },
-  {
-   "id": 68,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
-  },
-  {
-   "id": 67,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
-  },
-  {
-   "id": 66,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
   }
  ],
- "pending_approvals": [],
+ "pending_approvals": [
+  {
+   "id": 22,
+   "ts": "2026-10-21T20:40:14.464938",
+   "kind": "public_draft",
+   "title": "Draft: [ADHD Planners Agent] Goal-tracking planner for ADHD student (v4, llm)"
+  },
+  {
+   "id": 23,
+   "ts": "2026-10-21T20:40:16.447891",
+   "kind": "public_draft",
+   "title": "Draft: [ADHD Planners Agent] Social event organizer for neurodiverg (v4, llm)"
+  },
+  {
+   "id": 24,
+   "ts": "2026-10-21T20:40:18.514198",
+   "kind": "public_draft",
+   "title": "Draft: [ADHD Planners Agent] Travel itinerary planner for ADHD trav (v4, llm)"
+  }
+ ],
  "worker": {
   "running": false,
   "age_seconds": null
