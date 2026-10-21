@@ -1,15 +1,20 @@
 """Tests for save_check.py: save only when something real changed (temp git repos, offline)."""
 import json
 import os
+import shutil
 import sqlite3
 import subprocess
 import sys
 import tempfile
 import unittest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, REPO)
+sys.path.insert(0, os.path.join(REPO, "scripts"))
 
 import save_check  # noqa: E402
+
+TEST_KEY = "unit-test-only-key-123"
 
 
 def git(cwd, *args):
@@ -31,8 +36,24 @@ class SaveCheckTests(unittest.TestCase):
         conn.close()
         os.makedirs(os.path.join(self.dir, "web", "data"))
         self.write_status("2026-10-15T10:00:00", 3)
+        # Production commits the database encrypted: the committed copy is agent_data.db.enc, plaintext is ignored.
+        os.makedirs(os.path.join(self.dir, "scripts"))
+        shutil.copy(os.path.join(REPO, "scripts", "db_crypt.py"), os.path.join(self.dir, "scripts", "db_crypt.py"))
+        self._old_key = os.environ.get("DB_KEY")
+        os.environ["DB_KEY"] = TEST_KEY
+        self.addCleanup(self._restore_key)
+        import db_crypt
+        db_crypt.encrypt(self.db, os.path.join(self.dir, "agent_data.db.enc"))
+        with open(os.path.join(self.dir, ".gitignore"), "w") as f:
+            f.write("agent_data.db\n")
         git(self.dir, "add", "-A")
         git(self.dir, "commit", "-qm", "base")
+
+    def _restore_key(self):
+        if self._old_key is None:
+            os.environ.pop("DB_KEY", None)
+        else:
+            os.environ["DB_KEY"] = self._old_key
 
     def write_status(self, ts, done, age=5):
         with open(os.path.join(self.dir, "web", "data", "status.json"), "w") as f:

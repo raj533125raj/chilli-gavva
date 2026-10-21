@@ -14,7 +14,12 @@ site/*
 proposals/
 # Daily reports
 reports/
-# Local-only files (roadmap #41). agent_data.db stays tracked on purpose (private repo, saved by the bot).
+# The plaintext database never goes into git (the repo is public). The encrypted copy agent_data.db.enc is committed.
+agent_data.db
+agent_data.db-journal
+archive/*.db
+*.db
+# Local-only files (roadmap #41).
 *.sqlite
 .env
 .env.*

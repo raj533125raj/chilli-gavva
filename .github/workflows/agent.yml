@@ -36,6 +36,17 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
+      # First step. The database is committed encrypted, so without the DB_KEY secret nothing can run.
+      # The job stops here, before any step that reads or writes the database. The key is never printed.
+      - name: Check the database key
+        env:
+          DB_KEY: ${{ secrets.DB_KEY }}
+        run: |
+          if [ -z "$DB_KEY" ]; then
+            echo "DB_KEY not set"
+            exit 1
+          fi
+
       # Start from the NEWEST main, not the commit that queued this run. Runs wait in line
       # (concurrency group), so the run before this one may already have saved a newer database.
       - uses: actions/checkout@v5
@@ -45,6 +56,12 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+
+      # Open the database for this run. The plaintext file exists only on this runner and is never committed.
+      - name: Open the database
+        env:
+          DB_KEY: ${{ secrets.DB_KEY }}
+        run: python3 scripts/db_crypt.py decrypt
 
       # Manual only (Run workflow -> health = yes): one tiny test per AI model + one long-answer test.
       # Prints provider, model, OK/FAIL, error number or timeout, seconds. Never prints keys.
@@ -104,11 +121,13 @@ jobs:
         if: steps.gate.outputs.run == 'true'
         env:
           CHILLI_TEST: "1"
+          DB_KEY: ${{ secrets.DB_KEY }}
         run: |
           python3 -m unittest discover -s tests
           # Some tests write to the real database / status file. Put the committed copies back
           # (and drop files tests created) so test data is never saved by "Save state".
-          git checkout -- agent_data.db web/data/status.json
+          python3 scripts/db_crypt.py decrypt
+          git checkout -- web/data/status.json
           git clean -fdq -- exported_content .scheduler_locks
 
       - name: Run scheduled recipe (if slot matches now)
@@ -193,6 +212,8 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           ALWAYS_ON_SECRET: ${{ secrets.ALWAYS_ON_SECRET }}
           ALWAYS_ON_URL: ${{ secrets.ALWAYS_ON_URL }}
+          # Only to encrypt the database and to compare it with the committed copy. Never printed.
+          DB_KEY: ${{ secrets.DB_KEY }}
         run: |
           # Secret guard: never save a token, key, password, chat id or personal email (blocks the save).
           python3 secret_guard.py
@@ -208,8 +229,10 @@ jobs:
             echo "Nothing real changed: not saving."
             exit 0
           fi
+          # Encrypt the database. Only the encrypted file (agent_data.db.enc) is committed, never the plaintext.
+          python3 scripts/db_crypt.py encrypt
           # Add each path on its own: one missing folder must not stop everything else being saved
-          for p in agent_data.db web/data/status.json exported_content .scheduler_locks; do
+          for p in agent_data.db.enc web/data/status.json exported_content .scheduler_locks; do
             if [ -e "$p" ]; then git add "$p"; fi
           done
           if git diff --cached --quiet; then
@@ -217,7 +240,7 @@ jobs:
             exit 0
           fi
           git commit -q -m "agent: state + content update [skip ci]"
-          STATE="agent_data.db web/data/status.json exported_content .scheduler_locks"
+          STATE="agent_data.db.enc web/data/status.json exported_content .scheduler_locks"
           for attempt in 1 2; do
             if git push -q origin HEAD:main; then
               echo "State saved."

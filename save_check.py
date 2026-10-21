@@ -18,6 +18,7 @@ import sys
 import tempfile
 
 DB = "agent_data.db"
+DB_ENCRYPTED = "agent_data.db.enc"   # the database is committed encrypted; its key is in the DB_KEY secret
 STATUS = os.path.join("web", "data", "status.json")
 OTHER_PATHS = ["exported_content", ".scheduler_locks"]
 VOLATILE_STATUS_KEYS = {"generated_at", "worker"}
@@ -40,11 +41,30 @@ def db_rows(path):
         conn.close()
 
 
+def _head_db_bytes(cwd):
+    """The committed database, decrypted with DB_KEY. None when nothing is committed yet."""
+    encrypted = _head_bytes(DB_ENCRYPTED, cwd)
+    if encrypted is None:
+        return _head_bytes(DB, cwd)   # before the encrypted copy exists: compare the plaintext copy, if any
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("db_crypt", os.path.join(cwd, "scripts", "db_crypt.py"))
+    db_crypt = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(db_crypt)
+    with tempfile.TemporaryDirectory() as tmp:
+        enc_path = os.path.join(tmp, "head.db.enc")
+        out_path = os.path.join(tmp, "head.db")
+        with open(enc_path, "wb") as f:
+            f.write(encrypted)
+        db_crypt.decrypt(enc_path, out_path)
+        with open(out_path, "rb") as f:
+            return f.read()
+
+
 def db_changed(cwd):
     path = os.path.join(cwd, DB)
-    old = _head_bytes(DB, cwd)
     if not os.path.exists(path):
         return False
+    old = _head_db_bytes(cwd)
     if old is None:
         return True
     with tempfile.TemporaryDirectory() as tmp:
