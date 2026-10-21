@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-21T20:40:18Z",
+ "generated_at": "2026-10-21T21:11:02Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 7,
+  "calls_today": 10,
   "cap": 500
  },
  "agents": [
@@ -69,7 +69,7 @@
     "review"
    ],
    "state": "idle",
-   "tasks_done": 25
+   "tasks_done": 28
   },
   {
    "name": "Review Worker",
@@ -91,30 +91,37 @@
   }
  ],
  "task_counts": {
-  "done": 77,
-  "queued": 3
+  "done": 80,
+  "queued": 1
  },
  "recent_tasks": [
   {
-   "id": 80,
-   "kind": "review",
+   "id": 81,
+   "kind": "rewrite",
    "status": "queued",
    "agent": null,
    "attempts": 0
+  },
+  {
+   "id": 80,
+   "kind": "review",
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 79,
    "kind": "review",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 78,
    "kind": "review",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 77,
@@ -167,13 +174,6 @@
   },
   {
    "id": 70,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1
-  },
-  {
-   "id": 69,
    "kind": "review",
    "status": "done",
    "agent": "QA Checker",
