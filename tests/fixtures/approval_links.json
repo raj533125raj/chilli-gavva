@@ -1,0 +1,11 @@
+[
+  {"requestId":"1","payload":"ap_MQ","valid":true},
+  {"requestId":"12","payload":"ap_MTI","valid":true},
+  {"requestId":"999999","payload":"ap_OTk5OTk5","valid":true},
+  {"requestId":"45","payload":"ap_NDU","valid":true},
+  {"requestId":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","payload":"ap_eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eA","valid":false},
+  {"requestId":"bad-characters","payload":"ap_MQ=","valid":false},
+  {"requestId":"missing-prefix","payload":"MTI","valid":false},
+  {"requestId":"empty","payload":"","valid":false},
+  {"requestId":"no-standard-base64-length","payload":"ap_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","valid":false}
+]
