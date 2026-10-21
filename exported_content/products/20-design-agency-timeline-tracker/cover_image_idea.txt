@@ -1,1 +1,0 @@
-A clean desktop view of the Google Sheets dashboard showing project cards, a progress bar, and highlighted overdue tasks.
