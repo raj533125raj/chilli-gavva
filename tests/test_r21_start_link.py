@@ -45,6 +45,14 @@ class StartLinkTests(unittest.TestCase):
         self.assertEqual(self.sent, [(self.owner, inbox.view_text(self.approval_id, self.db),
                                       inbox.draft_buttons(str(self.approval_id)))])
 
+    def test_opening_start_link_does_not_auto_approve(self):
+        update = {"update_id": 2, "message": {"chat": {"id": int(self.owner)},
+                                                   "text": "/start " + self._payload(self.approval_id)}}
+        with mock.patch.object(inbox, "fetch_updates", return_value=[update]), \
+                mock.patch.object(inbox, "send_text", return_value=True):
+            inbox.process_updates("fake-token", self.owner, self.db)
+        self.assertEqual(guardrails.get_approval(self.approval_id, self.db)["status"], "pending")
+
     def test_unknown_start_id_has_not_found_reply(self):
         update = {"update_id": 1, "message": {"chat": {"id": int(self.owner)},
                                                    "text": "/start " + self._payload("987654")}}
