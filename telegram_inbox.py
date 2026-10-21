@@ -32,6 +32,8 @@ CLI:
   python3 telegram_inbox.py status   # show config state (no network calls)
 """
 import json
+import base64
+import binascii
 import re
 import sys
 import urllib.request
@@ -183,6 +185,33 @@ def parse_command(text):
     cmd = m.group(1).lower()
     ids = [int(x) for x in re.findall(r"\d+", m.group(2) or "")][:20]
     return ("help" if cmd == "start" else cmd), ids
+
+
+def parse_start_payload(text):
+    """Decode an ``/start ap_<base64url-id>`` command, or return None if malformed.
+
+    IDs remain text throughout encoding/decoding. Canonical unpadded base64url is
+    required so alternate spellings cannot identify the same approval.
+    """
+    if not isinstance(text, str):
+        return None
+    match = re.fullmatch(r"/start(?:@\w+)?\s+([A-Za-z0-9_-]{1,64})", text.strip(), re.IGNORECASE)
+    if not match:
+        return None
+    payload = match.group(1)
+    if not payload.startswith("ap_") or len(payload) > 64:
+        return None
+    encoded = payload[3:]
+    if not encoded or len(encoded) % 4 == 1:
+        return None
+    try:
+        raw = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
+        approval_id = raw.decode("utf-8")
+    except (binascii.Error, UnicodeDecodeError, ValueError):
+        return None
+    if not approval_id or base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=") != encoded:
+        return None
+    return approval_id
 
 
 def draft_card(item):
@@ -362,7 +391,14 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
         if chat_id != str(owner_chat_id):
             stats["skipped"]["not owner chat"] += 1
             continue  # ignore everyone except the owner
-        cmd, ids = parse_command(msg.get("text", ""))
+        message_text = msg.get("text", "")
+        approval_id = parse_start_payload(message_text)
+        if approval_id is not None:
+            reply = view_text(approval_id, db_path)
+            send_text(token, owner_chat_id, reply, draft_buttons(approval_id))
+            handled += 1
+            continue
+        cmd, ids = parse_command(message_text)
         if not cmd:
             stats["skipped"]["not a command"] += 1
             continue
