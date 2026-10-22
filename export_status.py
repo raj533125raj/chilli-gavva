@@ -124,6 +124,19 @@ PUBLIC_TASK_KEYS = ("id", "kind", "status", "agent", "attempts")
 PUBLIC_APPROVAL_KEYS = ("id", "ts", "kind", "title")
 
 
+def _public_approval(approval):
+    """Return the small, anonymous approval record safe for the public file.
+
+    A pending approval is an idea the owner has not accepted yet.  Its real
+    title is therefore private, even though the identifier and queue time are
+    useful on the public dashboard.
+    """
+    item = {k: approval.get(k) for k in PUBLIC_APPROVAL_KEYS}
+    if approval.get("status") != "approved":
+        item["title"] = f"Draft #{approval.get('id')}"
+    return item
+
+
 def build_status(db_path=None):
     """The snapshot written to web/data/status.json (safe for a public repo)."""
     full = build_status_private(db_path)
@@ -134,7 +147,7 @@ def build_status(db_path=None):
         "agents": [{k: a.get(k) for k in PUBLIC_AGENT_KEYS} for a in full["agents"]],
         "task_counts": full["task_counts"],
         "recent_tasks": [{k: t.get(k) for k in PUBLIC_TASK_KEYS} for t in full["recent_tasks"]],
-        "pending_approvals": [{k: a.get(k) for k in PUBLIC_APPROVAL_KEYS} for a in full["pending_approvals"]],
+        "pending_approvals": [_public_approval(a) for a in full["pending_approvals"]],
         "worker": {"running": full["worker"].get("running"), "age_seconds": full["worker"].get("age_seconds")},
     }
 
