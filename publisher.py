@@ -94,7 +94,7 @@ def can_publish(publish_type, db_path=None):
 
 
 def queue_job(publish_type, item_id, payload_path, db_path=None, now=None):
-    """Add exactly one publish job for an item/type pair; duplicate requests are harmless."""
+    """Add exactly one job for an already owner-approved item/type pair."""
     if publish_type not in PUBLISH_TYPES:
         raise ValueError("unknown publish type")
     if not isinstance(item_id, int) or item_id < 1:
@@ -103,6 +103,9 @@ def queue_job(publish_type, item_id, payload_path, db_path=None, now=None):
         raise ValueError("payload path required")
     conn = connect(db_path)
     try:
+        approved = conn.execute("SELECT 1 FROM approvals WHERE id = ? AND status = 'approved'", (item_id,)).fetchone()
+        if not approved:
+            return None
         cur = conn.execute("INSERT INTO publish_jobs (publish_type, item_id, payload_path, status, created_ts) "
                            "VALUES (?, ?, ?, 'queued', ?)", (publish_type, item_id, payload_path, utc_now(now)))
         conn.commit()
@@ -112,6 +115,24 @@ def queue_job(publish_type, item_id, payload_path, db_path=None, now=None):
         return None
     finally:
         conn.close()
+
+
+def approved_product_pins(item_id, products_dir, db_path=None):
+    """Return the approved product's pin folder, or None for any other item."""
+    conn = connect(db_path)
+    row = conn.execute("SELECT a.status, b.status, b.folder FROM approvals a "
+                       "LEFT JOIN product_builds b ON b.approval_id = a.id WHERE a.id = ?", (item_id,)).fetchone()
+    conn.close()
+    if not row or row[0] != "approved" or row[1] != "built" or not row[2]:
+        return None
+    pins = os.path.join(products_dir, row[2], "pins")
+    return pins if os.path.isdir(pins) else None
+
+
+def queue_product_pins(item_id, products_dir, db_path=None, now=None):
+    """Queue one Pinterest job using only pins belonging to an approved built product."""
+    pins = approved_product_pins(item_id, products_dir, db_path)
+    return queue_job("pinterest", item_id, pins, db_path, now) if pins else None
 
 
 def finish_job(job_id, status, error=None, db_path=None, now=None, attempts=1):
