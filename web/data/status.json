@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-22T21:40:53Z",
+ "generated_at": "2026-10-22T21:43:51Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 12,
+  "calls_today": 14,
   "cap": 500
  },
  "agents": [
@@ -59,7 +59,7 @@
     "rewrite"
    ],
    "state": "idle",
-   "tasks_done": 32
+   "tasks_done": 33
   },
   {
    "name": "QA Checker",
@@ -69,7 +69,7 @@
     "review"
    ],
    "state": "idle",
-   "tasks_done": 32
+   "tasks_done": 33
   },
   {
    "name": "Review Worker",
@@ -91,16 +91,22 @@
   }
  ],
  "task_counts": {
-  "done": 91,
-  "queued": 1
+  "done": 93
  },
  "recent_tasks": [
   {
+   "id": 93,
+   "kind": "review",
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
+  },
+  {
    "id": 92,
    "kind": "rewrite",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 91,
@@ -170,13 +176,6 @@
    "kind": "review",
    "status": "done",
    "agent": "QA Checker",
-   "attempts": 1
-  },
-  {
-   "id": 81,
-   "kind": "rewrite",
-   "status": "done",
-   "agent": "Draft Worker",
    "attempts": 1
   }
  ],
