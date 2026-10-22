@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-22T20:14:06Z",
+ "generated_at": "2026-10-22T20:44:07Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 6,
+  "calls_today": 9,
   "cap": 500
  },
  "agents": [
@@ -59,7 +59,7 @@
     "rewrite"
    ],
    "state": "idle",
-   "tasks_done": 29
+   "tasks_done": 32
   },
   {
    "name": "QA Checker",
@@ -91,30 +91,51 @@
   }
  ],
  "task_counts": {
-  "done": 85,
+  "done": 88,
   "queued": 3
  },
  "recent_tasks": [
   {
-   "id": 88,
-   "kind": "draft",
+   "id": 91,
+   "kind": "review",
    "status": "queued",
    "agent": null,
    "attempts": 0
+  },
+  {
+   "id": 90,
+   "kind": "review",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 89,
+   "kind": "review",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 88,
+   "kind": "draft",
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 87,
    "kind": "draft",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 86,
    "kind": "draft",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 85,
@@ -157,30 +178,28 @@
    "status": "done",
    "agent": "QA Checker",
    "attempts": 1
-  },
-  {
-   "id": 79,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1
-  },
-  {
-   "id": 78,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1
-  },
-  {
-   "id": 77,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
   }
  ],
- "pending_approvals": [],
+ "pending_approvals": [
+  {
+   "id": 25,
+   "ts": "2026-10-22T20:44:02.989242",
+   "kind": "public_draft",
+   "title": "Draft #25"
+  },
+  {
+   "id": 26,
+   "ts": "2026-10-22T20:44:05.342897",
+   "kind": "public_draft",
+   "title": "Draft #26"
+  },
+  {
+   "id": 27,
+   "ts": "2026-10-22T20:44:07.696359",
+   "kind": "public_draft",
+   "title": "Draft #27"
+  }
+ ],
  "worker": {
   "running": false,
   "age_seconds": null
