@@ -34,6 +34,7 @@ CLI:
 import json
 import base64
 import binascii
+import datetime
 import re
 import sys
 import time
@@ -47,6 +48,9 @@ API = "https://api.telegram.org/bot{token}/{method}"
 MAX_MESSAGE = 3800          # Telegram limit is 4096 characters
 MAX_UPDATES = 50
 _TIMEOUT = 15
+WAITING_DRAFT_AGE_SECONDS = 12 * 60 * 60
+WAITING_DRAFT_REMINDER_SECONDS = 12 * 60 * 60
+WAITING_DRAFT_REMINDER_STATE = "last_waiting_draft_reminder"
 
 HELP = ("\U0001f336️ Chilli Gavva approvals\n\n"
         "/list - drafts waiting\n"
@@ -488,6 +492,42 @@ def alert_new_drafts(token, owner_chat_id, db_path=None):
     return len(new)
 
 
+def _approval_time(value):
+    """Read an approval timestamp as UTC; malformed old rows are simply not reminders."""
+    try:
+        parsed = datetime.datetime.fromisoformat((value or "").replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+        return parsed.timestamp()
+    except (TypeError, ValueError):
+        return None
+
+
+def remind_waiting_drafts(token, owner_chat_id, db_path=None, now=None):
+    """Send one owner reminder for a queue containing a draft older than 12 hours.
+
+    This is intentionally a nudge only: it never calls an approval-changing
+    function.  The timestamp is retained in telegram_state only after a
+    successful send, so a Telegram outage can be retried later.
+    """
+    now = time.time() if now is None else now
+    pending = guardrails.pending(db_path)
+    has_old_draft = any(ts is not None and now - ts > WAITING_DRAFT_AGE_SECONDS
+                         for ts in (_approval_time(item.get("ts")) for item in pending))
+    if not has_old_draft:
+        return False
+    try:
+        last = float(get_state(WAITING_DRAFT_REMINDER_STATE, 0, db_path) or 0)
+    except (TypeError, ValueError):
+        last = 0
+    if now - last < WAITING_DRAFT_REMINDER_SECONDS:
+        return False
+    if not send_text(token, owner_chat_id, f"{len(pending)} drafts waiting - /list"):
+        return False
+    set_state(WAITING_DRAFT_REMINDER_STATE, now, db_path)
+    return True
+
+
 def run(db_path=None):
     configured, token, chat_id = notify._telegram_configured()
     if not configured:
@@ -497,6 +537,7 @@ def run(db_path=None):
     commands = process_updates(token, chat_id, db_path, stats)
     print(stats_line(stats, subscription_note(token)))
     alerts = alert_new_drafts(token, chat_id, db_path)
+    waiting_reminder = remind_waiting_drafts(token, chat_id, db_path)
     try:  # one short health report a day (first run after 03:30 UTC), weekly letter on Sundays
         import daily_report
         daily = daily_report.maybe_send(lambda text: send_text(token, chat_id, text), get_state, set_state, db_path)
@@ -505,7 +546,8 @@ def run(db_path=None):
         daily = False
     print(f"Telegram inbox: {commands} command(s) handled, {alerts} new draft(s) announced"
           + (", daily report sent." if daily else "."))
-    return {"configured": True, "commands": commands, "alerts": alerts, "daily_report": daily}
+    return {"configured": True, "commands": commands, "alerts": alerts,
+            "waiting_reminder": waiting_reminder, "daily_report": daily}
 
 
 def main(argv):
