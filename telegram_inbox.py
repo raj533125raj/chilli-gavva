@@ -528,6 +528,16 @@ def remind_waiting_drafts(token, owner_chat_id, db_path=None, now=None):
     return True
 
 
+def daily_waiting_line(db_path=None, now=None):
+    """The queue-age line appended to the owner-only daily Telegram report."""
+    now = time.time() if now is None else now
+    pending = guardrails.pending(db_path)
+    times = [stamp for stamp in (_approval_time(item.get("ts")) for item in pending)
+             if stamp is not None]
+    oldest_hours = max(0, int((now - min(times)) // 3600)) if times else 0
+    return f"Drafts waiting: {len(pending)} (oldest {oldest_hours}h)"
+
+
 def run(db_path=None):
     configured, token, chat_id = notify._telegram_configured()
     if not configured:
@@ -540,7 +550,9 @@ def run(db_path=None):
     waiting_reminder = remind_waiting_drafts(token, chat_id, db_path)
     try:  # one short health report a day (first run after 03:30 UTC), weekly letter on Sundays
         import daily_report
-        daily = daily_report.maybe_send(lambda text: send_text(token, chat_id, text), get_state, set_state, db_path)
+        daily = daily_report.maybe_send(
+            lambda text: send_text(token, chat_id, text + "\n" + daily_waiting_line(db_path)),
+            get_state, set_state, db_path)
     except Exception as exc:
         print(f"Daily report skipped: {type(exc).__name__}")
         daily = False

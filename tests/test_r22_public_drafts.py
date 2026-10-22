@@ -83,5 +83,25 @@ class WaitingDraftReminderTests(unittest.TestCase):
             self.assertIsNone(inbox.get_state(inbox.WAITING_DRAFT_REMINDER_STATE, db_path=db))
 
 
+class DailyWaitingSummaryTests(unittest.TestCase):
+    def test_daily_summary_reports_waiting_count_and_oldest_age(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db = os.path.join(tmp, "robot.db")
+            conn = guardrails.connect(db)
+            conn.execute("INSERT INTO approvals (ts, kind, title, payload, status) VALUES "
+                         "('2026-10-20T03:40:00', 'public_draft', 'one', 'body', 'pending')")
+            conn.execute("INSERT INTO approvals (ts, kind, title, payload, status) VALUES "
+                         "('2026-10-20T11:00:00', 'public_draft', 'two', 'body', 'pending')")
+            conn.commit()
+            conn.close()
+            now = inbox._approval_time("2026-10-20T15:59:00")
+            self.assertEqual(inbox.daily_waiting_line(db, now), "Drafts waiting: 2 (oldest 12h)")
+
+    def test_empty_daily_summary_has_zero_waiting(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(inbox.daily_waiting_line(os.path.join(tmp, "robot.db"), 0),
+                             "Drafts waiting: 0 (oldest 0h)")
+
+
 if __name__ == "__main__":
     unittest.main()
