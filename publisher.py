@@ -5,7 +5,11 @@ records local and stores only a short, safe error label rather than provider
 responses or credentials.
 """
 import datetime
+import json
+import os
 import sqlite3
+import urllib.error
+import urllib.request
 
 import guardrails
 
@@ -110,15 +114,104 @@ def queue_job(publish_type, item_id, payload_path, db_path=None, now=None):
         conn.close()
 
 
-def finish_job(job_id, status, error=None, db_path=None, now=None):
+def finish_job(job_id, status, error=None, db_path=None, now=None, attempts=1):
     """Finish one job with a short caller-supplied safe error category."""
     if status not in JOB_STATUSES or status == "queued":
         raise ValueError("invalid final status")
     safe_error = (error or "")[:160]
     conn = connect(db_path)
-    cur = conn.execute("UPDATE publish_jobs SET status = ?, attempts = attempts + 1, last_error = ?, finished_ts = ? "
+    cur = conn.execute("UPDATE publish_jobs SET status = ?, attempts = attempts + ?, last_error = ?, finished_ts = ? "
                        "WHERE id = ? AND status = 'queued'",
-                       (status, safe_error or None, utc_now(now), job_id))
+                       (status, attempts, safe_error or None, utc_now(now), job_id))
     conn.commit()
     conn.close()
     return bool(cur.rowcount)
+
+
+def _http_request(method, url, headers, body):
+    request = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), headers=headers, method=method)
+    with urllib.request.urlopen(request, timeout=15) as response:
+        return {"status": response.getcode()}
+
+
+class PublishAdapter:
+    """Provider adapter with a single injectable request function and no credential logging."""
+    publish_type = None
+    token_env = None
+    required_env = ()
+    endpoint = ""
+
+    def __init__(self, env=None):
+        self.env = env if env is not None else os.environ
+        self.dry_run_log = []
+
+    def configured(self):
+        return all(self.env.get(name, "").strip() for name in self.required_env)
+
+    def request_data(self, job):
+        return "POST", self.endpoint, {"Authorization": "Bearer " + self.env[self.token_env]}, {
+            "item_id": job["item_id"], "payload_path": job["payload_path"]}
+
+    def publish(self, job, http_request=None, dry_run=False):
+        """Return (status, safe error label, attempts)."""
+        if not self.configured():
+            return "skipped", "not configured", 0
+        if dry_run:
+            self.dry_run_log.append({"type": self.publish_type, "item_id": job["item_id"],
+                                     "payload_path": job["payload_path"]})
+            return "done", None, 0
+        request = http_request or _http_request
+        method, url, headers, body = self.request_data(job)
+        for attempt in (1, 2):
+            try:
+                reply = request(method, url, headers, body) or {}
+                status_code = int(reply.get("status", 0))
+            except (OSError, TimeoutError, urllib.error.URLError):
+                status_code = 599
+            if 200 <= status_code < 300:
+                return "done", None, attempt
+            if status_code < 500:
+                return "failed", "permanent error", attempt
+        return "failed", "temporary error", 2
+
+
+class GumroadAdapter(PublishAdapter):
+    publish_type = "gumroad"
+    token_env = "GUMROAD_TOKEN"
+    required_env = ("GUMROAD_TOKEN",)
+    endpoint = "https://api.gumroad.com/v2/products"
+
+
+class PinterestAdapter(PublishAdapter):
+    publish_type = "pinterest"
+    token_env = "PINTEREST_TOKEN"
+    required_env = ("PINTEREST_TOKEN",)
+    endpoint = "https://api.pinterest.com/v5/pins"
+
+
+class TelegramChannelAdapter(PublishAdapter):
+    publish_type = "telegram"
+    token_env = "TELEGRAM_BOT_TOKEN"
+    required_env = ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHANNEL_ID")
+
+    @property
+    def endpoint(self):
+        return "https://api.telegram.org/bot" + self.env[self.token_env] + "/sendMessage"
+
+    def request_data(self, job):
+        # The endpoint necessarily carries the bot credential, but errors and logs never do.
+        return "POST", self.endpoint, {"Content-Type": "application/json"}, {
+            "chat_id": self.env["TELEGRAM_CHANNEL_ID"], "item_id": job["item_id"],
+            "payload_path": job["payload_path"]}
+
+
+ADAPTERS = {"gumroad": GumroadAdapter, "pinterest": PinterestAdapter, "telegram": TelegramChannelAdapter}
+
+
+def attempt_job(job, db_path=None, http_request=None, dry_run=False, now=None):
+    """Perform one queued job only when its own switch and the global stop allow it."""
+    if not can_publish(job["type"], db_path):
+        return None
+    outcome, error, attempts = ADAPTERS[job["type"]]().publish(job, http_request, dry_run)
+    finish_job(job["id"], outcome, error, db_path, now, attempts)
+    return outcome
