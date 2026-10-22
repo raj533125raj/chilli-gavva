@@ -547,6 +547,11 @@ def run(db_path=None):
         return {"configured": False, "commands": 0, "alerts": 0}
     stats = new_stats()
     commands = process_updates(token, chat_id, db_path, stats)
+    try:
+        import control_inbox
+        control_inbox.run(db_path, send=lambda line: send_text(token, chat_id, line))
+    except Exception as exc:
+        print(f"Control inbox skipped: {type(exc).__name__}")
     print(stats_line(stats, subscription_note(token)))
     alerts = alert_new_drafts(token, chat_id, db_path)
     waiting_reminder = remind_waiting_drafts(token, chat_id, db_path)
