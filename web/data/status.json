@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-22T02:40:44Z",
+ "generated_at": "2026-10-22T02:42:32Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 0,
+  "calls_today": 2,
   "cap": 500
  },
  "agents": [
@@ -179,26 +179,7 @@
    "attempts": 1
   }
  ],
- "pending_approvals": [
-  {
-   "id": 22,
-   "ts": "2026-10-21T20:40:14.464938",
-   "kind": "public_draft",
-   "title": "Draft: [ADHD Planners Agent] Goal-tracking planner for ADHD student (v4, llm)"
-  },
-  {
-   "id": 23,
-   "ts": "2026-10-21T20:40:16.447891",
-   "kind": "public_draft",
-   "title": "Draft: [ADHD Planners Agent] Social event organizer for neurodiverg (v4, llm) (rewritten)"
-  },
-  {
-   "id": 24,
-   "ts": "2026-10-21T20:40:18.514198",
-   "kind": "public_draft",
-   "title": "Draft: [ADHD Planners Agent] Travel itinerary planner for ADHD trav (v4, llm)"
-  }
- ],
+ "pending_approvals": [],
  "worker": {
   "running": false,
   "age_seconds": null
