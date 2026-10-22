@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-22T03:42:37Z",
+ "generated_at": "2026-10-22T20:14:06Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 3,
+  "calls_today": 6,
   "cap": 500
  },
  "agents": [
@@ -48,7 +48,7 @@
     "research"
    ],
    "state": "idle",
-   "tasks_done": 24
+   "tasks_done": 27
   },
   {
    "name": "Draft Worker",
@@ -91,9 +91,52 @@
   }
  ],
  "task_counts": {
-  "done": 82
+  "done": 85,
+  "queued": 3
  },
  "recent_tasks": [
+  {
+   "id": 88,
+   "kind": "draft",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 87,
+   "kind": "draft",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 86,
+   "kind": "draft",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 85,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1
+  },
+  {
+   "id": 84,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1
+  },
+  {
+   "id": 83,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1
+  },
   {
    "id": 82,
    "kind": "review",
@@ -134,48 +177,6 @@
    "kind": "draft",
    "status": "done",
    "agent": "Draft Worker",
-   "attempts": 1
-  },
-  {
-   "id": 76,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
-  },
-  {
-   "id": 75,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
-  },
-  {
-   "id": 74,
-   "kind": "research",
-   "status": "done",
-   "agent": "Research Worker",
-   "attempts": 1
-  },
-  {
-   "id": 73,
-   "kind": "research",
-   "status": "done",
-   "agent": "Research Worker",
-   "attempts": 1
-  },
-  {
-   "id": 72,
-   "kind": "research",
-   "status": "done",
-   "agent": "Research Worker",
-   "attempts": 1
-  },
-  {
-   "id": 71,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
    "attempts": 1
   }
  ],
