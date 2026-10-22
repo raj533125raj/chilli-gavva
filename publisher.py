@@ -40,6 +40,10 @@ def connect(db_path=None):
         UNIQUE(publish_type, item_id)
     )""")
     conn.execute("CREATE TABLE IF NOT EXISTS publish_state (key TEXT PRIMARY KEY, value TEXT)")
+    conn.execute("""CREATE TABLE IF NOT EXISTS publish_report_lines (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, publish_type TEXT NOT NULL,
+        status TEXT NOT NULL, ts TEXT NOT NULL
+    )""")
     return conn
 
 
@@ -144,9 +148,32 @@ def finish_job(job_id, status, error=None, db_path=None, now=None, attempts=1):
     cur = conn.execute("UPDATE publish_jobs SET status = ?, attempts = attempts + ?, last_error = ?, finished_ts = ? "
                        "WHERE id = ? AND status = 'queued'",
                        (status, attempts, safe_error or None, utc_now(now), job_id))
+    if cur.rowcount:
+        publish_type = conn.execute("SELECT publish_type FROM publish_jobs WHERE id = ?", (job_id,)).fetchone()[0]
+        conn.execute("INSERT INTO publish_report_lines (publish_type, status, ts) VALUES (?, ?, ?)",
+                     (publish_type, status, utc_now(now)))
     conn.commit()
     conn.close()
     return bool(cur.rowcount)
+
+
+def daily_report_lines(db_path=None, day=None):
+    """Short owner-report lines for every publishing result recorded on one UTC day."""
+    day = day or datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+    conn = connect(db_path)
+    rows = conn.execute("SELECT publish_type, status, COUNT(*) FROM publish_report_lines WHERE ts LIKE ? "
+                        "GROUP BY publish_type, status", (f"{day}%",)).fetchall()
+    conn.close()
+    counts = {(kind, status): count for kind, status, count in rows}
+    labels = {"gumroad": "Gumroad", "pinterest": "Pinterest", "telegram": "Telegram"}
+    lines = []
+    for kind in PUBLISH_TYPES:
+        total = sum(counts.get((kind, status), 0) for status in ("done", "failed", "skipped"))
+        if total:
+            line = f"{labels[kind]}: {counts.get((kind, 'done'), 0)} posted, {counts.get((kind, 'failed'), 0)} failed"
+            skipped = counts.get((kind, "skipped"), 0)
+            lines.append(line + (f", {skipped} skipped" if skipped else ""))
+    return lines
 
 
 def _http_request(method, url, headers, body):
