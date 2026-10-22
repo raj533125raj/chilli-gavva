@@ -329,10 +329,12 @@ def handle_command(cmd, ids, db_path=None):
         return decide_text(ids, False, db_path)
     if cmd == "pause":
         guardrails.set_paused(True, db_path)
+        import publisher; publisher.set_global_stop(True, db_path)
         return ("⏸ Paused. From the next run, no AI work and no new drafts. "
                 "I will still answer here. Send /resume to start again.")
     if cmd == "resume":
         guardrails.set_paused(False, db_path)
+        import publisher; publisher.set_global_stop(False, db_path)
         return "▶️ Resumed. Work starts again on the next run."
     if cmd == "buttontest":
         return "Button test:"

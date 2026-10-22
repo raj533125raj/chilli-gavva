@@ -49,6 +49,46 @@ def jobs(db_path=None):
     return [dict(zip(keys, row)) for row in rows]
 
 
+def get_state(key, default=None, db_path=None):
+    conn = connect(db_path)
+    row = conn.execute("SELECT value FROM publish_state WHERE key = ?", (key,)).fetchone()
+    conn.close()
+    return row[0] if row else default
+
+
+def set_state(key, value, db_path=None):
+    conn = connect(db_path)
+    conn.execute("INSERT INTO publish_state (key, value) VALUES (?, ?) "
+                 "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (key, str(value)))
+    conn.commit()
+    conn.close()
+
+
+def set_enabled(publish_type, enabled, db_path=None):
+    if publish_type not in PUBLISH_TYPES:
+        raise ValueError("unknown publish type")
+    set_state(f"publish_enabled:{publish_type}", "1" if enabled else "0", db_path)
+
+
+def enabled(publish_type, db_path=None):
+    if publish_type not in PUBLISH_TYPES:
+        return False
+    return get_state(f"publish_enabled:{publish_type}", "0", db_path) == "1"
+
+
+def set_global_stop(stopped, db_path=None):
+    """The owner pause control for every publish type at once."""
+    set_state("publish_global_stop", "1" if stopped else "0", db_path)
+
+
+def globally_stopped(db_path=None):
+    return get_state("publish_global_stop", "0", db_path) == "1"
+
+
+def can_publish(publish_type, db_path=None):
+    return enabled(publish_type, db_path) and not globally_stopped(db_path) and not guardrails.is_killed()
+
+
 def queue_job(publish_type, item_id, payload_path, db_path=None, now=None):
     """Add exactly one publish job for an item/type pair; duplicate requests are harmless."""
     if publish_type not in PUBLISH_TYPES:
