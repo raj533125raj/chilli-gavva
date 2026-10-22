@@ -54,10 +54,12 @@ class WaitingDraftReminderTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             db = os.path.join(tmp, "robot.db")
             old = "2026-10-20T00:00:00"
+            approval_ids = []
             for number in range(3):
                 conn = guardrails.connect(db)
                 conn.execute("INSERT INTO approvals (ts, kind, title, payload, status) VALUES (?, ?, ?, ?, 'pending')",
                              (old, "public_draft", f"Draft {number}", "body"))
+                approval_ids.append(conn.execute("SELECT last_insert_rowid()").fetchone()[0])
                 conn.commit()
                 conn.close()
             now = inbox._approval_time("2026-10-20T12:01:00")
@@ -67,7 +69,8 @@ class WaitingDraftReminderTests(unittest.TestCase):
                 self.assertFalse(inbox.remind_waiting_drafts("fake", "owner", db, now + 60))
                 self.assertTrue(inbox.remind_waiting_drafts("fake", "owner", db, now + 12 * 60 * 60))
             self.assertEqual(sent, ["3 drafts waiting - /list", "3 drafts waiting - /list"])
-            self.assertEqual([item["status"] for item in guardrails.pending(db)], ["pending"] * 3)
+            self.assertEqual([guardrails.get_approval(item_id, db)["status"] for item_id in approval_ids],
+                             ["pending"] * 3)
 
     def test_no_reminder_before_twelve_hours_or_when_send_fails(self):
         with tempfile.TemporaryDirectory() as tmp:
