@@ -5,6 +5,8 @@ import json
 import os
 import time
 import calendar
+import datetime
+import re
 import urllib.request
 
 import publisher
@@ -72,10 +74,16 @@ def _reason(record, key, now):
     if not isinstance(record, dict) or not all(field in record for field in fields): return "invalid request"
     signed = {field: record[field] for field in fields}
     signature = record.get("signature")
-    expected = hmac.new(key.encode(), json.dumps(signed, separators=(",", ":")).encode(), hashlib.sha256).hexdigest()
-    # JavaScript JSON.stringify has no spaces; Python's compact JSON matches this request shape.
+    expected = hmac.new(key.encode(), json.dumps(signed, separators=(",", ":"), ensure_ascii=False).encode(), hashlib.sha256).hexdigest()
+    # JavaScript JSON.stringify has no spaces and leaves non-ASCII characters intact.
     if not isinstance(signature, str) or not hmac.compare_digest(expected, signature): return "bad signature"
-    try: created = calendar.timegm(time.strptime(record["created_at"], "%Y-%m-%dT%H:%M:%S.000Z"))
+    try:
+        stamp = record["created_at"]
+        match = re.fullmatch(r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?Z", stamp or "")
+        if not match:
+            raise ValueError
+        fraction = (match.group(2) or "").ljust(6, "0")[:6]
+        created = datetime.datetime.strptime(match.group(1), "%Y-%m-%dT%H:%M:%S").replace(tzinfo=datetime.timezone.utc).timestamp() + (int(fraction) / 1000000 if fraction else 0)
     except (TypeError, ValueError): return "invalid time"
     if now - created > 24 * 3600 or created - now > 300: return "expired"
     if record["action"] not in ACTION_NAMES: return "unknown action"

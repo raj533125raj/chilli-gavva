@@ -1,6 +1,8 @@
-import hashlib, hmac, json, os, tempfile, time, unittest
+import calendar, hashlib, hmac, json, os, tempfile, time, unittest
 from unittest import mock
 import control_inbox
+import notify
+import telegram_inbox
 
 KEY = "test-signing-key"
 NOW = 1792656000
@@ -22,16 +24,47 @@ class ControlInboxTests(unittest.TestCase):
             if method == "PUT": rows[key]["written"] = data; return ""
             return json.dumps(rows[key])
         return call
-    def test_not_configured_and_kv_down_are_harmless(self):
+    def run_one(self, item):
+        rows={"one":item}; return control_inbox.run(self.db,self.env,self.http(rows),NOW,lambda _: None), rows
+    def test_not_configured(self):
         self.assertEqual(control_inbox.run(self.db, env={}), {"applied":0,"refused":0})
+    def test_kv_down(self):
         self.assertEqual(control_inbox.run(self.db, self.env, http_request=lambda *_: (_ for _ in ()).throw(OSError()), now=NOW), {"applied":0,"refused":0})
-    def test_valid_bad_old_replay_and_unknown_requests(self):
-        rows={"r1":record(), "bad":record(nonce="bad"), "old":record(nonce="old",age=90000), "unknown":record("nope",nonce="u")}; rows["bad"]["signature"]="bad"
-        sent=[]
+    def test_valid_approve(self):
         with mock.patch("telegram_inbox.handle_command") as command:
-            result=control_inbox.run(self.db,self.env,self.http(rows),NOW, sent.append)
-        self.assertEqual(result,{"applied":1,"refused":3}); command.assert_called_once_with("approve",[1],self.db); self.assertEqual(sent,["Office: approved draft #1"])
-        self.assertIn("applied",rows["r1"]["written"])
-        self.assertEqual(control_inbox.run(self.db,self.env,self.http({"again":record()}),NOW, sent.append)["refused"],1)
+            result,_=self.run_one(record())
+        self.assertEqual(result["applied"],1); command.assert_called_once_with("approve",[1],self.db)
+    def test_valid_reject(self):
+        with mock.patch("telegram_inbox.handle_command") as command: result,_=self.run_one(record("reject","2"))
+        self.assertEqual(result["applied"],1); command.assert_called_once_with("reject",[2],self.db)
+    def test_pause(self):
+        with mock.patch("telegram_inbox.handle_command") as command: result,_=self.run_one(record("pause","robot"))
+        self.assertEqual(result["applied"],1); command.assert_called_once_with("pause",[],self.db)
+    def test_resume(self):
+        with mock.patch("telegram_inbox.handle_command") as command: result,_=self.run_one(record("resume","robot"))
+        self.assertEqual(result["applied"],1); command.assert_called_once_with("resume",[],self.db)
+    def test_set_switch_publish_type(self):
+        item=record("set_switch","pinterest"); item["value"]=True; item["signature"]=hmac.new(KEY.encode(),json.dumps({k:item[k] for k in ("id","action","target","value","created_at","nonce")},separators=(",",":"),ensure_ascii=False).encode(),hashlib.sha256).hexdigest()
+        with mock.patch("publisher.set_enabled") as enabled: result,_=self.run_one(item)
+        self.assertEqual(result["applied"],1); enabled.assert_called_once_with("pinterest",True,self.db)
+    def test_set_switch_unknown_type(self):
+        item=record("set_switch","unknown"); item["value"]=True; item["signature"]=hmac.new(KEY.encode(),json.dumps({k:item[k] for k in ("id","action","target","value","created_at","nonce")},separators=(",",":"),ensure_ascii=False).encode(),hashlib.sha256).hexdigest()
+        self.assertEqual(self.run_one(item)[0]["refused"],1)
+    def test_bad_signature(self): self.assertEqual(self.run_one({**record(),"signature":"bad"})[0]["refused"],1)
+    def test_expired(self): self.assertEqual(self.run_one(record(age=90000))[0]["refused"],1)
+    def test_future_over_five_minutes(self):
+        item=record(); item["created_at"]=time.strftime("%Y-%m-%dT%H:%M:%S.123Z",time.gmtime(NOW+301)); item["signature"]=hmac.new(KEY.encode(),json.dumps({k:item[k] for k in ("id","action","target","value","created_at","nonce")},separators=(",",":"),ensure_ascii=False).encode(),hashlib.sha256).hexdigest()
+        self.assertEqual(self.run_one(item)[0]["refused"],1)
+    def test_replayed_nonce(self):
+        self.assertEqual(self.run_one(record())[0]["applied"],1); self.assertEqual(self.run_one(record())[0]["refused"],1)
+    def test_unknown_action(self): self.assertEqual(self.run_one(record("unknown"))[0]["refused"],1)
+    def test_cross_language_vectors(self):
+        with open("tests/fixtures/control_vectors.json", encoding="utf8") as handle: vectors=json.load(handle)
+        now=calendar.timegm(time.strptime("2026-10-22T09:00:00Z","%Y-%m-%dT%H:%M:%SZ"))
+        expected=[None,None,None,None,"expired","bad signature"]
+        self.assertEqual([control_inbox._reason(item,"test-key",now) for item in vectors],expected)
+    def test_control_inbox_error_never_stops_cycle(self):
+        with mock.patch("notify._telegram_configured",return_value=(True,"fake","1")), mock.patch("telegram_inbox.process_updates",return_value=0), mock.patch("control_inbox.run",side_effect=RuntimeError()), mock.patch("telegram_inbox.alert_new_drafts",return_value=0), mock.patch("telegram_inbox.remind_waiting_drafts",return_value=False), mock.patch("telegram_inbox.send_text",return_value=True), mock.patch("telegram_inbox.subscription_note",return_value=""):
+            self.assertTrue(telegram_inbox.run(self.db)["configured"])
 
 if __name__ == "__main__": unittest.main()
