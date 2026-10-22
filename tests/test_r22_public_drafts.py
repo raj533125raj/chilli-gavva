@@ -27,6 +27,25 @@ class PublicDraftTitleTests(unittest.TestCase):
                 "kind": "public_draft", "title": f"Draft #{approval_id}",
             }])
 
+    def test_full_public_file_excludes_every_realistic_draft_detail(self):
+        """No public field may accidentally reintroduce words from a queued idea."""
+        with tempfile.TemporaryDirectory() as tmp:
+            db = os.path.join(tmp, "robot.db")
+            path = os.path.join(tmp, "status.json")
+            title = "Draft: [ADHD Planners Agent] Travel itinerary planner"
+            product_name = "Calm Trip Companion"
+            prompt = "Write a private planner prompt for overwhelmed travellers"
+            price = "$17.50"
+            payload = f"PRODUCT NAME: {product_name}\nPROMPT: {prompt}\nPRICE: {price}"
+            guardrails.request_approval("public_draft", title, payload, db_path=db)
+
+            export_status.write_status(path, db)
+            with open(path, encoding="utf-8") as status_file:
+                public_json = status_file.read()
+
+            for private_text in (title, product_name, prompt, price, "17.50"):
+                self.assertNotIn(private_text, public_json)
+
 
 if __name__ == "__main__":
     unittest.main()
