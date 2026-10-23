@@ -206,8 +206,11 @@ def write_status(path=None, db_path=None):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         # Keep build_status's legacy in-process shape; the file gains only extra fields.
-        snapshot = build_status(db_path)
+        snapshot = dict(build_status(db_path))
         snapshot["ai_health"] = _ai_health(db_path, snapshot["generated_at"])
+        # Actions totals are fetched remotely by always_on, not persisted locally.
+        # Do not contact that service or substitute LLM usage or a guessed plan limit.
+        snapshot["minutes"] = {"used_this_month": None, "limit": None}
         json.dump(snapshot, f, indent=1)
     return path
 
