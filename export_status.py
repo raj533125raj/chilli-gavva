@@ -6,6 +6,7 @@ API keys, config values, or the full text of drafts.
 import datetime
 import json
 import os
+from pathlib import Path
 import sqlite3
 import sys
 
@@ -152,11 +153,62 @@ def build_status(db_path=None):
     }
 
 
+# Names are public constants from llm_router._PROVIDERS, never configuration values.
+PUBLIC_AI_PROVIDERS = ("Groq", "Gemini", "GitHubModels", "Cloudflare", "OpenRouter", "FreeLLMAPI")
+
+
+def _ai_health(db_path=None, checked_at=None):
+    """Read router observations without probing providers or reading credentials.
+
+    provider_log stores daily counts, not ordered events or model identifiers.
+    Only a latest day with exclusively successes/failures establishes an outcome;
+    mixed counts cannot establish the last outcome. Missing models stay null.
+    checked_at is the UTC snapshot check time, NOT a fabricated last-call time.
+    """
+    checked_at = checked_at or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    result = {name: {"provider": name, "model": None, "state": "unknown", "checked_at": checked_at}
+              for name in PUBLIC_AI_PROVIDERS}
+    conn = None
+    try:
+        uri = Path(db_path or guardrails.DB_PATH).resolve().as_uri() + "?mode=ro"
+        conn = sqlite3.connect(uri, uri=True)
+        if not _has_table(conn, "provider_log"):
+            return list(result.values())
+        rows = conn.execute("SELECT day, provider, ok, fail FROM provider_log ORDER BY day DESC").fetchall()
+        seen = set()
+        for day, provider, ok, fail in rows:
+            if provider not in result or provider in seen:
+                continue
+            try:
+                observed_day = datetime.date.fromisoformat(day)
+            except (TypeError, ValueError):
+                continue
+            if observed_day.isoformat() != day or day > checked_at[:10]:
+                continue
+            seen.add(provider)
+            if not all(isinstance(count, int) and count >= 0 for count in (ok, fail)):
+                continue
+            if ok > 0 and fail == 0:
+                result[provider]["state"] = "up"
+            elif fail > 0 and ok == 0:
+                result[provider]["state"] = "down"
+    except (sqlite3.Error, OSError, ValueError):
+        # A missing/unreadable recording is unknown, not a provider outage.
+        pass
+    finally:
+        if conn is not None:
+            conn.close()
+    return list(result.values())
+
+
 def write_status(path=None, db_path=None):
     path = path or STATUS_PATH
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(build_status(db_path), f, indent=1)
+        # Keep build_status's legacy in-process shape; the file gains only extra fields.
+        snapshot = build_status(db_path)
+        snapshot["ai_health"] = _ai_health(db_path, snapshot["generated_at"])
+        json.dump(snapshot, f, indent=1)
     return path
 
 
