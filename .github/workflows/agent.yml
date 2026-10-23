@@ -179,6 +179,10 @@ jobs:
           # read-only: the daily report asks the alarm clock how many minutes ran this month
           ALWAYS_ON_URL: ${{ secrets.ALWAYS_ON_URL }}
           ALWAYS_ON_SECRET: ${{ secrets.ALWAYS_ON_SECRET }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_KV_NAMESPACE_ID: ${{ secrets.CF_KV_NAMESPACE_ID }}
+          CONTROL_SIGNING_KEY: ${{ secrets.CONTROL_SIGNING_KEY }}
         run: python3 telegram_inbox.py
 
       - name: Export approved content
