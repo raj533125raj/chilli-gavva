@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-24T19:49:57Z",
+ "generated_at": "2026-10-24T20:19:45Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 5,
+  "calls_today": 8,
   "cap": 500
  },
  "agents": [
@@ -48,7 +48,7 @@
     "research"
    ],
    "state": "idle",
-   "tasks_done": 30
+   "tasks_done": 33
   },
   {
    "name": "Draft Worker",
@@ -91,9 +91,52 @@
   }
  ],
  "task_counts": {
-  "done": 102
+  "done": 105,
+  "queued": 3
  },
  "recent_tasks": [
+  {
+   "id": 108,
+   "kind": "draft",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 107,
+   "kind": "draft",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 106,
+   "kind": "draft",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 105,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1
+  },
+  {
+   "id": 104,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1
+  },
+  {
+   "id": 103,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1
+  },
   {
    "id": 102,
    "kind": "review",
@@ -135,48 +178,6 @@
    "status": "done",
    "agent": "Draft Worker",
    "attempts": 1
-  },
-  {
-   "id": 96,
-   "kind": "research",
-   "status": "done",
-   "agent": "Research Worker",
-   "attempts": 1
-  },
-  {
-   "id": 95,
-   "kind": "research",
-   "status": "done",
-   "agent": "Research Worker",
-   "attempts": 1
-  },
-  {
-   "id": 94,
-   "kind": "research",
-   "status": "done",
-   "agent": "Research Worker",
-   "attempts": 1
-  },
-  {
-   "id": 93,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1
-  },
-  {
-   "id": 92,
-   "kind": "rewrite",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
-  },
-  {
-   "id": 91,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1
   }
  ],
  "pending_approvals": [
@@ -196,37 +197,37 @@
    "provider": "Groq",
    "model": null,
    "state": "up",
-   "checked_at": "2026-10-24T19:49:57Z"
+   "checked_at": "2026-10-24T20:19:45Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "down",
-   "checked_at": "2026-10-24T19:49:57Z"
+   "checked_at": "2026-10-24T20:19:45Z"
   },
   {
    "provider": "GitHubModels",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-24T19:49:57Z"
+   "checked_at": "2026-10-24T20:19:45Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "up",
-   "checked_at": "2026-10-24T19:49:57Z"
+   "checked_at": "2026-10-24T20:19:45Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-24T19:49:57Z"
+   "checked_at": "2026-10-24T20:19:45Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-24T19:49:57Z"
+   "checked_at": "2026-10-24T20:19:45Z"
   }
  ],
  "minutes": {
