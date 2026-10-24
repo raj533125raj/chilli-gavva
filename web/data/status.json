@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-24T20:19:45Z",
+ "generated_at": "2026-10-24T20:49:55Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 8,
+  "calls_today": 11,
   "cap": 500
  },
  "agents": [
@@ -59,7 +59,7 @@
     "rewrite"
    ],
    "state": "idle",
-   "tasks_done": 36
+   "tasks_done": 39
   },
   {
    "name": "QA Checker",
@@ -91,30 +91,51 @@
   }
  ],
  "task_counts": {
-  "done": 105,
+  "done": 108,
   "queued": 3
  },
  "recent_tasks": [
   {
-   "id": 108,
-   "kind": "draft",
+   "id": 111,
+   "kind": "review",
    "status": "queued",
    "agent": null,
    "attempts": 0
+  },
+  {
+   "id": 110,
+   "kind": "review",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 109,
+   "kind": "review",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0
+  },
+  {
+   "id": 108,
+   "kind": "draft",
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 107,
    "kind": "draft",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 106,
    "kind": "draft",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 105,
@@ -157,27 +178,6 @@
    "status": "done",
    "agent": "QA Checker",
    "attempts": 1
-  },
-  {
-   "id": 99,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
-  },
-  {
-   "id": 98,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
-  },
-  {
-   "id": 97,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1
   }
  ],
  "pending_approvals": [
@@ -186,6 +186,24 @@
    "ts": "2026-10-23T21:28:52.560413",
    "kind": "public_draft",
    "title": "Draft #28"
+  },
+  {
+   "id": 31,
+   "ts": "2026-10-24T20:49:50.489908",
+   "kind": "public_draft",
+   "title": "Draft #31"
+  },
+  {
+   "id": 32,
+   "ts": "2026-10-24T20:49:52.986919",
+   "kind": "public_draft",
+   "title": "Draft #32"
+  },
+  {
+   "id": 33,
+   "ts": "2026-10-24T20:49:55.205192",
+   "kind": "public_draft",
+   "title": "Draft #33"
   }
  ],
  "worker": {
@@ -197,37 +215,37 @@
    "provider": "Groq",
    "model": null,
    "state": "up",
-   "checked_at": "2026-10-24T20:19:45Z"
+   "checked_at": "2026-10-24T20:49:55Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "down",
-   "checked_at": "2026-10-24T20:19:45Z"
+   "checked_at": "2026-10-24T20:49:55Z"
   },
   {
    "provider": "GitHubModels",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-24T20:19:45Z"
+   "checked_at": "2026-10-24T20:49:55Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "up",
-   "checked_at": "2026-10-24T20:19:45Z"
+   "checked_at": "2026-10-24T20:49:55Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-24T20:19:45Z"
+   "checked_at": "2026-10-24T20:49:55Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-24T20:19:45Z"
+   "checked_at": "2026-10-24T20:49:55Z"
   }
  ],
  "minutes": {
