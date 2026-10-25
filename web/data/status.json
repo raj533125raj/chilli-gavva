@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-25T20:52:37Z",
+ "generated_at": "2026-10-25T20:55:55Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 8,
+  "calls_today": 11,
   "cap": 500
  },
  "agents": [
@@ -69,7 +69,7 @@
     "review"
    ],
    "state": "idle",
-   "tasks_done": 39
+   "tasks_done": 42
   },
   {
    "name": "Review Worker",
@@ -91,30 +91,29 @@
   }
  ],
  "task_counts": {
-  "done": 117,
-  "queued": 3
+  "done": 120
  },
  "recent_tasks": [
   {
    "id": 120,
    "kind": "review",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 119,
    "kind": "review",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 118,
    "kind": "review",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
   },
   {
    "id": 117,
@@ -209,37 +208,37 @@
    "provider": "Groq",
    "model": null,
    "state": "up",
-   "checked_at": "2026-10-25T20:52:37Z"
+   "checked_at": "2026-10-25T20:55:55Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "down",
-   "checked_at": "2026-10-25T20:52:37Z"
+   "checked_at": "2026-10-25T20:55:55Z"
   },
   {
    "provider": "GitHubModels",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-25T20:52:37Z"
+   "checked_at": "2026-10-25T20:55:55Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "up",
-   "checked_at": "2026-10-25T20:52:37Z"
+   "checked_at": "2026-10-25T20:55:55Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-25T20:52:37Z"
+   "checked_at": "2026-10-25T20:55:55Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-25T20:52:37Z"
+   "checked_at": "2026-10-25T20:55:55Z"
   }
  ],
  "minutes": {
