@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-26T03:24:59Z",
+ "generated_at": "2026-10-26T03:55:48Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 0,
+  "calls_today": 2,
   "cap": 500
  },
  "agents": [
@@ -179,26 +179,7 @@
    "attempts": 1
   }
  ],
- "pending_approvals": [
-  {
-   "id": 34,
-   "ts": "2026-10-25T20:52:32.860965",
-   "kind": "public_draft",
-   "title": "Draft #34"
-  },
-  {
-   "id": 35,
-   "ts": "2026-10-25T20:52:35.450455",
-   "kind": "public_draft",
-   "title": "Draft #35"
-  },
-  {
-   "id": 36,
-   "ts": "2026-10-25T20:52:37.949469",
-   "kind": "public_draft",
-   "title": "Draft #36"
-  }
- ],
+ "pending_approvals": [],
  "worker": {
   "running": false,
   "age_seconds": null
@@ -208,37 +189,37 @@
    "provider": "Groq",
    "model": null,
    "state": "up",
-   "checked_at": "2026-10-26T03:24:59Z"
+   "checked_at": "2026-10-26T03:55:48Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "down",
-   "checked_at": "2026-10-26T03:24:59Z"
+   "checked_at": "2026-10-26T03:55:48Z"
   },
   {
    "provider": "GitHubModels",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-26T03:24:59Z"
+   "checked_at": "2026-10-26T03:55:48Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "up",
-   "checked_at": "2026-10-26T03:24:59Z"
+   "checked_at": "2026-10-26T03:55:48Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-26T03:24:59Z"
+   "checked_at": "2026-10-26T03:55:48Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-26T03:24:59Z"
+   "checked_at": "2026-10-26T03:55:48Z"
   }
  ],
  "minutes": {
