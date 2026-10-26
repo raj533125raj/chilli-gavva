@@ -36,6 +36,21 @@ class GitHub:
         except Exception:
             raise ApiError("The GitHub request did not complete.") from None
 
+    def items(self, path, key=None):
+        result = []
+        separator = "&" if "?" in path else "?"
+        for page in range(1, 11):
+            response = self.call("GET", f"{path}{separator}per_page=100&page={page}")
+            rows = response.get(key) if key and isinstance(response, dict) else response
+            if not isinstance(rows, list):
+                raise ApiError("The GitHub response could not be checked.")
+            if not all(isinstance(row, dict) for row in rows):
+                raise ApiError("The GitHub response could not be checked.")
+            result.extend(rows)
+            if len(rows) < 100:
+                return result
+        raise ApiError("The GitHub response is too large to approve safely.")
+
 
 def dispatch_fix(summary, env=None):
     try:
@@ -76,15 +91,190 @@ def build_prompt(raw, run_id=""):
             "Do not merge the PR; the owner must approve it in Telegram.")
 
 
+FAILED = "Auto-fix didn't work - use the robot-fix-runbook."
+TEST_CHECK = "Auto-fix tests"
+TITLE_PREFIX = "Auto-fix: "
+CALLBACK = re.compile(r"^af:(merge|close):([1-9][0-9]{0,8}):([0-9a-f]{40})$")
+
+
+def safe_title(pr):
+    title = pr.get("title", "")
+    return title if title in {TITLE_PREFIX + step for step in run_failure.STEPS.values()} else None
+
+
+def eligible(pr, repository):
+    return (isinstance(pr, dict) and safe_title(pr) is not None
+            and pr.get("state") == "open" and not pr.get("draft")
+            and (pr.get("user") or {}).get("login") == "github-actions[bot]"
+            and (pr.get("base") or {}).get("ref") == "main"
+            and ((pr.get("head") or {}).get("repo") or {}).get("full_name") == repository
+            and (pr.get("head") or {}).get("ref") != "main"
+            and re.search(r"(?m)^Robot auto-fix run: [0-9]+\s*$", pr.get("body") or "") is not None
+            and re.fullmatch(r"[0-9a-f]{40}", (pr.get("head") or {}).get("sha", "")) is not None)
+
+
+def protected_path(name):
+    name = str(name).lower()
+    parts = name.split("/")
+    return (not name or "\\" in name or ".." in parts or name.startswith("/")
+            or name.startswith((".github/workflows/", "exported_content/products/", ".aws/", ".git/"))
+            or name.endswith((".enc", ".db", ".sqlite"))
+            or any(part.startswith(".env") or part == "config.json" for part in parts)
+            or name == "opencode.json")
+
+
+def scope_allowed(api, number):
+    files = api.items(f"/pulls/{number}/files")
+    return (bool(files) and any(row.get("filename", "").startswith("tests/") for row in files)
+            and all(not protected_path(row.get("filename", ""))
+                    and not (row.get("previous_filename") and protected_path(row["previous_filename"]))
+                    for row in files))
+
+
+def check_state(api, sha):
+    runs = api.items(f"/commits/{sha}/check-runs?filter=latest", "check_runs")
+    statuses = api.items(f"/commits/{sha}/status", "statuses")
+    if any(row.get("status") == "completed" and row.get("conclusion") not in ("success",)
+           for row in runs) or any(row.get("state") in ("failure", "error") for row in statuses):
+        return "failed"
+    if (not any(row.get("name") == TEST_CHECK for row in runs)
+            or any(row.get("head_sha") != sha or row.get("status") != "completed"
+                   or row.get("conclusion") != "success" for row in runs)
+            or any(row.get("state") != "success" for row in statuses)):
+        return "pending"
+    return "green"
+
+
+def prepare_checks(run_id, env=None, api=None):
+    if not re.fullmatch(r"[0-9]+", str(run_id)):
+        raise ApiError("The auto-fix request could not be verified.")
+    api = api or GitHub(env)
+    marker = "Robot auto-fix run: " + str(run_id)
+    prepared = 0
+    for pr in api.items("/pulls?state=open"):
+        if not eligible(pr, api.repository) or marker not in (pr.get("body") or "").splitlines():
+            continue
+        number = int(pr["number"])
+        if not scope_allowed(api, number):
+            raise ApiError("The proposed auto-fix changes protected files or has no regression test.")
+        api.call("POST", "/actions/workflows/autofix-check.yml/dispatches", {
+            "ref": pr["head"]["ref"],
+            "inputs": {"number": str(number), "sha": pr["head"]["sha"]}})
+        prepared += 1
+    if not prepared:
+        raise ApiError("No safe auto-fix proposal was found.")
+    return prepared
+
+
+def validate_check_request(number, sha, env=None, api=None):
+    env = os.environ if env is None else env
+    if not re.fullmatch(r"[1-9][0-9]{0,8}", str(number)) or not re.fullmatch(r"[0-9a-f]{40}", sha):
+        raise ApiError("The auto-fix request could not be verified.")
+    api = api or GitHub(env)
+    pr = api.call("GET", f"/pulls/{number}")
+    if (not eligible(pr, api.repository) or pr["head"]["sha"] != sha
+            or env.get("GITHUB_SHA") != sha or not scope_allowed(api, int(number))):
+        raise ApiError("The auto-fix changed or its scope is not allowed.")
+
+
+def poll(get_state, set_state, send, db_path=None, env=None, api=None):
+    env = os.environ if env is None else env
+    if not env.get("GITHUB_TOKEN") and api is None:
+        return 0
+    sent = 0
+    try:
+        api = api or GitHub(env)
+        for candidate in api.items("/pulls?state=open"):
+            if not eligible(candidate, api.repository):
+                continue
+            number = int(candidate["number"])
+            pr = api.call("GET", f"/pulls/{number}")
+            if not eligible(pr, api.repository):
+                continue
+            sha = pr["head"]["sha"]
+            state = check_state(api, sha)
+            if not scope_allowed(api, number):
+                state = "failed"
+            key = f"autofix_notice:{number}"
+            notice = f"{sha}:{state}"
+            if state == "pending" or get_state(key, None, db_path) == notice:
+                continue
+            if state == "failed":
+                delivered = send(FAILED, None)
+            elif pr.get("mergeable_state") != "clean":
+                continue
+            else:
+                buttons = [[("✅ Merge", f"af:merge:{number}:{sha}"),
+                            ("❌ Close", f"af:close:{number}:{sha}")]]
+                delivered = send(f"Auto-fix ready: {safe_title(pr)}. Tests passed.", buttons)
+                if delivered:
+                    set_state(f"autofix_offer:{number}", sha, db_path)
+            if delivered:
+                set_state(key, notice, db_path)
+                sent += 1
+    except (ApiError, KeyError, TypeError, ValueError):
+        print("Auto-fix status is temporarily unavailable.")
+    return sent
+
+
+def decide(data, get_state, set_state, db_path=None, env=None, api=None):
+    match = CALLBACK.fullmatch(data or "")
+    if not match:
+        return None
+    action, number, expected = match.groups()
+    key = f"autofix_offer:{number}"
+    if get_state(key, None, db_path) != expected:
+        return "This auto-fix button is no longer current. Wait for the next test result."
+    try:
+        api = api or GitHub(env)
+        pr = api.call("GET", f"/pulls/{number}")
+        if not eligible(pr, api.repository):
+            return "This auto-fix request is no longer open."
+        if action == "close":
+            result = api.call("PATCH", f"/pulls/{number}", {"state": "closed"})
+            if result.get("state") != "closed":
+                return FAILED
+            reply = "Auto-fix closed."
+        else:
+            if (pr["head"]["sha"] != expected or pr.get("mergeable_state") != "clean"
+                    or not scope_allowed(api, number) or check_state(api, expected) != "green"):
+                return FAILED
+            # Re-read the head after checking; the merge API also compares the exact SHA.
+            current = api.call("GET", f"/pulls/{number}")
+            if (not eligible(current, api.repository) or current["head"]["sha"] != expected
+                    or current.get("mergeable_state") != "clean"):
+                return FAILED
+            result = api.call("PUT", f"/pulls/{number}/merge", {"merge_method": "squash", "sha": expected})
+            if result.get("merged") is not True:
+                return FAILED
+            reply = "Auto-fix merged."
+        set_state(key, "done", db_path)
+        return reply
+    except (ApiError, KeyError, TypeError, ValueError):
+        return FAILED
+
+
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
-    if argv != ["prompt"]:
-        return 2
-    prompt = build_prompt(os.environ.get("FAILURE_SUMMARY", ""), os.environ.get("GITHUB_RUN_ID", ""))
-    delimiter = "robot_" + uuid.uuid4().hex
-    with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
-        output.write(f"prompt<<{delimiter}\n{prompt}\n{delimiter}\n")
-    return 0
+    try:
+        if argv == ["prompt"]:
+            prompt = build_prompt(os.environ.get("FAILURE_SUMMARY", ""), os.environ.get("GITHUB_RUN_ID", ""))
+            delimiter = "robot_" + uuid.uuid4().hex
+            with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+                output.write(f"prompt<<{delimiter}\n{prompt}\n{delimiter}\n")
+        elif argv == ["prepare-checks"]:
+            prepare_checks(os.environ.get("GITHUB_RUN_ID", ""))
+        elif argv == ["validate-checks"]:
+            validate_check_request(os.environ.get("PR_NUMBER", ""), os.environ.get("PR_SHA", ""))
+        elif argv == ["failed"]:
+            import notify
+            notify.send(FAILED)
+        else:
+            return 2
+        return 0
+    except (ApiError, KeyError, OSError, ValueError):
+        print("Auto-fix could not complete; use the robot-fix-runbook.")
+        return 1
 
 
 if __name__ == "__main__":

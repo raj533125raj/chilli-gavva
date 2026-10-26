@@ -1,6 +1,9 @@
 name: agent-cycle
 
 on:
+  workflow_run:
+    workflows: [Robot auto-fix checks]
+    types: [completed]
   schedule:
     # Backup only. The free Cloudflare "alarm clock" (docs/ALWAYS_ON.md) starts runs every 30 min.
     - cron: "17 */3 * * *"
@@ -26,6 +29,9 @@ on:
 permissions:
   contents: write
   actions: write
+  pull-requests: write
+  checks: read
+  statuses: read
   models: read   # GitHub Models (free preview AI); switched on only by the repo variable GITHUB_MODELS
 
 concurrency:
@@ -34,6 +40,7 @@ concurrency:
 
 jobs:
   cycle:
+    if: github.event_name != 'workflow_run'
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
@@ -194,6 +201,7 @@ jobs:
       - name: Telegram inbox (buttons, commands, new draft alerts, daily report)
         if: steps.gate.outputs.run == 'true'
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           # read-only: the daily report asks the alarm clock how many minutes ran this month
@@ -328,3 +336,47 @@ jobs:
         with:
           path: ${{ runner.temp }}/robot-failure-state.json
           key: robot-failure-v1-${{ github.run_id }}-${{ github.run_attempt }}
+
+  recovery_inbox:
+    needs: cycle
+    if: always() && (needs.cycle.result == 'failure' || github.event_name == 'workflow_run')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Handle owner buttons even while the main tests are failing
+        env:
+          DB_KEY: ${{ secrets.DB_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python3 run_failure.py run inbox -- bash -e -o pipefail <<'ROBOT_RECOVERY'
+          python3 scripts/db_crypt.py decrypt
+          cp agent_data.db "$RUNNER_TEMP/owner-before.db"
+          python3 telegram_inbox.py
+          if cmp -s agent_data.db "$RUNNER_TEMP/owner-before.db"; then exit 0; fi
+          python3 secret_guard.py agent_data.db
+          python3 scripts/db_crypt.py encrypt
+          git config user.name "chilli-gavva-bot"
+          git config user.email "chilli-gavva-bot@users.noreply.github.com"
+          git add agent_data.db.enc
+          if ! git diff --cached --quiet; then
+            git commit -q -m "agent: owner inbox state [skip ci]"
+            for attempt in 1 2; do
+              if git push -q origin HEAD:main; then exit 0; fi
+              git fetch -q origin main
+              if ! git diff --quiet HEAD~1 origin/main -- agent_data.db.enc; then
+                echo "Newer owner state exists; leaving it unchanged."
+                exit 1
+              fi
+              git rebase -q origin/main
+            done
+            exit 1
+          fi
+          ROBOT_RECOVERY

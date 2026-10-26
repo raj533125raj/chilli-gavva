@@ -1,0 +1,52 @@
+name: Robot auto-fix checks
+
+on:
+  workflow_dispatch:
+    inputs:
+      number:
+        description: Pull request to test
+        type: string
+        required: true
+      sha:
+        description: Exact proposed commit
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate:
+    name: Validate auto-fix scope
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Check the request using trusted code
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ inputs.number }}
+          PR_SHA: ${{ inputs.sha }}
+        run: python3 autofix.py validate-checks
+  tests:
+    name: Auto-fix tests
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Run the full suite without production secrets
+        env:
+          CHILLI_TEST: '1'
+        run: python3 -m unittest discover -s tests

@@ -62,3 +62,38 @@ jobs:
           share: false
           model: nim/deepseek-ai/deepseek-v4.1-flash
           prompt: ${{ steps.prompt.outputs.prompt }}
+
+  prepare:
+    needs: fix
+    if: needs.fix.outputs.enabled == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Validate the proposed files and request tests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 autofix.py prepare-checks
+
+  failed:
+    needs: [fix, prepare]
+    if: always() && (needs.fix.result == 'failure' || needs.prepare.result == 'failure')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Explain that manual repair is needed
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python3 autofix.py failed

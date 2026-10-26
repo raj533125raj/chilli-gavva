@@ -347,6 +347,11 @@ BUTTON_TEST_OK = "✅ Button presses reach the bot. Nothing was changed."
 
 def handle_callback(token, owner_chat_id, data, db_path=None):
     """Handle one button press. Returns the reply text (already sent), or None if the data is unknown."""
+    import autofix
+    if autofix.CALLBACK.fullmatch(data or ""):
+        reply = autofix.decide(data, get_state, set_state, db_path)
+        send_text(token, owner_chat_id, reply)
+        return reply
     m = _CALLBACK.match(data or "")
     if not m:
         return None
@@ -547,6 +552,9 @@ def run(db_path=None):
         return {"configured": False, "commands": 0, "alerts": 0}
     stats = new_stats()
     commands = process_updates(token, chat_id, db_path, stats)
+    import autofix
+    autofix.poll(get_state, set_state,
+                 lambda text, buttons: send_text(token, chat_id, text, buttons), db_path)
     try:
         import control_inbox
         control_inbox.run(db_path, send=lambda line: send_text(token, chat_id, line))
