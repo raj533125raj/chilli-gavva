@@ -5,6 +5,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import textwrap
@@ -39,6 +40,7 @@ class FakeGitHub:
         self.calls = []
         self.gets = 0
         self.change_head = False
+        self.prs = None
 
     def call(self, method, path, data=None):
         self.calls.append((method, path, data))
@@ -56,7 +58,7 @@ class FakeGitHub:
 
     def items(self, path, key=None):
         if path == "/pulls?state=open":
-            return [copy.deepcopy(self.pr)]
+            return copy.deepcopy(self.prs) if self.prs is not None else [copy.deepcopy(self.pr)]
         if path.endswith("/files"):
             return self.files
         if "check-runs" in path:
@@ -288,6 +290,98 @@ class ApprovalTests(unittest.TestCase):
         self.assertEqual(api.call.call_count, 3)
 
 
+class ResultTests(unittest.TestCase):
+    def setUp(self):
+        self.api = FakeGitHub()
+        self.baseline = {"run_id": "1", "numbers": []}
+
+    def test_new_remote_proposal_with_exact_marker_and_safe_files_counts(self):
+        self.assertTrue(autofix.new_proposal_exists("1", self.baseline, api=self.api))
+        self.assertEqual(self.api.calls, [("GET", "/pulls/1", None)])
+
+    def test_preexisting_proposal_does_not_count_even_for_the_same_run(self):
+        baseline = autofix.snapshot_proposals("1", api=self.api)
+        self.assertEqual(baseline, {"run_id": "1", "numbers": [1]})
+        self.assertFalse(autofix.new_proposal_exists("1", baseline, api=self.api))
+        self.assertEqual(self.api.calls, [])
+
+    def test_no_remote_proposal_is_not_success(self):
+        self.api.prs = []
+        self.assertFalse(autofix.new_proposal_exists("1", self.baseline, api=self.api))
+
+    def test_wrong_missing_and_substring_markers_do_not_count(self):
+        for body in ("Robot auto-fix run: 10", "Robot auto-fix run: 2", "",
+                     "prefix Robot auto-fix run: 1", "Robot auto-fix run: 1 suffix"):
+            with self.subTest(body=body):
+                self.api.pr["body"] = body
+                self.assertFalse(autofix.new_proposal_exists("1", self.baseline, api=self.api))
+        self.assertEqual(self.api.calls, [])
+
+    def test_untrusted_or_closed_remote_proposals_do_not_count(self):
+        for field, value in (("user", {"login": "visitor"}), ("draft", True),
+                             ("state", "closed"), ("base", {"ref": "other"}),
+                             ("title", "Auto-fix: private-request")):
+            with self.subTest(field=field):
+                self.api.pr = proposal()
+                self.api.pr[field] = value
+                self.assertFalse(autofix.new_proposal_exists("1", self.baseline, api=self.api))
+
+    def test_remote_proposal_is_rechecked_before_counting(self):
+        self.api.prs = [proposal()]
+        self.api.pr["body"] = "Robot auto-fix run: 2"
+        self.assertFalse(autofix.new_proposal_exists("1", self.baseline, api=self.api))
+        self.assertEqual(self.api.gets, 1)
+
+    def test_protected_changes_or_missing_regression_test_do_not_count(self):
+        for files in ([], [{"filename": "autofix.py"}],
+                      [{"filename": "tests/test_autofix.py"}, {"filename": "opencode.json"}]):
+            with self.subTest(files=files):
+                self.api.files = files
+                self.assertFalse(autofix.new_proposal_exists("1", self.baseline, api=self.api))
+
+    def test_snapshot_and_run_must_be_valid_before_querying_results(self):
+        for baseline in (None, {}, {"run_id": "2", "numbers": []},
+                         {"run_id": "1", "numbers": [True]}, {"run_id": "1", "numbers": "1"}):
+            with self.subTest(baseline=baseline), self.assertRaises(autofix.ApiError):
+                autofix.new_proposal_exists("1", baseline, api=self.api)
+        with self.assertRaises(autofix.ApiError):
+            autofix.snapshot_proposals("private-request", api=self.api)
+        self.api.pr["number"] = "private-request"
+        with self.assertRaises(autofix.ApiError):
+            autofix.snapshot_proposals("1", api=self.api)
+        self.assertEqual(self.api.calls, [])
+
+    def test_result_commands_use_saved_baseline_and_write_only_safe_status(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state, output = Path(directory) / "state.json", Path(directory) / "outputs"
+            env = dict(ENV, GITHUB_RUN_ID="1", AUTOFIX_STATE=str(state), GITHUB_OUTPUT=str(output))
+            self.api.prs = []
+            with mock.patch.dict(os.environ, env, clear=True), \
+                    mock.patch.object(autofix, "GitHub", return_value=self.api), \
+                    contextlib.redirect_stdout(io.StringIO()) as log:
+                self.assertEqual(autofix.main(["result-start"]), 0)
+                self.assertEqual(autofix.main(["result-check"]), 0)
+                self.api.prs = None
+                self.api.pr["body"] += "\nprivate-request"
+                self.assertEqual(autofix.main(["result-check"]), 0)
+                self.assertNotIn("private-request", log.getvalue())
+            self.assertEqual(json.loads(state.read_text()), self.baseline)
+            self.assertEqual(output.read_text(), "proposal=false\nproposal=true\n")
+
+    def test_result_api_failure_cannot_report_success_or_leak_error_details(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state, output = Path(directory) / "state.json", Path(directory) / "outputs"
+            state.write_text(json.dumps(self.baseline))
+            env = dict(ENV, GITHUB_RUN_ID="1", AUTOFIX_STATE=str(state), GITHUB_OUTPUT=str(output))
+            self.api.items = mock.Mock(side_effect=autofix.ApiError("private-request"))
+            with mock.patch.dict(os.environ, env, clear=True), \
+                    mock.patch.object(autofix, "GitHub", return_value=self.api), \
+                    contextlib.redirect_stdout(io.StringIO()) as log:
+                self.assertEqual(autofix.main(["result-check"]), 1)
+            self.assertEqual(log.getvalue(), "Auto-fix could not complete; use the robot-fix-runbook.\n")
+            self.assertFalse(output.exists())
+
+
 class InboxIntegrationTests(unittest.TestCase):
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
@@ -363,6 +457,9 @@ class ConfigurationTests(unittest.TestCase):
     def test_official_action_and_provider_use_environment_credentials(self):
         config = json.loads((autofix.run_failure.ROOT / "opencode.json").read_text())
         self.assertEqual(config["model"], "google/gemini-3.8-flash")
+        self.assertEqual(config["provider"]["google"]["options"],
+                         {"apiKey": "{env:GEMINI_API_KEY}", "timeout": 90000,
+                          "headerTimeout": 90000, "chunkTimeout": 90000})
         self.assertEqual(config["provider"]["groq"]["options"],
                          {"apiKey": "{env:GROQ_API_KEY}", "timeout": 90000,
                           "headerTimeout": 90000, "chunkTimeout": 90000})
@@ -484,3 +581,105 @@ class ConfigurationTests(unittest.TestCase):
         self.assertIn("github.event_name == 'workflow_run'", recovery)
         self.assertIn("ref: main", recovery)
         self.assertNotIn("head_branch", recovery)
+
+
+class ProviderOrderTests(unittest.TestCase):
+    def setUp(self):
+        self.workflow = (autofix.run_failure.ROOT / ".github/workflows/autofix.yml").read_text()
+        self.values = {"steps.key.outputs.enabled": "true", "steps.key.outputs.nvidia": "true",
+                       "steps.key.outputs.groq": "true", "steps.prompt.outcome": "success",
+                       "steps.prompt.outputs.groq_small": "true"}
+        self.final = self.workflow.split("- name: Check that a provider completed the fix\n", 1)[1].split("\n  prepare:", 1)[0]
+
+    def condition(self, block, cancelled=False):
+        expression = next(line.strip()[4:] for line in block.splitlines() if line.strip().startswith("if: "))
+        expression = expression.removeprefix("${{").removesuffix("}}").strip()
+        expression = expression.replace("!cancelled()", repr(not cancelled)).replace("&&", " and ")
+        expression = re.sub(r"steps\.\w+\.(?:outputs\.\w+|outcome)",
+                            lambda match: repr(self.values.get(match.group(), "")), expression)
+        # Evaluate only the checked-in condition after replacing step references
+        # with fixture strings. This exercises the actual workflow predicates.
+        return eval(expression, {"__builtins__": {}}, {})
+
+    def simulate(self, result_provider=None, exit_outcome="success", small=True, unavailable=()):
+        self.values["steps.prompt.outputs.groq_small"] = "true" if small else "false"
+        for provider in unavailable:
+            self.values[f"steps.key.outputs.{provider}"] = ""
+        api = FakeGitHub()
+        api.prs = []
+        baseline = autofix.snapshot_proposals("1", api=api)
+        attempts = []
+        for identifier in ("gemini", "verify_gemini", "nim", "verify_nim", "groq", "verify_groq"):
+            block = ConfigurationTests.workflow_step(identifier)
+            if not self.condition(block):
+                continue
+            if identifier.startswith("verify_"):
+                found = autofix.new_proposal_exists("1", baseline, api=api)
+                self.values[f"steps.{identifier}.outputs.proposal"] = "true" if found else "false"
+            else:
+                attempts.append(identifier)
+                self.values[f"steps.{identifier}.outcome"] = exit_outcome
+                if identifier == result_provider:
+                    api.prs = None
+        return attempts, self.condition(self.final)
+
+    def test_workflow_orders_each_attempt_before_its_remote_result_check(self):
+        identifiers = re.findall(r"^        id: (\w+)$", self.workflow, re.M)
+        self.assertEqual(identifiers, ["key", "prompt", "gemini", "verify_gemini", "nim",
+                                       "verify_nim", "groq", "verify_groq"])
+        for identifier in ("verify_gemini", "verify_nim", "verify_groq"):
+            block = ConfigurationTests.workflow_step(identifier)
+            self.assertIn('run: python3 "$RUNNER_TEMP/autofix-control/autofix.py" result-check', block)
+            self.assertIn("continue-on-error: true", block)
+            self.assertIn("timeout-minutes: 1", block)
+            self.assertNotIn("API_KEY", block)
+        prompt = ConfigurationTests.workflow_step("prompt")
+        self.assertIn('cp autofix.py run_failure.py notify.py secret_guard.py "$RUNNER_TEMP/autofix-control/"', prompt)
+        self.assertIn('python3 "$RUNNER_TEMP/autofix-control/autofix.py" result-start', prompt)
+
+    def test_successful_exit_without_remote_proposal_tries_every_allowed_provider_and_fails(self):
+        self.assertEqual(self.simulate(), (["gemini", "nim", "groq"], True))
+
+    def test_verified_gemini_result_stops_fallback_even_after_nonzero_exit(self):
+        self.assertEqual(self.simulate("gemini", exit_outcome="failure"), (["gemini"], False))
+
+    def test_false_gemini_success_falls_back_to_nvidia_and_stops_on_its_result(self):
+        self.assertEqual(self.simulate("nim"), (["gemini", "nim"], False))
+
+    def test_small_groq_result_can_finish_after_both_larger_providers_have_no_result(self):
+        self.assertEqual(self.simulate("groq"), (["gemini", "nim", "groq"], False))
+
+    def test_large_request_skips_groq_and_still_fails_without_a_result(self):
+        self.assertEqual(self.simulate(small=False), (["gemini", "nim"], True))
+
+    def test_missing_optional_provider_skips_only_that_attempt(self):
+        self.assertEqual(self.simulate("groq", unavailable=("nvidia",)), (["gemini", "groq"], False))
+
+    def test_checker_api_failure_or_skipped_output_still_allows_fallback(self):
+        self.values["steps.gemini.outcome"] = "success"
+        self.values["steps.verify_gemini.outcome"] = "failure"
+        self.assertTrue(self.condition(ConfigurationTests.workflow_step("nim")))
+        self.assertTrue(self.condition(self.final))
+
+    def test_cancelled_or_unprepared_run_does_not_start_more_providers(self):
+        for provider in ("nim", "groq"):
+            block = ConfigurationTests.workflow_step(provider)
+            self.assertFalse(self.condition(block, cancelled=True))
+            self.values["steps.prompt.outcome"] = "failure"
+            self.assertFalse(self.condition(block))
+            self.values["steps.prompt.outcome"] = "success"
+
+    def test_full_context_prompt_cannot_enable_groq_even_for_a_short_summary(self):
+        for summary in ("", "Step: Run tests first | Problem: The step could not finish.", "private-request" * 1000):
+            with self.subTest(length=len(summary)), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory) / "outputs"
+                env = {"GITHUB_OUTPUT": str(output), "GITHUB_RUN_ID": "1", "FAILURE_SUMMARY": summary}
+                with mock.patch.dict(os.environ, env, clear=True):
+                    self.assertEqual(autofix.main(["prompt"]), 0)
+                self.assertIn("\ngroq_small=false\n", output.read_text())
+
+    def test_exhausted_job_reaches_existing_manual_repair_notification(self):
+        failed = self.workflow.split("\n  failed:\n", 1)[1]
+        self.assertIn("needs: [fix, prepare]", failed)
+        self.assertIn("if: always() && (needs.fix.result == 'failure' || needs.prepare.result == 'failure')", failed)
+        self.assertIn("run: python3 autofix.py failed", failed)
