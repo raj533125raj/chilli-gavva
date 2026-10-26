@@ -264,6 +264,9 @@ def main(argv=None):
             delimiter = "robot_" + uuid.uuid4().hex
             with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
                 output.write(f"prompt<<{delimiter}\n{prompt}\n{delimiter}\n")
+                # The full repository agent's tools already exceed Groq's free
+                # request budget, even with a short summary. No small mode yet.
+                output.write("groq_small=false\n")
         elif argv == ["prepare-checks"]:
             prepare_checks(os.environ.get("GITHUB_RUN_ID", ""))
         elif argv == ["validate-checks"]:

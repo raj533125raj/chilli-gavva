@@ -1,8 +1,16 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "share": "disabled",
-  "model": "groq/openai/gpt-oss-120b",
+  "model": "google/gemini-3.8-flash",
   "provider": {
+    "google": {
+      "options": {
+        "apiKey": "{env:GEMINI_API_KEY}",
+        "timeout": 90000,
+        "headerTimeout": 90000,
+        "chunkTimeout": 90000
+      }
+    },
     "groq": {
       "options": {
         "apiKey": "{env:GROQ_API_KEY}",

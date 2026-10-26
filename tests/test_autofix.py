@@ -362,7 +362,7 @@ class ConfigurationTests(unittest.TestCase):
 
     def test_official_action_and_provider_use_environment_credentials(self):
         config = json.loads((autofix.run_failure.ROOT / "opencode.json").read_text())
-        self.assertEqual(config["model"], "groq/openai/gpt-oss-120b")
+        self.assertEqual(config["model"], "google/gemini-3.8-flash")
         self.assertEqual(config["provider"]["groq"]["options"],
                          {"apiKey": "{env:GROQ_API_KEY}", "timeout": 90000,
                           "headerTimeout": 90000, "chunkTimeout": 90000})
@@ -374,38 +374,39 @@ class ConfigurationTests(unittest.TestCase):
                      "contents: write", "pull-requests: write", "summary:"):
             self.assertIn(text, workflow)
 
-    def test_missing_groq_key_prints_one_safe_line_and_stops(self):
+    def test_missing_gemini_key_prints_one_safe_line_and_stops(self):
         workflow = (autofix.run_failure.ROOT / ".github/workflows/autofix.yml").read_text()
         block = workflow.split("- name: Check whether auto-fix is configured", 1)[1].split("      - uses:", 1)[0]
         script = textwrap.dedent(block.split("run: |\n", 1)[1])
         with tempfile.TemporaryDirectory() as directory:
             env = dict(os.environ, GITHUB_OUTPUT=str(Path(directory) / "outputs"))
-            env.pop("GROQ_API_KEY", None)
+            env.pop("GEMINI_API_KEY", None)
             result = subprocess.run(["bash", "-e"], input=script, env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0)
-            self.assertEqual(result.stdout, "Auto-fix unavailable: GROQ_API_KEY is not configured.\n")
+            self.assertEqual(result.stdout, "Auto-fix unavailable: GEMINI_API_KEY is not configured.\n")
             self.assertFalse(Path(env["GITHUB_OUTPUT"]).exists())
 
-    def test_key_gate_enables_groq_without_requiring_the_backup(self):
+    def test_key_gate_enables_gemini_without_requiring_the_backup(self):
         script = textwrap.dedent(self.workflow_step("key").split("run: |\n", 1)[1])
-        for groq, nvidia, expected in (("fixture", "", "enabled=true\n"),
+        for gemini, nvidia, expected in (("fixture", "", "enabled=true\n"),
                                        ("fixture", "fixture", "enabled=true\nnvidia=true\n"),
                                        ("", "fixture", ""), ("", "", "")):
-            with self.subTest(primary=bool(groq), backup=bool(nvidia)), tempfile.TemporaryDirectory() as directory:
+            with self.subTest(primary=bool(gemini), backup=bool(nvidia)), tempfile.TemporaryDirectory() as directory:
                 output = Path(directory) / "outputs"
                 env = {"PATH": os.defpath, "GITHUB_OUTPUT": str(output),
-                       "GROQ_API_KEY": groq, "NVIDIA_API_KEY": nvidia}
+                       "GEMINI_API_KEY": gemini, "NVIDIA_API_KEY": nvidia, "GROQ_API_KEY": ""}
                 result = subprocess.run(["bash", "-e"], input=script, env=env, capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0)
                 self.assertEqual(result.stderr, "")
                 self.assertNotIn("fixture", result.stdout)
                 self.assertEqual(output.read_text() if output.exists() else "", expected)
 
-    def test_groq_is_builtin_and_both_attempts_use_the_safe_request(self):
+    def test_google_is_builtin_and_all_attempts_use_the_safe_request(self):
         config = json.loads((autofix.run_failure.ROOT / "opencode.json").read_text())
-        self.assertNotIn("npm", config["provider"]["groq"])
-        self.assertNotIn("baseURL", config["provider"]["groq"]["options"])
-        for identifier, model, credential in (("groq", config["model"], "GROQ_API_KEY"),
+        self.assertNotIn("npm", config["provider"]["google"])
+        self.assertNotIn("baseURL", config["provider"]["google"]["options"])
+        for identifier, model, credential in (("gemini", config["model"], "GEMINI_API_KEY"),
+                ("groq", "groq/openai/gpt-oss-120b", "GROQ_API_KEY"),
                 ("nim", "nim/deepseek-ai/deepseek-v4.1-flash", "NVIDIA_API_KEY")):
             block = self.workflow_step(identifier)
             for text in ("uses: anomalyco/opencode/github@latest", "model: " + model,
@@ -413,22 +414,22 @@ class ConfigurationTests(unittest.TestCase):
                          "GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}", "use_github_token: true",
                          "share: false", "prompt: ${{ steps.prompt.outputs.prompt }}", "timeout-minutes: 6"):
                 self.assertIn(text, block)
-        self.assertNotIn("NVIDIA_API_KEY", self.workflow_step("groq"))
+        self.assertNotIn("NVIDIA_API_KEY", self.workflow_step("gemini"))
         self.assertNotIn("GROQ_API_KEY", self.workflow_step("nim"))
 
     def test_fallback_uses_failure_outcome_and_does_not_hide_both_failures(self):
-        primary, backup = self.workflow_step("groq"), self.workflow_step("nim")
+        primary, backup = self.workflow_step("gemini"), self.workflow_step("nim")
         self.assertIn("if: steps.key.outputs.enabled == 'true'", primary)
         self.assertIn("continue-on-error: true", primary)
         # outcome retains failure even when continue-on-error makes conclusion success.
         # Timeouts, rate limits, and provider errors all take this same failure path.
-        self.assertIn("if: ${{ !cancelled() && steps.groq.outcome == 'failure' "
+        self.assertIn("if: ${{ !cancelled() && steps.gemini.outcome == 'failure' "
                       "&& steps.key.outputs.nvidia == 'true' }}", backup)
-        self.assertNotIn("continue-on-error: true", backup)
+        self.assertIn("continue-on-error: true", backup)
         workflow = (autofix.run_failure.ROOT / ".github/workflows/autofix.yml").read_text()
         final = workflow.split("- name: Check that a provider completed the fix\n", 1)[1].split("\n  prepare:", 1)[0]
-        self.assertIn("if: ${{ !cancelled() && steps.groq.outcome == 'failure' "
-                      "&& steps.nim.outcome != 'success' }}", final)
+        self.assertIn("if: ${{ !cancelled() && steps.gemini.outcome == 'failure' "
+                      "&& steps.nim.outcome != 'success' && steps.groq.outcome != 'success' }}", final)
         result = subprocess.run(["bash", "-e"], input=textwrap.dedent(final.split("run: |\n", 1)[1]),
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 1)
