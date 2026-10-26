@@ -14,6 +14,7 @@ import xml.etree.ElementTree as ET
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import guardrails  # noqa: E402
+import mockups  # noqa: E402
 import product_builder as pb  # noqa: E402
 
 LISTING = {"title": "Freelancer Irregular-Income Budget", "description": "A calm monthly budget for uneven income.",
@@ -129,6 +130,7 @@ def xml_parts(path):
 NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 
 
+@unittest.skipUnless(mockups.available(), "needs Pillow and poppler (free image tools)")
 class FileTypeTests(Base):
     def test_budget_sheet_xlsx(self):
         folder = self.build_one("Budget Sheets Agent")
@@ -290,6 +292,7 @@ class ParseTests(unittest.TestCase):
 
 
 class OldProductImageTests(Base):
+    @unittest.skipUnless(mockups.available(), "needs Pillow and poppler (free image tools)")
     def test_old_products_get_images_without_changing_files(self):
         folder = self.build_one("ADHD Planners Agent")
         for name in ("cover.png", "preview-1.png", "preview-2.png", "preview-3.png", "pinterest.png", "LICENSE.txt"):
