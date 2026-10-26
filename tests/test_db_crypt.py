@@ -1,4 +1,5 @@
 """Encrypt/decrypt the agent database. Uses a made-up test key and temp files only."""
+import gzip
 import os
 import shutil
 import sys
@@ -22,7 +23,7 @@ class DbCryptTests(unittest.TestCase):
         self.enc = os.path.join(self.tmp.name, "agent_data.db.enc")
         self.back = os.path.join(self.tmp.name, "back.db")
         with open(self.plain, "wb") as f:
-            f.write(MARK * 50)
+            f.write(b"SQLite format 3\x00" + MARK * 50)
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -110,6 +111,42 @@ class DbCryptTests(unittest.TestCase):
             db_crypt.unpack_products(os.path.join(self.tmp.name, "missing.enc"), destination, environ={})
         self.assertIn("DB_KEY is not set", str(ctx.exception))
         self.assertFalse(os.path.exists(destination))
+
+
+class DecryptValidationTests(unittest.TestCase):
+    def test_openssl_success_with_garbage_leaves_no_file(self):
+        for bundle in (False, True):
+            compressed = gzip.compress(b"not a tar archive")
+            outputs = (b"garbage", compressed, compressed[:10] + b"\x07" + compressed[11:],
+                       compressed[:-4]) if bundle else (b"garbage",)
+            for output in outputs:
+                with self.subTest(bundle=bundle, output_size=len(output)), tempfile.TemporaryDirectory() as directory:
+                    source = os.path.join(directory, "input.enc")
+                    destination = os.path.join(directory, "restored")
+                    with open(source, "wb") as handle:
+                        handle.write(b"encrypted fixture")
+
+                    def successful_openssl(cmd, **kwargs):
+                        with open(cmd[cmd.index("-out") + 1], "wb") as handle:
+                            handle.write(output)
+                        return mock.Mock(returncode=0)
+
+                    real_mkstemp = tempfile.mkstemp
+
+                    def local_mkstemp(*args, **kwargs):
+                        kwargs.setdefault("dir", directory)
+                        return real_mkstemp(*args, **kwargs)
+
+                    with mock.patch.object(db_crypt.shutil, "which", return_value="openssl"), \
+                            mock.patch.object(db_crypt.subprocess, "run", side_effect=successful_openssl), \
+                            mock.patch.object(db_crypt.tempfile, "mkstemp", side_effect=local_mkstemp):
+                        decrypt = db_crypt.unpack_products if bundle else db_crypt.decrypt
+                        with self.assertRaises(db_crypt.CryptError) as ctx:
+                            decrypt(source, destination, environ={"DB_KEY": TEST_KEY})
+                    self.assertEqual(str(ctx.exception),
+                                     "decrypt failed: the DB_KEY is wrong or the file is damaged.")
+                    self.assertFalse(os.path.exists(destination))
+                    self.assertEqual(os.listdir(directory), ["input.enc"])
 
 
 class CliTests(unittest.TestCase):

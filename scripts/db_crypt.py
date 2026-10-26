@@ -15,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 import tarfile
+import zlib
 
 PLAIN = "agent_data.db"
 ENCRYPTED = "agent_data.db.enc"
@@ -35,7 +36,25 @@ def require_key(environ=None):
     return key
 
 
-def _openssl(mode, src, dst, key):
+def _verify_plaintext(path, plaintext_type):
+    try:
+        if plaintext_type == "database":
+            with open(path, "rb") as plain:
+                if plain.read(16) != b"SQLite format 3\x00":
+                    raise ValueError
+        else:
+            with gzip.open(path, "rb") as plain:
+                with tarfile.open(fileobj=plain, mode="r|") as archive:
+                    for member in archive:
+                        pass
+                # Read through the gzip trailer to check for truncation or corruption.
+                while plain.read(1024 * 1024):
+                    pass
+    except (OSError, EOFError, ValueError, tarfile.TarError, zlib.error):
+        raise CryptError("decrypt failed: the DB_KEY is wrong or the file is damaged.") from None
+
+
+def _openssl(mode, src, dst, key, plaintext_type="database"):
     """Run openssl. The key travels in a child environment variable, not in argv."""
     if not os.path.exists(src):
         raise CryptError(f"{os.path.basename(src)} not found. Nothing was written.")
@@ -54,6 +73,8 @@ def _openssl(mode, src, dst, key):
         if result.returncode != 0:
             raise CryptError("decrypt failed: the DB_KEY is wrong or the file is damaged." if mode == "decrypt"
                              else "encrypt failed.")
+        if mode == "decrypt":
+            _verify_plaintext(tmp, plaintext_type)
         os.replace(tmp, dst)
     finally:
         if os.path.exists(tmp):
@@ -103,7 +124,7 @@ def pack_products(source=PRODUCTS, dst=PRODUCTS_ENCRYPTED, environ=None):
             existing_fd, plain_existing = tempfile.mkstemp(prefix=".products-existing-")
             os.close(existing_fd)
             try:
-                _openssl("decrypt", dst, plain_existing, key)
+                _openssl("decrypt", dst, plain_existing, key, plaintext_type="archive")
                 if _file_digest(archive) == _file_digest(plain_existing):
                     return
             except CryptError:
@@ -120,7 +141,7 @@ def unpack_products(src=PRODUCTS_ENCRYPTED, destination="exported_content/produc
     fd, archive = tempfile.mkstemp(prefix=".products-unpack-")
     os.close(fd)
     try:
-        _openssl("decrypt", src, archive, key)
+        _openssl("decrypt", src, archive, key, plaintext_type="archive")
         os.makedirs(destination, exist_ok=True)
         with tarfile.open(archive, "r:gz") as tar:
             root = os.path.realpath(destination)
