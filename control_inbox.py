@@ -7,6 +7,7 @@ import time
 import calendar
 import datetime
 import re
+import urllib.error
 import urllib.request
 
 import publisher
@@ -57,7 +58,13 @@ def fetch(env=None, http_request=None):
             value = _http(_url(account, namespace, f"values/{name}"), token, http_request=http_request)
             result.append((name, json.loads(value)))
         return result
-    except Exception:
+    except Exception as error:
+        reason = type(error).__name__
+        if isinstance(error, urllib.error.HTTPError) and isinstance(error.code, int):
+            reason = f"HTTP {error.code}"
+            if error.code == 403:
+                reason += " - check API token has Workers KV Storage Edit"
+        print(f"Control inbox: KV read failed ({reason})")
         return []
 
 

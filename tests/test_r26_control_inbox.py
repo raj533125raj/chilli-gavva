@@ -1,4 +1,5 @@
 import calendar, hashlib, hmac, json, os, tempfile, time, unittest
+import urllib.error
 from unittest import mock
 import control_inbox
 import notify
@@ -30,6 +31,33 @@ class ControlInboxTests(unittest.TestCase):
         self.assertEqual(control_inbox.run(self.db, env={}), {"applied":0,"refused":0})
     def test_kv_down(self):
         self.assertEqual(control_inbox.run(self.db, self.env, http_request=lambda *_: (_ for _ in ()).throw(OSError()), now=NOW), {"applied":0,"refused":0})
+    def test_kv_http_failure_logs_one_safe_line(self):
+        for code in (403, 401, 500):
+            for reading_value in (False, True):
+                with self.subTest(code=code, reading_value=reading_value):
+                    url = control_inbox._url(self.env["CF_ACCOUNT_ID"], self.env["CF_KV_NAMESPACE_ID"], "keys")
+                    error = urllib.error.HTTPError(url, code, self.env["CF_API_TOKEN"], None, None)
+                    replies = [error]
+                    if reading_value:
+                        replies.insert(0, json.dumps({"result": [{"name": "control:request:one"}]}))
+                    with mock.patch("builtins.print") as output:
+                        self.assertEqual(control_inbox.fetch(self.env, mock.Mock(side_effect=replies)), [])
+                    reason = f"HTTP {code}"
+                    if code == 403:
+                        reason += " - check API token has Workers KV Storage Edit"
+                    output.assert_called_once_with(f"Control inbox: KV read failed ({reason})")
+    def test_kv_exception_logs_class_without_exception_details(self):
+        detail = control_inbox._url(self.env["CF_ACCOUNT_ID"], self.env["CF_KV_NAMESPACE_ID"],
+                                    self.env["CF_API_TOKEN"] + self.env["CONTROL_SIGNING_KEY"])
+        for error in (OSError(detail), ValueError(detail), json.JSONDecodeError(detail, "", 0)):
+            with self.subTest(kind=type(error).__name__), mock.patch("builtins.print") as output:
+                self.assertEqual(control_inbox.fetch(self.env, mock.Mock(side_effect=error)), [])
+            output.assert_called_once_with(f"Control inbox: KV read failed ({type(error).__name__})")
+    def test_kv_success_does_not_log_failure(self):
+        with mock.patch("builtins.print") as output:
+            self.assertEqual(control_inbox.fetch(self.env, self.http({"one": record()})),
+                             [("control:request:one", record())])
+        output.assert_not_called()
     def test_valid_approve(self):
         with mock.patch("telegram_inbox.handle_command") as command:
             result,_=self.run_one(record())
