@@ -1,0 +1,64 @@
+name: Robot auto-fix
+
+on:
+  workflow_dispatch:
+    inputs:
+      summary:
+        description: Safe failure summary
+        type: string
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: robot-autofix
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    outputs:
+      enabled: ${{ steps.key.outputs.enabled }}
+    steps:
+      - name: Check whether auto-fix is configured
+        id: key
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: |
+          if [ -z "$NVIDIA_API_KEY" ]; then
+            echo "Auto-fix unavailable: NVIDIA_API_KEY is not configured."
+            exit 0
+          fi
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v5
+        if: steps.key.outputs.enabled == 'true'
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        if: steps.key.outputs.enabled == 'true'
+        with:
+          python-version: '3.11'
+      - name: Prepare safe request
+        id: prompt
+        if: steps.key.outputs.enabled == 'true'
+        env:
+          FAILURE_SUMMARY: ${{ inputs.summary }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          python3 autofix.py prompt
+      - name: Find the cause and propose a fix
+        if: steps.key.outputs.enabled == 'true'
+        uses: anomalyco/opencode/github@latest
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          use_github_token: true
+          share: false
+          model: nim/deepseek-ai/deepseek-v4.1-flash
+          prompt: ${{ steps.prompt.outputs.prompt }}

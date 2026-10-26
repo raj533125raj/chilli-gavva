@@ -76,7 +76,11 @@ def scan_text(text, env_secrets=None):
     env_secrets = _env_secrets() if env_secrets is None else env_secrets
     for no, line in enumerate(text.splitlines(), 1):
         for kind, rx in PATTERNS:
-            if rx.search(line):
+            matches = list(rx.finditer(line))
+            if kind == "password or secret setting":
+                matches = [match for match in matches
+                           if not re.fullmatch(r"\{env:[A-Z][A-Z0-9_]*\}", match.group(1))]
+            if matches:
                 found.append((kind, no))
         for m in EMAIL.finditer(line):
             if not SAFE_EMAIL.search(m.group(0)):

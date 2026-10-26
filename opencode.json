@@ -1,0 +1,47 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "share": "disabled",
+  "model": "nim/deepseek-ai/deepseek-v4.1-flash",
+  "provider": {
+    "nim": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "NVIDIA NIM",
+      "options": {
+        "baseURL": "https://integrate.api.nvidia.com/v1",
+        "apiKey": "{env:NVIDIA_API_KEY}"
+      },
+      "models": {
+        "deepseek-ai/deepseek-v4.1-flash": {"name": "DeepSeek Flash"}
+      }
+    }
+  },
+  "permission": {
+    "edit": {
+      "*": "allow",
+      "**/.github/workflows/**": "deny",
+      "**/*.enc": "deny",
+      "**/agent_data.db*": "deny",
+      "**/exported_content/products/**": "deny",
+      "**/.env*": "deny",
+      "**/config.json": "deny",
+      "**/.aws/**": "deny",
+      "**/.git/**": "deny"
+    },
+    "read": {
+      "*": "allow",
+      "**/*.enc": "deny",
+      "**/agent_data.db*": "deny",
+      "**/exported_content/products/**": "deny",
+      "**/.env*": "deny",
+      "**/config.json": "deny",
+      "**/.aws/**": "deny",
+      "**/.git/**": "deny"
+    },
+    "bash": {
+      "*": "allow",
+      "env*": "deny",
+      "printenv*": "deny",
+      "git push*": "deny"
+    }
+  }
+}
