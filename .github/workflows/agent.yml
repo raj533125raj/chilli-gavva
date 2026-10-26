@@ -44,14 +44,27 @@ jobs:
         run: |
           if [ -z "$DB_KEY" ]; then
             echo "DB_KEY not set"
+            printf '%s\n' 'Step: Check the database key' 'Problem: The database key is not configured.' > "$RUNNER_TEMP/failure.txt"
             exit 1
           fi
 
       # Start from the NEWEST main, not the commit that queued this run. Runs wait in line
       # (concurrency group), so the run before this one may already have saved a newer database.
       - uses: actions/checkout@v5
+        if: ${{ !cancelled() }}
         with:
           ref: main
+
+      # This state survives even when tests or the database save fail.
+      - name: Restore failure counter
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 1
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/robot-failure-state.json
+          key: robot-failure-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: robot-failure-v1-
 
       - uses: actions/setup-python@v6
         with:
@@ -61,12 +74,12 @@ jobs:
       - name: Open the database
         env:
           DB_KEY: ${{ secrets.DB_KEY }}
-        run: python3 scripts/db_crypt.py decrypt
+        run: python3 run_failure.py run decrypt -- python3 scripts/db_crypt.py decrypt
 
       - name: Unpack private products
         env:
           DB_KEY: ${{ secrets.DB_KEY }}
-        run: python3 scripts/db_crypt.py unpack-products
+        run: python3 run_failure.py run unpack -- python3 scripts/db_crypt.py unpack-products
 
       # Manual only (Run workflow -> health = yes): one tiny test per AI model + one long-answer test.
       # Prints provider, model, OK/FAIL, error number or timeout, seconds. Never prints keys.
@@ -82,7 +95,7 @@ jobs:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           GITHUB_MODELS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_MODELS: ${{ vars.GITHUB_MODELS }}
-        run: python3 llm_router.py health
+        run: python3 run_failure.py run health -- python3 llm_router.py health
 
       # Every run: report any secret or private data in the repository (the Save state step blocks on it).
       - name: Secret guard (report)
@@ -130,12 +143,14 @@ jobs:
           CHILLI_TEST: "1"
           DB_KEY: ${{ secrets.DB_KEY }}
         run: |
+          python3 run_failure.py run tests -- bash -e -o pipefail <<'ROBOT_STEP'
           python3 -m unittest discover -s tests
           # Some tests write to the real database / status file. Put the committed copies back
           # (and drop files tests created) so test data is never saved by "Save state".
           python3 scripts/db_crypt.py decrypt
           git checkout -- web/data/status.json
           git clean -fdq -- exported_content .scheduler_locks
+          ROBOT_STEP
 
       - name: Run scheduled recipe (if slot matches now)
         if: steps.gate.outputs.run == 'true'
@@ -150,12 +165,14 @@ jobs:
           GITHUB_MODELS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_MODELS: ${{ vars.GITHUB_MODELS }}
         run: |
+          python3 run_failure.py run scheduler -- bash -e -o pipefail <<'ROBOT_STEP'
           SLOT="${{ github.event.inputs.slot }}"
           if [ -n "$SLOT" ]; then
             python3 scheduler.py --slot "$SLOT"
           else
             python3 scheduler.py
           fi
+          ROBOT_STEP
 
       - name: Run one agent cycle
         if: steps.gate.outputs.run == 'true'
@@ -171,7 +188,7 @@ jobs:
           GITHUB_MODELS: ${{ vars.GITHUB_MODELS }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python3 cloud_runner.py
+        run: python3 run_failure.py run cycle -- python3 cloud_runner.py
 
       - name: Telegram inbox (buttons, commands, new draft alerts, daily report)
         if: steps.gate.outputs.run == 'true'
@@ -185,16 +202,17 @@ jobs:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           CF_KV_NAMESPACE_ID: ${{ secrets.CF_KV_NAMESPACE_ID }}
           CONTROL_SIGNING_KEY: ${{ secrets.CONTROL_SIGNING_KEY }}
-        run: python3 telegram_inbox.py
+        run: python3 run_failure.py run inbox -- python3 telegram_inbox.py
 
       - name: Export approved content
         if: steps.gate.outputs.run == 'true'
-        run: python3 content_export.py
+        run: python3 run_failure.py run export -- python3 content_export.py
 
       # Standard library only (xlsx/docx/pdf are written directly), so nothing to install.
       # A builder error never blocks "Save state"; unfinished drafts are retried next run.
       - name: Build product files from approved drafts
         if: steps.gate.outputs.run == 'true'
+        continue-on-error: true
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -208,13 +226,13 @@ jobs:
           # only for the one-line "ready / needs fix" build message to the owner chat
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python3 product_builder.py --max 2 || echo "Product Builder hit an error; it will retry next run."
+        run: python3 run_failure.py run build -- python3 product_builder.py --max 2
 
       - name: Pack private products
         if: steps.gate.outputs.run == 'true'
         env:
           DB_KEY: ${{ secrets.DB_KEY }}
-        run: python3 scripts/db_crypt.py pack-products
+        run: python3 run_failure.py run pack -- python3 scripts/db_crypt.py pack-products
 
       - name: Save state
         if: steps.gate.outputs.run == 'true'
@@ -232,6 +250,7 @@ jobs:
           # Only to encrypt the database and to compare it with the committed copy. Never printed.
           DB_KEY: ${{ secrets.DB_KEY }}
         run: |
+          python3 run_failure.py run save -- bash -e -o pipefail <<'ROBOT_STEP'
           # Secret guard: never save a token, key, password, chat id or personal email (blocks the save).
           python3 secret_guard.py
           git config user.name "chilli-gavva-bot"
@@ -281,20 +300,29 @@ jobs:
           done
           echo "Could not save state after a retry."
           exit 1
+          ROBOT_STEP
 
       - name: Report minutes to the alarm clock
         if: always()
         env:
           ALWAYS_ON_URL: ${{ secrets.ALWAYS_ON_URL }}
           ALWAYS_ON_SECRET: ${{ secrets.ALWAYS_ON_SECRET }}
-        run: python3 always_on.py report
+        run: python3 run_failure.py run report -- python3 always_on.py report
 
-      # Never fail silently: if any step above failed, send a short Telegram alert with the run link.
-      - name: Alert on Telegram if this run failed
-        if: failure()
+      - name: Update failure counter and alert on a repeated failure
+        id: failure_result
+        if: always()
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          python3 -c "import os, notify; notify.send('Chilli Gavva - an agent run FAILED. Details - ' + os.environ.get('RUN_URL', ''))" || true
+          RUN_STATUS: ${{ job.status }}
+        run: python3 run_failure.py finish
+
+      - name: Save failure counter even when this run failed
+        if: always() && steps.failure_result.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 1
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/robot-failure-state.json
+          key: robot-failure-v1-${{ github.run_id }}-${{ github.run_attempt }}
