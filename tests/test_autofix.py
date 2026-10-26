@@ -314,24 +314,28 @@ class InboxIntegrationTests(unittest.TestCase):
 class ConfigurationTests(unittest.TestCase):
     def test_official_action_and_provider_use_environment_credentials(self):
         config = json.loads((autofix.run_failure.ROOT / "opencode.json").read_text())
-        self.assertEqual(config["model"], "nim/deepseek-ai/deepseek-v4.1-flash")
+        self.assertEqual(config["model"], "groq/openai/gpt-oss-120b")
+        self.assertEqual(config["provider"]["groq"]["options"],
+                         {"apiKey": "{env:GROQ_API_KEY}", "timeout": 90000,
+                          "headerTimeout": 90000, "chunkTimeout": 90000})
         self.assertEqual(config["provider"]["nim"]["options"],
-                         {"baseURL": "https://integrate.api.nvidia.com/v1", "apiKey": "{env:NVIDIA_API_KEY}"})
+                         {"baseURL": "https://integrate.api.nvidia.com/v1", "apiKey": "{env:NVIDIA_API_KEY}",
+                          "timeout": 90000, "headerTimeout": 90000, "chunkTimeout": 90000})
         workflow = (autofix.run_failure.ROOT / ".github/workflows/autofix.yml").read_text()
         for text in ("anomalyco/opencode/github@latest", "use_github_token: true", "share: false",
                      "contents: write", "pull-requests: write", "summary:"):
             self.assertIn(text, workflow)
 
-    def test_missing_nvidia_key_prints_one_safe_line_and_stops(self):
+    def test_missing_groq_key_prints_one_safe_line_and_stops(self):
         workflow = (autofix.run_failure.ROOT / ".github/workflows/autofix.yml").read_text()
         block = workflow.split("- name: Check whether auto-fix is configured", 1)[1].split("      - uses:", 1)[0]
         script = textwrap.dedent(block.split("run: |\n", 1)[1])
         with tempfile.TemporaryDirectory() as directory:
             env = dict(os.environ, GITHUB_OUTPUT=str(Path(directory) / "outputs"))
-            env.pop("NVIDIA_API_KEY", None)
+            env.pop("GROQ_API_KEY", None)
             result = subprocess.run(["bash", "-e"], input=script, env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0)
-            self.assertEqual(result.stdout, "Auto-fix unavailable: NVIDIA_API_KEY is not configured.\n")
+            self.assertEqual(result.stdout, "Auto-fix unavailable: GROQ_API_KEY is not configured.\n")
             self.assertFalse(Path(env["GITHUB_OUTPUT"]).exists())
 
     def test_prompt_never_repeats_untrusted_details(self):

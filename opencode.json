@@ -1,14 +1,25 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "share": "disabled",
-  "model": "nim/deepseek-ai/deepseek-v4.1-flash",
+  "model": "groq/openai/gpt-oss-120b",
   "provider": {
+    "groq": {
+      "options": {
+        "apiKey": "{env:GROQ_API_KEY}",
+        "timeout": 90000,
+        "headerTimeout": 90000,
+        "chunkTimeout": 90000
+      }
+    },
     "nim": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "NVIDIA NIM",
       "options": {
         "baseURL": "https://integrate.api.nvidia.com/v1",
-        "apiKey": "{env:NVIDIA_API_KEY}"
+        "apiKey": "{env:NVIDIA_API_KEY}",
+        "timeout": 90000,
+        "headerTimeout": 90000,
+        "chunkTimeout": 90000
       },
       "models": {
         "deepseek-ai/deepseek-v4.1-flash": {"name": "DeepSeek Flash"}
