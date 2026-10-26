@@ -31,9 +31,11 @@ BINARY_EXT = (".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf", ".webp", ".woff",
 ZIP_EXT = (".zip", ".xlsx", ".docx", ".pptx")
 SECRET_ENV = ("GROQ_API_KEY", "GEMINI_API_KEY", "OPENROUTER_API_KEY", "CF_API_TOKEN", "CF_ACCOUNT_ID",
               "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "GITHUB_TOKEN", "GITHUB_MODELS_TOKEN", "ALWAYS_ON_SECRET",
-              "ALWAYS_ON_URL", "FREELLMAPI_KEY", "WORKER_SECRET")
+              "ALWAYS_ON_URL", "FREELLMAPI_KEY", "WORKER_SECRET", "NVIDIA_API_KEY", "DB_KEY",
+              "CONTROL_SIGNING_KEY", "CF_KV_NAMESPACE_ID")
 
 PATTERNS = [
+    ("NVIDIA API key", re.compile(r"\bnvapi-[A-Za-z0-9_-]{20,}\b")),
     ("Groq API key", re.compile(r"gsk_[A-Za-z0-9]{20,}")),
     ("Google API key", re.compile(r"AIza[0-9A-Za-z_\-]{30,}")),
     ("GitHub token", re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})")),

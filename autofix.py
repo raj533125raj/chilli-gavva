@@ -128,6 +128,7 @@ def scope_allowed(api, number):
     return (bool(files) and any(row.get("filename", "").startswith("tests/") for row in files)
             and all(not protected_path(row.get("filename", ""))
                     and not (row.get("previous_filename") and protected_path(row["previous_filename"]))
+                    and not run_failure.secret_guard.scan_text(row.get("patch") or "")
                     for row in files))
 
 
