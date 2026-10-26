@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       summary:
-        description: Safe failure summary
+        description: 'Safe failure summary (Step: X | Problem: Y)'
         type: string
         required: true
 

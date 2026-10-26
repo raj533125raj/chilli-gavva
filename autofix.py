@@ -63,7 +63,8 @@ def dispatch_fix(summary, env=None):
 
 
 def safe_summary(raw):
-    lines = str(raw).splitlines()
+    # workflow_dispatch's input is one line; normalize only its field separator.
+    lines = str(raw).replace(" | Problem: ", "\nProblem: ").splitlines()
     step = next((line[6:] for line in lines if line.startswith("Step: ")
                  and line[6:] in run_failure.STEPS.values()), run_failure.STEPS["workflow"])
     detail = next((line[9:] for line in lines if line.startswith("Problem: ")), run_failure.UNKNOWN)
