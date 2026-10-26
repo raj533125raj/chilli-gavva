@@ -147,15 +147,52 @@ def check_state(api, sha):
     return "green"
 
 
-def prepare_checks(run_id, env=None, api=None):
+def run_marker(run_id):
     if not re.fullmatch(r"[0-9]+", str(run_id)):
         raise ApiError("The auto-fix request could not be verified.")
+    return "Robot auto-fix run: " + str(run_id)
+
+
+def proposals_for_run(run_id, api):
+    marker = run_marker(run_id)
+    return [pr for pr in api.items("/pulls?state=open")
+            if eligible(pr, api.repository) and marker in (pr.get("body") or "").splitlines()]
+
+
+def snapshot_proposals(run_id, env=None, api=None):
+    run_marker(run_id)
     api = api or GitHub(env)
-    marker = "Robot auto-fix run: " + str(run_id)
-    prepared = 0
-    for pr in api.items("/pulls?state=open"):
-        if not eligible(pr, api.repository) or marker not in (pr.get("body") or "").splitlines():
+    numbers = [pr.get("number") for pr in api.items("/pulls?state=open")]
+    if not all(type(number) is int and 0 < number < 10**9 for number in numbers):
+        raise ApiError("The existing auto-fix proposals could not be checked.")
+    return {"run_id": str(run_id), "numbers": numbers}
+
+
+def new_proposal_exists(run_id, baseline, env=None, api=None):
+    marker = run_marker(run_id)
+    if (not isinstance(baseline, dict) or baseline.get("run_id") != str(run_id)
+            or not isinstance(baseline.get("numbers"), list)
+            or not all(type(number) is int and 0 < number < 10**9 for number in baseline["numbers"])):
+        raise ApiError("The auto-fix result baseline could not be verified.")
+    api = api or GitHub(env)
+    for candidate in proposals_for_run(run_id, api):
+        number = candidate.get("number")
+        if type(number) is not int or not 0 < number < 10**9 or number in baseline["numbers"]:
             continue
+        # Re-read from GitHub: a local commit, branch, or successful process exit
+        # is insufficient. The new remote PR must still match and have safe files.
+        pr = api.call("GET", f"/pulls/{number}")
+        if (eligible(pr, api.repository) and pr.get("number") == number
+                and marker in (pr.get("body") or "").splitlines() and scope_allowed(api, number)):
+            return True
+    return False
+
+
+def prepare_checks(run_id, env=None, api=None):
+    run_marker(run_id)
+    api = api or GitHub(env)
+    prepared = 0
+    for pr in proposals_for_run(run_id, api):
         number = int(pr["number"])
         if not scope_allowed(api, number):
             raise ApiError("The proposed auto-fix changes protected files or has no regression test.")
@@ -267,6 +304,15 @@ def main(argv=None):
                 # The full repository agent's tools already exceed Groq's free
                 # request budget, even with a short summary. No small mode yet.
                 output.write("groq_small=false\n")
+        elif argv == ["result-start"]:
+            baseline = snapshot_proposals(os.environ.get("GITHUB_RUN_ID", ""))
+            Path(os.environ["AUTOFIX_STATE"]).write_text(json.dumps(baseline), encoding="utf-8")
+        elif argv == ["result-check"]:
+            baseline = json.loads(Path(os.environ["AUTOFIX_STATE"]).read_text(encoding="utf-8"))
+            found = new_proposal_exists(os.environ.get("GITHUB_RUN_ID", ""), baseline)
+            with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+                output.write("proposal=" + ("true" if found else "false") + "\n")
+            print("Auto-fix proposal verified." if found else "No new auto-fix proposal was verified.")
         elif argv == ["prepare-checks"]:
             prepare_checks(os.environ.get("GITHUB_RUN_ID", ""))
         elif argv == ["validate-checks"]:
@@ -277,7 +323,7 @@ def main(argv=None):
         else:
             return 2
         return 0
-    except (ApiError, KeyError, OSError, ValueError):
+    except (ApiError, KeyError, OSError, TypeError, ValueError):
         print("Auto-fix could not complete; use the robot-fix-runbook.")
         return 1
 

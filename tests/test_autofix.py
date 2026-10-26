@@ -417,19 +417,20 @@ class ConfigurationTests(unittest.TestCase):
         self.assertNotIn("NVIDIA_API_KEY", self.workflow_step("gemini"))
         self.assertNotIn("GROQ_API_KEY", self.workflow_step("nim"))
 
-    def test_fallback_uses_failure_outcome_and_does_not_hide_both_failures(self):
+    def test_fallback_uses_remote_proposal_and_does_not_hide_missing_results(self):
         primary, backup = self.workflow_step("gemini"), self.workflow_step("nim")
         self.assertIn("if: steps.key.outputs.enabled == 'true'", primary)
         self.assertIn("continue-on-error: true", primary)
-        # outcome retains failure even when continue-on-error makes conclusion success.
-        # Timeouts, rate limits, and provider errors all take this same failure path.
-        self.assertIn("if: ${{ !cancelled() && steps.gemini.outcome == 'failure' "
+        self.assertIn("if: ${{ !cancelled() && steps.prompt.outcome == 'success' && steps.key.outputs.enabled == 'true' "
+                      "&& steps.verify_gemini.outputs.proposal != 'true' "
                       "&& steps.key.outputs.nvidia == 'true' }}", backup)
         self.assertIn("continue-on-error: true", backup)
         workflow = (autofix.run_failure.ROOT / ".github/workflows/autofix.yml").read_text()
         final = workflow.split("- name: Check that a provider completed the fix\n", 1)[1].split("\n  prepare:", 1)[0]
-        self.assertIn("if: ${{ !cancelled() && steps.gemini.outcome == 'failure' "
-                      "&& steps.nim.outcome != 'success' && steps.groq.outcome != 'success' }}", final)
+        self.assertIn("if: ${{ !cancelled() && steps.key.outputs.enabled == 'true' "
+                      "&& steps.verify_gemini.outputs.proposal != 'true' "
+                      "&& steps.verify_nim.outputs.proposal != 'true' "
+                      "&& steps.verify_groq.outputs.proposal != 'true' }}", final)
         result = subprocess.run(["bash", "-e"], input=textwrap.dedent(final.split("run: |\n", 1)[1]),
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 1)

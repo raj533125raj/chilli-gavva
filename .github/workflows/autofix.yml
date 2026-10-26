@@ -53,12 +53,19 @@ jobs:
       - name: Prepare safe request
         id: prompt
         if: steps.key.outputs.enabled == 'true'
+        timeout-minutes: 1
         env:
           FAILURE_SUMMARY: ${{ inputs.summary }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTOFIX_STATE: ${{ runner.temp }}/autofix-control/state.json
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           python3 autofix.py prompt
+          # Keep the verifier from main outside the provider's working tree.
+          mkdir -p "$RUNNER_TEMP/autofix-control"
+          cp autofix.py run_failure.py notify.py secret_guard.py "$RUNNER_TEMP/autofix-control/"
+          python3 "$RUNNER_TEMP/autofix-control/autofix.py" result-start
       - name: Find the cause and propose a fix with Gemini
         id: gemini
         if: steps.key.outputs.enabled == 'true'
@@ -73,9 +80,18 @@ jobs:
           share: false
           model: google/gemini-3.8-flash
           prompt: ${{ steps.prompt.outputs.prompt }}
+      - name: Verify the Gemini proposal on GitHub
+        id: verify_gemini
+        if: ${{ !cancelled() && steps.prompt.outcome == 'success' && steps.key.outputs.enabled == 'true' }}
+        continue-on-error: true
+        timeout-minutes: 1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTOFIX_STATE: ${{ runner.temp }}/autofix-control/state.json
+        run: python3 "$RUNNER_TEMP/autofix-control/autofix.py" result-check
       - name: Retry the fix with NVIDIA
         id: nim
-        if: ${{ !cancelled() && steps.gemini.outcome == 'failure' && steps.key.outputs.nvidia == 'true' }}
+        if: ${{ !cancelled() && steps.prompt.outcome == 'success' && steps.key.outputs.enabled == 'true' && steps.verify_gemini.outputs.proposal != 'true' && steps.key.outputs.nvidia == 'true' }}
         continue-on-error: true
         timeout-minutes: 6
         uses: anomalyco/opencode/github@latest
@@ -87,9 +103,18 @@ jobs:
           share: false
           model: nim/deepseek-ai/deepseek-v4.1-flash
           prompt: ${{ steps.prompt.outputs.prompt }}
+      - name: Verify the NVIDIA proposal on GitHub
+        id: verify_nim
+        if: ${{ !cancelled() && steps.prompt.outcome == 'success' && steps.key.outputs.enabled == 'true' && steps.verify_gemini.outputs.proposal != 'true' }}
+        continue-on-error: true
+        timeout-minutes: 1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTOFIX_STATE: ${{ runner.temp }}/autofix-control/state.json
+        run: python3 "$RUNNER_TEMP/autofix-control/autofix.py" result-check
       - name: Retry a small request with Groq last
         id: groq
-        if: ${{ !cancelled() && steps.gemini.outcome == 'failure' && steps.nim.outcome != 'success' && steps.key.outputs.groq == 'true' && steps.prompt.outputs.groq_small == 'true' }}
+        if: ${{ !cancelled() && steps.prompt.outcome == 'success' && steps.key.outputs.enabled == 'true' && steps.verify_gemini.outputs.proposal != 'true' && steps.verify_nim.outputs.proposal != 'true' && steps.key.outputs.groq == 'true' && steps.prompt.outputs.groq_small == 'true' }}
         continue-on-error: true
         timeout-minutes: 6
         uses: anomalyco/opencode/github@latest
@@ -101,8 +126,17 @@ jobs:
           share: false
           model: groq/openai/gpt-oss-120b
           prompt: ${{ steps.prompt.outputs.prompt }}
+      - name: Verify the final proposal on GitHub
+        id: verify_groq
+        if: ${{ !cancelled() && steps.prompt.outcome == 'success' && steps.key.outputs.enabled == 'true' && steps.verify_gemini.outputs.proposal != 'true' && steps.verify_nim.outputs.proposal != 'true' }}
+        continue-on-error: true
+        timeout-minutes: 1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTOFIX_STATE: ${{ runner.temp }}/autofix-control/state.json
+        run: python3 "$RUNNER_TEMP/autofix-control/autofix.py" result-check
       - name: Check that a provider completed the fix
-        if: ${{ !cancelled() && steps.gemini.outcome == 'failure' && steps.nim.outcome != 'success' && steps.groq.outcome != 'success' }}
+        if: ${{ !cancelled() && steps.key.outputs.enabled == 'true' && steps.verify_gemini.outputs.proposal != 'true' && steps.verify_nim.outputs.proposal != 'true' && steps.verify_groq.outputs.proposal != 'true' }}
         run: |
           echo "Auto-fix providers could not complete the request."
           exit 1
