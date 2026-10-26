@@ -25,6 +25,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
   models: read   # GitHub Models (free preview AI); switched on only by the repo variable GITHUB_MODELS
 
 concurrency:
@@ -313,6 +314,7 @@ jobs:
         id: failure_result
         if: always()
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           RUN_STATUS: ${{ job.status }}

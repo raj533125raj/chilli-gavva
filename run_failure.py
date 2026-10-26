@@ -2,11 +2,13 @@
 import argparse
 import ast
 import json
+import math
 import os
 from pathlib import Path
 import re
 import subprocess
 import tempfile
+import time
 
 import notify
 import secret_guard
@@ -98,8 +100,11 @@ def problem(output, env=None):
     return UNKNOWN
 
 
-def write_summary(path, step, detail):
-    Path(path).write_text(f"Step: {STEPS.get(step, STEPS['workflow'])}\nProblem: {detail}\n", encoding="utf-8")
+def write_summary(path, step, detail, workflow_file=False):
+    text = f"Step: {STEPS.get(step, STEPS['workflow'])}\nProblem: {detail}\n"
+    if workflow_file:
+        text += "Workflow-file failure: yes\n"
+    Path(path).write_text(text, encoding="utf-8")
 
 
 def read_summary(path):
@@ -122,21 +127,25 @@ def run_step(step, command, summary_path):
     pending = not Path(summary_path).exists()
     if pending:
         write_summary(summary_path, step, PENDING)
+    output = ""
     try:
         result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 text=True, errors="replace", check=False)
+        output = result.stdout or ""
         # Keep the existing safe inbox diagnostic visible even on a successful command.
-        for line in (result.stdout or "").splitlines():
+        for line in output.splitlines():
             match = re.fullmatch(r"Control inbox: KV read failed \(([^()]+)\)", line)
             if match and (match.group(1) in ERRORS or match.group(1) == "URLError"
                           or re.fullmatch(r"HTTP [1-5][0-9]{2}", match.group(1))
                           or match.group(1) == "HTTP 403 - check API token has Workers KV Storage Edit"):
                 print(line)
-        status, detail = result.returncode, problem(result.stdout) if result.returncode else None
+        status, detail = result.returncode, problem(output) if result.returncode else None
     except OSError as error:
         status, detail = 1, ERRORS.get(type(error).__name__, UNKNOWN)
     if status:
-        write_summary(summary_path, step, detail)
+        workflow_file = any(name in output.lower() for name in
+                            (".github/workflows/", "agent.yml", "autofix.yml"))
+        write_summary(summary_path, step, detail, workflow_file)
         print(read_summary(summary_path))
     else:
         if pending:
@@ -158,11 +167,33 @@ def read_count(path):
     return read_state(path)[0]
 
 
-def save_count(path, count, alerted=False):
+def last_autofix_dispatch(path):
+    try:
+        value = json.loads(Path(path).read_text(encoding="utf-8")).get("last_autofix_dispatch")
+        return value if type(value) in (int, float) and math.isfinite(value) and value >= 0 else None
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def workflow_failure(path, summary):
+    try:
+        raw = Path(path).read_text(encoding="utf-8").lower()
+    except (OSError, UnicodeError):
+        raw = ""
+    return (any(name in (raw + "\n" + summary.lower()) for name in
+                ("workflow", "agent.yml", "autofix.yml"))
+            or summary.startswith("Step: " + STEPS["key"]))
+
+
+def save_count(path, count, alerted=False, autofix_dispatch=None):
     path = Path(path)
+    last_dispatch = last_autofix_dispatch(path) if autofix_dispatch is None else autofix_dispatch
     with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False, encoding="utf-8") as handle:
         temporary = Path(handle.name)
-        json.dump({"consecutive_failures": count, "alerted": alerted}, handle)
+        data = {"consecutive_failures": count, "alerted": alerted}
+        if last_dispatch is not None:
+            data["last_autofix_dispatch"] = last_dispatch
+        json.dump(data, handle)
     try:
         os.replace(temporary, path)
     finally:
@@ -182,7 +213,7 @@ def links(env):
             f"{base}/actions/runs/{run}")
 
 
-def finish(status, state_path, summary_path, send=None, env=None):
+def finish(status, state_path, summary_path, send=None, env=None, dispatch=None, now=None):
     env = os.environ if env is None else env
     previous, alerted = read_state(state_path)
     if status == "cancelled":
@@ -202,6 +233,20 @@ def finish(status, state_path, summary_path, send=None, env=None):
             delivered = False
         if delivered:
             save_count(state_path, count, True)
+            summary = read_summary(summary_path)
+            current = time.time() if now is None else now
+            if (count == 2 and env.get("GITHUB_TOKEN") and not workflow_failure(summary_path, summary)
+                    and (last_autofix_dispatch(state_path) is None
+                         or current - last_autofix_dispatch(state_path) >= 24 * 3600)):
+                # Reserve before the API call: a timeout may still have started the workflow.
+                save_count(state_path, count, True, autofix_dispatch=current)
+                try:
+                    if dispatch is None:
+                        from autofix import dispatch_fix
+                        dispatch = dispatch_fix
+                    dispatch(summary, env)
+                except Exception:
+                    print("Auto-fix could not start; use the robot-fix-runbook.")
         else:
             print("The repeated failure alert could not be delivered.")
     return count

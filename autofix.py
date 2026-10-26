@@ -1,11 +1,50 @@
 """Auto-fix requests contain only the robot's safe failure vocabulary."""
+import json
 import os
 from pathlib import Path
 import re
 import sys
 import uuid
+import urllib.request
 
 import run_failure
+
+
+class ApiError(Exception):
+    """A fixed public error, never the request URL or response body."""
+
+
+class GitHub:
+    def __init__(self, env=None):
+        self.env = os.environ if env is None else env
+        self.repository = self.env.get("GITHUB_REPOSITORY", "")
+        self.token = self.env.get("GITHUB_TOKEN", "")
+        if not self.token or not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", self.repository):
+            raise ApiError("Auto-fix GitHub access is unavailable.")
+
+    def call(self, method, path, data=None):
+        request = urllib.request.Request(
+            "https://api.github.com/repos/" + self.repository + path,
+            data=json.dumps(data).encode() if data is not None else None,
+            method=method,
+            headers={"Authorization": "Bearer " + self.token,
+                     "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"})
+        try:
+            with urllib.request.urlopen(request, timeout=15) as response:
+                raw = response.read()
+                return json.loads(raw) if raw else {}
+        except Exception:
+            raise ApiError("The GitHub request did not complete.") from None
+
+
+def dispatch_fix(summary, env=None):
+    try:
+        GitHub(env).call("POST", "/actions/workflows/autofix.yml/dispatches",
+                         {"ref": "main", "inputs": {"summary": safe_summary(summary)}})
+        return True
+    except ApiError:
+        print("Auto-fix could not start; use the robot-fix-runbook.")
+        return False
 
 
 def safe_summary(raw):
