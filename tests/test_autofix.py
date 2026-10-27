@@ -507,8 +507,10 @@ class ConfigurationTests(unittest.TestCase):
                 ("groq", "groq/openai/gpt-oss-120b", "GROQ_API_KEY"),
                 ("nim", "nim/deepseek-ai/deepseek-v4.1-flash", "NVIDIA_API_KEY")):
             block = self.workflow_step(identifier)
+            reference = ("${{ secrets.GEMINI_AUTOFIX_KEY || secrets.GEMINI_API_KEY }}" if identifier == "gemini"
+                         else "${{ secrets." + credential + " }}")
             for text in ('run: python3 "$RUNNER_TEMP/autofix-control/autofix.py" provider-run', "MODEL: " + model,
-                         credential + ": ${{ secrets." + credential + " }}",
+                         credential + ": " + reference,
                          "GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}", "USE_GITHUB_TOKEN: 'true'",
                          "SHARE: 'false'", "PROMPT: ${{ steps.prompt.outputs.prompt }}", "timeout-minutes: 6"):
                 self.assertIn(text, block)

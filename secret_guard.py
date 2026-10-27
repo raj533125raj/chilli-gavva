@@ -29,7 +29,7 @@ SKIP_DIRS = {".git", "__pycache__", "node_modules", ".venv", "venv"}
 # .enc = the encrypted database (random bytes; the plaintext copy is scanned before it is encrypted).
 BINARY_EXT = (".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf", ".webp", ".woff", ".woff2", ".ttf", ".enc")
 ZIP_EXT = (".zip", ".xlsx", ".docx", ".pptx")
-SECRET_ENV = ("GROQ_API_KEY", "GEMINI_API_KEY", "OPENROUTER_API_KEY", "CF_API_TOKEN", "CF_ACCOUNT_ID",
+SECRET_ENV = ("GROQ_API_KEY", "GEMINI_API_KEY", "GEMINI_AUTOFIX_KEY", "OPENROUTER_API_KEY", "CF_API_TOKEN", "CF_ACCOUNT_ID",
               "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "GITHUB_TOKEN", "GITHUB_MODELS_TOKEN", "ALWAYS_ON_SECRET",
               "ALWAYS_ON_URL", "FREELLMAPI_KEY", "WORKER_SECRET", "NVIDIA_API_KEY", "DB_KEY",
               "CONTROL_SIGNING_KEY", "CF_KV_NAMESPACE_ID")

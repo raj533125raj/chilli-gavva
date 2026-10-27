@@ -36,7 +36,7 @@ jobs:
       - name: Check whether auto-fix is configured
         id: key
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_AUTOFIX_KEY || secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
         run: |
@@ -88,7 +88,7 @@ jobs:
         continue-on-error: true
         timeout-minutes: 6
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_AUTOFIX_KEY || secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           USE_GITHUB_TOKEN: 'true'
           SHARE: 'false'

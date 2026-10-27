@@ -44,7 +44,9 @@ If the cache is unavailable or has been removed, a new streak starts at zero.
 ## GitHub setup
 
 - Put these changes on the repository's main branch before using auto-fix.
-- Auto-fix uses the existing `GEMINI_API_KEY`, then optional `NVIDIA_API_KEY`.
+- Auto-fix prefers its separate `GEMINI_AUTOFIX_KEY`, falling back to `GEMINI_API_KEY`
+  only when the separate secret is empty. The robot cycle uses `GEMINI_API_KEY`.
+  The next provider is optional `NVIDIA_API_KEY`.
   `GROQ_API_KEY` remains last and is skipped for oversized full-context requests.
   Never paste a key into a conversation. Without the Gemini key, auto-fix stops safely.
 - In Settings → Actions → General, allow GitHub Actions to create pull requests.
