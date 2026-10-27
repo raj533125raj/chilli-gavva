@@ -20,6 +20,7 @@ MAX_ATTEMPTS = 3
 ARTIFACT = "robot-autofix-result"
 FILENAME = "autofix-result.json"
 PHASES = {"running", "waiting", "exhausted", "manual", "proposed", "cancelled"}
+BUSY_FAILED = "Auto-fix tried 3 times, AI servers were busy. Use the robot-fix-runbook."
 
 
 def valid_id(value):
@@ -90,6 +91,21 @@ def dispatch_due(path, env, now, dispatch=None, summary=None):
     return True
 
 
+def notify_terminal(path, send=None):
+    retry = saved_retry(path)
+    if not retry or retry["phase"] not in {"manual", "exhausted"} or retry["notified"]:
+        return False
+    message = BUSY_FAILED if retry["phase"] == "exhausted" else autofix.FAILED
+    try:
+        delivered = (send or notify.send)(message)
+    except Exception:
+        delivered = False
+    if delivered:
+        retry["notified"] = True
+        save_retry(path, retry)
+    return bool(delivered)
+
+
 def accept_result(path, result, created_at, now, send=None):
     if not valid_id(result.get("problem")):
         raise autofix.ApiError("The auto-fix problem could not be verified.")
@@ -105,7 +121,8 @@ def accept_result(path, result, created_at, now, send=None):
     if retry and retry["problem"] == request["problem"]:
         if retry["phase"] in {"cancelled", "proposed"} or retry["attempt"] != request["attempt"]:
             return retry["phase"]
-        if retry.get("last_result") == run_id:
+        if retry["phase"] in {"manual", "exhausted"} or retry.get("last_result") == run_id:
+            notify_terminal(path, send)
             return retry["phase"]
     elif request["attempt"] != 1 or (retry and retry["phase"] in {"running", "waiting"}):
         return "ignored"
@@ -125,10 +142,7 @@ def accept_result(path, result, created_at, now, send=None):
     else:
         retry["phase"] = outcome
     save_retry(path, retry)
-    if retry["phase"] in {"manual", "exhausted"}:
-        if (send or notify.send)(autofix.FAILED):
-            retry["notified"] = True
-            save_retry(path, retry)
+    notify_terminal(path, send)
     return retry["phase"]
 
 

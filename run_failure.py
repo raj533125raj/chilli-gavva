@@ -274,6 +274,7 @@ def finish(status, state_path, summary_path, send=None, env=None, dispatch=None,
     if failed:
         import autofix_retry
         autofix_retry.dispatch_due(state_path, env, current, dispatch, read_summary(summary_path))
+        autofix_retry.notify_terminal(state_path, send)
     return count
 
 
