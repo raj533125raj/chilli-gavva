@@ -71,3 +71,20 @@ limit, server busy, timeout, request too large, or an authentication problem.
 Daily quota requires explicit daily quota evidence; an unspecified 429 uses the
 rate-limit class. The remote proposal check confirms "no change made". Raw
 provider messages, keys, identifiers, and URLs are never copied into these lines.
+
+
+## Auto-fix time budget (R44)
+
+The fix job has a **24-minute hard cap**, below 25 minutes. Explicit fix-step
+limits total 24 minutes: configuration/checkout/Python setup/request preparation
+(1 minute each), OpenCode installation (2), Gemini chain (10), NVIDIA (2), optional
+small Groq (2), three result checks (1 each), and final outcome (1).
+
+Each Gemini attempt is capped at **70 seconds**; NVIDIA and Groq at **90 seconds**.
+Process-group cleanup has at most 5 seconds for TERM and 1 for KILL/draining.
+Each in-chain GitHub result check has a **10-second** cap and receives no provider
+API keys. Six Gemini attempts plus three 20-second waits and all cleanup/checks
+fit within 576 seconds, leaving 24 seconds inside its 10-minute step cap.
+A verifier timeout/failure cannot count as success or claim that no change exists;
+the chain stops and the workflow's independent remote result check runs next.
+Only fixed safe model/reason/status lines reach the log; raw output is not saved.

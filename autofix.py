@@ -6,6 +6,7 @@ import re
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 import urllib.request
@@ -116,6 +117,11 @@ GEMINI_MODELS = (
     "google/gemini-flash-latest",
 )
 GEMINI_BUSY_WAIT = 20
+PROVIDER_ATTEMPT_SECONDS = 90
+GEMINI_ATTEMPT_SECONDS = 70
+GEMINI_RESULT_SECONDS = 10
+PROVIDER_TERM_SECONDS = 5
+PROVIDER_KILL_SECONDS = 1
 
 
 def classify_provider_output(output):
@@ -153,33 +159,41 @@ def busy_provider_output(output):
     return classify_provider_output(output)[1]
 
 
-def provider_attempt(model=None):
+def provider_attempt(model=None, timeout=PROVIDER_ATTEMPT_SECONDS):
     reason, busy = NO_CHANGE, False
+    timed_out = False
     options = {"env": dict(os.environ, MODEL=model)} if model else {}
     process = subprocess.Popen(["opencode", "github", "run"], stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, text=True, errors="replace", start_new_session=True,
                                **options)
     try:
-        output, _ = process.communicate(timeout=300)
+        output, _ = process.communicate(timeout=timeout)
         reason, busy = classify_provider_output(output)
     except subprocess.TimeoutExpired:
+        timed_out = True
         reason, busy = PROVIDER_TIMEOUT, True
         try:
             os.killpg(process.pid, signal.SIGTERM)
         except ProcessLookupError:
             pass
         try:
-            process.communicate(timeout=5)
+            process.communicate(timeout=PROVIDER_TERM_SECONDS)
         except subprocess.TimeoutExpired:
             try:
                 os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
-            process.communicate()
+            try:
+                process.communicate(timeout=PROVIDER_KILL_SECONDS)
+            except subprocess.TimeoutExpired:
+                # A detached descendant may still hold a pipe. Never drain it
+                # indefinitely after the provider's process group was killed.
+                if process.stdout is not None:
+                    process.stdout.close()
     # Only the remote result check can confirm the absence of a proposal.
     if reason != NO_CHANGE:
         print("Auto-fix provider: " + reason + ".")
-    return (0 if process.returncode == 0 else 1), reason, busy
+    return (0 if not timed_out and process.returncode == 0 else 1), reason, busy
 
 
 def provider_status(reason, busy):
@@ -194,18 +208,42 @@ def provider_run():
     return code
 
 
+def gemini_result():
+    # Run the same trusted remote verifier in a bounded child. Only its status
+    # flag is read; stdout/stderr (including exception details) stay private.
+    with tempfile.TemporaryDirectory(prefix="autofix-check-") as directory:
+        output = Path(directory) / "result"
+        env = dict(os.environ, GITHUB_OUTPUT=str(output))
+        for name in ("GEMINI_API_KEY", "GEMINI_AUTOFIX_KEY", "NVIDIA_API_KEY", "GROQ_API_KEY"):
+            env.pop(name, None)
+        try:
+            result = subprocess.run([sys.executable, str(Path(__file__).resolve()), "result-check"],
+                                    env=env, capture_output=True, text=True,
+                                    timeout=GEMINI_RESULT_SECONDS)
+            if result.returncode == 0:
+                lines = output.read_text(encoding="utf-8").splitlines()
+                if lines in (["proposal=true"], ["proposal=false"]):
+                    return lines == ["proposal=true"]
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    return None
+
+
 def gemini_run():
-    baseline = json.loads(Path(os.environ["AUTOFIX_STATE"]).read_text(encoding="utf-8"))
-    run_id = os.environ.get("GITHUB_RUN_ID", "")
     all_busy = True
     for model in GEMINI_MODELS:
         for attempt in range(2):
             # Model IDs come exclusively from the fixed supported list above.
             print("Auto-fix model: " + model + ".", flush=True)
-            _, reason, busy = provider_attempt(model)
+            _, reason, busy = provider_attempt(model, timeout=GEMINI_ATTEMPT_SECONDS)
             all_busy = all_busy and busy
             # A successful exit is not a fix; a verified remote proposal is.
-            if new_proposal_exists(run_id, baseline):
+            found = gemini_result()
+            if found is None:
+                print("No new auto-fix proposal was verified.")
+                provider_status(NO_CHANGE, False)
+                return 1
+            if found:
                 print("Auto-fix proposal verified.")
                 provider_status(NO_CHANGE, False)
                 return 0

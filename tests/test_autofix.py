@@ -514,7 +514,8 @@ class ConfigurationTests(unittest.TestCase):
             for text in ('run: python3 "$RUNNER_TEMP/autofix-control/autofix.py" ' + command, model_setting,
                          credential + ": " + reference,
                          "GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}", "USE_GITHUB_TOKEN: 'true'",
-                         "SHARE: 'false'", "PROMPT: ${{ steps.prompt.outputs.prompt }}", "timeout-minutes: 6"):
+                         "SHARE: 'false'", "PROMPT: ${{ steps.prompt.outputs.prompt }}",
+                         "timeout-minutes: " + ("10" if identifier == "gemini" else "2")):
                 self.assertIn(text, block)
         self.assertNotIn("NVIDIA_API_KEY", self.workflow_step("gemini"))
         self.assertNotIn("GROQ_API_KEY", self.workflow_step("nim"))
