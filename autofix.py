@@ -241,13 +241,14 @@ def gemini_run():
             found = gemini_result()
             if found is None:
                 print("No new auto-fix proposal was verified.")
-                provider_status(NO_CHANGE, False)
-                return 1
+                # Uncertainty is never success or proof of no change. Keep the
+                # bounded model order, including the single 503 retry, intact.
+                all_busy = False
             if found:
                 print("Auto-fix proposal verified.")
                 provider_status(NO_CHANGE, False)
                 return 0
-            if reason == NO_CHANGE:
+            if reason == NO_CHANGE and found is False:
                 print("Auto-fix provider: " + NO_CHANGE + ".")
             if reason == AUTH_PROBLEM:
                 provider_status(reason, False)

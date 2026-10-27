@@ -86,5 +86,7 @@ Each in-chain GitHub result check has a **10-second** cap and receives no provid
 API keys. Six Gemini attempts plus three 20-second waits and all cleanup/checks
 fit within 576 seconds, leaving 24 seconds inside its 10-minute step cap.
 A verifier timeout/failure cannot count as success or claim that no change exists;
-the chain stops and the workflow's independent remote result check runs next.
+the bounded model order and single 503 retry still run. The workflow's independent
+remote result check also runs after the chain. Uncertain checks do not classify
+the whole chain as an all-busy result for a later automatic retry.
 Only fixed safe model/reason/status lines reach the log; raw output is not saved.
