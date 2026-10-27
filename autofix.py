@@ -104,12 +104,14 @@ def dispatch_fix(summary, env=None, problem="", attempt=1):
 def busy_provider_output(output):
     # Match provider failures, not the robot's safe summary (which may itself
     # mention a timeout). Raw provider output is never logged or saved.
+    output = "\n".join(line for line in output.splitlines()
+                       if not line.strip().startswith(("Step: ", "Problem: ")))
     return bool(re.search(
         r"high demand|server.{0,30}(?:busy|overload)|service unavailable|resource[_ ]exhausted|"
         r"rate[_ -]?limit(?:error|ed| reached| exceeded)|rate_limit_exceeded|"
         r"(?:http|status(?:code)?)[\s:=\"']*(?:429|503)\b|"
         r"\b(?:429|503)\b.{0,80}(?:limit|unavailable|error)|"
-        r"provider\w*timeout|response headers? timed out|request timed out|"
+        r"(?:provider|api|read|connect)\w*timeout|response headers? timed out|request timed out|"
         r"(?:\bTPM\b|tokens per minute).{0,100}(?:limit|exceed)",
         output, re.IGNORECASE))
 

@@ -326,6 +326,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           RUN_STATUS: ${{ job.status }}
+          ROBOT_RAN: ${{ steps.gate.outputs.run }}
         run: python3 run_failure.py finish
 
       - name: Save failure counter even when this run failed

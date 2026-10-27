@@ -7,8 +7,21 @@ send the same alert again once it has been delivered. If delivery fails, the nex
 failed run tries to deliver it again.
 
 When auto-fix is configured, the second failure also starts a repair proposal.
-Only one attempt can start in a day, including across successful runs. Workflow
+Only one new problem can start in 24 hours, including across successful runs. Workflow
 file failures go straight to this runbook because the AI cannot edit workflows.
+If every attempted AI provider is busy, rate limited, or times out without a
+proposal, auto-fix waits quietly. The next failing robot cycle after 30 minutes
+starts another attempt for the same problem, up to three attempts total. The
+alarm clock normally starts cycles every 30 minutes; delayed cycles delay retries.
+These retries do not consume the daily allowance for a new problem. A passing
+robot cycle cancels pending retries silently, including late results from an
+attempt that was already running.
+
+Busy attempts 1 and 2 send no auto-fix failure message. After busy attempt 3,
+Telegram sends once: "Auto-fix tried 3 times, AI servers were busy. Use the
+robot-fix-runbook." Other failures, including AI making no change, send the
+manual-repair message immediately.
+
 When the proposal's checks pass, Telegram offers **Merge** and **Close**. Merge
 checks the same commit again and uses squash merging. A changed, failing, or
 unfinished proposal cannot be merged by that button. Buttons are handled on the
@@ -21,15 +34,19 @@ next robot run; the recovery inbox still runs when the main tests fail.
    out of the conversation.
 
 The counter is saved separately in the workflow cache, including after a tests or
-save failure. Only the count, delivery status, and last auto-fix attempt time are
-cached; private logs and the database are excluded.
+save failure. It contains the count, delivery status, daily new-problem timestamp,
+last successful cycle time, and retry metadata (problem identifier, attempt,
+safe summary, status, and due time). A short-lived outcome artifact contains only
+safe summary and status fields. Raw provider output, private logs, and the
+database are excluded.
 If the cache is unavailable or has been removed, a new streak starts at zero.
 
 ## GitHub setup
 
 - Put these changes on the repository's main branch before using auto-fix.
-- In Settings → Secrets and variables → Actions, add `NVIDIA_API_KEY` yourself.
-  Never paste the value into a conversation. Without it, auto-fix stops safely.
+- Auto-fix uses the existing `GEMINI_API_KEY`, then optional `NVIDIA_API_KEY`.
+  `GROQ_API_KEY` remains last and is skipped for oversized full-context requests.
+  Never paste a key into a conversation. Without the Gemini key, auto-fix stops safely.
 - In Settings → Actions → General, allow GitHub Actions to create pull requests.
   The workflows use GitHub's automatic token; an OpenCode app is unnecessary.
 - Enable squash merging. Existing branch protections still apply; the bot does

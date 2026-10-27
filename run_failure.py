@@ -293,7 +293,10 @@ def main(argv=None):
         if not command:
             parser.error("a command is required")
         return run_step(args.step, command, summary)
-    finish(os.environ.get("RUN_STATUS", "failure"), directory / "robot-failure-state.json", summary)
+    status = os.environ.get("RUN_STATUS", "failure")
+    if status == "success" and os.environ.get("ROBOT_RAN") == "false":
+        status = "cancelled"
+    finish(status, directory / "robot-failure-state.json", summary)
     return 0
 
 
