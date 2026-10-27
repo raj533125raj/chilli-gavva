@@ -120,7 +120,7 @@ def classify_provider_output(output):
 
     minute = matches(r"per[ _-]*minute|\b[RT]PM\b|requests?/minute|tokens?/minute")
     limited = matches(r"\b429\b|rate[_ -]?limit(?:error|ed| reached| exceeded)|rate_limit_exceeded|"
-                      r"resource[_ ]exhausted|quota.{0,60}(?:exceed|exhaust)|"
+                      r"resource[_ ]exhausted|quota.{0,60}(?:exceed|exhaust)|(?:exceed|exhaust).{0,60}quota|"
                       r"(?:\bTPM\b|tokens per minute).{0,100}(?:limit|exceed)")
     if matches(r"\b(?:401|403)\b|unauthenticated|unauthorized|permission[_ ]denied|"
                r"api[_ -]?key.{0,40}(?:invalid|not valid|missing|required)|invalid[_ -]api[_ -]key"):
