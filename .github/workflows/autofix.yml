@@ -92,9 +92,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           USE_GITHUB_TOKEN: 'true'
           SHARE: 'false'
-          MODEL: google/gemini-3.8-flash
+          AUTOFIX_STATE: ${{ runner.temp }}/autofix-control/state.json
           PROMPT: ${{ steps.prompt.outputs.prompt }}
-        run: python3 "$RUNNER_TEMP/autofix-control/autofix.py" provider-run
+        run: python3 "$RUNNER_TEMP/autofix-control/autofix.py" gemini-run
       - name: Verify the Gemini proposal on GitHub
         id: verify_gemini
         if: ${{ !cancelled() && steps.prompt.outcome == 'success' && steps.key.outputs.enabled == 'true' }}

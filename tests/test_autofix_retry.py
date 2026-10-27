@@ -344,7 +344,8 @@ class RetryWorkflowTests(unittest.TestCase):
         self.assertIn("ROBOT_RAN: ${{ steps.gate.outputs.run }}", self.agent)
 
     def test_provider_attempts_use_captured_output_and_never_wait_for_the_retry_delay(self):
-        self.assertEqual(self.workflow.count('run: python3 "$RUNNER_TEMP/autofix-control/autofix.py" provider-run'), 3)
+        self.assertEqual(self.workflow.count('run: python3 "$RUNNER_TEMP/autofix-control/autofix.py" provider-run'), 2)
+        self.assertEqual(self.workflow.count('run: python3 "$RUNNER_TEMP/autofix-control/autofix.py" gemini-run'), 1)
         self.assertNotIn("sleep ", self.workflow)
         result = self.workflow.split("\n  result:\n", 1)[1]
         self.assertIn("robot-autofix-result", result)

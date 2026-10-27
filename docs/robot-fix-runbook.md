@@ -47,6 +47,13 @@ If the cache is unavailable or has been removed, a new streak starts at zero.
 - Auto-fix prefers its separate `GEMINI_AUTOFIX_KEY`, falling back to `GEMINI_API_KEY`
   only when the separate secret is empty. The robot cycle uses `GEMINI_API_KEY`.
   Gemini quotas belong to projects; keys in the same project still share quota.
+  Gemini tries `google/gemini-3.8-flash`, then `google/gemini-3.5-flash-lite`,
+  then `google/gemini-flash-latest`, all with that same key route. These IDs were
+  confirmed using the key-free `opencode models google` listing. A 503/server-busy
+  response waits 20 seconds and retries that same model exactly once before moving
+  on; other failure classes do not get that immediate retry. An authentication
+  problem stops the same-key Gemini chain. Every attempt checks for a new safe
+  remote proposal; an exit code alone is never success.
   The next provider is optional `NVIDIA_API_KEY`.
   `GROQ_API_KEY` remains last and is skipped for oversized full-context requests.
   Never paste a key into a conversation. Without the Gemini key, auto-fix stops safely.

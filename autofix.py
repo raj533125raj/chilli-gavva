@@ -6,6 +6,7 @@ import re
 import signal
 import subprocess
 import sys
+import time
 import uuid
 import urllib.request
 import urllib.error
@@ -108,6 +109,13 @@ PROVIDER_TIMEOUT = "timeout"
 REQUEST_LARGE = "request too large (413)"
 AUTH_PROBLEM = "auth problem (401/403)"
 NO_CHANGE = "no change made"
+# Confirmed with `opencode models google`; all three use GEMINI_API_KEY.
+GEMINI_MODELS = (
+    "google/gemini-3.8-flash",
+    "google/gemini-3.5-flash-lite",
+    "google/gemini-flash-latest",
+)
+GEMINI_BUSY_WAIT = 20
 
 
 def classify_provider_output(output):
@@ -145,10 +153,12 @@ def busy_provider_output(output):
     return classify_provider_output(output)[1]
 
 
-def provider_run():
+def provider_attempt(model=None):
     reason, busy = NO_CHANGE, False
+    options = {"env": dict(os.environ, MODEL=model)} if model else {}
     process = subprocess.Popen(["opencode", "github", "run"], stdout=subprocess.PIPE,
-                               stderr=subprocess.STDOUT, text=True, errors="replace", start_new_session=True)
+                               stderr=subprocess.STDOUT, text=True, errors="replace", start_new_session=True,
+                               **options)
     try:
         output, _ = process.communicate(timeout=300)
         reason, busy = classify_provider_output(output)
@@ -166,13 +176,50 @@ def provider_run():
             except ProcessLookupError:
                 pass
             process.communicate()
-    with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
-        output.write("busy=" + ("true" if busy else "false") + "\n")
-        output.write("reason=" + reason + "\n")
     # Only the remote result check can confirm the absence of a proposal.
     if reason != NO_CHANGE:
         print("Auto-fix provider: " + reason + ".")
-    return 0 if process.returncode == 0 else 1
+    return (0 if process.returncode == 0 else 1), reason, busy
+
+
+def provider_status(reason, busy):
+    with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+        output.write("busy=" + ("true" if busy else "false") + "\n")
+        output.write("reason=" + reason + "\n")
+
+
+def provider_run():
+    code, reason, busy = provider_attempt()
+    provider_status(reason, busy)
+    return code
+
+
+def gemini_run():
+    baseline = json.loads(Path(os.environ["AUTOFIX_STATE"]).read_text(encoding="utf-8"))
+    run_id = os.environ.get("GITHUB_RUN_ID", "")
+    all_busy = True
+    for model in GEMINI_MODELS:
+        for attempt in range(2):
+            # Model IDs come exclusively from the fixed supported list above.
+            print("Auto-fix model: " + model + ".", flush=True)
+            _, reason, busy = provider_attempt(model)
+            all_busy = all_busy and busy
+            # A successful exit is not a fix; a verified remote proposal is.
+            if new_proposal_exists(run_id, baseline):
+                print("Auto-fix proposal verified.")
+                provider_status(NO_CHANGE, False)
+                return 0
+            if reason == NO_CHANGE:
+                print("Auto-fix provider: " + NO_CHANGE + ".")
+            if reason == AUTH_PROBLEM:
+                provider_status(reason, False)
+                return 1
+            if reason != SERVER_BUSY or attempt == 1:
+                break
+            print("Auto-fix Gemini busy; waiting 20 seconds before one retry.", flush=True)
+            time.sleep(GEMINI_BUSY_WAIT)
+    provider_status(reason, all_busy)
+    return 1
 
 
 def safe_summary(raw):
@@ -422,6 +469,8 @@ def main(argv=None):
             Path(os.environ["AUTOFIX_STATE"]).write_text(json.dumps(baseline), encoding="utf-8")
         elif argv == ["provider-run"]:
             return provider_run()
+        elif argv == ["gemini-run"]:
+            return gemini_run()
         elif argv == ["result-check"]:
             baseline = json.loads(Path(os.environ["AUTOFIX_STATE"]).read_text(encoding="utf-8"))
             found = new_proposal_exists(os.environ.get("GITHUB_RUN_ID", ""), baseline)

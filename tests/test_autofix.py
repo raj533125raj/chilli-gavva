@@ -509,7 +509,9 @@ class ConfigurationTests(unittest.TestCase):
             block = self.workflow_step(identifier)
             reference = ("${{ secrets.GEMINI_AUTOFIX_KEY || secrets.GEMINI_API_KEY }}" if identifier == "gemini"
                          else "${{ secrets." + credential + " }}")
-            for text in ('run: python3 "$RUNNER_TEMP/autofix-control/autofix.py" provider-run', "MODEL: " + model,
+            command = "gemini-run" if identifier == "gemini" else "provider-run"
+            model_setting = "AUTOFIX_STATE:" if identifier == "gemini" else "MODEL: " + model
+            for text in ('run: python3 "$RUNNER_TEMP/autofix-control/autofix.py" ' + command, model_setting,
                          credential + ": " + reference,
                          "GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}", "USE_GITHUB_TOKEN: 'true'",
                          "SHARE: 'false'", "PROMPT: ${{ steps.prompt.outputs.prompt }}", "timeout-minutes: 6"):
