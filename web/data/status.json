@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-27T15:27:53Z",
+ "generated_at": "2026-10-27T17:38:01Z",
  "kill_switch": false,
  "llm": {
   "calls_today": 8,
@@ -189,37 +189,37 @@
    "provider": "Groq",
    "model": null,
    "state": "up",
-   "checked_at": "2026-10-27T15:27:53Z"
+   "checked_at": "2026-10-27T17:38:01Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "down",
-   "checked_at": "2026-10-27T15:27:53Z"
+   "checked_at": "2026-10-27T17:38:01Z"
   },
   {
    "provider": "GitHubModels",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-27T15:27:53Z"
+   "checked_at": "2026-10-27T17:38:01Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "up",
-   "checked_at": "2026-10-27T15:27:53Z"
+   "checked_at": "2026-10-27T17:38:01Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-27T15:27:53Z"
+   "checked_at": "2026-10-27T17:38:01Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-27T15:27:53Z"
+   "checked_at": "2026-10-27T17:38:01Z"
   }
  ],
  "minutes": {
