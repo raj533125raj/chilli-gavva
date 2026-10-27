@@ -202,8 +202,8 @@ class ProviderTests(unittest.TestCase):
                     mock.patch.object(autofix.subprocess, "Popen", return_value=process) as popen, \
                     contextlib.redirect_stdout(io.StringIO()) as log:
                 self.assertEqual(autofix.provider_run(), 0)
-            self.assertEqual(output.read_text(), "busy=true\n")
-            self.assertEqual(log.getvalue(), "Auto-fix provider was busy.\n")
+            self.assertEqual(output.read_text(), "busy=true\nreason=server busy (503)\n")
+            self.assertEqual(log.getvalue(), "Auto-fix provider: server busy (503).\n")
             self.assertNotIn(private, log.getvalue() + output.read_text())
             self.assertTrue(popen.call_args.kwargs["start_new_session"])
 
@@ -217,7 +217,7 @@ class ProviderTests(unittest.TestCase):
                     mock.patch.object(autofix.os, "killpg") as kill, contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(autofix.provider_run(), 1)
             kill.assert_called_once_with(123, autofix.signal.SIGTERM)
-            self.assertEqual(output.read_text(), "busy=true\n")
+            self.assertEqual(output.read_text(), "busy=true\nreason=timeout\n")
 
     def test_retry_dispatch_contains_only_safe_summary_and_validated_metadata(self):
         with mock.patch.object(autofix, "GitHub") as github:

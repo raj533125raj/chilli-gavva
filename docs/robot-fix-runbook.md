@@ -46,6 +46,7 @@ If the cache is unavailable or has been removed, a new streak starts at zero.
 - Put these changes on the repository's main branch before using auto-fix.
 - Auto-fix prefers its separate `GEMINI_AUTOFIX_KEY`, falling back to `GEMINI_API_KEY`
   only when the separate secret is empty. The robot cycle uses `GEMINI_API_KEY`.
+  Gemini quotas belong to projects; keys in the same project still share quota.
   The next provider is optional `NVIDIA_API_KEY`.
   `GROQ_API_KEY` remains last and is skipped for oversized full-context requests.
   Never paste a key into a conversation. Without the Gemini key, auto-fix stops safely.
@@ -57,3 +58,9 @@ If the cache is unavailable or has been removed, a new streak starts at zero.
 Auto-fix test jobs receive no production secrets. The notification and approval
 code runs from main, and a workflow-completion event never checks out PR code
 with write permissions or Telegram credentials.
+
+Provider failures log only a fixed reason class: daily quota, per-minute rate
+limit, server busy, timeout, request too large, or an authentication problem.
+Daily quota requires explicit daily quota evidence; an unspecified 429 uses the
+rate-limit class. The remote proposal check confirms "no change made". Raw
+provider messages, keys, identifiers, and URLs are never copied into these lines.

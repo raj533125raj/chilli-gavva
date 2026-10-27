@@ -101,30 +101,59 @@ def dispatch_fix(summary, env=None, problem="", attempt=1):
         return False
 
 
-def busy_provider_output(output):
+QUOTA_DAILY = "quota used up (429 daily)"
+RATE_MINUTE = "rate limit (429 per minute)"
+SERVER_BUSY = "server busy (503)"
+PROVIDER_TIMEOUT = "timeout"
+REQUEST_LARGE = "request too large (413)"
+AUTH_PROBLEM = "auth problem (401/403)"
+NO_CHANGE = "no change made"
+
+
+def classify_provider_output(output):
     # Match provider failures, not the robot's safe summary (which may itself
     # mention a timeout). Raw provider output is never logged or saved.
     output = "\n".join(line for line in output.splitlines()
                        if not line.strip().startswith(("Step: ", "Problem: ")))
-    return bool(re.search(
-        r"high demand|server.{0,30}(?:busy|overload)|service unavailable|resource[_ ]exhausted|"
-        r"rate[_ -]?limit(?:error|ed| reached| exceeded)|rate_limit_exceeded|"
-        r"(?:http|status(?:code)?)[\s:=\"']*(?:429|503)\b|"
-        r"\b(?:429|503)\b.{0,80}(?:limit|unavailable|error)|"
-        r"(?:provider|api|read|connect)\w*timeout|response headers? timed out|request timed out|"
-        r"(?:\bTPM\b|tokens per minute).{0,100}(?:limit|exceed)",
-        output, re.IGNORECASE))
+    def matches(pattern):
+        return re.search(pattern, output, re.IGNORECASE) is not None
+
+    minute = matches(r"per[ _-]*minute|\b[RT]PM\b|requests?/minute|tokens?/minute")
+    limited = matches(r"\b429\b|rate[_ -]?limit(?:error|ed| reached| exceeded)|rate_limit_exceeded|"
+                      r"resource[_ ]exhausted|quota.{0,60}(?:exceed|exhaust)|"
+                      r"(?:\bTPM\b|tokens per minute).{0,100}(?:limit|exceed)")
+    if matches(r"\b(?:401|403)\b|unauthenticated|unauthorized|permission[_ ]denied|"
+               r"api[_ -]?key.{0,40}(?:invalid|not valid|missing|required)|invalid[_ -]api[_ -]key"):
+        return AUTH_PROBLEM, False
+    if matches(r"\b413\b|(?:request|payload|entity) too large|maximum context length|context length exceeded"):
+        # A TPM-based 413 can recover later; a static oversized body cannot.
+        return REQUEST_LARGE, limited and minute
+    if limited and matches(r"per[ _-]*day|\bdaily\b|\b[RT]PD\b|requests?/day|tokens?/day"):
+        return QUOTA_DAILY, True
+    if matches(r"\b503\b|high demand|server.{0,30}(?:busy|overload)|service unavailable"):
+        return SERVER_BUSY, True
+    if matches(r"(?:provider|api|read|connect)\w*timeout|response headers? timed out|request timed out"):
+        return PROVIDER_TIMEOUT, True
+    if limited:
+        # An unspecified 429 uses the rate-limit class; do not infer a daily
+        # quota exhaustion without an explicit daily quota signal.
+        return RATE_MINUTE, True
+    return NO_CHANGE, False
+
+
+def busy_provider_output(output):
+    return classify_provider_output(output)[1]
 
 
 def provider_run():
-    busy = False
+    reason, busy = NO_CHANGE, False
     process = subprocess.Popen(["opencode", "github", "run"], stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, text=True, errors="replace", start_new_session=True)
     try:
         output, _ = process.communicate(timeout=300)
-        busy = busy_provider_output(output)
+        reason, busy = classify_provider_output(output)
     except subprocess.TimeoutExpired:
-        busy = True
+        reason, busy = PROVIDER_TIMEOUT, True
         try:
             os.killpg(process.pid, signal.SIGTERM)
         except ProcessLookupError:
@@ -139,7 +168,10 @@ def provider_run():
             process.communicate()
     with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
         output.write("busy=" + ("true" if busy else "false") + "\n")
-    print("Auto-fix provider was busy." if busy else "Auto-fix provider attempt ended.")
+        output.write("reason=" + reason + "\n")
+    # Only the remote result check can confirm the absence of a proposal.
+    if reason != NO_CHANGE:
+        print("Auto-fix provider: " + reason + ".")
     return 0 if process.returncode == 0 else 1
 
 
@@ -395,7 +427,12 @@ def main(argv=None):
             found = new_proposal_exists(os.environ.get("GITHUB_RUN_ID", ""), baseline)
             with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
                 output.write("proposal=" + ("true" if found else "false") + "\n")
-            print("Auto-fix proposal verified." if found else "No new auto-fix proposal was verified.")
+            if found:
+                print("Auto-fix proposal verified.")
+            elif os.environ.get("PROVIDER_REASON", NO_CHANGE) == NO_CHANGE:
+                print("Auto-fix provider: " + NO_CHANGE + ".")
+            else:
+                print("No new auto-fix proposal was verified.")
         elif argv == ["prepare-checks"]:
             prepare_checks(os.environ.get("GITHUB_RUN_ID", ""))
         elif argv == ["validate-checks"]:
