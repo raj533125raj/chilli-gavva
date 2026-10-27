@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-27T01:02:05Z",
+ "generated_at": "2026-10-27T01:03:42Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 3,
+  "calls_today": 5,
   "cap": 500
  },
  "agents": [
@@ -59,7 +59,7 @@
     "rewrite"
    ],
    "state": "idle",
-   "tasks_done": 45
+   "tasks_done": 46
   },
   {
    "name": "QA Checker",
@@ -69,7 +69,7 @@
     "review"
    ],
    "state": "idle",
-   "tasks_done": 45
+   "tasks_done": 46
   },
   {
    "name": "Review Worker",
@@ -91,16 +91,22 @@
   }
  ],
  "task_counts": {
-  "done": 129,
-  "queued": 1
+  "done": 131
  },
  "recent_tasks": [
   {
+   "id": 131,
+   "kind": "review",
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
+  },
+  {
    "id": 130,
    "kind": "rewrite",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 129,
@@ -171,13 +177,6 @@
    "status": "done",
    "agent": "QA Checker",
    "attempts": 1
-  },
-  {
-   "id": 119,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1
   }
  ],
  "pending_approvals": [
@@ -209,37 +208,37 @@
    "provider": "Groq",
    "model": null,
    "state": "up",
-   "checked_at": "2026-10-27T01:02:05Z"
+   "checked_at": "2026-10-27T01:03:42Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "down",
-   "checked_at": "2026-10-27T01:02:05Z"
+   "checked_at": "2026-10-27T01:03:42Z"
   },
   {
    "provider": "GitHubModels",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-27T01:02:05Z"
+   "checked_at": "2026-10-27T01:03:42Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "up",
-   "checked_at": "2026-10-27T01:02:05Z"
+   "checked_at": "2026-10-27T01:03:42Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-27T01:02:05Z"
+   "checked_at": "2026-10-27T01:03:42Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-27T01:02:05Z"
+   "checked_at": "2026-10-27T01:03:42Z"
   }
  ],
  "minutes": {
