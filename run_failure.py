@@ -185,19 +185,35 @@ def workflow_failure(path, summary):
             or summary.startswith("Step: " + STEPS["key"]))
 
 
-def save_count(path, count, alerted=False, autofix_dispatch=None):
+def state_document(path):
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def write_state(path, data):
     path = Path(path)
-    last_dispatch = last_autofix_dispatch(path) if autofix_dispatch is None else autofix_dispatch
     with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False, encoding="utf-8") as handle:
         temporary = Path(handle.name)
-        data = {"consecutive_failures": count, "alerted": alerted}
-        if last_dispatch is not None:
-            data["last_autofix_dispatch"] = last_dispatch
         json.dump(data, handle)
     try:
         os.replace(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def save_count(path, count, alerted=False, autofix_dispatch=None):
+    old = state_document(path)
+    data = {"consecutive_failures": count, "alerted": alerted}
+    last_dispatch = last_autofix_dispatch(path) if autofix_dispatch is None else autofix_dispatch
+    if last_dispatch is not None:
+        data["last_autofix_dispatch"] = last_dispatch
+    for name in ("autofix_retry", "last_success_at"):
+        if name in old:
+            data[name] = old[name]
+    write_state(path, data)
 
 
 def links(env):
@@ -215,6 +231,7 @@ def links(env):
 
 def finish(status, state_path, summary_path, send=None, env=None, dispatch=None, now=None):
     env = os.environ if env is None else env
+    current = time.time() if now is None else now
     previous, alerted = read_state(state_path)
     if status == "cancelled":
         save_count(state_path, previous, alerted)
@@ -222,6 +239,9 @@ def finish(status, state_path, summary_path, send=None, env=None, dispatch=None,
     failed = status == "failure" or Path(summary_path).exists()
     count = previous + 1 if failed else 0
     save_count(state_path, count, alerted if failed else False)
+    if not failed:
+        import autofix_retry
+        autofix_retry.cancel(state_path, current)
     if count == 1:
         print("temporary problem, will retry")
     elif count >= 2 and not alerted:
@@ -234,21 +254,26 @@ def finish(status, state_path, summary_path, send=None, env=None, dispatch=None,
         if delivered:
             save_count(state_path, count, True)
             summary = read_summary(summary_path)
-            current = time.time() if now is None else now
             if (count == 2 and env.get("GITHUB_TOKEN") and not workflow_failure(summary_path, summary)
                     and (last_autofix_dispatch(state_path) is None
                          or current - last_autofix_dispatch(state_path) >= 24 * 3600)):
                 # Reserve before the API call: a timeout may still have started the workflow.
                 save_count(state_path, count, True, autofix_dispatch=current)
+                import autofix_retry
+                request = autofix_retry.start_request(summary, env)
+                autofix_retry.save_retry(state_path, request)
                 try:
                     if dispatch is None:
                         from autofix import dispatch_fix
                         dispatch = dispatch_fix
-                    dispatch(summary, env)
+                    dispatch(summary, env, problem=request["problem"], attempt=1)
                 except Exception:
                     print("Auto-fix could not start; use the robot-fix-runbook.")
         else:
             print("The repeated failure alert could not be delivered.")
+    if failed:
+        import autofix_retry
+        autofix_retry.dispatch_due(state_path, env, current, dispatch, read_summary(summary_path))
     return count
 
 

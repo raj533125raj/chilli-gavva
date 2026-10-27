@@ -7,6 +7,14 @@ on:
         description: 'Safe failure summary (Step: X | Problem: Y)'
         type: string
         required: true
+      problem:
+        description: Existing problem identifier (empty for a new owner request)
+        type: string
+        default: ''
+      attempt:
+        description: Attempt within the same problem (1, 2, or 3)
+        type: string
+        default: '1'
 
 permissions:
   contents: write
@@ -22,6 +30,8 @@ jobs:
     timeout-minutes: 25
     outputs:
       enabled: ${{ steps.key.outputs.enabled }}
+      proposal: ${{ steps.verify_gemini.outputs.proposal == 'true' || steps.verify_nim.outputs.proposal == 'true' || steps.verify_groq.outputs.proposal == 'true' }}
+      busy: ${{ steps.gemini.outputs.busy == 'true' && (steps.nim.outcome == 'skipped' || steps.nim.outputs.busy == 'true') && (steps.groq.outcome == 'skipped' || steps.groq.outputs.busy == 'true') }}
     steps:
       - name: Check whether auto-fix is configured
         id: key
@@ -64,22 +74,27 @@ jobs:
           python3 autofix.py prompt
           # Keep the verifier from main outside the provider's working tree.
           mkdir -p "$RUNNER_TEMP/autofix-control"
-          cp autofix.py run_failure.py notify.py secret_guard.py "$RUNNER_TEMP/autofix-control/"
+          cp autofix.py run_failure.py notify.py secret_guard.py autofix_retry.py "$RUNNER_TEMP/autofix-control/"
           python3 "$RUNNER_TEMP/autofix-control/autofix.py" result-start
+      - name: Install OpenCode
+        if: steps.key.outputs.enabled == 'true'
+        timeout-minutes: 2
+        run: |
+          curl -fsSL https://opencode.ai/install | bash
+          echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
       - name: Find the cause and propose a fix with Gemini
         id: gemini
         if: steps.key.outputs.enabled == 'true'
         continue-on-error: true
         timeout-minutes: 6
-        uses: anomalyco/opencode/github@latest
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          use_github_token: true
-          share: false
-          model: google/gemini-3.8-flash
-          prompt: ${{ steps.prompt.outputs.prompt }}
+          USE_GITHUB_TOKEN: 'true'
+          SHARE: 'false'
+          MODEL: google/gemini-3.8-flash
+          PROMPT: ${{ steps.prompt.outputs.prompt }}
+        run: python3 "$RUNNER_TEMP/autofix-control/autofix.py" provider-run
       - name: Verify the Gemini proposal on GitHub
         id: verify_gemini
         if: ${{ !cancelled() && steps.prompt.outcome == 'success' && steps.key.outputs.enabled == 'true' }}
@@ -94,15 +109,14 @@ jobs:
         if: ${{ !cancelled() && steps.prompt.outcome == 'success' && steps.key.outputs.enabled == 'true' && steps.verify_gemini.outputs.proposal != 'true' && steps.key.outputs.nvidia == 'true' }}
         continue-on-error: true
         timeout-minutes: 6
-        uses: anomalyco/opencode/github@latest
         env:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          use_github_token: true
-          share: false
-          model: nim/deepseek-ai/deepseek-v4.1-flash
-          prompt: ${{ steps.prompt.outputs.prompt }}
+          USE_GITHUB_TOKEN: 'true'
+          SHARE: 'false'
+          MODEL: nim/deepseek-ai/deepseek-v4.1-flash
+          PROMPT: ${{ steps.prompt.outputs.prompt }}
+        run: python3 "$RUNNER_TEMP/autofix-control/autofix.py" provider-run
       - name: Verify the NVIDIA proposal on GitHub
         id: verify_nim
         if: ${{ !cancelled() && steps.prompt.outcome == 'success' && steps.key.outputs.enabled == 'true' && steps.verify_gemini.outputs.proposal != 'true' }}
@@ -117,15 +131,14 @@ jobs:
         if: ${{ !cancelled() && steps.prompt.outcome == 'success' && steps.key.outputs.enabled == 'true' && steps.verify_gemini.outputs.proposal != 'true' && steps.verify_nim.outputs.proposal != 'true' && steps.key.outputs.groq == 'true' && steps.prompt.outputs.groq_small == 'true' }}
         continue-on-error: true
         timeout-minutes: 6
-        uses: anomalyco/opencode/github@latest
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          use_github_token: true
-          share: false
-          model: groq/openai/gpt-oss-120b
-          prompt: ${{ steps.prompt.outputs.prompt }}
+          USE_GITHUB_TOKEN: 'true'
+          SHARE: 'false'
+          MODEL: groq/openai/gpt-oss-120b
+          PROMPT: ${{ steps.prompt.outputs.prompt }}
+        run: python3 "$RUNNER_TEMP/autofix-control/autofix.py" provider-run
       - name: Verify the final proposal on GitHub
         id: verify_groq
         if: ${{ !cancelled() && steps.prompt.outcome == 'success' && steps.key.outputs.enabled == 'true' && steps.verify_gemini.outputs.proposal != 'true' && steps.verify_nim.outputs.proposal != 'true' }}
@@ -159,9 +172,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 autofix.py prepare-checks
 
-  failed:
+  result:
     needs: [fix, prepare]
-    if: always() && (needs.fix.result == 'failure' || needs.prepare.result == 'failure')
+    if: always() && !cancelled() && needs.fix.outputs.enabled == 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -170,8 +183,17 @@ jobs:
         with:
           ref: main
           persist-credentials: false
-      - name: Explain that manual repair is needed
+      - name: Record only the safe auto-fix outcome
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python3 autofix.py failed
+          FAILURE_SUMMARY: ${{ inputs.summary }}
+          AUTOFIX_PROBLEM: ${{ inputs.problem }}
+          AUTOFIX_ATTEMPT: ${{ inputs.attempt }}
+          AUTOFIX_PROPOSAL: ${{ needs.fix.outputs.proposal == 'true' && needs.prepare.result == 'success' }}
+          AUTOFIX_BUSY: ${{ needs.fix.outputs.proposal != 'true' && needs.fix.outputs.busy == 'true' }}
+        run: python3 autofix_retry.py record
+      - uses: actions/upload-artifact@v4
+        with:
+          name: robot-autofix-result
+          path: ${{ runner.temp }}/autofix-result.json
+          retention-days: 3
+          if-no-files-found: error

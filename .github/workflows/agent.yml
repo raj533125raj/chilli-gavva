@@ -2,7 +2,7 @@ name: agent-cycle
 
 on:
   workflow_run:
-    workflows: [Robot auto-fix checks]
+    workflows: [Robot auto-fix checks, Robot auto-fix]
     types: [completed]
   schedule:
     # Backup only. The free Cloudflare "alarm clock" (docs/ALWAYS_ON.md) starts runs every 30 min.
@@ -339,7 +339,7 @@ jobs:
 
   recovery_inbox:
     needs: cycle
-    if: always() && (needs.cycle.result == 'failure' || github.event_name == 'workflow_run')
+    if: always() && (needs.cycle.result == 'failure' || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Robot auto-fix checks'))
     runs-on: ubuntu-24.04
     timeout-minutes: 6
     steps:
@@ -380,3 +380,34 @@ jobs:
             exit 1
           fi
           ROBOT_RECOVERY
+
+  autofix_result:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Robot auto-fix' && github.event.workflow_run.conclusion != 'cancelled'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/robot-failure-state.json
+          key: robot-failure-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: robot-failure-v1-
+      - name: Schedule a patient retry or report a terminal failure
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python3 autofix_retry.py receive
+      - uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/robot-failure-state.json
+          key: robot-failure-v1-${{ github.run_id }}-${{ github.run_attempt }}

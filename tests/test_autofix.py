@@ -92,7 +92,8 @@ class DispatchTests(unittest.TestCase):
         self.send.assert_not_called()
         self.dispatch.assert_not_called()
         self.finish()
-        self.dispatch.assert_called_once_with("Step: Run tests first\nProblem: " + run_failure.UNKNOWN, ENV)
+        self.dispatch.assert_called_once_with("Step: Run tests first\nProblem: " + run_failure.UNKNOWN, ENV,
+                                              problem=mock.ANY, attempt=1)
         self.finish()
         self.dispatch.assert_called_once()
 
@@ -467,7 +468,7 @@ class ConfigurationTests(unittest.TestCase):
                          {"baseURL": "https://integrate.api.nvidia.com/v1", "apiKey": "{env:NVIDIA_API_KEY}",
                           "timeout": 90000, "headerTimeout": 90000, "chunkTimeout": 90000})
         workflow = (autofix.run_failure.ROOT / ".github/workflows/autofix.yml").read_text()
-        for text in ("anomalyco/opencode/github@latest", "use_github_token: true", "share: false",
+        for text in ("https://opencode.ai/install", "USE_GITHUB_TOKEN: 'true'", "SHARE: 'false'",
                      "contents: write", "pull-requests: write", "summary:"):
             self.assertIn(text, workflow)
 
@@ -506,10 +507,10 @@ class ConfigurationTests(unittest.TestCase):
                 ("groq", "groq/openai/gpt-oss-120b", "GROQ_API_KEY"),
                 ("nim", "nim/deepseek-ai/deepseek-v4.1-flash", "NVIDIA_API_KEY")):
             block = self.workflow_step(identifier)
-            for text in ("uses: anomalyco/opencode/github@latest", "model: " + model,
+            for text in ('run: python3 "$RUNNER_TEMP/autofix-control/autofix.py" provider-run', "MODEL: " + model,
                          credential + ": ${{ secrets." + credential + " }}",
-                         "GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}", "use_github_token: true",
-                         "share: false", "prompt: ${{ steps.prompt.outputs.prompt }}", "timeout-minutes: 6"):
+                         "GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}", "USE_GITHUB_TOKEN: 'true'",
+                         "SHARE: 'false'", "PROMPT: ${{ steps.prompt.outputs.prompt }}", "timeout-minutes: 6"):
                 self.assertIn(text, block)
         self.assertNotIn("NVIDIA_API_KEY", self.workflow_step("gemini"))
         self.assertNotIn("GROQ_API_KEY", self.workflow_step("nim"))
@@ -634,7 +635,7 @@ class ProviderOrderTests(unittest.TestCase):
             self.assertIn("timeout-minutes: 1", block)
             self.assertNotIn("API_KEY", block)
         prompt = ConfigurationTests.workflow_step("prompt")
-        self.assertIn('cp autofix.py run_failure.py notify.py secret_guard.py "$RUNNER_TEMP/autofix-control/"', prompt)
+        self.assertIn('cp autofix.py run_failure.py notify.py secret_guard.py autofix_retry.py "$RUNNER_TEMP/autofix-control/"', prompt)
         self.assertIn('python3 "$RUNNER_TEMP/autofix-control/autofix.py" result-start', prompt)
 
     def test_successful_exit_without_remote_proposal_tries_every_allowed_provider_and_fails(self):
@@ -678,8 +679,9 @@ class ProviderOrderTests(unittest.TestCase):
                     self.assertEqual(autofix.main(["prompt"]), 0)
                 self.assertIn("\ngroq_small=false\n", output.read_text())
 
-    def test_exhausted_job_reaches_existing_manual_repair_notification(self):
-        failed = self.workflow.split("\n  failed:\n", 1)[1]
-        self.assertIn("needs: [fix, prepare]", failed)
-        self.assertIn("if: always() && (needs.fix.result == 'failure' || needs.prepare.result == 'failure')", failed)
-        self.assertIn("run: python3 autofix.py failed", failed)
+    def test_exhausted_job_records_safe_result_for_the_serialized_retry_controller(self):
+        result = self.workflow.split("\n  result:\n", 1)[1]
+        self.assertIn("needs: [fix, prepare]", result)
+        self.assertIn("if: always() && !cancelled() && needs.fix.outputs.enabled == 'true'", result)
+        self.assertIn("run: python3 autofix_retry.py record", result)
+        self.assertNotIn("TELEGRAM", result)

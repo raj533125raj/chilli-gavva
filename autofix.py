@@ -3,15 +3,24 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
+import subprocess
 import sys
 import uuid
 import urllib.request
+import urllib.error
+import urllib.parse
 
 import run_failure
 
 
 class ApiError(Exception):
     """A fixed public error, never the request URL or response body."""
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, request, file, code, message, headers, new_url):
+        return None
 
 
 class GitHub:
@@ -51,15 +60,85 @@ class GitHub:
                 return result
         raise ApiError("The GitHub response is too large to approve safely.")
 
+    def download(self, path):
+        request = urllib.request.Request("https://api.github.com/repos/" + self.repository + path,
+                                         headers={"Authorization": "Bearer " + self.token})
+        try:
+            opener = urllib.request.build_opener(NoRedirect())
+            try:
+                response = opener.open(request, timeout=15)
+            except urllib.error.HTTPError as error:
+                if error.code != 302:
+                    raise
+                location = error.headers.get("Location", "")
+                error.close()
+                parsed = urllib.parse.urlsplit(location)
+                if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+                    raise ValueError
+                # The presigned artifact URL needs no credential header.
+                response = urllib.request.urlopen(urllib.request.Request(location), timeout=15)
+            with response:
+                raw = response.read(1024 * 1024 + 1)
+            if len(raw) > 1024 * 1024:
+                raise ValueError
+            return raw
+        except Exception:
+            raise ApiError("The auto-fix status download did not complete.") from None
 
-def dispatch_fix(summary, env=None):
+
+def dispatch_fix(summary, env=None, problem="", attempt=1):
     try:
+        inputs = {"summary": safe_summary(summary)}
+        if problem:
+            if not re.fullmatch(r"[0-9]{1,40}", problem) or type(attempt) is not int or not 1 <= attempt <= 3:
+                raise ApiError("The auto-fix retry request could not be verified.")
+            inputs.update(problem=problem, attempt=str(attempt))
         GitHub(env).call("POST", "/actions/workflows/autofix.yml/dispatches",
-                         {"ref": "main", "inputs": {"summary": safe_summary(summary)}})
+                         {"ref": "main", "inputs": inputs})
         return True
     except ApiError:
         print("Auto-fix could not start; use the robot-fix-runbook.")
         return False
+
+
+def busy_provider_output(output):
+    # Match provider failures, not the robot's safe summary (which may itself
+    # mention a timeout). Raw provider output is never logged or saved.
+    return bool(re.search(
+        r"high demand|server.{0,30}(?:busy|overload)|service unavailable|resource[_ ]exhausted|"
+        r"rate[_ -]?limit(?:error|ed| reached| exceeded)|rate_limit_exceeded|"
+        r"(?:http|status(?:code)?)[\s:=\"']*(?:429|503)\b|"
+        r"\b(?:429|503)\b.{0,80}(?:limit|unavailable|error)|"
+        r"provider\w*timeout|response headers? timed out|request timed out|"
+        r"(?:\bTPM\b|tokens per minute).{0,100}(?:limit|exceed)",
+        output, re.IGNORECASE))
+
+
+def provider_run():
+    busy = False
+    process = subprocess.Popen(["opencode", "github", "run"], stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT, text=True, errors="replace", start_new_session=True)
+    try:
+        output, _ = process.communicate(timeout=300)
+        busy = busy_provider_output(output)
+    except subprocess.TimeoutExpired:
+        busy = True
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        try:
+            process.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.communicate()
+    with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+        output.write("busy=" + ("true" if busy else "false") + "\n")
+    print("Auto-fix provider was busy." if busy else "Auto-fix provider attempt ended.")
+    return 0 if process.returncode == 0 else 1
 
 
 def safe_summary(raw):
@@ -307,6 +386,8 @@ def main(argv=None):
         elif argv == ["result-start"]:
             baseline = snapshot_proposals(os.environ.get("GITHUB_RUN_ID", ""))
             Path(os.environ["AUTOFIX_STATE"]).write_text(json.dumps(baseline), encoding="utf-8")
+        elif argv == ["provider-run"]:
+            return provider_run()
         elif argv == ["result-check"]:
             baseline = json.loads(Path(os.environ["AUTOFIX_STATE"]).read_text(encoding="utf-8"))
             found = new_proposal_exists(os.environ.get("GITHUB_RUN_ID", ""), baseline)

@@ -164,7 +164,7 @@ class FailureWorkflowTests(unittest.TestCase):
         self.assertIn("RUN_STATUS: ${{ job.status }}", finish)
         self.assertIn("steps.failure_result.outcome == 'success'", finish)
         self.assertIn("uses: actions/cache/save@", finish)
-        self.assertEqual(workflow.count("key: robot-failure-v1-${{ github.run_id }}-${{ github.run_attempt }}"), 2)
+        self.assertEqual(workflow.count("key: robot-failure-v1-${{ github.run_id }}-${{ github.run_attempt }}"), 4)
         self.assertIn("restore-keys: robot-failure-v1-", workflow)
         self.assertNotIn("notify.send", workflow)
 
