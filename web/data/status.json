@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-28T22:04:20Z",
+ "generated_at": "2026-10-28T22:56:42Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 11,
+  "calls_today": 14,
   "cap": 500
  },
  "agents": [
@@ -59,7 +59,7 @@
     "rewrite"
    ],
    "state": "idle",
-   "tasks_done": 53
+   "tasks_done": 55
   },
   {
    "name": "QA Checker",
@@ -69,7 +69,7 @@
     "review"
    ],
    "state": "idle",
-   "tasks_done": 53
+   "tasks_done": 54
   },
   {
    "name": "Review Worker",
@@ -91,23 +91,37 @@
   }
  ],
  "task_counts": {
-  "done": 151,
-  "queued": 2
+  "done": 154,
+  "queued": 1
  },
  "recent_tasks": [
   {
-   "id": 153,
-   "kind": "rewrite",
+   "id": 155,
+   "kind": "review",
    "status": "queued",
    "agent": null,
    "attempts": 0
   },
   {
+   "id": 154,
+   "kind": "review",
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1
+  },
+  {
+   "id": 153,
+   "kind": "rewrite",
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
+  },
+  {
    "id": 152,
    "kind": "rewrite",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1
   },
   {
    "id": 151,
@@ -164,20 +178,6 @@
    "status": "done",
    "agent": "Research Worker",
    "attempts": 1
-  },
-  {
-   "id": 143,
-   "kind": "research",
-   "status": "done",
-   "agent": "Research Worker",
-   "attempts": 1
-  },
-  {
-   "id": 142,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1
   }
  ],
  "pending_approvals": [
@@ -227,37 +227,37 @@
    "provider": "Groq",
    "model": null,
    "state": "up",
-   "checked_at": "2026-10-28T22:04:20Z"
+   "checked_at": "2026-10-28T22:56:42Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "down",
-   "checked_at": "2026-10-28T22:04:20Z"
+   "checked_at": "2026-10-28T22:56:42Z"
   },
   {
    "provider": "GitHubModels",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-28T22:04:20Z"
+   "checked_at": "2026-10-28T22:56:42Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "up",
-   "checked_at": "2026-10-28T22:04:20Z"
+   "checked_at": "2026-10-28T22:56:42Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-28T22:04:20Z"
+   "checked_at": "2026-10-28T22:56:42Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-28T22:04:20Z"
+   "checked_at": "2026-10-28T22:56:42Z"
   }
  ],
  "minutes": {
