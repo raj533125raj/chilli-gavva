@@ -22,6 +22,11 @@ def main():
             print("QA checklist re-scored drafts:", rescored)
     except Exception as exc:
         print(f"QA re-score skipped: {type(exc).__name__}")
+    try:
+        import scout
+        scout.maybe_run()
+    except Exception as exc:
+        print(f"SCOUT skipped: {type(exc).__name__}")
     import rest_window
     if guardrails.is_killed():
         result = {"status": "killed", "ran": 0, "failed": 0}
