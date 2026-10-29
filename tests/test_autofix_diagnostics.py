@@ -37,7 +37,7 @@ class DedicatedKeyTests(unittest.TestCase):
                 with self.subTest(workflow=path.name):
                     self.assertNotIn("GEMINI_AUTOFIX_KEY", path.read_text())
         router = (run_failure.ROOT / "llm_router.py").read_text()
-        self.assertIn("GEMINI_AUTOFIX_KEY", router)
+        self.assertNotIn("GEMINI_AUTOFIX_KEY", router)
         robot = (workflows / "agent.yml").read_text()
         self.assertIn("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}", robot)
         config = json.loads((run_failure.ROOT / "opencode.json").read_text())

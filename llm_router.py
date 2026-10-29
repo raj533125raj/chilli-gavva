@@ -320,8 +320,8 @@ def _gemini_models() -> list[str]:
 
 def _gemini(prompt: str, timeout: float = _TIMEOUT) -> str | None:
     primary_key = os.environ.get("GEMINI_API_KEY", "")
-    autofix_key = os.environ.get("GEMINI_AUTOFIX_KEY", "")
-    keys_to_try = [k for k in [primary_key, autofix_key] if k and not k.startswith("YOUR_")]
+    secondary_key = os.environ.get("GEMINI_API_KEY_2", "")
+    keys_to_try = [k for k in [primary_key, secondary_key] if k and not k.startswith("YOUR_")]
     if not keys_to_try:
         return None
     url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
@@ -541,7 +541,7 @@ def log_provider(name: str, ok: bool, db_path=None) -> None:
 
 
 def chat_vision(image_bytes: bytes, mime_type: str, prompt: str = "Describe and analyze this image in detail.", *, db_path=None) -> str | None:
-    """Analyze an image using Gemini vision capability via GEMINI_API_KEY or GEMINI_AUTOFIX_KEY.
+    """Analyze an image using Gemini vision capability via GEMINI_API_KEY or GEMINI_API_KEY_2.
 
     Returns str response or None if Gemini is unconfigured or fails.
     """
@@ -550,8 +550,8 @@ def chat_vision(image_bytes: bytes, mime_type: str, prompt: str = "Describe and 
         return None
 
     primary_key = os.environ.get("GEMINI_API_KEY", "")
-    autofix_key = os.environ.get("GEMINI_AUTOFIX_KEY", "")
-    keys_to_try = [k for k in [primary_key, autofix_key] if k and not k.startswith("YOUR_")]
+    secondary_key = os.environ.get("GEMINI_API_KEY_2", "")
+    keys_to_try = [k for k in [primary_key, secondary_key] if k and not k.startswith("YOUR_")]
     if not keys_to_try:
         print("LLM vision: GEMINI_API_KEY not configured", file=sys.stderr)
         return None
@@ -567,7 +567,6 @@ def chat_vision(image_bytes: bytes, mime_type: str, prompt: str = "Describe and 
 
     # Tries OpenAI-compatible vision format first, then native REST API
     openai_url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", **_UA}
 
     for api_key in keys_to_try:
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", **_UA}
@@ -635,7 +634,7 @@ def chat_vision(image_bytes: bytes, mime_type: str, prompt: str = "Describe and 
 
 
 def chat_audio(audio_bytes: bytes, mime_type: str, prompt: str = "Transcribe and analyze this audio.", *, db_path=None) -> str | None:
-    """Analyze/transcribe audio using Gemini audio capability via GEMINI_API_KEY or GEMINI_AUTOFIX_KEY.
+    """Analyze/transcribe audio using Gemini audio capability via GEMINI_API_KEY or GEMINI_API_KEY_2.
 
     Returns str response or None if Gemini is unconfigured or fails.
     """
@@ -644,8 +643,8 @@ def chat_audio(audio_bytes: bytes, mime_type: str, prompt: str = "Transcribe and
         return None
 
     primary_key = os.environ.get("GEMINI_API_KEY", "")
-    autofix_key = os.environ.get("GEMINI_AUTOFIX_KEY", "")
-    keys_to_try = [k for k in [primary_key, autofix_key] if k and not k.startswith("YOUR_")]
+    secondary_key = os.environ.get("GEMINI_API_KEY_2", "")
+    keys_to_try = [k for k in [primary_key, secondary_key] if k and not k.startswith("YOUR_")]
     if not keys_to_try:
         print("LLM audio: GEMINI_API_KEY not configured", file=sys.stderr)
         return None
@@ -705,7 +704,7 @@ def provider_status() -> list[dict]:
             configured = bool(key and not key.startswith("YOUR_"))
         elif name == "Gemini":
             key1 = os.environ.get("GEMINI_API_KEY", "")
-            key2 = os.environ.get("GEMINI_AUTOFIX_KEY", "")
+            key2 = os.environ.get("GEMINI_API_KEY_2", "")
             configured = bool((key1 and not key1.startswith("YOUR_")) or (key2 and not key2.startswith("YOUR_")))
         elif name == "OpenRouter":
             key = os.environ.get("OPENROUTER_API_KEY", "")

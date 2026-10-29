@@ -460,3 +460,14 @@ class TestAutoSwitch(unittest.TestCase):
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "k", "OPENROUTER_MODEL": "m:free"}, clear=True):
             st = {s["provider"]: s["configured"] for s in llm_router.provider_status()}
         self.assertTrue(st["OpenRouter"])
+
+    def test_llm_router_never_reads_gemini_autofix_key(self):
+        env = {"GEMINI_API_KEY": "primary_key", "GEMINI_AUTOFIX_KEY": "autofix_key_secret"}
+        with patch.dict("os.environ", env, clear=True):
+            with patch("urllib.request.urlopen", return_value=_FakeResp(_make_groq_response("ok"))) as mock_url:
+                res = llm_router._gemini("hello")
+                self.assertEqual(res, "ok")
+                headers = mock_url.call_args.kwargs.get("headers") or mock_url.call_args.args[0].headers
+                auth = str(headers.get("Authorization") or headers.get("authorization") or "")
+                self.assertNotIn("autofix_key_secret", auth)
+                self.assertIn("primary_key", auth)
