@@ -51,7 +51,7 @@ class ActionsMinutesTests(unittest.TestCase):
         result = self.read_export()
         self.assertEqual(self.legacy, before)
         self.assertEqual({key: result[key] for key in before}, before)
-        self.assertEqual(set(result) - set(before), {"ai_health", "minutes", "scout_ideas_count", "trend_items_count"})
+        self.assertEqual(set(result) - set(before), {"ai_health", "minutes", "scout_ideas_count", "trend_items_count", "media_items_count"})
 
 
 if __name__ == "__main__":

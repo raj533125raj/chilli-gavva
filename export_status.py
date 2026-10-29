@@ -301,6 +301,13 @@ def write_status(path=None, db_path=None):
         except Exception:
             pass
         snapshot["trend_items_count"] = trend_counts
+        media_counts = {"total": 0}
+        try:
+            import media_brain
+            media_counts = media_brain.get_media_items_count(db_path)
+        except Exception:
+            pass
+        snapshot["media_items_count"] = media_counts
         json.dump(snapshot, f, indent=1)
     return path
 
