@@ -271,6 +271,57 @@ class FlowTests(Base):
         self.assertEqual(llm.sizes, ["large"] * 4)
 
 
+import truth_check as tc  # noqa: E402
+
+
+class SanitizationTruthTests(Base):
+    def test_sanitization_removes_unproven_claims_and_unmatched_named_parts(self):
+        """Test that _sanitize_text cleans up promises so truth_check finds no unmet claims."""
+        unpromising_spec = {
+            "name": "Money Tracker",
+            "kind": "sheets",
+            "niche": "Budget Sheets Agent",
+            "short_name": "money-tracker",
+            "listing": {
+                "title": "Google Sheets Tracker with Charts / Progress Bars and Year Overview Page",
+                "description": "Includes a Use tab, Monthly Reports tab, charts / progress bars, formulas for automatic calculation, fillable PDF, duplicate link.",
+                "tags": ["budget", "tracker", "money", "sheet", "template"],
+                "price_usd": 7,
+                "buyer": "adults",
+                "platform": "Gumroad",
+            },
+            "instructions": ["Open the Google Sheets tracker in the Use tab or Monthly Reports tab."],
+            "cover_image_idea": "A clean laptop screen",
+            "sheets": [
+                {
+                    "name": "Income Log",
+                    "columns": [{"name": "Date", "type": "date"}, {"name": "Amount", "type": "money"}],
+                    "rows": [["2026-01-01", 100]],
+                }
+            ],
+        }
+        spec, reason = pb.parse_spec(json.dumps(unpromising_spec), "Budget Sheets Agent")
+        self.assertIsNotNone(spec, reason)
+        folder_name = pb.build_product(spec, 999, self.out)
+        product_folder = os.path.join(self.out, folder_name)
+
+        # Truth check the built product
+        res = tc.check(product_folder, with_images=False)
+        unmet_problems = [p for p in res["problems"] if p.startswith("Promises")]
+        self.assertEqual(unmet_problems, [])
+
+        # Also test _sanitize_text directly on various kinds
+        planner_spec = {"kind": "planner", "pages": [{"title": "Brain Dump"}]}
+        sanitized = pb._sanitize_text(
+            "Printable daily dated pages, weekly spreads, fillable PDF with GoodNotes stickers and duplicate link.",
+            planner_spec,
+        )
+        self.assertNotIn("fillable", sanitized.lower())
+        self.assertNotIn("goodnotes", sanitized.lower())
+        self.assertNotIn("stickers", sanitized.lower())
+        self.assertNotIn("duplicate", sanitized.lower())
+
+
 class ParseTests(unittest.TestCase):
     def test_tags_padded_to_five_and_price_cleaned(self):
         spec, _ = pb.parse_spec(json.dumps(SPECS["ADHD Planners Agent"]), "ADHD Planners Agent")
