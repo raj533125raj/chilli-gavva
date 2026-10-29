@@ -138,6 +138,81 @@ def _public_approval(approval):
     return item
 
 
+def _handoffs(db_path=None, now_utc=None):
+    """Build a list of recent agent activity/handoffs (last 24 hours).
+
+    Each row: {from_agent, to_agent, item: short label like 'draft #36', at: ISO time}.
+    Only agent names/roles and item ids; NO money amounts, NO prompts, NO product ideas/content.
+    Max 20 rows, newest first.
+    """
+    now_dt = now_utc or datetime.datetime.now(datetime.timezone.utc)
+    cutoff = (now_dt - datetime.timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    handoffs = []
+    db_file = db_path or guardrails.DB_PATH
+    if not os.path.exists(db_file):
+        return handoffs
+
+    try:
+        conn = sqlite3.connect(db_file)
+        if _has_table(conn, "tasks"):
+            rows = conn.execute(
+                "SELECT id, kind, status, agent, result, finished_ts, ts FROM tasks "
+                "ORDER BY id DESC LIMIT 100"
+            ).fetchall()
+            for tid, kind, status, agent, result_str, fin_ts, create_ts in rows:
+                if status != "done" or not agent:
+                    continue
+                ts = fin_ts or create_ts or ""
+                # Normalize timestamp to ISO string with Z if length permits
+                ts_iso = ts[:19] + "Z" if len(ts) >= 19 else ts
+                if ts_iso < cutoff:
+                    continue
+
+                res = {}
+                if result_str:
+                    try:
+                        res = json.loads(result_str)
+                    except Exception:
+                        res = {}
+
+                # 1. Draft generated -> waiting for approval
+                approval_id = res.get("approval_id")
+                if approval_id:
+                    handoffs.append({
+                        "from_agent": agent,
+                        "to_agent": "Content Manager",
+                        "item": f"draft #{approval_id}",
+                        "at": ts_iso,
+                    })
+
+                # 2. Next tasks created in follow-up
+                next_tasks = res.get("next")
+                if isinstance(next_tasks, list):
+                    for nxt in next_tasks:
+                        if isinstance(nxt, dict):
+                            nxt_kind = nxt.get("kind")
+                            to_agent = workforce.KIND_TO_AGENT.get(nxt_kind, "CEO")
+                            # If payload points to an approval draft, label item as draft #id or task #id
+                            nxt_payload = nxt.get("payload") or {}
+                            app_id = nxt_payload.get("approval_id")
+                            item_label = f"draft #{app_id}" if app_id else f"task #{tid}"
+                            handoffs.append({
+                                "from_agent": agent,
+                                "to_agent": to_agent,
+                                "item": item_label,
+                                "at": ts_iso,
+                            })
+
+        conn.close()
+    except Exception:
+        pass
+
+    # Sort newest first, max 20 rows
+    handoffs.sort(key=lambda x: x["at"], reverse=True)
+    return handoffs[:20]
+
+
 def build_status(db_path=None):
     """The snapshot written to web/data/status.json (safe for a public repo)."""
     full = build_status_private(db_path)
@@ -150,6 +225,7 @@ def build_status(db_path=None):
         "recent_tasks": [{k: t.get(k) for k in PUBLIC_TASK_KEYS} for t in full["recent_tasks"]],
         "pending_approvals": [_public_approval(a) for a in full["pending_approvals"]],
         "worker": {"running": full["worker"].get("running"), "age_seconds": full["worker"].get("age_seconds")},
+        "handoffs": _handoffs(db_path),
     }
 
 
