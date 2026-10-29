@@ -297,13 +297,14 @@ class OldProductImageTests(Base):
         folder = self.build_one("ADHD Planners Agent")
         for name in ("cover.png", "preview-1.png", "preview-2.png", "preview-3.png", "pinterest.png", "LICENSE.txt"):
             os.remove(os.path.join(folder, name))             # like a product built before images existed
-        before = {n: open(os.path.join(folder, n), "rb").read() for n in os.listdir(folder)}
+        from pathlib import Path
+        before = {n: Path(folder, n).read_bytes() for n in os.listdir(folder)}
         self.assertEqual(pb.add_missing_images(self.out), [os.path.basename(folder)])
         after = set(os.listdir(folder))
         self.assertTrue({"cover.png", "preview-1.png", "preview-2.png", "preview-3.png", "pinterest.png",
                          "LICENSE.txt"} <= after)
         for n, data in before.items():
-            self.assertEqual(open(os.path.join(folder, n), "rb").read(), data, n)   # product files untouched
+            self.assertEqual(Path(folder, n).read_bytes(), data, n)   # product files untouched
         self.assertEqual(pb.add_missing_images(self.out), [])                      # nothing done twice
 
     def test_planner_pages_read_back_from_pdf(self):
