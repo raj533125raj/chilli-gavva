@@ -641,8 +641,95 @@ def default_llm(db_path=None):
     return call
 
 
-def run_once(max_tasks=5, db_path=None, llm=None, rng=None):
-    """Run up to max_tasks queued tasks. Stops at once if the kill switch is on."""
+import time
+
+MAX_RUN_TIME_SECONDS = 480  # Stop starting new tasks after ~8 minutes per run
+
+
+CUBE_BASE_QUOTAS = {
+    "executive": {"plan": 1},
+    "research": {"research": 4},
+    "content": {"drafts": 3},
+    "qa": {"review": 3},
+    "product": {"product_builds": 2},
+    "marketing": {"promotion": 2},
+}
+
+
+def get_daily_pipeline_plan(db_path=None):
+    """Generate a daily plan per enabled cube with quotas.
+
+    Adapts to AI daily cap and provider health (never exceeds cap, scales down when providers are down/cooldown).
+    Standard base quota per enabled cube department: research 4, drafts 3, council/checker 3, product builds 2.
+    """
+    import cubes
+    import llm_router
+
+    cap = guardrails.daily_cap()
+    calls = guardrails.calls_today(db_path)
+    remaining_calls = max(0, cap - calls)
+
+    # Assess provider health multiplier
+    health_mult = 1.0
+    groq_down = llm_router.in_cooldown("Groq", db_path)
+    gemini_down = llm_router.in_cooldown("Gemini", db_path)
+
+    if groq_down and gemini_down:
+        health_mult = 0.25
+    elif groq_down or gemini_down:
+        health_mult = 0.6
+
+    # Cap multiplier
+    cap_mult = 1.0
+    if remaining_calls <= 0:
+        cap_mult = 0.0
+    elif remaining_calls < 20:
+        cap_mult = 0.2
+    elif remaining_calls < 50:
+        cap_mult = 0.5
+
+    mult = min(health_mult, cap_mult)
+
+    all_cubes = cubes.list_cubes(include_archived=True, db_path=db_path)
+
+    cube_plans = {}
+    all_stages = ["plan", "research", "drafts", "review", "product_builds", "promotion"]
+    total_quotas = {s: 0 for s in all_stages}
+
+    for c in all_cubes:
+        cid = c["id"]
+        is_enabled = c.get("enabled", False)
+        base = CUBE_BASE_QUOTAS.get(cid, {})
+
+        quotas = {}
+        for stage in all_stages:
+            base_q = base.get(stage, 0)
+            if is_enabled and mult > 0:
+                q_val = max(0, int(round(base_q * mult)))
+            else:
+                q_val = 0
+            quotas[stage] = q_val
+            total_quotas[stage] += q_val
+
+        cube_plans[cid] = {
+            "cube_name": c["name"],
+            "enabled": is_enabled,
+            "quotas": quotas,
+        }
+
+    return {
+        "date": datetime.date.today().isoformat(),
+        "cap": cap,
+        "calls_today": calls,
+        "health_mult": health_mult,
+        "cube_plans": cube_plans,
+        "total_quotas": total_quotas,
+    }
+
+
+def run_once(max_tasks=5, db_path=None, llm=None, rng=None, max_time_seconds=MAX_RUN_TIME_SECONDS):
+    """Run queued tasks safely up to max_tasks or max_time_seconds budget (stops picking new tasks after ~8 mins)."""
+    start_time = time.time()
     if guardrails.is_killed():
         return {"status": "killed", "ran": 0, "failed": 0}
     import rest_window
@@ -661,6 +748,8 @@ def run_once(max_tasks=5, db_path=None, llm=None, rng=None):
     for _ in range(max_tasks):
         if guardrails.is_killed():
             return {"status": "killed", "ran": ran, "failed": failed}
+        if time.time() - start_time >= max_time_seconds:
+            break
         task = claim_next(db_path)
         if not task:
             break

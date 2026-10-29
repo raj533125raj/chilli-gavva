@@ -93,7 +93,7 @@ class LoopTests(WorkerBase):
 
         workforce.run_once = flaky
         try:
-            self.run_loop(4)
+            self.run_loop(4, enable_seeding=False)
         finally:
             workforce.run_once = original
         conn = workforce.connect(self.db)

@@ -57,6 +57,7 @@ HELP = ("\U0001f336️ Chilli Gavva approvals\n\n"
         "/view ID - read a draft\n"
         "/approve ID - approve (several ids ok)\n"
         "/reject ID - reject\n"
+        "/pipeline - daily plan vs done per stage, backlog & stuck items\n"
         "/cubes - department cubes status and controls\n"
         "/rules - list active learned rules\n"
         "/doctor - show last 10 doctor cases\n"
@@ -216,7 +217,7 @@ def subscription_note(token):
 
 
 # ---- command handling --------------------------------------------------------
-_COMMANDS = "list|view|approve|reject|pause|resume|buttontest|rules|cubes|doctor|help|start"
+_COMMANDS = "list|view|approve|reject|pipeline|pause|resume|buttontest|rules|cubes|doctor|help|start"
 # "/approve 4", "/approve" or "/approve@bot 4 5": anything after a real slash command is fine.
 _SLASH_CMD = re.compile(rf"^/({_COMMANDS})(?:@\w+)?(?:\s+(.*))?$", re.IGNORECASE | re.DOTALL)
 # Without a slash only the bare form counts: "approve 4", "approve 4, 5", "list". A normal sentence such as
@@ -355,6 +356,67 @@ def decide_text(ids, approved, db_path=None):
     return "\n".join(out)
 
 
+def pipeline_text(db_path=None):
+    """Format today's daily pipeline plan vs done per stage, backlog, and stuck items."""
+    import workforce
+    import doctor
+    import product_builder
+
+    # Run doctor check to detect and hand off any stuck items
+    try:
+        doctor_res = doctor.run_doctor_checks(db_path=db_path)
+    except Exception:
+        doctor_res = {"stuck_found": 0, "handled": 0}
+
+    stuck_items = doctor.detect_stuck_tasks(db_path=db_path)
+
+    plan_info = workforce.get_daily_pipeline_plan(db_path=db_path)
+    total_quotas = plan_info["total_quotas"]
+
+    # Calculate done today per stage
+    today_str = datetime.date.today().isoformat()
+    conn = workforce.connect(db_path)
+    done_rows = conn.execute(
+        "SELECT kind, COUNT(*) FROM tasks WHERE status = 'done' AND finished_ts LIKE ? GROUP BY kind",
+        (today_str + "%",)
+    ).fetchall()
+    done_by_kind = dict(done_rows)
+
+    # Queue backlog counts
+    queued_rows = conn.execute(
+        "SELECT kind, COUNT(*) FROM tasks WHERE status = 'queued' GROUP BY kind"
+    ).fetchall()
+    queued_by_kind = dict(queued_rows)
+    conn.close()
+
+    pending_approvals = len(guardrails.pending(db_path))
+    built_products = len([b for b in product_builder.builds(db_path) if b["status"] == "built"])
+
+    lines = [f"📊 *Product Pipeline Status* ({today_str})\n"]
+    lines.append(f"AI Calls Today: {plan_info['calls_today']} / {plan_info['cap']}")
+    lines.append(f"Health Scaling: {int(plan_info['health_mult'] * 100)}%\n")
+
+    lines.append("*Today's Plan vs Done:*")
+    lines.append(f"• Research: {done_by_kind.get('research', 0)} / {total_quotas.get('research', 0)} planned")
+    lines.append(f"• Drafts: {done_by_kind.get('draft', 0)} / {total_quotas.get('drafts', 0)} planned")
+    lines.append(f"• Reviews: {done_by_kind.get('review', 0)} / {total_quotas.get('review', 0)} planned")
+    lines.append(f"• Builds: {built_products} / {total_quotas.get('product_builds', 0)} planned\n")
+
+    lines.append("*Current Backlog:*")
+    lines.append(f"• Queued Tasks: {sum(queued_by_kind.values())} (Research {queued_by_kind.get('research', 0)}, Drafts {queued_by_kind.get('draft', 0)})")
+    lines.append(f"• Pending Approvals: {pending_approvals}")
+    lines.append(f"• Built Products: {built_products}\n")
+
+    if stuck_items:
+        lines.append(f"⚠️ *Stuck Items:* {len(stuck_items)} (handed to Doctor)")
+        for s in stuck_items[:3]:
+            lines.append(f"  - Task #{s['task_id']} ({s['agent']}, {s['step']})")
+    else:
+        lines.append("✅ *Stuck Items:* 0")
+
+    return "\n".join(lines)
+
+
 def handle_command(cmd, ids, db_path=None):
     if cmd == "list":
         return list_text(db_path)
@@ -364,6 +426,8 @@ def handle_command(cmd, ids, db_path=None):
         return decide_text(ids, True, db_path)
     if cmd == "reject":
         return decide_text(ids, False, db_path)
+    if cmd == "pipeline":
+        return pipeline_text(db_path)
     if cmd == "pause":
         guardrails.set_paused(True, db_path)
         import publisher; publisher.set_global_stop(True, db_path)

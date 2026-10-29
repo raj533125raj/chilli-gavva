@@ -77,7 +77,7 @@ def one_pass(db_path=None, write_snapshot=True):
         result = {"status": "killed", "ran": 0, "failed": 0}
     else:
         workforce.ensure_daily_plan(db_path)
-        result = workforce.run_once(max_tasks=3, db_path=db_path)
+        result = workforce.run_once(max_tasks=15, db_path=db_path)
         notes = []
         promoted = improver.promote_if_better("draft", db_path)
         if promoted:
