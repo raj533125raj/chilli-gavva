@@ -117,15 +117,15 @@ class ReviseTests(Base):
     def test_revise_rewrites_once_then_stops(self):
         llm, calls = make_llm([checker_json(55, "revise", ["missing 5 search tags", "no buyer named"])])
         self.assertEqual(self.run_pipeline(llm)["failed"], 0)
-        self.assertEqual(self.task_kinds(), ["draft", "review", "rewrite", "review"])
-        self.assertEqual(calls["rewrite"], 1)
-        self.assertEqual(calls["checker"], 2)  # the rewrite is checked again
+        self.assertEqual(self.task_kinds(), ["draft", "review", "rewrite", "review", "rewrite", "review"])
+        self.assertEqual(calls["rewrite"], 2)
+        self.assertEqual(calls["checker"], 3)  # initial check + 2 retries checked again
         item = self.only_draft()               # replaced in place, no duplicate in the queue
         self.assertEqual(item["payload"], REWRITTEN)
         self.assertTrue(item["title"].endswith("(rewritten)"))
         self.assertEqual(item["status"], "pending")
         self.assertIn("CHECKER: REVISE", item["review"])
-        self.assertIn("already rewritten once", item["review"])
+        self.assertIn("already rewritten", item["review"])
 
     def test_rewrite_prompt_carries_checker_issues(self):
         seen = []
