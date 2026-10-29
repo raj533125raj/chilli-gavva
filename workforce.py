@@ -441,8 +441,15 @@ def step_review(task, ctx):
 
     import qa_checklist
     import checker
+    import product_council
 
     draft_text = (approval.get("payload") or "") if approval else ""
+
+    # Product Council pipeline: debate and refine draft before checker scoring
+    council_res = product_council.run_council(approval_id, draft_text, clean_topic(topic), ctx=ctx, db_path=ctx["db_path"])
+    if council_res and council_res.get("draft_text"):
+        draft_text = council_res["draft_text"]
+
     qa_res = qa_checklist.score(draft_text)
     qa_score = qa_res["score"]
     _, notes = review_text(draft_text)

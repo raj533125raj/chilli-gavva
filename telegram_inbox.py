@@ -260,24 +260,32 @@ def parse_start_payload(text):
     return approval_id
 
 
-def draft_card(item):
-    """Short alert text for one draft: title, Checker score, then top 2 reasons."""
+def draft_card(item, db_path=None):
+    """Short alert text for one draft: title, Checker score, 3-line Council summary."""
     import checker
+    import product_council
+
     lines = [f"#{item['id']} {item['title'][:70]}"]
-    review = item.get("review") or ""
-    score, reasons = checker.parse_review(review)
-    if score is not None:
-        lines.append(f"Checker: {score}/100")
-        lines += [f"- {r[:60]}" for r in reasons[:2]]
+
+    # 3-line Product Council summary if available
+    council_lines = product_council.get_council_card_lines(item["id"], db_path=db_path)
+    if council_lines:
+        lines.extend(council_lines)
     else:
-        m = re.search(r"score (\d+)\s*/\s*100", review)
-        if m:
-            lines.append(f"Checker: {m.group(1)}/100")
-            import qa_checklist
-            reasons = qa_checklist.top_reasons_from_review(review)
+        review = item.get("review") or ""
+        score, reasons = checker.parse_review(review)
+        if score is not None:
+            lines.append(f"Checker: {score}/100")
             lines += [f"- {r[:60]}" for r in reasons[:2]]
         else:
-            lines.append("Checker: not checked yet")
+            m = re.search(r"score (\d+)\s*/\s*100", review)
+            if m:
+                lines.append(f"Checker: {m.group(1)}/100")
+                import qa_checklist
+                reasons = qa_checklist.top_reasons_from_review(review)
+                lines += [f"- {r[:60]}" for r in reasons[:2]]
+            else:
+                lines.append("Checker: not checked yet")
     return "\n".join(lines)
 
 
@@ -510,7 +518,7 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
             send_text(token, owner_chat_id, handle_command(cmd, ids, db_path))
         if cmd == "list":       # fresh buttons for every waiting draft (up to 10)
             for it in guardrails.pending(db_path)[:10]:
-                send_text(token, owner_chat_id, draft_card(it), draft_buttons(it["id"]))
+                send_text(token, owner_chat_id, draft_card(it, db_path=db_path), draft_buttons(it["id"]))
         elif cmd == "buttontest":
             send_text(token, owner_chat_id, "Press this test button. The reply comes on the next run "
                       "(about 1-2 minutes with the door bell).", [[("Test button", "t:ping")]])
@@ -549,7 +557,7 @@ def alert_new_drafts(token, owner_chat_id, db_path=None):
               f"\U0001f336️ {len(new)} new draft(s) ready. Waiting in total: {len(items)}."
               + (f" Buttons for the first 10; use /list for the rest." if len(new) > 10 else ""))
     for it in new[:10]:
-        send_text(token, owner_chat_id, draft_card(it), draft_buttons(it["id"]))
+        send_text(token, owner_chat_id, draft_card(it, db_path=db_path), draft_buttons(it["id"]))
     set_state("last_alerted_id", max(it["id"] for it in new), db_path)
     return len(new)
 

@@ -119,7 +119,7 @@ class AdviceOnlyTests(unittest.TestCase):
         a = guardrails.request_approval("public_draft", "Draft: [ADHD Planners Agent] planner", PLACEHOLDER,
                                         db_path=self.db)
         q.rescore_old_reviews(self.db)
-        card = ti.draft_card(guardrails.pending(self.db)[0])
+        card = ti.draft_card(guardrails.pending(self.db)[0], db_path=self.db)
         lines = card.splitlines()
         self.assertEqual(lines[0], f"#{a} Draft: [ADHD Planners Agent] planner")
         self.assertEqual(lines[1], "Checker: 5/100")
