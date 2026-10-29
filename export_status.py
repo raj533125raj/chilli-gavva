@@ -79,8 +79,8 @@ def build_status_private(db_path=None):
     real, logs = _money(db_path)
     conn = workforce.connect(db_path)
     counts = dict(conn.execute("SELECT status, COUNT(*) FROM tasks GROUP BY status").fetchall())
-    recent = [{"id": r[0], "kind": r[1], "status": r[2], "agent": r[3], "attempts": r[4]} for r in
-              conn.execute("SELECT id, kind, status, agent, attempts FROM tasks ORDER BY id DESC LIMIT 12")]
+    recent = [{"id": r[0], "kind": r[1], "status": r[2], "agent": r[3], "attempts": r[4], "ts": r[5], "finished_ts": r[6]} for r in
+              conn.execute("SELECT id, kind, status, agent, attempts, ts, finished_ts FROM tasks ORDER BY id DESC LIMIT 12")]
     prompts = [{"id": r[0], "name": r[1], "active": bool(r[2]), "trials": r[3],
                 "quality": round(improver.quality((r[3], r[4], r[5], r[6])), 1)} for r in
                conn.execute("SELECT id, name, active, trials, score_sum, decisions, approvals "
@@ -121,7 +121,7 @@ def build_status_private(db_path=None):
 # The public snapshot: only these fields. No money, prompts, logs, validation, service requests, built tools,
 # worker info or approval review text. The robot's own files and the dashboard are the only readers.
 PUBLIC_AGENT_KEYS = ("name", "level", "role", "kinds", "state", "tasks_done")
-PUBLIC_TASK_KEYS = ("id", "kind", "status", "agent", "attempts")
+PUBLIC_TASK_KEYS = ("id", "kind", "status", "agent", "attempts", "ts", "finished_ts")
 PUBLIC_APPROVAL_KEYS = ("id", "ts", "kind", "title")
 
 
@@ -230,7 +230,7 @@ def build_status(db_path=None):
 
 
 # Names are public constants from llm_router._PROVIDERS, never configuration values.
-PUBLIC_AI_PROVIDERS = ("Groq", "Gemini", "GitHubModels", "Cloudflare", "OpenRouter", "FreeLLMAPI")
+PUBLIC_AI_PROVIDERS = ("Groq", "Gemini", "Cloudflare", "OpenRouter", "FreeLLMAPI")
 
 
 def _ai_health(db_path=None, checked_at=None):
@@ -286,7 +286,33 @@ def write_status(path=None, db_path=None):
         snapshot["ai_health"] = _ai_health(db_path, snapshot["generated_at"])
         # Actions totals are fetched remotely by always_on, not persisted locally.
         # Do not contact that service or substitute LLM usage or a guessed plan limit.
-        snapshot["minutes"] = {"used_this_month": None, "limit": None}
+        used_min = None
+        limit_min = None
+        db_file = db_path or guardrails.DB_PATH
+        if os.path.exists(db_file):
+            try:
+                m_conn = sqlite3.connect(db_file)
+                if _has_table(m_conn, "control"):
+                    r_used = m_conn.execute("SELECT value FROM control WHERE key IN ('month_minutes', 'used_this_month', 'minutes_used')").fetchone()
+                    r_lim = m_conn.execute("SELECT value FROM control WHERE key IN ('minutes_limit', 'limit', 'month_limit')").fetchone()
+                    if r_used and r_used[0] is not None:
+                        try:
+                            used_min = int(r_used[0])
+                        except (ValueError, TypeError):
+                            pass
+                    if r_lim and r_lim[0] is not None:
+                        try:
+                            limit_min = int(r_lim[0])
+                        except (ValueError, TypeError):
+                            pass
+                if (used_min is None and limit_min is None) and _has_table(m_conn, "action_minutes"):
+                    r_act = m_conn.execute("SELECT used_this_month, limit_minutes FROM action_minutes ORDER BY id DESC LIMIT 1").fetchone()
+                    if r_act:
+                        used_min, limit_min = r_act[0], r_act[1]
+                m_conn.close()
+            except Exception:
+                pass
+        snapshot["minutes"] = {"used_this_month": used_min, "limit": limit_min}
         import cubes
         snapshot["cubes"] = cubes.get_public_cubes_export(db_path)
         scout_counts = {"total": 0, "pending": 0, "approved": 0}

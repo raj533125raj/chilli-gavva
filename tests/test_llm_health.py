@@ -211,40 +211,7 @@ class GeminiFallbackTests(unittest.TestCase):
             self.assertNotIn(name, router_text)
 
 
-class GitHubModelsAndPrivacyTests(unittest.TestCase):
-    def test_off_unless_switched_on(self):
-        with patch.dict(os.environ, {"GITHUB_MODELS_TOKEN": "t0ken"}, clear=True), \
-                patch("urllib.request.urlopen", side_effect=AssertionError("no call while off")):
-            self.assertFalse(llm_router.github_models_enabled())
-            self.assertIsNone(llm_router._github_models("p"))
-
-    def test_on_uses_token_and_next_model(self):
-        class Resp(io.BytesIO):
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *a):
-                return False
-        seen = []
-
-        def fake(req, timeout=None):
-            import json as _json
-            seen.append((req.full_url, _json.loads(req.data)["model"]))
-            if len(seen) == 1:
-                raise http_error(404)
-            return Resp(b'{"choices": [{"message": {"content": "hi"}}]}')
-        env = {"GITHUB_MODELS_TOKEN": "t0ken", "GITHUB_MODELS": "on", "GITHUB_MODELS_MODEL": "a/m1,b/m2"}
-        with patch.dict(os.environ, env, clear=True), redirect_stderr(io.StringIO()), \
-                patch("urllib.request.urlopen", fake), \
-                patch.object(llm_router.guardrails, "record_call", lambda *a, **k: None):
-            self.assertEqual(llm_router._github_models("p"), "hi")
-        self.assertEqual([m for _, m in seen], ["a/m1", "b/m2"])
-        self.assertTrue(seen[0][0].startswith("https://models.github.ai/"))
-
-    def test_health_tests_github_models_even_when_off(self):
-        with patch.dict(os.environ, {"GITHUB_MODELS_TOKEN": "t0ken", "GITHUB_MODELS_MODEL": "a/m1"}, clear=True):
-            self.assertEqual([(t[0], t[1]) for t in llm_router._targets()], [("GitHubModels", "a/m1")])
-
+class PrivacyTests(unittest.TestCase):
     def test_scrub_hides_secrets_and_chat_id(self):
         env = {"TELEGRAM_CHAT_ID": "123456789", "GROQ_API_KEY": "gsk_abcdefghijklmnop1234"}
         text = ("chat 123456789 key gsk_abcdefghijklmnop1234 other gsk_ZZZZZZZZZZZZZZZZZZZZ "

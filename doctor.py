@@ -36,9 +36,11 @@ import sys
 import time
 
 import autofix
+import cubes
 import guardrails
 import llm_router
 import notify
+import rest_window
 
 MAX_DOCTOR_ACTIONS_PER_DAY = 3
 
@@ -69,6 +71,12 @@ PLAYBOOK = {
     "github_api": "GitHub API error",
     "code_error": "Code-related error",
 }
+
+
+def is_paused(db_path=None):
+    if guardrails.is_killed() or rest_window.in_rest_window():
+        return True
+    return not cubes.is_kind_enabled("code_proposal", db_path=db_path)
 
 
 def connect(db_path=None):
@@ -388,6 +396,9 @@ def diagnose_and_remedy(agent: str, step: str, error: Exception | str,
                          last_5_actions: list = None, task_id: int = None,
                          db_path=None) -> dict:
     """Main entrypoint: collects facts, matches playbook, checks limits, applies remedies."""
+    if is_paused(db_path):
+        return {"case_id": None, "category": "paused", "status": "skipped",
+                "diagnosis": "Doctor paused", "remedy": "Skipped due to kill switch, rest window, or cube off"}
     facts = collect_facts(agent, step, error, last_5_actions=last_5_actions, task_id=task_id, db_path=db_path)
 
     # Check loop limit for Doctor itself (max 3 actions per case per day)
@@ -531,6 +542,8 @@ def handle_callback(token: str, owner_chat_id: str, data: str, db_path=None) -> 
 
 def run_doctor_checks(db_path=None) -> dict:
     """Run routine scan for stuck tasks and repeat loops, applying remedies."""
+    if is_paused(db_path):
+        return {"stuck_found": 0, "handled": 0, "status": "paused"}
     stuck = detect_stuck_tasks(db_path=db_path)
     handled_count = 0
     for s in stuck:

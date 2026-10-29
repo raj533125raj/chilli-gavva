@@ -75,7 +75,7 @@ class TestProviderStatus(unittest.TestCase):
             importlib.reload(llm_router)
             status = llm_router.provider_status()
         names = [s["provider"] for s in status]
-        self.assertEqual(names, ["Groq", "Gemini", "GitHubModels", "Cloudflare", "OpenRouter", "FreeLLMAPI"])
+        self.assertEqual(names, ["Groq", "Gemini", "Cloudflare", "OpenRouter", "FreeLLMAPI"])
         for s in status:
             self.assertFalse(s["configured"])
 
@@ -424,7 +424,7 @@ class TestAutoSwitch(unittest.TestCase):
         with patch.object(llm_router, "_freellmapi", return_value=None), \
                 patch.object(llm_router, "_groq", side_effect=fake_groq), \
                 patch.object(llm_router, "_gemini", return_value=None), \
-                patch.object(llm_router, "_github_models", return_value="backup answer"):
+                patch.object(llm_router, "_cloudflare", return_value="backup answer"):
             self.assertEqual(llm_router.chat("p"), "backup answer")
             self.assertEqual(llm_router.chat("p"), "backup answer")
         self.assertEqual(calls["groq"], 1)  # second call skipped Groq (cooling down)
