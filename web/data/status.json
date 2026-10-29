@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-29T15:09:05Z",
+ "generated_at": "2026-10-29T16:27:26Z",
  "kill_switch": false,
  "llm": {
   "calls_today": 8,
@@ -252,46 +252,295 @@
    "provider": "Groq",
    "model": null,
    "state": "up",
-   "checked_at": "2026-10-29T15:09:05Z"
+   "checked_at": "2026-10-29T16:27:26Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "down",
-   "checked_at": "2026-10-29T15:09:05Z"
+   "checked_at": "2026-10-29T16:27:26Z"
   },
   {
    "provider": "GitHubModels",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-29T15:09:05Z"
+   "checked_at": "2026-10-29T16:27:26Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "up",
-   "checked_at": "2026-10-29T15:09:05Z"
+   "checked_at": "2026-10-29T16:27:26Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-29T15:09:05Z"
+   "checked_at": "2026-10-29T16:27:26Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-29T15:09:05Z"
+   "checked_at": "2026-10-29T16:27:26Z"
   }
  ],
  "minutes": {
   "used_this_month": null,
   "limit": null
  },
+ "cubes": [
+  {
+   "id": "executive",
+   "name": "Executive Department",
+   "role": "Plans the day's work, sets priorities, and directs agent operations",
+   "status": "on",
+   "enabled": true,
+   "planned": false,
+   "counts": {
+    "sub_rooms": 2,
+    "agents": 1,
+    "sub_agents": 0,
+    "kinds": 1
+   },
+   "captain": {
+    "name": "CEO",
+    "role": "Plans the day's work and sets priorities",
+    "planned": false
+   },
+   "sub_rooms": [
+    {
+     "name": "Strategy Room"
+    },
+    {
+     "name": "Operations Hub"
+    }
+   ],
+   "agents": [
+    {
+     "name": "CEO",
+     "role": "Plans the day's work and sets priorities",
+     "planned": false,
+     "sub_agents": []
+    }
+   ]
+  },
+  {
+   "id": "research",
+   "name": "Research Department",
+   "role": "Discovers niche ideas, market trends, and initial topics",
+   "status": "on",
+   "enabled": true,
+   "planned": false,
+   "counts": {
+    "sub_rooms": 2,
+    "agents": 1,
+    "sub_agents": 1,
+    "kinds": 1
+   },
+   "captain": {
+    "name": "Research Manager",
+    "role": "Owns research quality",
+    "planned": false
+   },
+   "sub_rooms": [
+    {
+     "name": "Niche Mining"
+    },
+    {
+     "name": "Fact Verification"
+    }
+   ],
+   "agents": [
+    {
+     "name": "Research Manager",
+     "role": "Owns research quality",
+     "planned": false,
+     "sub_agents": [
+      {
+       "name": "Research Worker",
+       "role": "Finds and lists ideas",
+       "planned": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "content",
+   "name": "Content Department",
+   "role": "Writes product specs, drafts, store listings, and performs rewrites",
+   "status": "on",
+   "enabled": true,
+   "planned": false,
+   "counts": {
+    "sub_rooms": 2,
+    "agents": 1,
+    "sub_agents": 1,
+    "kinds": 2
+   },
+   "captain": {
+    "name": "Content Manager",
+    "role": "Owns drafts and tone",
+    "planned": false
+   },
+   "sub_rooms": [
+    {
+     "name": "Drafting Studio"
+    },
+    {
+     "name": "Copywriting Room"
+    }
+   ],
+   "agents": [
+    {
+     "name": "Content Manager",
+     "role": "Owns drafts and tone",
+     "planned": false,
+     "sub_agents": [
+      {
+       "name": "Draft Worker",
+       "role": "Writes page drafts and one rewrite when asked",
+       "planned": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "qa",
+   "name": "Quality Assurance Department",
+   "role": "Scores drafts, enforces safety rules, and manages checklist reviews",
+   "status": "on",
+   "enabled": true,
+   "planned": false,
+   "counts": {
+    "sub_rooms": 2,
+    "agents": 1,
+    "sub_agents": 2,
+    "kinds": 1
+   },
+   "captain": {
+    "name": "QA Reviewer",
+    "role": "Scores drafts, blocks risky claims",
+    "planned": false
+   },
+   "sub_rooms": [
+    {
+     "name": "Rule Checklist Lab"
+    },
+    {
+     "name": "Model Review Room"
+    }
+   ],
+   "agents": [
+    {
+     "name": "QA Reviewer",
+     "role": "Scores drafts, blocks risky claims",
+     "planned": false,
+     "sub_agents": [
+      {
+       "name": "QA Checker",
+       "role": "Checks every draft with the large model, sends weak ones back for one rewrite",
+       "planned": false
+      },
+      {
+       "name": "Review Worker",
+       "role": "Runs the rule checklist the QA Checker builds on",
+       "planned": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "product",
+   "name": "Product & Engineering Department",
+   "role": "Proposes code patches, builds digital tools, and maintains system code",
+   "status": "on",
+   "enabled": true,
+   "planned": false,
+   "counts": {
+    "sub_rooms": 2,
+    "agents": 1,
+    "sub_agents": 0,
+    "kinds": 1
+   },
+   "captain": {
+    "name": "Coder Worker",
+    "role": "Proposes code patches (never applies them)",
+    "planned": false
+   },
+   "sub_rooms": [
+    {
+     "name": "Code Proposals"
+    },
+    {
+     "name": "Tool Construction"
+    }
+   ],
+   "agents": [
+    {
+     "name": "Coder Worker",
+     "role": "Proposes code patches (never applies them)",
+     "planned": false,
+     "sub_agents": []
+    }
+   ]
+  },
+  {
+   "id": "marketing",
+   "name": "Marketing Department",
+   "role": "Handles product promotion, audience growth, and outreach strategies",
+   "status": "on",
+   "enabled": true,
+   "planned": true,
+   "counts": {
+    "sub_rooms": 2,
+    "agents": 1,
+    "sub_agents": 1,
+    "kinds": 1
+   },
+   "captain": {
+    "name": "Marketing Manager",
+    "role": "",
+    "planned": true
+   },
+   "sub_rooms": [
+    {
+     "name": "Campaign Strategy"
+    },
+    {
+     "name": "Social Media"
+    }
+   ],
+   "agents": [
+    {
+     "name": "Marketing Manager",
+     "role": "",
+     "planned": true,
+     "sub_agents": [
+      {
+       "name": "Promoter Worker",
+       "role": "",
+       "planned": true
+      }
+     ]
+    }
+   ]
+  }
+ ],
  "scout_ideas_count": {
   "total": 5,
   "pending": 5,
   "approved": 0
+ },
+ "trend_items_count": {
+  "total": 10,
+  "proposed": 0,
+  "approved": 0
+ },
+ "media_items_count": {
+  "total": 0
  }
 }
