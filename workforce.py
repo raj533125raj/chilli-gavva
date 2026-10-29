@@ -402,8 +402,13 @@ def step_draft(task, ctx):
     except Exception:
         mem_block = ""
 
+    import improver_loop
+    rules_block = improver_loop.get_active_rules_block("writer", ctx.get("db_path"))
+
     draft_prompt = (template.format(topic=product) + DRAFT_FORMAT
                     + "\n\nResearch notes:\n" + task["payload"].get("research", ""))
+    if rules_block:
+        draft_prompt += "\n" + rules_block
     if mem_block:
         draft_prompt = mem_block + "\n\n" + draft_prompt
     text = _ask(ctx, draft_prompt, size="large")
@@ -504,9 +509,14 @@ def step_rewrite(task, ctx):
     if not approval or approval["status"] != "pending":
         return {"summary": "skipped: a human already decided this draft"}
 
+    import improver_loop
+    rules_block = improver_loop.get_active_rules_block("writer", ctx.get("db_path"))
+
     issues = "\n".join(f"- {i}" for i in payload.get("issues", [])) or "- make it clearer and more complete"
     prompt = REWRITE_PROMPT.format(topic=clean_topic(payload.get("topic", "")), issues=issues,
                                    research=payload.get("research", ""), draft=approval["payload"][:6000])
+    if rules_block:
+        prompt += "\n" + rules_block
     text = _ask(ctx, prompt, size="large")
     if not text:
         guardrails.set_review(approval_id, (approval["review"] or "") + " | rewrite failed, original kept",

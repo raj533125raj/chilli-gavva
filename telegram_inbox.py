@@ -57,6 +57,7 @@ HELP = ("\U0001f336️ Chilli Gavva approvals\n\n"
         "/view ID - read a draft\n"
         "/approve ID - approve (several ids ok)\n"
         "/reject ID - reject\n"
+        "/rules - list active learned rules\n"
         "/pause - emergency brake: stop all AI work and drafts\n"
         "/resume - start work again\n"
         "/buttontest - send a test button (checks that button presses reach the bot)\n"
@@ -213,7 +214,7 @@ def subscription_note(token):
 
 
 # ---- command handling --------------------------------------------------------
-_COMMANDS = "list|view|approve|reject|pause|resume|buttontest|help|start"
+_COMMANDS = "list|view|approve|reject|pause|resume|buttontest|rules|help|start"
 # "/approve 4", "/approve" or "/approve@bot 4 5": anything after a real slash command is fine.
 _SLASH_CMD = re.compile(rf"^/({_COMMANDS})(?:@\w+)?(?:\s+(.*))?$", re.IGNORECASE | re.DOTALL)
 # Without a slash only the bare form counts: "approve 4", "approve 4, 5", "list". A normal sentence such as
@@ -364,6 +365,10 @@ def handle_command(cmd, ids, db_path=None):
         return "▶️ Resumed. Work starts again on the next run."
     if cmd == "buttontest":
         return "Button test:"
+    if cmd == "rules":
+        import improver_loop
+        text, _ = improver_loop.format_rules_list(db_path)
+        return text
     return HELP
 
 
@@ -378,6 +383,11 @@ def handle_callback(token, owner_chat_id, data, db_path=None):
         reply = autofix.decide(data, get_state, set_state, db_path)
         send_text(token, owner_chat_id, reply)
         return reply
+    import improver_loop
+    imp_reply = improver_loop.handle_callback(data, db_path)
+    if imp_reply is not None:
+        send_text(token, owner_chat_id, imp_reply)
+        return imp_reply
     m = _CALLBACK.match(data or "")
     if not m:
         return None
@@ -480,7 +490,12 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
         if not cmd:
             stats["skipped"]["not a command"] += 1
             continue
-        send_text(token, owner_chat_id, handle_command(cmd, ids, db_path))
+        if cmd == "rules":
+            import improver_loop
+            text, buttons = improver_loop.format_rules_list(db_path)
+            send_text(token, owner_chat_id, text, buttons)
+        else:
+            send_text(token, owner_chat_id, handle_command(cmd, ids, db_path))
         if cmd == "list":       # fresh buttons for every waiting draft (up to 10)
             for it in guardrails.pending(db_path)[:10]:
                 send_text(token, owner_chat_id, draft_card(it), draft_buttons(it["id"]))
@@ -596,8 +611,12 @@ def run(db_path=None):
         daily = daily_report.maybe_send(
             lambda text: send_text(token, chat_id, text + "\n" + daily_waiting_line(db_path)),
             get_state, set_state, db_path)
+        import improver_loop
+        improver_loop.maybe_run_weekly(
+            lambda text, buttons=None: send_text(token, chat_id, text, buttons),
+            get_state, set_state, db_path)
     except Exception as exc:
-        print(f"Daily report skipped: {type(exc).__name__}")
+        print(f"Daily report / improver loop skipped: {type(exc).__name__}")
         daily = False
     print(f"Telegram inbox: {commands} command(s) handled, {alerts} new draft(s) announced"
           + (", daily report sent." if daily else "."))

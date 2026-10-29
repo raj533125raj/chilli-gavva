@@ -134,6 +134,12 @@ def report_text(db_path=None, now=None, status_fn=None):
     return text
 
 
+def run_weekly_improver(send, get_state, set_state, db_path=None, now=None):
+    """Run improver_loop weekly proposals on Sunday flow."""
+    import improver_loop
+    return improver_loop.maybe_run_weekly(send, get_state, set_state, db_path=db_path, now=now)
+
+
 def due(last_sent_day, now=None):
     now = now or _now()
     return now.time() >= SEND_AFTER and last_sent_day != now.date().isoformat()

@@ -173,7 +173,12 @@ def check_draft(draft_text: str, topic: str = "", ctx: Optional[Dict[str, Any]] 
     if ctx and callable(ctx.get("llm")):
         llm_fn = ctx["llm"]
 
+    import improver_loop
+    rules_block = improver_loop.get_active_rules_block("checker", db_path=db_path)
+
     prompt = _CHECKER_PROMPT.format(topic=topic or "Digital Product", draft=draft_text[:6000])
+    if rules_block:
+        prompt += "\n" + rules_block
 
     response = None
     try:
