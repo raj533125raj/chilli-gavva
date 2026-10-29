@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-29T09:00:50Z",
+ "generated_at": "2026-10-29T10:03:50Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 2,
+  "calls_today": 5,
   "cap": 500
  },
  "agents": [
@@ -179,51 +179,119 @@
    "attempts": 1
   }
  ],
- "pending_approvals": [],
+ "pending_approvals": [
+  {
+   "id": 46,
+   "ts": "2026-10-29T10:03:50.030174",
+   "kind": "scout_idea",
+   "title": "Draft #46"
+  },
+  {
+   "id": 47,
+   "ts": "2026-10-29T10:03:50.032313",
+   "kind": "scout_idea",
+   "title": "Draft #47"
+  },
+  {
+   "id": 48,
+   "ts": "2026-10-29T10:03:50.034304",
+   "kind": "scout_idea",
+   "title": "Draft #48"
+  },
+  {
+   "id": 49,
+   "ts": "2026-10-29T10:03:50.036273",
+   "kind": "scout_idea",
+   "title": "Draft #49"
+  },
+  {
+   "id": 50,
+   "ts": "2026-10-29T10:03:50.038337",
+   "kind": "scout_idea",
+   "title": "Draft #50"
+  }
+ ],
  "worker": {
   "running": false,
   "age_seconds": null
  },
+ "handoffs": [
+  {
+   "from_agent": "Draft Worker",
+   "to_agent": "Content Manager",
+   "item": "draft #44",
+   "at": "2026-10-28T22:56:41Z"
+  },
+  {
+   "from_agent": "Draft Worker",
+   "to_agent": "Content Manager",
+   "item": "draft #43",
+   "at": "2026-10-28T22:56:38Z"
+  },
+  {
+   "from_agent": "Draft Worker",
+   "to_agent": "Content Manager",
+   "item": "draft #45",
+   "at": "2026-10-28T20:21:16Z"
+  },
+  {
+   "from_agent": "Draft Worker",
+   "to_agent": "Content Manager",
+   "item": "draft #44",
+   "at": "2026-10-28T20:21:14Z"
+  },
+  {
+   "from_agent": "Draft Worker",
+   "to_agent": "Content Manager",
+   "item": "draft #43",
+   "at": "2026-10-28T20:21:11Z"
+  }
+ ],
  "ai_health": [
   {
    "provider": "Groq",
    "model": null,
    "state": "up",
-   "checked_at": "2026-10-29T09:00:50Z"
+   "checked_at": "2026-10-29T10:03:50Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "down",
-   "checked_at": "2026-10-29T09:00:50Z"
+   "checked_at": "2026-10-29T10:03:50Z"
   },
   {
    "provider": "GitHubModels",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-29T09:00:50Z"
+   "checked_at": "2026-10-29T10:03:50Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "up",
-   "checked_at": "2026-10-29T09:00:50Z"
+   "checked_at": "2026-10-29T10:03:50Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-29T09:00:50Z"
+   "checked_at": "2026-10-29T10:03:50Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-29T09:00:50Z"
+   "checked_at": "2026-10-29T10:03:50Z"
   }
  ],
  "minutes": {
   "used_this_month": null,
   "limit": null
+ },
+ "scout_ideas_count": {
+  "total": 5,
+  "pending": 5,
+  "approved": 0
  }
 }
