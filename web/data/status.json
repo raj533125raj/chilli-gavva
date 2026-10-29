@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-29T07:09:09Z",
+ "generated_at": "2026-10-29T09:00:50Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 0,
+  "calls_today": 2,
   "cap": 500
  },
  "agents": [
@@ -179,44 +179,7 @@
    "attempts": 1
   }
  ],
- "pending_approvals": [
-  {
-   "id": 40,
-   "ts": "2026-10-27T22:19:43.706085",
-   "kind": "public_draft",
-   "title": "Draft #40"
-  },
-  {
-   "id": 41,
-   "ts": "2026-10-27T22:19:46.058261",
-   "kind": "public_draft",
-   "title": "Draft #41"
-  },
-  {
-   "id": 42,
-   "ts": "2026-10-27T22:19:48.807286",
-   "kind": "public_draft",
-   "title": "Draft #42"
-  },
-  {
-   "id": 43,
-   "ts": "2026-10-28T20:21:11.652791",
-   "kind": "public_draft",
-   "title": "Draft #43"
-  },
-  {
-   "id": 44,
-   "ts": "2026-10-28T20:21:14.089062",
-   "kind": "public_draft",
-   "title": "Draft #44"
-  },
-  {
-   "id": 45,
-   "ts": "2026-10-28T20:21:16.719616",
-   "kind": "public_draft",
-   "title": "Draft #45"
-  }
- ],
+ "pending_approvals": [],
  "worker": {
   "running": false,
   "age_seconds": null
@@ -226,37 +189,37 @@
    "provider": "Groq",
    "model": null,
    "state": "up",
-   "checked_at": "2026-10-29T07:09:09Z"
+   "checked_at": "2026-10-29T09:00:50Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "down",
-   "checked_at": "2026-10-29T07:09:09Z"
+   "checked_at": "2026-10-29T09:00:50Z"
   },
   {
    "provider": "GitHubModels",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-29T07:09:09Z"
+   "checked_at": "2026-10-29T09:00:50Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "up",
-   "checked_at": "2026-10-29T07:09:09Z"
+   "checked_at": "2026-10-29T09:00:50Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-29T07:09:09Z"
+   "checked_at": "2026-10-29T09:00:50Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-29T07:09:09Z"
+   "checked_at": "2026-10-29T09:00:50Z"
   }
  ],
  "minutes": {
