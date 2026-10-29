@@ -287,6 +287,8 @@ def write_status(path=None, db_path=None):
         # Actions totals are fetched remotely by always_on, not persisted locally.
         # Do not contact that service or substitute LLM usage or a guessed plan limit.
         snapshot["minutes"] = {"used_this_month": None, "limit": None}
+        import cubes
+        snapshot["cubes"] = cubes.get_public_cubes_export(db_path)
         scout_counts = {"total": 0, "pending": 0, "approved": 0}
         try:
             import scout
