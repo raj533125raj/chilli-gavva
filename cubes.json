@@ -1,0 +1,80 @@
+[
+  {
+    "id": "executive",
+    "name": "Executive Department",
+    "role": "Plans the day's work, sets priorities, and directs agent operations",
+    "captain": "CEO",
+    "sub_rooms": ["Strategy Room", "Operations Hub"],
+    "agents": ["CEO"],
+    "sub_agents": [],
+    "right_hand": "Research Manager",
+    "left_hand": "Content Manager",
+    "kinds": ["plan"],
+    "planned": false
+  },
+  {
+    "id": "research",
+    "name": "Research Department",
+    "role": "Discovers niche ideas, market trends, and initial topics",
+    "captain": "Research Manager",
+    "sub_rooms": ["Niche Mining", "Fact Verification"],
+    "agents": ["Research Manager"],
+    "sub_agents": ["Research Worker"],
+    "right_hand": "Research Worker",
+    "left_hand": null,
+    "kinds": ["research"],
+    "planned": false
+  },
+  {
+    "id": "content",
+    "name": "Content Department",
+    "role": "Writes product specs, drafts, store listings, and performs rewrites",
+    "captain": "Content Manager",
+    "sub_rooms": ["Drafting Studio", "Copywriting Room"],
+    "agents": ["Content Manager"],
+    "sub_agents": ["Draft Worker"],
+    "right_hand": "Draft Worker",
+    "left_hand": "Research Manager",
+    "kinds": ["draft", "rewrite"],
+    "planned": false
+  },
+  {
+    "id": "qa",
+    "name": "Quality Assurance Department",
+    "role": "Scores drafts, enforces safety rules, and manages checklist reviews",
+    "captain": "QA Reviewer",
+    "sub_rooms": ["Rule Checklist Lab", "Model Review Room"],
+    "agents": ["QA Reviewer"],
+    "sub_agents": ["QA Checker", "Review Worker"],
+    "right_hand": "QA Checker",
+    "left_hand": "Review Worker",
+    "kinds": ["review"],
+    "planned": false
+  },
+  {
+    "id": "product",
+    "name": "Product & Engineering Department",
+    "role": "Proposes code patches, builds digital tools, and maintains system code",
+    "captain": "Coder Worker",
+    "sub_rooms": ["Code Proposals", "Tool Construction"],
+    "agents": ["Coder Worker"],
+    "sub_agents": [],
+    "right_hand": "Coder Worker",
+    "left_hand": null,
+    "kinds": ["code_proposal"],
+    "planned": false
+  },
+  {
+    "id": "marketing",
+    "name": "Marketing Department",
+    "role": "Handles product promotion, audience growth, and outreach strategies",
+    "captain": "Marketing Manager",
+    "sub_rooms": ["Campaign Strategy", "Social Media"],
+    "agents": ["Marketing Manager"],
+    "sub_agents": ["Promoter Worker"],
+    "right_hand": "Promoter Worker",
+    "left_hand": null,
+    "kinds": ["promotion"],
+    "planned": true
+  }
+]

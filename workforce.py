@@ -90,7 +90,9 @@ def off_limits(topic):
 
 
 def connect(db_path=None):
+    import cubes
     conn = improver.connect(db_path)
+    cubes.ensure_tables(conn)
     conn.execute("""CREATE TABLE IF NOT EXISTS tasks (
         id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, kind TEXT, payload TEXT,
         status TEXT DEFAULT 'queued', attempts INTEGER DEFAULT 0, agent TEXT,
@@ -125,10 +127,17 @@ def enqueue(kind, payload=None, priority=5, db_path=None):
 
 
 def claim_next(db_path=None):
+    import cubes
     conn = connect(db_path)
     conn.execute("BEGIN IMMEDIATE")
-    row = conn.execute("SELECT id, kind, payload, attempts FROM tasks WHERE status = 'queued' "
-                       "ORDER BY priority, id LIMIT 1").fetchone()
+    rows = conn.execute("SELECT id, kind, payload, attempts FROM tasks WHERE status = 'queued' "
+                        "ORDER BY priority, id LIMIT 50").fetchall()
+    row = None
+    for r in rows:
+        r_kind = r[1]
+        if cubes.is_kind_enabled(r_kind, db_path=db_path, conn=conn):
+            row = r
+            break
     if not row:
         conn.rollback()
         conn.close()
