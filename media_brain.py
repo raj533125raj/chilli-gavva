@@ -31,10 +31,12 @@ import urllib.parse
 import urllib.request
 
 import agent_memory
+import cubes
 import guardrails
 import injection_guard
 import llm_router
 import notify
+import rest_window
 
 MAX_SIZE_BYTES = 2 * 1024 * 1024  # 2 MB limit
 NETWORK_TIMEOUT = 15  # seconds
@@ -44,6 +46,12 @@ CURRENCY_PATTERN = re.compile(
     r"(\$|₹|€|£)\s*\d+(?:\.\d+)?|\b\d+(?:\.\d+)?\s*(?:USD|INR|EUR|GBP|dollars|rupees)\b",
     re.IGNORECASE
 )
+
+
+def is_paused(db_path=None) -> bool:
+    if guardrails.is_killed() or rest_window.in_rest_window():
+        return True
+    return not cubes.is_kind_enabled("research", db_path=db_path)
 
 
 def _connect(db_path=None):
@@ -141,6 +149,8 @@ def download_telegram_file(token: str, file_id: str, max_bytes: int = MAX_SIZE_B
 
 def process_photo(token: str, photo_list: list, caption: str = "", db_path=None) -> tuple[str, list, int]:
     """Download photo (largest resolution), analyze using Gemini vision via llm_router."""
+    if is_paused(db_path):
+        return "Media Intelligence is currently paused (kill switch, rest window, or Research cube Off).", [], 0
     if not photo_list:
         return "No photo found in message.", [], 0
     # Pick largest photo
@@ -149,8 +159,12 @@ def process_photo(token: str, photo_list: list, caption: str = "", db_path=None)
 
     img_bytes, err = download_telegram_file(token, file_id)
     if err or not img_bytes:
-        msg = f"Could not download photo: {err or 'empty file'}"
-        return msg, [], 0
+        summary = f"Photo received. (Download note: {err or 'file unavailable'})"
+        if caption:
+            summary += f" Caption: {caption}"
+        key_points = ["1. Photo asset received.", "2. Download/vision provider unavailable.", "3. Saved in session context."]
+        chilli_value = "Visual reference saved for Chilli Gavva digital products."
+        return _format_and_save("photo", summary, key_points, chilli_value, caption or summary, db_path=db_path)
 
     # Analyze with Gemini vision
     prompt = "Describe and analyze this image in detail for a business owner."
@@ -160,11 +174,15 @@ def process_photo(token: str, photo_list: list, caption: str = "", db_path=None)
     llm_res = llm_router.chat_vision(img_bytes, "image/jpeg", prompt=prompt, db_path=db_path)
 
     if not llm_res or "blocked_by_guard" in llm_res:
-        # Rule-based fallback
-        summary = f"Photo uploaded ({len(img_bytes)} bytes)."
+        # Friendly message fallback when no vision provider is up
+        summary = f"Photo received ({len(img_bytes)} bytes)."
         if caption:
             summary += f" Caption: {caption}"
-        key_points = ["1. Visual image asset received.", "2. AI vision processing unavailable or skipped.", "3. Image saved in session context."]
+        key_points = [
+            "1. Photo received safely.",
+            "2. AI vision processing unavailable or offline.",
+            "3. Stored for review when AI vision is online."
+        ]
         chilli_value = "Can be used as mockups, design reference, or social promotional media for digital products."
         return _format_and_save("photo", summary, key_points, chilli_value, caption or summary, db_path=db_path)
 
@@ -174,13 +192,19 @@ def process_photo(token: str, photo_list: list, caption: str = "", db_path=None)
 
 def process_audio(token: str, voice_or_audio: dict, caption: str = "", db_path=None) -> tuple[str, list, int]:
     """Download voice note or audio, transcribe and analyze using Gemini audio via llm_router."""
+    if is_paused(db_path):
+        return "Media Intelligence is currently paused (kill switch, rest window, or Research cube Off).", [], 0
     file_id = voice_or_audio.get("file_id")
     mime_type = voice_or_audio.get("mime_type") or "audio/ogg"
 
     audio_bytes, err = download_telegram_file(token, file_id)
     if err or not audio_bytes:
-        msg = f"Could not download audio note: {err or 'empty file'}"
-        return msg, [], 0
+        summary = f"Voice note / audio received. (Download note: {err or 'file unavailable'})"
+        if caption:
+            summary += f" Caption: {caption}"
+        key_points = ["1. Voice note received.", "2. Audio download unavailable.", "3. Stored in session context."]
+        chilli_value = "Contains direct voice feedback or feature ideas from the business owner."
+        return _format_and_save("audio", summary, key_points, chilli_value, caption or summary, db_path=db_path)
 
     prompt = (
         "Transcribe this voice note / audio accurately (it may contain English, Telugu, or a Telugu-English mix/Tenglish). "
@@ -192,10 +216,15 @@ def process_audio(token: str, voice_or_audio: dict, caption: str = "", db_path=N
     llm_res = llm_router.chat_audio(audio_bytes, mime_type, prompt=prompt, db_path=db_path)
 
     if not llm_res or "blocked_by_guard" in llm_res:
+        # Friendly message fallback when no audio provider is up
         summary = f"Audio message received ({voice_or_audio.get('duration', 0)}s)."
         if caption:
             summary += f" Caption: {caption}"
-        key_points = ["1. Audio note recorded.", "2. AI transcription unavailable or skipped.", "3. Audio received from owner."]
+        key_points = [
+            "1. Audio recording received.",
+            "2. Audio AI transcription provider is currently offline or unavailable.",
+            "3. Stored for review when AI audio is online."
+        ]
         chilli_value = "Contains direct voice feedback or feature ideas from the business owner."
         return _format_and_save("audio", summary, key_points, chilli_value, caption or summary, db_path=db_path)
 
@@ -247,6 +276,8 @@ def process_url(url: str, db_path=None) -> tuple[str, list, int]:
 
     For YouTube / Instagram links: uses ONLY public oEmbed or page title/meta metadata without video downloading.
     """
+    if is_paused(db_path):
+        return "Media Intelligence is currently paused (kill switch, rest window, or Research cube Off).", [], 0
     domain = urllib.parse.urlparse(url).netloc.lower()
 
     if "youtube.com" in domain or "youtu.be" in domain:
@@ -341,6 +372,8 @@ def _analyze_link_content(kind: str, title: str, text: str, url: str, db_path=No
 
 def process_document(token: str, doc: dict, db_path=None) -> tuple[str, list, int]:
     """Process PDF or plain text document: download (capped 2 MB), extract text, summarize."""
+    if is_paused(db_path):
+        return "Media Intelligence is currently paused (kill switch, rest window, or Research cube Off).", [], 0
     file_id = doc.get("file_id")
     file_name = doc.get("file_name", "document")
 

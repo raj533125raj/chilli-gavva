@@ -17,10 +17,12 @@ import json
 import re
 from typing import Dict, List, Any, Optional, Tuple
 
+import cubes
 import guardrails
 import improver_loop
 import llm_router
 import qa_checklist
+import rest_window
 
 
 def connect(db_path=None):
@@ -284,10 +286,10 @@ def run_judge(draft_text: str, topic: str, qa_score: int, conviction: int,
 def run_council(approval_id: Optional[int], draft_text: str, topic: str = "",
                 ctx: Optional[Dict[str, Any]] = None, db_path: Optional[str] = None,
                 max_rounds: int = 3, max_ai_calls: int = 8) -> Dict[str, Any]:
-    if not guardrails.can_call_llm(db_path):
+    if guardrails.is_killed() or rest_window.in_rest_window() or not cubes.is_kind_enabled("review", db_path=db_path) or not guardrails.can_call_llm(db_path):
         return {
             "status": "skipped",
-            "reason": "daily_cap_or_killed",
+            "reason": "daily_cap_or_killed_or_paused",
             "verdict": "SKIPPED",
             "draft_text": draft_text
         }

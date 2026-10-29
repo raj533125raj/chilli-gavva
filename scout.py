@@ -15,8 +15,10 @@ import re
 import sqlite3
 import sys
 
+import cubes
 import guardrails
 import niche_topics
+import rest_window
 
 SCOUT_STATE_KEY = "scout_last_run_day"
 CATEGORIES = ("Printables", "Planners", "Templates")
@@ -79,6 +81,12 @@ def set_state(key, value, db_path=None):
 def _today_iso(now=None):
     now = now or datetime.datetime.now(datetime.timezone.utc)
     return now.date().isoformat()
+
+
+def is_paused(db_path=None):
+    if guardrails.is_killed() or rest_window.in_rest_window():
+        return True
+    return not cubes.is_kind_enabled("research", db_path=db_path)
 
 
 def already_ran_today(db_path=None, now=None):
@@ -231,6 +239,8 @@ def get_candidate_ideas(llm_fn=None):
 
 def run_scout(db_path=None, llm=None):
     """Run SCOUT agent: generate candidate ideas, pick top 5, store in db and request approval."""
+    if is_paused(db_path):
+        return []
     if llm is None:
         try:
             import llm_router
@@ -284,6 +294,8 @@ def run_scout(db_path=None, llm=None):
 
 def maybe_run(db_path=None, llm=None, now=None):
     """Run SCOUT if it has not run today."""
+    if is_paused(db_path):
+        return {"ran": False, "reason": "paused"}
     if already_ran_today(db_path=db_path, now=now):
         sync_approved_ideas(db_path)
         return {"ran": False, "reason": "already ran today"}
