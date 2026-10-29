@@ -49,7 +49,7 @@ class StatusTests(unittest.TestCase):
         with open(out) as f:
             written = json.load(f)
         self.assertNotIn("money", written, "money never goes into the public file")
-        self.assertEqual(set(written), {"generated_at", "kill_switch", "llm", "agents", "task_counts", "recent_tasks", "pending_approvals", "worker", "handoffs", "ai_health", "minutes", "scout_ideas_count", "trend_items_count", "media_items_count", "marketing_kits_count"})
+        self.assertEqual(set(written), {"generated_at", "kill_switch", "llm", "agents", "task_counts", "recent_tasks", "pending_approvals", "worker", "handoffs", "ai_health", "minutes", "scout_ideas_count", "trend_items_count", "media_items_count", "cubes", "marketing_kits_count"})
 
     def test_real_money_is_shown(self):
         import sqlite3

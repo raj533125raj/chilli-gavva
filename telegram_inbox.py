@@ -57,6 +57,7 @@ HELP = ("\U0001f336️ Chilli Gavva approvals\n\n"
         "/view ID - read a draft\n"
         "/approve ID - approve (several ids ok)\n"
         "/reject ID - reject\n"
+        "/cubes - department cubes status and controls\n"
         "/rules - list active learned rules\n"
         "/pause - emergency brake: stop all AI work and drafts\n"
         "/resume - start work again\n"
@@ -214,7 +215,7 @@ def subscription_note(token):
 
 
 # ---- command handling --------------------------------------------------------
-_COMMANDS = "list|view|approve|reject|pause|resume|buttontest|rules|help|start"
+_COMMANDS = "list|view|approve|reject|pause|resume|buttontest|rules|cubes|help|start"
 # "/approve 4", "/approve" or "/approve@bot 4 5": anything after a real slash command is fine.
 _SLASH_CMD = re.compile(rf"^/({_COMMANDS})(?:@\w+)?(?:\s+(.*))?$", re.IGNORECASE | re.DOTALL)
 # Without a slash only the bare form counts: "approve 4", "approve 4, 5", "list". A normal sentence such as
@@ -377,6 +378,10 @@ def handle_command(cmd, ids, db_path=None):
         import improver_loop
         text, _ = improver_loop.format_rules_list(db_path)
         return text
+    if cmd == "cubes":
+        import cubes
+        text, _ = cubes.format_telegram_cubes_list(db_path)
+        return text
     return HELP
 
 
@@ -386,6 +391,16 @@ BUTTON_TEST_OK = "✅ Button presses reach the bot. Nothing was changed."
 
 def handle_callback(token, owner_chat_id, data, db_path=None):
     """Handle one button press. Returns the reply text (already sent), or None if the data is unknown."""
+    if data and (data.startswith("cb:cube:") or data.startswith("cube:")):
+        import cubes
+        reply = cubes.handle_telegram_callback(data, db_path)
+        if reply is not None:
+            if isinstance(reply, dict):
+                send_text(token, owner_chat_id, reply["text"], reply.get("buttons"))
+                return reply["text"]
+            else:
+                send_text(token, owner_chat_id, reply)
+                return reply
     if data and data.startswith("mb:"):
         import media_brain
         reply = media_brain.handle_callback(token, owner_chat_id, data, db_path)
@@ -561,6 +576,10 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
         if cmd == "rules":
             import improver_loop
             text, buttons = improver_loop.format_rules_list(db_path)
+            send_text(token, owner_chat_id, text, buttons)
+        elif cmd == "cubes":
+            import cubes
+            text, buttons = cubes.format_telegram_cubes_list(db_path)
             send_text(token, owner_chat_id, text, buttons)
         else:
             send_text(token, owner_chat_id, handle_command(cmd, ids, db_path))

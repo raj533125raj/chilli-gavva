@@ -519,7 +519,8 @@ def handle_callback(
             return f"Unknown channel: {channel}"
 
         title = kit.get("product_title", f"Product #{approval_id}")
-        details = kit.get(f"{channel}_draft", "")
+        approval = guardrails.get_approval(approval_id, db_path=db_path)
+        details = (approval.get("payload") or title) if approval else title
         new_draft = generate_channel_draft(channel, title, details, db_path=db_path)
         kit[f"{channel}_draft"] = new_draft
         kit["status"] = "draft"
