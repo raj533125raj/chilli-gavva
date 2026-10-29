@@ -24,6 +24,7 @@ QUERY_INTENTS = {
     "github_minutes",
     "last_errors",
     "scout_count",
+    "trend_count",
     "capabilities",
 }
 
@@ -122,6 +123,8 @@ def rule_based_classify(text):
         return "last_errors", {}
     if any(k in text_clean for k in ["scout", "scout count", "ideas count", "scout ideas"]):
         return "scout_count", {}
+    if any(k in text_clean for k in ["trend", "trend count", "trends", "rising tools"]):
+        return "trend_count", {}
     if any(k in text_clean for k in ["drafts", "pending", "waiting", "list drafts", "enniyunnai"]):
         return "drafts_waiting", {}
     if any(k in text_clean for k in ["status", "ela undhi", "today status", "bot status", "state"]):
@@ -162,6 +165,7 @@ Queries:
 - "github_minutes": GitHub Actions minutes used this month
 - "last_errors": recent failed tasks or errors
 - "scout_count": scout ideas count
+- "trend_count": trend items count
 - "capabilities": greeting, help, unknown, or out of scope requests
 
 Return JSON strictly in this format:
@@ -324,6 +328,18 @@ def fetch_scout_count(db_path=None):
                 f"- Approved: {counts.get('approved', 0)}")
     except Exception:
         return "💡 Scout ideas count unavailable."
+
+
+def fetch_trend_count(db_path=None):
+    try:
+        import trend
+        counts = trend.get_trend_items_count(db_path)
+        return (f"🔥 Trend Items Count:\n"
+                f"- Total collected: {counts.get('total', 0)}\n"
+                f"- Proposed: {counts.get('proposed', 0)}\n"
+                f"- Approved: {counts.get('approved', 0)}")
+    except Exception:
+        return "🔥 Trend items count unavailable."
 
 
 def fetch_capabilities():
@@ -490,6 +506,8 @@ def process_message(token, owner_chat_id, message_text, db_path=None):
         reply = fetch_last_errors(db_path)
     elif intent == "scout_count":
         reply = fetch_scout_count(db_path)
+    elif intent == "trend_count":
+        reply = fetch_trend_count(db_path)
     else:
         reply = fetch_capabilities()
 
