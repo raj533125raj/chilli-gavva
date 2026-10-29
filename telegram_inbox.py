@@ -286,6 +286,8 @@ def _ensure_checked(items, db_path=None):
         rev = it.get("review") or ""
         if not rev:
             full_item = guardrails.get_approval(it["id"], db_path) or it
+            if full_item.get("kind") == "scout_idea":
+                continue
             payload = full_item.get("payload") or ""
             res = checker.check_draft(payload, it.get("title") or "", db_path=db_path)
             new_rev = checker.format_review(res["score"], res["reasons"], verdict=res.get("verdict", "pass"), fallback=res.get("fallback", False))

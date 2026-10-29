@@ -287,6 +287,13 @@ def write_status(path=None, db_path=None):
         # Actions totals are fetched remotely by always_on, not persisted locally.
         # Do not contact that service or substitute LLM usage or a guessed plan limit.
         snapshot["minutes"] = {"used_this_month": None, "limit": None}
+        scout_counts = {"total": 0, "pending": 0, "approved": 0}
+        try:
+            import scout
+            scout_counts = scout.get_scout_ideas_count(db_path)
+        except Exception:
+            pass
+        snapshot["scout_ideas_count"] = scout_counts
         json.dump(snapshot, f, indent=1)
     return path
 
