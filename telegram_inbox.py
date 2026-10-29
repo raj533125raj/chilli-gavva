@@ -378,6 +378,11 @@ BUTTON_TEST_OK = "✅ Button presses reach the bot. Nothing was changed."
 
 def handle_callback(token, owner_chat_id, data, db_path=None):
     """Handle one button press. Returns the reply text (already sent), or None if the data is unknown."""
+    if data and (data.startswith("cb:tr:") or data.startswith("tr:")):
+        import trend
+        reply = trend.handle_callback(token, owner_chat_id, data, db_path)
+        if reply is not None:
+            return reply
     import chat_brain
     if data and data.startswith("cb:"):
         reply = chat_brain.handle_callback(token, owner_chat_id, data, db_path)

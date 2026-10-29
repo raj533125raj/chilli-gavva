@@ -294,6 +294,13 @@ def write_status(path=None, db_path=None):
         except Exception:
             pass
         snapshot["scout_ideas_count"] = scout_counts
+        trend_counts = {"total": 0, "proposed": 0, "approved": 0}
+        try:
+            import trend
+            trend_counts = trend.get_trend_items_count(db_path)
+        except Exception:
+            pass
+        snapshot["trend_items_count"] = trend_counts
         json.dump(snapshot, f, indent=1)
     return path
 

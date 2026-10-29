@@ -27,6 +27,11 @@ def main():
         scout.maybe_run()
     except Exception as exc:
         print(f"SCOUT skipped: {type(exc).__name__}")
+    try:
+        import trend
+        trend.maybe_run()
+    except Exception as exc:
+        print(f"TREND skipped: {type(exc).__name__}")
     import rest_window
     if guardrails.is_killed():
         result = {"status": "killed", "ran": 0, "failed": 0}
