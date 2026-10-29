@@ -378,6 +378,11 @@ BUTTON_TEST_OK = "✅ Button presses reach the bot. Nothing was changed."
 
 def handle_callback(token, owner_chat_id, data, db_path=None):
     """Handle one button press. Returns the reply text (already sent), or None if the data is unknown."""
+    if data and data.startswith("mb:"):
+        import media_brain
+        reply = media_brain.handle_callback(token, owner_chat_id, data, db_path)
+        if reply is not None:
+            return reply
     if data and (data.startswith("cb:tr:") or data.startswith("tr:")):
         import trend
         reply = trend.handle_callback(token, owner_chat_id, data, db_path)
@@ -481,15 +486,45 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                 stats["skipped"]["unknown button"] += 1
             continue
         msg = upd.get("message")
-        if not msg or "text" not in msg:
+        if not msg:
             stats["other"] += 1
             continue
-        stats["text"] += 1
+
+        if "text" in msg or "photo" in msg or "voice" in msg or "audio" in msg or "document" in msg:
+            stats["text"] += 1
+        else:
+            stats["other"] += 1
+            continue
+
         chat_id = str((msg.get("chat") or {}).get("id", ""))
         if chat_id != str(owner_chat_id):
             stats["skipped"]["not owner chat"] += 1
             continue  # ignore everyone except the owner
+
+        import media_brain
+        caption = msg.get("caption", "")
+
+        if "photo" in msg:
+            reply_text, buttons, _ = media_brain.process_photo(token, msg["photo"], caption=caption, db_path=db_path)
+            send_text(token, owner_chat_id, reply_text, buttons)
+            handled += 1
+            continue
+
+        if "voice" in msg or "audio" in msg:
+            audio_item = msg.get("voice") or msg.get("audio")
+            reply_text, buttons, _ = media_brain.process_audio(token, audio_item, caption=caption, db_path=db_path)
+            send_text(token, owner_chat_id, reply_text, buttons)
+            handled += 1
+            continue
+
+        if "document" in msg:
+            reply_text, buttons, _ = media_brain.process_document(token, msg["document"], db_path=db_path)
+            send_text(token, owner_chat_id, reply_text, buttons)
+            handled += 1
+            continue
+
         message_text = msg.get("text", "")
+
         approval_id = parse_start_payload(message_text)
         if approval_id is not None:
             reply = view_text(approval_id, db_path)
@@ -498,6 +533,14 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
             continue
         cmd, ids = parse_command(message_text)
         if not cmd:
+            # Check for URL link in message_text
+            urls = re.findall(r"https?://[^\s]+", message_text)
+            if urls:
+                reply_text, buttons, _ = media_brain.process_url(urls[0], db_path=db_path)
+                send_text(token, owner_chat_id, reply_text, buttons)
+                handled += 1
+                continue
+
             import chat_brain
             chat_brain.process_message(token, owner_chat_id, message_text, db_path=db_path)
             handled += 1

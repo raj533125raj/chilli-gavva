@@ -534,6 +534,152 @@ def log_provider(name: str, ok: bool, db_path=None) -> None:
         pass
 
 
+def chat_vision(image_bytes: bytes, mime_type: str, prompt: str = "Describe and analyze this image in detail.", *, db_path=None) -> str | None:
+    """Analyze an image using Gemini vision capability via GEMINI_API_KEY.
+
+    Returns str response or None if Gemini is unconfigured or fails.
+    """
+    if not guardrails.can_call_llm(db_path):
+        print("LLM vision: skipped (kill switch on or daily call cap reached)", file=sys.stderr)
+        return None
+
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key or api_key.startswith("YOUR_"):
+        print("LLM vision: GEMINI_API_KEY not configured", file=sys.stderr)
+        return None
+
+    prompt = scrub(prompt)
+    if GUARD_ENABLED:
+        guard_reasons = _high_guard_reasons(prompt)
+        if guard_reasons:
+            return blocked_by_guard_result(guard_reasons)
+
+    import base64
+    b64_data = base64.b64encode(image_bytes).decode("ascii")
+
+    # Tries OpenAI-compatible vision format first, then native REST API
+    openai_url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", **_UA}
+
+    for model in _gemini_models():
+        # OpenAI style vision payload
+        body = {
+            "model": model,
+            "messages": [{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{b64_data}"}}
+                ]
+            }],
+            "temperature": 0.7
+        }
+        try:
+            req = urllib.request.Request(openai_url, data=json.dumps(body).encode(), headers=headers)
+            guardrails.record_call()
+            with urllib.request.urlopen(req, timeout=_TIMEOUT_LARGE) as resp:
+                data = json.loads(resp.read().decode())
+                text = (((data.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
+                if text:
+                    log_provider("Gemini", True, db_path)
+                    try:
+                        import secret_guard
+                        text = secret_guard.clean_ai_text(text)
+                    except Exception:
+                        pass
+                    return text
+        except Exception as exc:
+            _log_fail("Gemini-Vision-OpenAI", model, _describe(exc))
+
+        # Native Gemini REST payload fallback
+        native_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        native_body = {
+            "contents": [{
+                "parts": [
+                    {"text": prompt},
+                    {"inline_data": {"mime_type": mime_type, "data": b64_data}}
+                ]
+            }]
+        }
+        try:
+            req = urllib.request.Request(native_url, data=json.dumps(native_body).encode(),
+                                         headers={"Content-Type": "application/json", **_UA})
+            guardrails.record_call()
+            with urllib.request.urlopen(req, timeout=_TIMEOUT_LARGE) as resp:
+                data = json.loads(resp.read().decode())
+                parts = (((data.get("candidates") or [{}])[0].get("content") or {}).get("parts") or [])
+                text = "".join(p.get("text", "") for p in parts if isinstance(p, dict)).strip()
+                if text:
+                    log_provider("Gemini", True, db_path)
+                    try:
+                        import secret_guard
+                        text = secret_guard.clean_ai_text(text)
+                    except Exception:
+                        pass
+                    return text
+        except Exception as exc:
+            _log_fail("Gemini-Vision-Native", model, _describe(exc))
+
+    log_provider("Gemini", False, db_path)
+    return None
+
+
+def chat_audio(audio_bytes: bytes, mime_type: str, prompt: str = "Transcribe and analyze this audio.", *, db_path=None) -> str | None:
+    """Analyze/transcribe audio (e.g. voice notes in English or Telugu-English mix) using Gemini audio capability via GEMINI_API_KEY.
+
+    Returns str response or None if Gemini is unconfigured or fails.
+    """
+    if not guardrails.can_call_llm(db_path):
+        print("LLM audio: skipped (kill switch on or daily call cap reached)", file=sys.stderr)
+        return None
+
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key or api_key.startswith("YOUR_"):
+        print("LLM audio: GEMINI_API_KEY not configured", file=sys.stderr)
+        return None
+
+    prompt = scrub(prompt)
+    if GUARD_ENABLED:
+        guard_reasons = _high_guard_reasons(prompt)
+        if guard_reasons:
+            return blocked_by_guard_result(guard_reasons)
+
+    import base64
+    b64_data = base64.b64encode(audio_bytes).decode("ascii")
+
+    for model in _gemini_models():
+        native_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        native_body = {
+            "contents": [{
+                "parts": [
+                    {"text": prompt},
+                    {"inline_data": {"mime_type": mime_type, "data": b64_data}}
+                ]
+            }]
+        }
+        try:
+            req = urllib.request.Request(native_url, data=json.dumps(native_body).encode(),
+                                         headers={"Content-Type": "application/json", **_UA})
+            guardrails.record_call()
+            with urllib.request.urlopen(req, timeout=_TIMEOUT_LARGE) as resp:
+                data = json.loads(resp.read().decode())
+                parts = (((data.get("candidates") or [{}])[0].get("content") or {}).get("parts") or [])
+                text = "".join(p.get("text", "") for p in parts if isinstance(p, dict)).strip()
+                if text:
+                    log_provider("Gemini", True, db_path)
+                    try:
+                        import secret_guard
+                        text = secret_guard.clean_ai_text(text)
+                    except Exception:
+                        pass
+                    return text
+        except Exception as exc:
+            _log_fail("Gemini-Audio-Native", model, _describe(exc))
+
+    log_provider("Gemini", False, db_path)
+    return None
+
+
 def provider_status() -> list[dict]:
     """Return which providers have their env vars configured (does NOT make network calls)."""
     status = []
