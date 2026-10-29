@@ -32,6 +32,11 @@ def main():
         trend.maybe_run()
     except Exception as exc:
         print(f"TREND skipped: {type(exc).__name__}")
+    try:
+        import marketing_agency
+        marketing_agency.process_ready_products()
+    except Exception as exc:
+        print(f"Marketing agency skipped: {type(exc).__name__}")
     import rest_window
     if guardrails.is_killed():
         result = {"status": "killed", "ran": 0, "failed": 0}

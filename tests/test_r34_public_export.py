@@ -65,7 +65,7 @@ class PublicExportTests(unittest.TestCase):
 
     def test_exact_public_fields_and_utc_health_schema(self):
         status = self.read_export()
-        self.assertEqual(set(status), LEGACY_FIELDS | {"ai_health", "minutes", "scout_ideas_count", "trend_items_count", "media_items_count", "cubes"})
+        self.assertEqual(set(status), LEGACY_FIELDS | {"ai_health", "minutes", "scout_ideas_count", "trend_items_count", "media_items_count", "cubes", "marketing_kits_count"})
         self.assertEqual(set(status["minutes"]), {"used_this_month", "limit"})
         self.assertEqual({row["provider"] for row in status["ai_health"]}, {name for name, _ in llm_router._PROVIDERS})
         for row in status["ai_health"]:
@@ -97,7 +97,7 @@ class PublicExportTests(unittest.TestCase):
             extended = self.read_export()
         self.assertEqual(legacy, before)
         self.assertEqual({key: extended[key] for key in LEGACY_FIELDS}, before)
-        self.assertEqual(set(extended) - set(legacy), {"ai_health", "minutes", "scout_ideas_count", "trend_items_count", "media_items_count", "cubes"})
+        self.assertEqual(set(extended) - set(legacy), {"ai_health", "minutes", "scout_ideas_count", "trend_items_count", "media_items_count", "cubes", "marketing_kits_count"})
         # Existing consumers can still use the agent list, counts and approval queue.
         self.assertEqual([agent["name"] for agent in extended["agents"]],
                          [agent["name"] for agent in legacy["agents"]])

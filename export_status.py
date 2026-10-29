@@ -310,6 +310,13 @@ def write_status(path=None, db_path=None):
         except Exception:
             pass
         snapshot["media_items_count"] = media_counts
+        mkt_counts = {"total": 0, "draft": 0, "approved": 0}
+        try:
+            import marketing_agency
+            mkt_counts = marketing_agency.get_marketing_kits_count(db_path)
+        except Exception:
+            pass
+        snapshot["marketing_kits_count"] = mkt_counts
         json.dump(snapshot, f, indent=1)
     return path
 

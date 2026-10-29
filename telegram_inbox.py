@@ -411,6 +411,11 @@ def handle_callback(token, owner_chat_id, data, db_path=None):
         reply = trend.handle_callback(token, owner_chat_id, data, db_path)
         if reply is not None:
             return reply
+    if data and data.startswith("mkt:"):
+        import marketing_agency
+        reply = marketing_agency.handle_callback(token, owner_chat_id, data, db_path)
+        if reply is not None:
+            return reply
     import chat_brain
     if data and data.startswith("cb:"):
         reply = chat_brain.handle_callback(token, owner_chat_id, data, db_path)
