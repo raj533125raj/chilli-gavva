@@ -373,6 +373,11 @@ BUTTON_TEST_OK = "✅ Button presses reach the bot. Nothing was changed."
 
 def handle_callback(token, owner_chat_id, data, db_path=None):
     """Handle one button press. Returns the reply text (already sent), or None if the data is unknown."""
+    import chat_brain
+    if data and data.startswith("cb:"):
+        reply = chat_brain.handle_callback(token, owner_chat_id, data, db_path)
+        if reply is not None:
+            return reply
     import autofix
     if autofix.CALLBACK.fullmatch(data or ""):
         reply = autofix.decide(data, get_state, set_state, db_path)
@@ -478,7 +483,9 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
             continue
         cmd, ids = parse_command(message_text)
         if not cmd:
-            stats["skipped"]["not a command"] += 1
+            import chat_brain
+            chat_brain.process_message(token, owner_chat_id, message_text, db_path=db_path)
+            handled += 1
             continue
         send_text(token, owner_chat_id, handle_command(cmd, ids, db_path))
         if cmd == "list":       # fresh buttons for every waiting draft (up to 10)
