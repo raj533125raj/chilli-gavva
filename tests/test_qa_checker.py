@@ -46,6 +46,14 @@ def make_llm(checker_replies, rewrite=REWRITTEN, draft=DRAFT):
         if prompt.startswith("Rewrite the product draft"):
             calls["rewrite"] += 1
             return rewrite
+        if "Product Council Critic" in prompt:
+            return json.dumps({"weaknesses": [], "verdict": "OK"})
+        if "Buyer's Voice" in prompt:
+            return json.dumps({"answer": "Good value over free template", "conviction": 8})
+        if "Fixer agent" in prompt:
+            return rewrite
+        if "Judge agent" in prompt:
+            return json.dumps({"verdict": "PASS", "reasons": ["Good quality"], "top_fix": "Minor tweaks"})
         calls["draft"] += 1
         return draft
     return llm, calls
@@ -104,7 +112,8 @@ class PassTests(Base):
     def test_checker_uses_large_model(self):
         llm, calls = make_llm([checker_json(90, "pass")])
         self.run_pipeline(llm)
-        self.assertEqual(calls["sizes"], ["large", "large"])  # draft + checker
+        self.assertTrue(all(s == "large" for s in calls["sizes"]))
+        self.assertGreaterEqual(len(calls["sizes"]), 2)
 
     def test_risky_rule_hit_turns_pass_into_revise(self):
         llm, _ = make_llm([checker_json(95, "pass"), checker_json(95, "pass")],
