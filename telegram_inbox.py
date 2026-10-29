@@ -260,13 +260,37 @@ def parse_start_payload(text):
 
 
 def draft_card(item):
-    """Short alert text for one draft: title, QA score, then the top 3 reasons, one short line each."""
-    import qa_checklist
+    """Short alert text for one draft: title, Checker score, then top 2 reasons."""
+    import checker
     lines = [f"#{item['id']} {item['title'][:70]}"]
-    m = re.search(r"score (\d+)\s*/\s*100", item.get("review") or "")
-    lines.append(f"QA score: {m.group(1)}/100 (advice only, you decide)" if m else "QA score: not checked yet")
-    lines += [f"- {r[:60]}" for r in qa_checklist.top_reasons_from_review(item.get("review"))]
+    review = item.get("review") or ""
+    score, reasons = checker.parse_review(review)
+    if score is not None:
+        lines.append(f"Checker: {score}/100")
+        lines += [f"- {r[:60]}" for r in reasons[:2]]
+    else:
+        m = re.search(r"score (\d+)\s*/\s*100", review)
+        if m:
+            lines.append(f"Checker: {m.group(1)}/100")
+            import qa_checklist
+            reasons = qa_checklist.top_reasons_from_review(review)
+            lines += [f"- {r[:60]}" for r in reasons[:2]]
+        else:
+            lines.append("Checker: not checked yet")
     return "\n".join(lines)
+
+
+def _ensure_checked(items, db_path=None):
+    import checker
+    for it in items:
+        rev = it.get("review") or ""
+        if not rev:
+            full_item = guardrails.get_approval(it["id"], db_path) or it
+            payload = full_item.get("payload") or ""
+            res = checker.check_draft(payload, it.get("title") or "", db_path=db_path)
+            new_rev = checker.format_review(res["score"], res["reasons"], verdict=res.get("verdict", "pass"), fallback=res.get("fallback", False))
+            guardrails.set_review(it["id"], new_rev, db_path)
+            it["review"] = new_rev
 
 
 def _score(review):
@@ -483,6 +507,7 @@ def alert_new_drafts(token, owner_chat_id, db_path=None):
     items = guardrails.pending(db_path)
     last_seen = int(get_state("last_alerted_id", 0, db_path) or 0)
     if last_seen == 0 and items:
+        _ensure_checked(items, db_path)
         # First run: do not flood the phone with the whole backlog, just one summary.
         set_state("last_alerted_id", max(it["id"] for it in items), db_path)
         send_text(token, owner_chat_id, list_text(db_path))
@@ -490,6 +515,7 @@ def alert_new_drafts(token, owner_chat_id, db_path=None):
     new = [it for it in items if it["id"] > last_seen]
     if not new:
         return 0
+    _ensure_checked(new, db_path)
     send_text(token, owner_chat_id,
               f"\U0001f336️ {len(new)} new draft(s) ready. Waiting in total: {len(items)}."
               + (f" Buttons for the first 10; use /list for the rest." if len(new) > 10 else ""))

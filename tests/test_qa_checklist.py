@@ -122,8 +122,8 @@ class AdviceOnlyTests(unittest.TestCase):
         card = ti.draft_card(guardrails.pending(self.db)[0])
         lines = card.splitlines()
         self.assertEqual(lines[0], f"#{a} Draft: [ADHD Planners Agent] planner")
-        self.assertEqual(lines[1], "QA score: 5/100 (advice only, you decide)")
-        self.assertEqual(lines[2:], ["- Contents not listed", "- No buyer named", "- No clear problem it solves"])
+        self.assertEqual(lines[1], "Checker: 5/100")
+        self.assertEqual(lines[2:], ["- Contents not listed", "- No buyer named"])
 
     def test_card_without_review(self):
         self.assertIn("not checked yet", ti.draft_card({"id": 9, "title": "x", "review": None}))

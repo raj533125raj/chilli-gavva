@@ -423,72 +423,87 @@ def step_draft(task, ctx):
 
 
 def step_review(task, ctx):
-    """QA Checker: rule checklist plus a large-model check.
+    """QA Checker / Checker Agent: review draft against docs quality rules and manage retries.
 
-    pass -> waits for the human. revise -> ONE rewrite is queued (never for a rewrite).
-    reject -> stays in the queue marked "CHECKER: REJECT". Only a human approves or rejects.
+    Drafts under 70 go back to writer for rewrite automatically (max 2 retries).
     """
     payload = task["payload"]
     approval_id = payload["approval_id"]
     approval = guardrails.get_approval(approval_id, ctx["db_path"])
+    topic = payload.get("topic") or (approval.get("title", "") if approval else "")
+    retries = payload.get("retries", 0)
+    nxt = []
+
     import qa_checklist
-    _, notes = review_text(approval["payload"])
-    checklist = qa_checklist.score(approval["payload"])
-    score = checklist["score"]   # the buyer checklist is THE score; the AI checker is a second opinion
-    topic = payload.get("topic") or approval.get("title", "")
-    is_rewrite = bool(payload.get("rewrite"))
-    check = check_draft(ctx, approval["payload"], clean_topic(topic))
-    nxt, issues = [], []
+    import checker
 
-    if check is None:
-        verdict = "unavailable"
-        review = qa_checklist.summary(checklist, "CHECKER: unavailable (checklist only)")
+    draft_text = (approval.get("payload") or "") if approval else ""
+    qa_res = qa_checklist.score(draft_text)
+    qa_score = qa_res["score"]
+    _, notes = review_text(draft_text)
+
+    check = checker.check_draft(draft_text, clean_topic(topic), ctx=ctx, db_path=ctx["db_path"])
+    score = check["score"]
+    verdict = check["verdict"]
+    reasons = check["reasons"]
+    fallback = check.get("fallback", False)
+
+    if verdict == "pass" and any(n.startswith("risky") for n in notes):
+        verdict = "revise"
+        score = min(score, 40)
+
+    if fallback:
+        review = f"score {qa_score}/100 (checklist v2) | Checker: {score}/100 | CHECKER: unavailable (checklist only)"
     else:
-        verdict = check["verdict"]
-        if verdict == "pass" and any(n.startswith("risky") for n in notes):
-            verdict = "revise"  # the plain rules found a banned phrase the model let through
-        issues = check["issues"] + [r for r in checklist["top_reasons"] if r not in check["issues"]]
-        review = qa_checklist.summary(checklist, f"CHECKER: {verdict.upper()} (AI {check['score']})")
-        if verdict == "revise":
-            if is_rewrite:
-                review += " | already rewritten once, a human decides"
-            elif approval.get("status", "pending") != "pending":
-                review += " | no rewrite, a human already decided"
-            else:
-                review += " | one rewrite queued"
-                nxt.append({"kind": "rewrite", "payload": {
-                    "approval_id": approval_id, "version_id": payload.get("version_id"), "topic": topic,
-                    "research": payload.get("research", ""), "issues": issues}})
-        if issues:
-            review += " | issues: " + "; ".join(issues[:5])
-    guardrails.set_review(approval_id, review, ctx["db_path"])
-    if not is_rewrite:
-        # A rewrite says nothing new about the prompt version, so only first drafts feed the improver
-        improver.record_result(payload["version_id"], score, ctx["db_path"])
+        review = f"score {qa_score}/100 (checklist v2) | Checker: {score}/100 | CHECKER: {verdict.upper()} (AI {score})"
 
-    # Remember high-scoring patterns so future drafts can learn from them
+    if reasons:
+        review += " | top: " + "; ".join(reasons[:2])
+        review += " | issues: " + "; ".join(reasons[:5])
+
+    if verdict == "revise" or (score < 70 and verdict != "reject"):
+        if retries >= 2 or payload.get("rewrite"):
+            review += " | already rewritten once, a human decides"
+        elif approval and approval.get("status", "pending") != "pending":
+            review += " | no rewrite, a human already decided"
+        else:
+            review += " | one rewrite queued"
+            nxt.append({"kind": "rewrite", "payload": {
+                "approval_id": approval_id,
+                "version_id": payload.get("version_id"),
+                "topic": topic,
+                "research": payload.get("research", ""),
+                "issues": reasons,
+                "retries": retries + 1,
+                "rewrite": retries + 1
+            }})
+
+    guardrails.set_review(approval_id, review, ctx["db_path"])
+
+    version_id = payload.get("version_id")
+    if version_id and retries == 0:
+        improver.record_result(version_id, score, ctx["db_path"])
+
     if score >= 70:
         try:
             import agent_memory as _mem
-            summary = f"Score {score}/100 on v{task['payload']['version_id']}"
-            if notes:
-                summary += " — passed: " + "; ".join(n for n in notes if not n.startswith("risky") and not n.startswith("no ") and not n.startswith("too "))
+            summary = f"Score {score}/100 on v{version_id}"
             _mem.add_fact("QA Checker", "approved", summary, confidence=score / 100.0, db_path=ctx.get("db_path"))
         except Exception:
             pass
 
-    return {"score": score, "notes": notes, "checker": verdict, "issues": issues, "next": nxt}
+    return {"score": score, "checker": verdict, "issues": reasons, "retries": retries, "next": nxt}
 
 
 def step_rewrite(task, ctx):
-    """Draft Worker: the single rewrite the QA Checker asked for. Replaces the pending draft in place."""
+    """Draft Worker: rewrite draft addressing checker's reasons. Replaces pending draft in place."""
     payload = task["payload"]
     approval_id = payload["approval_id"]
+    retries = payload.get("retries", 1)
     approval = guardrails.get_approval(approval_id, ctx["db_path"])
     if not approval or approval["status"] != "pending":
         return {"summary": "skipped: a human already decided this draft"}
-    if approval["title"].endswith(REWRITTEN_TAG):
-        return {"summary": "skipped: this draft was already rewritten once"}
+
     issues = "\n".join(f"- {i}" for i in payload.get("issues", [])) or "- make it clearer and more complete"
     prompt = REWRITE_PROMPT.format(topic=clean_topic(payload.get("topic", "")), issues=issues,
                                    research=payload.get("research", ""), draft=approval["payload"][:6000])
@@ -503,9 +518,10 @@ def step_rewrite(task, ctx):
     conn.commit()
     conn.close()
     return {"mode": "llm", "approval_id": approval_id,
-            "next": [{"kind": "review", "payload": {"approval_id": approval_id, "rewrite": 1,
+            "next": [{"kind": "review", "payload": {"approval_id": approval_id, "retries": retries,
                                                     "version_id": payload.get("version_id"),
-                                                    "topic": payload.get("topic", "")}}]}
+                                                    "topic": payload.get("topic", ""),
+                                                    "research": payload.get("research", "")}}]}
 
 
 def step_code_proposal(task, ctx):
