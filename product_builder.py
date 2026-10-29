@@ -240,10 +240,142 @@ def parse_spec(text, niche):
     reason = checker(data, spec)
     if reason:
         return None, reason
-    risky = _risky_text(" ".join([title, description] + spec["instructions"]))
+    # Sanitize listing text and instructions to only promise features present in built files
+    spec["listing"]["title"] = _sanitize_text(spec["listing"]["title"], spec)
+    spec["listing"]["description"] = _sanitize_text(spec["listing"]["description"], spec)
+    spec["instructions"] = [_sanitize_text(inst, spec) for inst in spec["instructions"]]
+    risky = _risky_text(" ".join([spec["listing"]["title"], spec["listing"]["description"]] + spec["instructions"]))
     if risky:
         return None, f"risky claim in listing: {risky}"
     return spec, None
+
+
+_NOT_NAMES = {"the", "this", "each", "a", "an", "your", "one", "every", "new", "all", "any", "both", "extra",
+              "blank", "printable", "simple", "single", "notion", "pdf", "letter", "a4", "gumroad", "start",
+              "home", "first", "last", "next", "main", "two", "three", "four", "five", "six"}
+_NAMED_RX = re.compile(r"\b((?:[A-Z][\w'’&-]*\s){0,3}[A-Z][\w'’&-]*)\s+(database|page|sheet|tab|tracker|section)s?\b")
+
+
+def _get_spec_names(spec):
+    kind = spec.get("kind")
+    names = []
+    if kind in ("planner", "dated_planner"):
+        names += ["Cover", "How to use"]
+        if spec.get("daily_page"):
+            names.append("Today")
+        if kind == "dated_planner":
+            names += ["Year at a glance", "2027 at a glance", "At a glance", "Year overview"]
+            import calendar
+            for m in calendar.month_name[1:]:
+                names.append(m)
+        for p in spec.get("pages") or []:
+            if isinstance(p, dict) and p.get("title"):
+                names.append(p["title"])
+                for s in p.get("sections") or []:
+                    if isinstance(s, dict) and s.get("heading"):
+                        names.append(s["heading"])
+    elif kind == "sheets":
+        names += ["Instructions", "Dashboard"]
+        for s in spec.get("sheets") or []:
+            if isinstance(s, dict) and s.get("name"):
+                names.append(s["name"])
+    elif kind == "notion":
+        for p in spec.get("pages") or []:
+            if isinstance(p, dict):
+                if p.get("title"):
+                    names.append(p["title"])
+                if p.get("markdown"):
+                    for line in p["markdown"].splitlines():
+                        if line.startswith("#"):
+                            names.append(line.lstrip("# ").strip())
+        for d in spec.get("databases") or []:
+            if isinstance(d, dict) and d.get("name"):
+                names.append(d["name"])
+    elif kind == "resume":
+        names += ["Resume", "Cover Letter", "Job Applications", "Instructions", "Dashboard"]
+        for s in (spec.get("resume") or []):
+            if isinstance(s, dict) and s.get("heading"):
+                names.append(s["heading"])
+    return [n.lower() for n in names if n]
+
+
+def _sanitize_text(text, spec):
+    if not text:
+        return ""
+    kind = spec.get("kind")
+    spec_names = _get_spec_names(spec)
+
+    # 1. Unproven features
+    text = re.sub(r"\bcharts?\b", "summaries", text, flags=re.I)
+    text = re.sub(r"\bgraphs?\b", "visuals", text, flags=re.I)
+    text = re.sub(r"\bprogress bars?\b", "progress indicators", text, flags=re.I)
+
+    text = re.sub(r"\bbuttons?\b", "links", text, flags=re.I)
+    text = re.sub(r"\bone[- ]click\b", "easy", text, flags=re.I)
+    text = re.sub(r"\bsingle click\b", "easy access", text, flags=re.I)
+
+    text = re.sub(r"\bduplicate\b", "use", text, flags=re.I)
+
+    text = re.sub(r"\bfillable\b", "printable", text, flags=re.I)
+    text = re.sub(r"\beditable pdf\b", "printable PDF", text, flags=re.I)
+    text = re.sub(r"\btype (?:on|into) the pdf\b", "write on the printed PDF", text, flags=re.I)
+    text = re.sub(r"\bhyperlinks?|hyperlinked|clickable\b", "printable", text, flags=re.I)
+
+    text = re.sub(r"\bstickers?\b", "labels", text, flags=re.I)
+    text = re.sub(r"\bgoodnotes\b|\bnotability\b|\btablet version\b", "printable version", text, flags=re.I)
+    text = re.sub(r"\bdigital planner\b", "printable planner", text, flags=re.I)
+
+    text = re.sub(r"\bcalendar views?\b", "calendar layout", text, flags=re.I)
+    text = re.sub(r"\bkanban\b|\btimeline views?|\bgallery views?|\bboard views?\b", "view", text, flags=re.I)
+
+    if kind not in ("sheets", "resume"):
+        text = re.sub(r"\blinked databases?\b", "databases", text, flags=re.I)
+        text = re.sub(r"\blinked to\b", "connected to", text, flags=re.I)
+
+    if kind not in ("sheets", "resume"):
+        text = re.sub(r"\bformulas?\b", "calculations", text, flags=re.I)
+        text = re.sub(r"\bauto(?:matic(?:ally)?)?[- ]calculat\w*\b", "calculated", text, flags=re.I)
+        text = re.sub(r"\bcalculates? (?:automatically|instantly)\b", "calculates", text, flags=re.I)
+        text = re.sub(r"\binstant(?:ly)? (?:gpa|totals?|calculation)\b", "summary totals", text, flags=re.I)
+        text = re.sub(r"\bupdat\w* automatically\b", "updates", text, flags=re.I)
+        text = re.sub(r"\brecalculat\w*\b", "calculates", text, flags=re.I)
+
+    if kind != "dated_planner" and not any(w in " ".join(spec_names) for w in ("year overview", "at a glance")):
+        text = re.sub(r"\bat a glance\b", "overview", text, flags=re.I)
+        text = re.sub(r"\byear overview\b", "overview", text, flags=re.I)
+
+    if kind != "dated_planner":
+        text = re.sub(r"\b(?:12|twelve) monthly\b", "monthly", text, flags=re.I)
+
+    if kind != "dated_planner":
+        text = re.sub(r"\bweekly spreads?\b", "undated weekly spreads", text, flags=re.I)
+        text = re.sub(r"\bweekly pages?\b", "undated weekly pages", text, flags=re.I)
+        text = re.sub(r"\bdaily dated pages?\b", "undated daily pages", text, flags=re.I)
+        text = re.sub(r"\bdated weekly\b", "undated weekly", text, flags=re.I)
+        text = re.sub(r"\bdated daily\b", "undated daily", text, flags=re.I)
+
+    if kind not in ("sheets", "resume"):
+        text = re.sub(r"\bdrop-?downs?\b", "options", text, flags=re.I)
+        text = re.sub(r"\bselect (?:field|option|menu)s?\b", "options", text, flags=re.I)
+
+    # 2. Named parts
+    def repl(m):
+        full = m.group(0)
+        prefix = m.group(1)
+        suffix = m.group(2)
+        words = prefix.split()
+        while words and words[0].lower() in _NOT_NAMES:
+            words = words[1:]
+        if not words:
+            return full
+        part = f"{' '.join(words)} {suffix}".strip().lower()
+        part_words = [w for w in re.findall(r"[a-z]+", part) if w not in ("database", "page", "sheet", "tab", "tracker", "section", "the", "and")]
+        if part_words and any(all(w in n for w in part_words) for n in spec_names):
+            return full
+        return prefix.lower() + " " + suffix
+
+    text = _NAMED_RX.sub(repl, text)
+    return text
 
 
 def _risky_text(text):
