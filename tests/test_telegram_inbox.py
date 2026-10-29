@@ -118,8 +118,8 @@ class UpdateTests(InboxBase):
 
     def test_non_command_text_ignored(self):
         with mock.patch.object(ti, "fetch_updates", return_value=[_upd(5, "thanks!")]):
-            self.assertEqual(ti.process_updates("tok", OWNER, self.db), 0)
-        self.assertEqual(self.sent, [])
+            self.assertEqual(ti.process_updates("tok", OWNER, self.db), 1)
+        self.assertTrue(len(self.sent) >= 1)
 
 
 class AlertTests(InboxBase):
@@ -309,16 +309,15 @@ class StrictCommandTests(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(ti.parse_command(text), (None, []))
 
-    def test_sentence_gets_no_reply(self):
+    def test_sentence_handled_by_chat_brain(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         sent = []
         with mock.patch.object(ti, "fetch_updates", return_value=[_upd(1, "Approve button edhuku work avadam ledhu?")]), \
                 mock.patch.object(ti, "send_text", side_effect=lambda *a, **k: sent.append(a) or True):
             stats = ti.new_stats()
-            self.assertEqual(ti.process_updates("tok", OWNER, os.path.join(tmp.name, "t.db"), stats), 0)
-        self.assertEqual(sent, [])
-        self.assertEqual(stats["skipped"]["not a command"], 1)
+            self.assertEqual(ti.process_updates("tok", OWNER, os.path.join(tmp.name, "t.db"), stats), 1)
+        self.assertTrue(len(sent) >= 1)
 
 
 class LogLineTests(InboxBase):
@@ -332,8 +331,8 @@ class LogLineTests(InboxBase):
                 mock.patch.object(ti, "_call", return_value={"ok": True}):
             ti.process_updates("SECRET-TOKEN", OWNER, self.db, stats)
         line = ti.stats_line(stats, "webhook set: no")
-        self.assertEqual(line, "Telegram updates: 3 text, 1 button, 2 other; handled 2; "
-                               "skipped: 1 not owner chat, 1 not a command; webhook set: no.")
+        self.assertEqual(line, "Telegram updates: 3 text, 1 button, 2 other; handled 3; "
+                               "skipped: 1 not owner chat; webhook set: no.")
         for private in ("SECRET", OWNER, "777", "hello", "/view"):
             self.assertNotIn(private, line)
 
