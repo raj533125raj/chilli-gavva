@@ -195,7 +195,16 @@ def fail(task_id, attempts, error, db_path=None):
     conn.execute("UPDATE tasks SET status = ?, error = ?, finished_ts = ? WHERE id = ?",
                  (status, str(error)[:500], datetime.datetime.now().isoformat(), task_id))
     conn.commit()
+    row = conn.execute("SELECT agent, kind FROM tasks WHERE id = ?", (task_id,)).fetchone()
     conn.close()
+
+    try:
+        import doctor
+        agent = (row[0] if row and row[0] else "Unknown Agent")
+        step = (row[1] if row and row[1] else "unknown_step")
+        doctor.diagnose_and_remedy(agent=agent, step=step, error=error, task_id=task_id, db_path=db_path)
+    except Exception:
+        pass
 
 
 # ---- review rubric (plain rules, no LLM) ------------------------------------------
@@ -642,6 +651,11 @@ def run_once(max_tasks=5, db_path=None, llm=None, rng=None):
     ctx = {"db_path": db_path, "llm": llm or default_llm(db_path), "rng": rng or random}
     recover_stuck(db_path)
     sync_human_decisions(db_path)
+    try:
+        import doctor
+        doctor.run_doctor_checks(db_path=db_path)
+    except Exception:
+        pass
     ran = failed = 0
     ai_down = False
     for _ in range(max_tasks):
