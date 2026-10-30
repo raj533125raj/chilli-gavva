@@ -19,9 +19,16 @@ class ControlInboxTests(unittest.TestCase):
     def tearDown(self):
         if os.path.exists(self.db): os.unlink(self.db)
     def http(self, rows):
+        receipts = {}
         def call(url, token, method="GET", data=None):
             if "keys?" in url: return json.dumps({"result":[{"name":f"control:request:{k}"} for k in rows]})
-            key = url.rsplit("/",1)[-1].removeprefix("control:request:")
+            from urllib.parse import unquote
+            name = unquote(url.rsplit("/",1)[-1])
+            if name.startswith("runtime:receipt:"):
+                if method == "PUT": receipts[name] = data; return ""
+                if name not in receipts: raise urllib.error.HTTPError(url,404,"fixture",None,None)
+                return receipts[name]
+            key = name.removeprefix("control:request:")
             if method == "PUT": rows[key]["written"] = data; return ""
             return json.dumps(rows[key])
         return call

@@ -136,6 +136,10 @@ def claim_next(db_path=None):
     row = None
     for r in rows:
         r_kind = r[1]
+        if r_kind == "office_task":
+            import office_tasks
+            if not office_tasks.task_enabled(json.loads(r[2]), db_path, conn):
+                continue
         if cubes.is_kind_enabled(r_kind, db_path=db_path, conn=conn):
             row = r
             break
@@ -145,6 +149,9 @@ def claim_next(db_path=None):
         return None
     task_id, kind, payload, attempts = row
     agent = KIND_TO_AGENT.get(kind, "CEO")
+    if kind == "office_task":
+        import office_tasks
+        agent = office_tasks.agent(json.loads(payload)["agent_id"])["name"]
     conn.execute("UPDATE tasks SET status = 'running', attempts = attempts + 1, agent = ?, started_ts = ?, machine_id = ? "
                  "WHERE id = ?", (agent, datetime.datetime.now().isoformat(), MACHINE_ID, task_id))
     conn.commit()
@@ -565,8 +572,13 @@ def step_code_proposal(task, ctx):
     return coder.step_code_proposal(task, ctx)
 
 
+def step_office_task(task, ctx):
+    import office_tasks
+    return office_tasks.execute(task, ctx)
+
+
 STEPS = {"plan": step_plan, "research": step_research, "draft": step_draft, "review": step_review,
-         "rewrite": step_rewrite, "code_proposal": step_code_proposal}
+         "rewrite": step_rewrite, "code_proposal": step_code_proposal, "office_task": step_office_task}
 
 
 # ---- learning from human decisions ------------------------------------------------
@@ -736,6 +748,8 @@ def run_once(max_tasks=5, db_path=None, llm=None, rng=None, max_time_seconds=MAX
     import rest_window
     if rest_window.in_rest_window():
         return {"status": "rest", "ran": 0, "failed": 0}   # daily 6-minute rest: no new AI work or drafts
+    import office_tasks
+    office_tasks.tick(db_path)
     ctx = {"db_path": db_path, "llm": llm or default_llm(db_path), "rng": rng or random}
     recover_stuck(db_path)
     sync_human_decisions(db_path)

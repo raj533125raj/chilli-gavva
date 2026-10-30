@@ -139,6 +139,9 @@ def run_now(slot_name=None, dry_run=False, db_path=None):
     import rest_window
     if rest_window.in_rest_window():
         return {"skipped": True, "reason": "daily rest window (6:00-6:06 IST)"}
+    # Office missions have independent due times, including outside the nightly recipe slot.
+    import office_tasks
+    office_tasks.tick(db_path, dry_run=dry_run)
     slots = _load_schedule()
     now = datetime.datetime.utcnow()
     date_str = now.strftime("%Y-%m-%d")
