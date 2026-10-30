@@ -3,6 +3,7 @@
 The snapshot contains counts, titles and short logs only. It never contains
 API keys, config values, or the full text of drafts.
 """
+import secret_guard
 import datetime
 import json
 import os
@@ -343,7 +344,7 @@ def write_status(path=None, db_path=None):
         except Exception:
             pass
         snapshot["marketing_kits_count"] = mkt_counts
-        json.dump(snapshot, f, indent=1)
+        json.dump(secret_guard.scrub_data(snapshot), f, indent=1)
     return path
 
 

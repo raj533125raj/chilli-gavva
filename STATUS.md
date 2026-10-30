@@ -1,6 +1,12 @@
 # STATUS (read this first)
 
-Last updated: 2026-10-17.
+Last updated: 2026-10-30.
+
+Workflow reliability repair (robot-r58): failed steps expose scrubbed command diagnostics while alerts
+retain fixed safe summaries. The shared secret scrubber protects task errors/results, doctor cases,
+provider logs, media raw text, product notes and status exports. Save state repairs historical stored
+text before scanning/encryption. Its bounded push retry refreshes origin/main explicitly and only
+rebases over code changes; newer state from another writer is never overwritten.
 
 ## Goal
 A zero-cost team of AI agents that researches and drafts low-cost digital products (Google Sheets

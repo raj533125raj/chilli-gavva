@@ -16,6 +16,7 @@ A recipe is a YAML file with:
 Each task is enqueued immediately; the worker picks them up on its next cycle.
 Nothing is auto-published — all output goes through the approval queue as usual.
 """
+import secret_guard
 import argparse
 import glob
 import json
@@ -115,7 +116,7 @@ def list_recipes() -> list[dict]:
                 "task_count": len(data.get("tasks", [])),
             })
         except Exception as e:
-            out.append({"file": os.path.basename(path), "error": str(e)})
+            out.append({"file": os.path.basename(path), "error": secret_guard.scrub_text(e)})
     return out
 
 
@@ -133,7 +134,7 @@ def run_recipe(path: str, db_path=None, dry_run: bool = False, llm=None) -> dict
     try:
         recipe = _load_yaml(path)
     except Exception as e:
-        return {"error": f"Failed to parse {path}: {e}"}
+        return {"error": secret_guard.scrub_text(f"Failed to parse {path}: {e}")}
 
     tasks = recipe.get("tasks", [])
     if not tasks:
@@ -164,7 +165,7 @@ def run_recipe(path: str, db_path=None, dry_run: bool = False, llm=None) -> dict
                                             priority=t.get("priority", 5), db_path=db_path)
                 enqueued.append({"id": task_id, "kind": kind})
             except Exception as e:
-                errors.append(f"{kind}: {e}")
+                errors.append(secret_guard.scrub_text(f"{kind}: {e}"))
     else:
         for t in tasks:
             enqueued.append({"id": None, "kind": t.get("kind", "?"), "dry_run": True})

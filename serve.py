@@ -7,6 +7,7 @@ Then open http://<tailscale-ip>:8787 from phone/Windows machine.
 Every POST needs the header X-Requested-With: chilli. When running on localhost,
 the Host header must also be localhost (blocks CSRF from other sites).
 """
+import secret_guard
 import json
 import mimetypes
 import os
@@ -81,7 +82,7 @@ class Handler(BaseHTTPRequestHandler):
                 import recipe_runner
                 return self._send(200, {"recipes": recipe_runner.list_recipes()})
             except Exception as e:
-                return self._send(500, {"error": str(e)})
+                return self._send(500, {"error": secret_guard.scrub_text(e)})
         if self.path == "/api/run_recipe":
             name = str(body.get("name", "")).strip()
             if not name:
@@ -96,7 +97,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(400, result)
                 return self._send(200, result)
             except Exception as e:
-                return self._send(500, {"error": str(e)})
+                return self._send(500, {"error": secret_guard.scrub_text(e)})
         if self.path == "/api/enqueue":
             kind = str(body.get("kind", "")).strip()
             payload = body.get("payload", {})
@@ -106,7 +107,7 @@ class Handler(BaseHTTPRequestHandler):
                 task_id = workforce.enqueue(kind, payload)
                 return self._send(200, {"id": task_id, "kind": kind})
             except Exception as e:
-                return self._send(500, {"error": str(e)})
+                return self._send(500, {"error": secret_guard.scrub_text(e)})
         return self._send(404, {"error": "not found"})
 
 

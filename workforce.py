@@ -7,6 +7,7 @@ Entry : the workers that actually do the steps (research, draft, QA check)
 Everything is stored in SQLite, so a crash or a restart resumes where it stopped.
 Nothing here publishes anything: drafts go to the approval queue (guardrails.py).
 """
+import secret_guard
 import datetime
 import inspect
 import json
@@ -155,7 +156,7 @@ def claim_next(db_path=None):
 def complete(task_id, result, db_path=None):
     conn = connect(db_path)
     conn.execute("UPDATE tasks SET status = 'done', result = ?, finished_ts = ?, error = NULL WHERE id = ?",
-                 (json.dumps(result), datetime.datetime.now().isoformat(), task_id))
+                 (json.dumps(secret_guard.scrub_data(result)), datetime.datetime.now().isoformat(), task_id))
     conn.commit()
     conn.close()
 
@@ -193,7 +194,7 @@ def fail(task_id, attempts, error, db_path=None):
     status = "queued" if attempts < MAX_ATTEMPTS else "failed"
     conn = connect(db_path)
     conn.execute("UPDATE tasks SET status = ?, error = ?, finished_ts = ? WHERE id = ?",
-                 (status, str(error)[:500], datetime.datetime.now().isoformat(), task_id))
+                 (status, secret_guard.scrub_text(error)[:500], datetime.datetime.now().isoformat(), task_id))
     conn.commit()
     row = conn.execute("SELECT agent, kind FROM tasks WHERE id = ?", (task_id,)).fetchone()
     conn.close()
@@ -603,7 +604,7 @@ def heartbeat(info="alive", db_path=None, name="worker"):
     conn = connect(db_path)
     conn.execute("INSERT INTO heartbeat (name, ts, info, machine_id) VALUES (?, ?, ?, ?) "
                  "ON CONFLICT(name) DO UPDATE SET ts = excluded.ts, info = excluded.info, machine_id = excluded.machine_id",
-                 (name, datetime.datetime.now().isoformat(timespec="seconds"), info, MACHINE_ID))
+                 (name, datetime.datetime.now().isoformat(timespec="seconds"), secret_guard.scrub_text(info), MACHINE_ID))
     conn.commit()
     conn.close()
 

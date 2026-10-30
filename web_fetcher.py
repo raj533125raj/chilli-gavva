@@ -12,6 +12,7 @@ CLI:
   python3 web_fetcher.py <url> <words>  # print first N words only
 """
 
+import secret_guard
 import html
 import html.parser
 import os
@@ -75,18 +76,18 @@ def fetch_text(url: str, max_bytes: int = 200_000) -> tuple[str, str | None]:
                 return "", f"Non-text content-type: {content_type}"
             raw = resp.read(max_bytes).decode("utf-8", errors="replace")
     except urllib.error.HTTPError as e:
-        return "", f"HTTP {e.code}: {e.reason}"
+        return "", secret_guard.scrub_text(f"HTTP {e.code}: {e.reason}")
     except urllib.error.URLError as e:
-        return "", f"URL error: {e.reason}"
+        return "", secret_guard.scrub_text(f"URL error: {e.reason}")
     except Exception as e:
-        return "", f"Fetch error: {e}"
+        return "", secret_guard.scrub_text(f"Fetch error: {e}")
 
     stripper = _Stripper()
     try:
         stripper.feed(raw)
         text = stripper.get_text()
     except Exception as e:
-        return "", f"Parse error: {e}"
+        return "", secret_guard.scrub_text(f"Parse error: {e}")
 
     return text, None
 

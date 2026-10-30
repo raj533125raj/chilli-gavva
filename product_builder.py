@@ -21,6 +21,7 @@ Usage:
     python3 product_builder.py --max 1
     python3 product_builder.py --list     # show what was built
 """
+import secret_guard
 import argparse
 import csv
 import datetime
@@ -86,7 +87,7 @@ def _record(db_path, approval_id, status, folder="", note="", add_try=False):
     tries = (row[0] if row else 0) + (1 if add_try else 0)
     conn.execute("INSERT OR REPLACE INTO product_builds (approval_id, status, tries, folder, note, ts) "
                  "VALUES (?, ?, ?, ?, ?, ?)",
-                 (approval_id, status, tries, folder, note[:300], datetime.datetime.now().isoformat()))
+                 (approval_id, status, tries, folder, secret_guard.scrub_text(note)[:300], datetime.datetime.now().isoformat()))
     conn.commit()
     conn.close()
     return tries

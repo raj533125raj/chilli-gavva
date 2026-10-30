@@ -41,23 +41,9 @@ import guardrails
 import llm_router
 import notify
 import rest_window
+import secret_guard
 
 MAX_DOCTOR_ACTIONS_PER_DAY = 3
-
-SECRET_PATTERNS = [
-    re.compile(r"\bnvapi-[A-Za-z0-9_-]{20,}\b"),
-    re.compile(r"gsk_[A-Za-z0-9]{20,}"),
-    re.compile(r"AIza[0-9A-Za-z_\-]{30,}"),
-    re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})"),
-    re.compile(r"\bsk-(?:or-v1-)?[A-Za-z0-9\-]{32,}"),
-    re.compile(r"\b\d{8,10}:AA[A-Za-z0-9_\-]{30,}\b"),
-    re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
-    re.compile(r"(?i)\b(?:password|passwd|api[_-]?key|secret|token)\b[\"']?\s*[:=]\s*[\"']([^\"'\s]{6,})[\"']"),
-    re.compile(r"(?i)\b(?:chat_id|telegram_chat_id)\b[\"']?\s*[:=]\s*[\"']?-?\d{6,}"),
-]
-EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b")
-SAFE_EMAIL = re.compile(r"(?i)(noreply|no-reply|example\.(com|org)|\.invalid$|@test\.|@localhost|"
-                        r"users\.noreply\.github\.com|@anthropic\.com$|@email\.com$|@domain\.com$)")
 
 PLAYBOOK = {
     "rate_limit": "Rate limit (429)",
@@ -106,26 +92,8 @@ def connect(db_path=None):
 
 
 def scrub_text(text: str) -> str:
-    """Scrub tokens, API keys, secrets, passwords, chat IDs and personal emails from string."""
-    if not text:
-        return ""
-    out = str(text)
-
-    # Remove exact match of environment secret variables
-    env_vars = ("GROQ_API_KEY", "GEMINI_API_KEY", "GEMINI_AUTOFIX_KEY", "OPENROUTER_API_KEY", "CF_API_TOKEN",
-                "CF_ACCOUNT_ID", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "GITHUB_TOKEN",
-                "GITHUB_MODELS_TOKEN", "ALWAYS_ON_SECRET", "ALWAYS_ON_URL", "FREELLMAPI_KEY",
-                "WORKER_SECRET", "NVIDIA_API_KEY", "DB_KEY", "CONTROL_SIGNING_KEY", "CF_KV_NAMESPACE_ID")
-    for var in env_vars:
-        val = os.environ.get(var, "").strip()
-        if len(val) >= 6:
-            out = out.replace(val, "[REDACTED]")
-
-    for rx in SECRET_PATTERNS:
-        out = rx.sub("[REDACTED]", out)
-
-    out = EMAIL_PATTERN.sub(lambda m: m.group(0) if SAFE_EMAIL.search(m.group(0)) else "name@example.com", out)
-    return out
+    """Use the shared storage/diagnostic scrubber."""
+    return secret_guard.scrub_text(text, replacement="[REDACTED]")
 
 
 def get_last_5_actions(agent: str, task_id: int = None, db_path=None) -> list[str]:
@@ -448,6 +416,8 @@ def diagnose_and_remedy(agent: str, step: str, error: Exception | str,
 def record_case(facts: dict, category: str, diagnosis: str, remedy: str, status: str,
                 actions_count: int = 1, db_path=None) -> int:
     """Store case in doctor_cases SQLite table."""
+    facts = secret_guard.scrub_data(facts)
+    category, diagnosis, remedy, status = (scrub_text(v) for v in (category, diagnosis, remedy, status))
     conn = connect(db_path)
     ts = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
     cur = conn.execute(

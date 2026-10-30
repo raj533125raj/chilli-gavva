@@ -16,6 +16,7 @@ Usage:
 Known test-only fake values are listed by file and kind in .secret_guard_allow.
 """
 import fnmatch
+import json
 import os
 import re
 import sqlite3
@@ -62,18 +63,54 @@ def scrub_text(text, replacement="[hidden]", env=None):
                 r"KEY|TOKEN|SECRET|PASSWORD|PASSWD|ACCOUNT|NAMESPACE|CHAT_ID", name, re.I)):
             # Also cover URL-encoded credentials in request errors.
             values.update((value, quote(value, safe=""), quote_plus(value, safe="")))
-    for value in sorted(values, key=len, reverse=True):
-        out = out.replace(value, replacement)
     out = re.sub(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----",
                  replacement, out, flags=re.S)
     # Remove arbitrary query keys as well as recognizable provider key formats.
     out = re.sub(r"(?i)((?:[?&]|&amp;)(?:key|api[_-]?key|token|access_token)=)[^\s&#\"'<>\\]+",
                  lambda m: m.group(1) + replacement, out)
-    for _, rx in PATTERNS:
-        out = rx.sub(replacement, out)
+    for kind, rx in PATTERNS:
+        if kind == "password or secret setting":
+            # Preserve quotes and field names when the diagnostic itself contains JSON.
+            out = rx.sub(lambda m: m.group(0)[:m.start(1) - m.start()] + replacement
+                         + m.group(0)[m.end(1) - m.start():], out)
+        elif kind == "Telegram chat id":
+            out = rx.sub(lambda m: re.sub(r"-?\d{6,}", replacement, m.group(0)), out)
+        else:
+            out = rx.sub(replacement, out)
+    # Include shortened key-shaped values used by provider errors and existing prompt scrubbing.
+    out = re.sub(r"gsk_[A-Za-z0-9]{10,}|AIza[0-9A-Za-z_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}"
+                 r"|github_pat_[A-Za-z0-9_]{20,}|sk-or-[A-Za-z0-9-]{10,}"
+                 r"|\b\d{6,12}:[A-Za-z0-9_-]{30,}\b", replacement, out)
     out = re.sub(r"(?i)(\bAuthorization\s*[:=]\s*(?:Bearer|Basic)\s+)[^\s\"'<>]+",
                  lambda m: m.group(1) + replacement, out)
+    # Recognize full tokens first: replacing a chat ID embedded in a bot token beforehand
+    # would leave an unrecognizable credential suffix behind.
+    for value in sorted(values, key=len, reverse=True):
+        out = out.replace(value, replacement)
     return EMAIL.sub(lambda m: m.group(0) if SAFE_EMAIL.search(m.group(0)) else "name@example.com", out)
+
+
+def scrub_data(value):
+    """Scrub every text field in a status document without damaging JSON or numeric counters."""
+    if isinstance(value, str):
+        return scrub_text(value)
+    if isinstance(value, dict):
+        return {scrub_text(k) if isinstance(k, str) else k: scrub_data(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [scrub_data(v) for v in value]
+    return value
+
+
+def scrub_stored_text(value):
+    """Preserve structured JSON stored in SQLite TEXT columns."""
+    if value.lstrip().startswith(("{", "[")):
+        try:
+            data = json.loads(value)
+            clean = scrub_data(data)
+            return json.dumps(clean, ensure_ascii=False) if clean != data else value
+        except ValueError:
+            pass
+    return scrub_text(value)
 
 
 def clean_ai_text(text):
@@ -81,11 +118,7 @@ def clean_ai_text(text):
     a key, token or private key is removed. Used on every AI answer before it is saved."""
     if not text:
         return text
-    out = EMAIL.sub(lambda m: m.group(0) if SAFE_EMAIL.search(m.group(0)) else "name@example.com", text)
-    for kind, rx in PATTERNS:
-        if kind not in ("password or secret setting", "Telegram chat id"):
-            out = rx.sub("[removed]", out)
-    return out
+    return scrub_text(text, replacement="[removed]")
 
 
 def _env_secrets():

@@ -123,7 +123,7 @@ def download_telegram_file(token: str, file_id: str, max_bytes: int = MAX_SIZE_B
         with urllib.request.urlopen(req, timeout=NETWORK_TIMEOUT) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             if not data.get("ok"):
-                return None, f"Telegram getFile error: {data.get('description', 'failed')}"
+                return None, llm_router.scrub(f"Telegram getFile error: {data.get('description', 'failed')}")
             file_path = data.get("result", {}).get("file_path")
             file_size = data.get("result", {}).get("file_size", 0)
             if file_size > max_bytes:
@@ -479,7 +479,7 @@ def _format_and_save(kind: str, summary: str, key_points: list, chilli_value: st
     cur = conn.execute(
         "INSERT INTO media_items (chat_id, kind, summary, key_points, chilli_gavva_value, raw_text, ts) "
         "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        ("owner", kind, summary, json.dumps(clean_key_points), chilli_value, raw_text[:5000], ts)
+        ("owner", kind, summary, json.dumps(clean_key_points), chilli_value, llm_router.scrub(raw_text)[:5000], ts)
     )
     conn.commit()
     item_id = cur.lastrowid

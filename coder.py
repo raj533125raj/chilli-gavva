@@ -12,6 +12,7 @@ CLI:
   python3 coder.py request "goal text" file1.py [file2.py]   # queue a coding task for the Coder Worker
   python3 coder.py verify                                     # verify approved patches now
 """
+import secret_guard
 import json
 import os
 import re
@@ -116,7 +117,7 @@ def propose(goal, files, llm, db_path=None, source_dir=None):
     try:
         context = _read_files(files, source_dir)
     except (ValueError, OSError) as exc:
-        return {"ok": False, "why": str(exc)}
+        return {"ok": False, "why": secret_guard.scrub_text(exc)}
     answer = llm(PROMPT.format(goal=goal, files=context))
     if not answer:
         return {"ok": False, "why": "no LLM answer (no key, kill switch, or daily cap reached)"}

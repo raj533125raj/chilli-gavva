@@ -50,6 +50,7 @@ import urllib.request
 
 import guardrails
 import injection_guard
+import secret_guard
 
 # --- Prompt-injection guard flag (OFF by default) --------------------------
 GUARD_ENABLED = os.environ.get("CHILLI_GUARD_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
@@ -123,7 +124,7 @@ def _describe(exc) -> str:
 
 def _log_fail(provider: str, model: str, reason) -> None:
     """One short line per failed provider call so CI logs show WHY the AI failed. Never logs keys."""
-    print(f"LLM {provider} {model}: FAIL {reason}", file=sys.stderr)
+    print(scrub(f"LLM {provider} {model}: FAIL {reason}"), file=sys.stderr)
 
 # ---------------------------------------------------------------------------
 # Auto-switch: remember providers that hit their free limit (HTTP 429)
@@ -429,22 +430,9 @@ def _github_models(prompt: str, timeout: float = _TIMEOUT) -> str | None:
 # ---------------------------------------------------------------------------
 # Privacy: never send private data (keys, tokens, Telegram chat id) inside a prompt
 # ---------------------------------------------------------------------------
-_SECRET_ENV = ("GROQ_API_KEY", "GEMINI_API_KEY", "OPENROUTER_API_KEY", "CF_API_TOKEN", "CF_ACCOUNT_ID",
-               "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "GITHUB_MODELS_TOKEN", "GITHUB_TOKEN", "FREELLMAPI_KEY",
-               "ALWAYS_ON_SECRET")
-_SECRET_PATTERNS = re.compile(
-    r"(gsk_[A-Za-z0-9]{10,}|AIza[0-9A-Za-z_\-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}"
-    r"|sk-or-[A-Za-z0-9\-]{10,}|\b\d{6,12}:[A-Za-z0-9_\-]{30,}\b)")
-
-
 def scrub(prompt: str) -> str:
-    """Remove secret values and token-looking strings from text before it is sent to any AI provider."""
-    text = _SECRET_PATTERNS.sub("[hidden]", prompt or "")
-    for name in _SECRET_ENV:
-        value = os.environ.get(name, "").strip()
-        if len(value) >= 6:
-            text = text.replace(value, "[hidden]")
-    return text
+    """Use the shared scrubber for prompts, diagnostics and stored provider text."""
+    return secret_guard.scrub_text(prompt)
 
 
 # ---------------------------------------------------------------------------

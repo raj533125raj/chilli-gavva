@@ -1,4 +1,5 @@
 import os
+import secret_guard
 import json
 import sqlite3
 import datetime
@@ -99,7 +100,7 @@ class EnterpriseStorage:
         ts = datetime.datetime.now().isoformat()
         cursor.execute(
             "INSERT INTO agent_logs (timestamp, agent_name, department, status, message) VALUES (?, ?, ?, ?, ?)",
-            (ts, agent_name, department, status, message)
+            (ts, *[secret_guard.scrub_text(v) for v in (agent_name, department, status, message)])
         )
         conn.commit()
         conn.close()

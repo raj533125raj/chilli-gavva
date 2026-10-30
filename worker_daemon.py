@@ -22,6 +22,7 @@ import maintenance
 import report
 import site_builder
 import tool_builder
+import llm_router
 import workforce
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -137,7 +138,7 @@ def loop(db_path=None, interval=None, max_loops=None, sleep=time.sleep, should_s
                 except Exception:
                     pass
         except Exception as exc:                      # never let the worker die on one bad pass
-            workforce.heartbeat(f"error: {str(exc)[:120]}", db_path)
+            workforce.heartbeat(f"error: {llm_router.scrub(str(exc))[:120]}", db_path)
             delay = min(MAX_IDLE_INTERVAL, max(interval, delay * 2))
         if max_loops is None or loops < max_loops:
             sleep(delay)
