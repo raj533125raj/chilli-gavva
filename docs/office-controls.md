@@ -39,3 +39,24 @@ A valid edit resets the next due time and cancels queued superseded work atomica
 future dispatch. Running work is not interrupted. Archived missions cannot be edited.
 Receipts bind to the original request signature as well as the ID; invalid signatures
 cannot poison the replay record of a later authenticated request.
+
+## Triggers
+
+`set_trigger` adds or replaces a definition. `add_trigger` requires an unused ID;
+`edit_trigger` accepts a nonempty patch for an active definition. `delete_trigger`
+requires null and archives/cancels pending work. Targets are stable trigger IDs.
+
+Office payloads have `label, agent_id, enabled, kind, at, watch_id, match_state`.
+Supported kinds are `at` (timezone-qualified ISO time), `agent_state` (a real agent,
+`idle/working/error`) and `task_done` (an existing `task:<number>`).
+Other condition fields must be null. Optional `action` is `ask_agent` or `summary`.
+For numeric state conditions use kind `state` and
+`condition: {metric: "drafts_waiting", op: ">", value: 3}`. Supported metrics are
+`drafts_waiting`, `queued_tasks`, `failed_tasks`; operators are `>, >=, <, <=, ==`.
+Thresholds are nonnegative integers at most 10,000. No arbitrary expressions are accepted.
+
+Time triggers fire once. State triggers fire on a false-to-true edge, at most once an
+hour, and never add a second pending task for the same trigger. There are at most 100
+active triggers. Missions and triggers share the pending and per-tick dispatch caps.
+`summary` uses local database facts and sends through the existing notifier; it does
+not spend an LLM call. Disabled cubes, pause/rest, and archived triggers prevent execution.

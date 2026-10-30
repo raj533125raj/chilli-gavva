@@ -17,7 +17,7 @@ import secret_guard
 import telegram_inbox
 
 ACTION_NAMES = {"approve", "reject", "pause", "resume", "set_switch", "add_mission",
-                "edit_mission", "archive_mission"}
+                "edit_mission", "archive_mission", "add_trigger", "edit_trigger", "set_trigger", "delete_trigger"}
 PREFIX = "control:request:"
 RECEIPT_PREFIX = "runtime:receipt:"
 SIGNED_FIELDS = ("id", "action", "target", "value", "created_at", "nonce")
@@ -216,6 +216,9 @@ def _apply(record, db_path, now=None):
     if action in ("edit_mission", "archive_mission"):
         import office_tasks
         return office_tasks.change_mission(record, db_path, now)
+    if action in ("add_trigger", "edit_trigger", "set_trigger", "delete_trigger"):
+        import office_triggers
+        return office_triggers.apply(record, db_path, now)
     if action in ("approve", "reject"):
         if record["value"] is not None or not re.fullmatch(r"[1-9][0-9]{0,9}", record["target"]):
             return "rejected", "invalid draft identifier", None

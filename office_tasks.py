@@ -109,6 +109,15 @@ def task_enabled(payload, db_path=None, conn=None):
         return False
     if not cubes.is_agent_enabled(recipient["name"], db_path, conn=conn):
         return False
+    if payload.get("trigger_id"):
+        if conn is None:
+            own = connect(db_path)
+            try:
+                return task_enabled(payload, db_path, own)
+            finally:
+                own.close()
+        import office_triggers
+        return office_triggers.enabled(payload["trigger_id"], conn)
     if payload.get("mission_id"):
         if conn is None:
             own = connect(db_path)
@@ -153,7 +162,9 @@ def tick(db_path=None, now=None, dry_run=False):
                     step = INTERVALS[every]
                     next_run = due + (int((now - due) // step) + 1) * step
                     conn.execute("UPDATE office_missions SET next_run=?,last_run=? WHERE id=?", (next_run, now, ident))
-        return {"queued": queued}
+        import office_triggers
+        triggered = office_triggers.tick(db_path, now, dry_run, limit=MAX_DISPATCH - queued)
+        return {"queued": queued + triggered["queued"]}
     finally:
         conn.close()
 
@@ -164,6 +175,15 @@ def execute(task, ctx):
     if not task_enabled(payload, ctx.get("db_path")):
         return {"summary": "office work no longer enabled", "next": []}
     recipient = agent(payload["agent_id"])
+    if payload.get("summary"):
+        import chat_brain
+        import notify
+        summary = (chat_brain.fetch_drafts_waiting(ctx.get("db_path")) if payload.get("metric") == "drafts_waiting"
+                   else chat_brain.fetch_status(ctx.get("db_path")))
+        summary = secret_guard.scrub_text(summary)
+        if not notify.send(summary):
+            raise OSError("office summary could not be delivered")
+        return {"agent_id": recipient["id"], "answer": summary, "next": []}
     text = secret_guard.scrub_text(payload["text"])
     prompt = (f"You are {recipient['name']}. Your role: {recipient['role']}. "
               "Provide an advisory answer only. Never execute commands, publish, spend money or claim an action was done. "
