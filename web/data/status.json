@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-30T01:03:57Z",
+ "generated_at": "2026-10-30T01:06:08Z",
  "kill_switch": false,
  "llm": {
   "calls_today": 108,
@@ -227,18 +227,6 @@
    "ts": "2026-10-30T00:20:00.341636",
    "kind": "scout_idea",
    "title": "Draft #53"
-  },
-  {
-   "id": 54,
-   "ts": "2026-10-30T00:20:00.343246",
-   "kind": "scout_idea",
-   "title": "Draft #54"
-  },
-  {
-   "id": 55,
-   "ts": "2026-10-30T00:20:00.345240",
-   "kind": "scout_idea",
-   "title": "Draft #55"
   }
  ],
  "worker": {
@@ -251,31 +239,31 @@
    "provider": "Groq",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-30T01:03:57Z"
+   "checked_at": "2026-10-30T01:06:08Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-30T01:03:57Z"
+   "checked_at": "2026-10-30T01:06:08Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-30T01:03:57Z"
+   "checked_at": "2026-10-30T01:06:08Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-30T01:03:57Z"
+   "checked_at": "2026-10-30T01:06:08Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-30T01:03:57Z"
+   "checked_at": "2026-10-30T01:06:08Z"
   }
  ],
  "minutes": {
@@ -525,8 +513,8 @@
  ],
  "scout_ideas_count": {
   "total": 10,
-  "pending": 6,
-  "approved": 4
+  "pending": 4,
+  "approved": 6
  },
  "trend_items_count": {
   "total": 20,
