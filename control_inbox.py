@@ -16,7 +16,8 @@ import publisher
 import secret_guard
 import telegram_inbox
 
-ACTION_NAMES = {"approve", "reject", "pause", "resume", "set_switch", "add_mission"}
+ACTION_NAMES = {"approve", "reject", "pause", "resume", "set_switch", "add_mission",
+                "edit_mission", "archive_mission"}
 PREFIX = "control:request:"
 RECEIPT_PREFIX = "runtime:receipt:"
 SIGNED_FIELDS = ("id", "action", "target", "value", "created_at", "nonce")
@@ -161,11 +162,13 @@ def _connect(db_path):
         conn.close()
 
 
-def _receipt(ident, state, reason, now, reply=None):
+def _receipt(ident, state, reason, now, reply=None, source_signature=None):
     result = {"id": ident, "state": state, "reason": reason,
               "at": datetime.datetime.fromtimestamp(now, datetime.timezone.utc).isoformat().replace("+00:00", "Z")}
     if reply is not None:
         result["reply"] = secret_guard.scrub_text(reply)[:4000]
+    if isinstance(source_signature, str) and re.fullmatch(r"[0-9a-f]{64}", source_signature):
+        result["request_signature"] = source_signature
     return result
 
 
@@ -210,6 +213,9 @@ def _apply(record, db_path, now=None):
     if action == "add_mission":
         import office_tasks
         return office_tasks.add_mission(record, db_path, now)
+    if action in ("edit_mission", "archive_mission"):
+        import office_tasks
+        return office_tasks.change_mission(record, db_path, now)
     if action in ("approve", "reject"):
         if record["value"] is not None or not re.fullmatch(r"[1-9][0-9]{0,9}", record["target"]):
             return "rejected", "invalid draft identifier", None
@@ -239,7 +245,8 @@ def run(db_path=None, env=None, http_request=None, now=None, send=None):
         reason = _reason(record, config[3], now)
         ident = record.get("id") if isinstance(record, dict) and _valid_id(record.get("id")) else "invalid:" + hashlib.sha256(name.encode()).hexdigest()[:40]
         if reason:
-            _put_receipt(_receipt(ident, "rejected", reason, now), config, http_request, log)
+            _put_receipt(_receipt(ident, "rejected", reason, now, source_signature=record.get("signature")
+                                 if isinstance(record, dict) else None), config, http_request, log)
             refused += 1
             continue
         digest = _digest(_signed(record), config[3])
@@ -251,18 +258,26 @@ def run(db_path=None, env=None, http_request=None, now=None, send=None):
                 continue
             reused = saved or conn.execute("SELECT 1 FROM office_requests WHERE nonce = ?", (record["nonce"],)).fetchone()
             if reused or telegram_inbox.get_state("control_nonce:" + record["nonce"], None, db_path):
-                _put_receipt(_receipt(ident, "rejected", "replayed nonce or request id", now), config, http_request, log)
+                _put_receipt(_receipt(ident, "rejected", "replayed nonce or request id", now,
+                                     source_signature=record["signature"]), config, http_request, log)
                 refused += 1
                 continue
             remote, reachable = _remote_receipt(ident, config, http_request, log)
+            if remote and remote.get("reason") in ("bad signature", "invalid request"):
+                # An unauthenticated submission cannot reserve another request's identity.
+                remote = None
             if remote:
+                if remote.get("request_signature") not in (None, record["signature"]):
+                    refused += 1
+                    continue
                 conn.execute("INSERT INTO office_requests VALUES (?, ?, ?, ?)", (ident, record["nonce"], digest, json.dumps(remote)))
                 refused += 1
                 continue
-            receipt = _receipt(ident, "held", "request reserved; outcome unconfirmed", now)
+            receipt = _receipt(ident, "held", "request reserved; outcome unconfirmed", now,
+                               source_signature=record["signature"])
             if not reachable or not _put_receipt(receipt, config, http_request, log):
                 refused += 1
-                continue
+                break
             conn.execute("INSERT INTO office_requests VALUES (?, ?, ?, ?)", (ident, record["nonce"], digest, json.dumps(receipt)))
         try:
             state, reason, reply = _apply(record, db_path, now)
@@ -270,7 +285,7 @@ def run(db_path=None, env=None, http_request=None, now=None, send=None):
             state, reason, reply = "rejected", "invalid request value", None
         except Exception:
             state, reason, reply = "held", "runtime could not complete the request", None
-        receipt = _receipt(ident, state, reason, now, reply)
+        receipt = _receipt(ident, state, reason, now, reply, record["signature"])
         with _connect(db_path) as conn:
             conn.execute("UPDATE office_requests SET receipt = ? WHERE id = ?", (json.dumps(receipt), ident))
         _put_receipt(receipt, config, http_request, log)

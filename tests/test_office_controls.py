@@ -153,7 +153,7 @@ class ReceiptSafetyTests(OfficeBase):
     def test_receipt_shape_signature_nonce_replay_and_stale_database(self):
         record=signed(); self.run_request(record)
         receipt=self.kv.receipt()
-        self.assertEqual(set(receipt),{'id','state','reason','at','signature'})
+        self.assertEqual(set(receipt),{'id','state','reason','at','signature','request_signature'})
         self.assertEqual(receipt['at'],'2026-10-30T10:40:00Z')
         self.assertEqual(self.run_request()['refused'],1)
         self.assertEqual(self.rows('SELECT COUNT(*) FROM office_missions')[0][0],1)
@@ -190,3 +190,42 @@ class ReceiptSafetyTests(OfficeBase):
         result=self.run_request()
         self.assertEqual(result,{'applied':2,'refused':1})
         self.assertEqual(len([k for k in self.kv.values if k.startswith(ci.RECEIPT_PREFIX)]),3)
+
+
+class MissionChangeTests(OfficeBase):
+    def test_edit_replaces_queued_work_and_reschedules_using_new_interval(self):
+        self.run_request(signed()); office_tasks.tick(self.db,NOW+3600)
+        self.run_request(signed(action='edit_mission',ident='edit:one',value={'title':'New brief','every':'daily'}),now=NOW+3600)
+        self.assertEqual(self.kv.receipt('edit:one')['state'],'applied')
+        self.assertEqual(self.rows('SELECT title,every,next_run FROM office_missions')[0],('New brief','1d',NOW+3600+86400))
+        self.assertEqual(self.rows('SELECT status FROM tasks')[0][0],'cancelled')
+        self.assertIsNone(workforce.claim_next(self.db))
+        self.assertEqual(office_tasks.tick(self.db,NOW+3600+86400)['queued'],1)
+
+    def test_archive_is_persistent_cancels_queued_work_and_never_runs_again(self):
+        self.run_request(signed()); office_tasks.tick(self.db,NOW+3600)
+        self.run_request(signed(action='archive_mission',ident='archive:one'))
+        self.assertEqual(self.kv.receipt('archive:one')['state'],'applied')
+        self.assertEqual(self.rows('SELECT status FROM office_missions')[0][0],'archived')
+        self.assertEqual(office_tasks.tick(self.db,NOW+999999)['queued'],0)
+        self.assertIsNone(workforce.claim_next(self.db))
+        self.run_request(signed(action='edit_mission',ident='edit:archived',value={'title':'Change'}))
+        self.assertEqual(self.kv.receipt('edit:archived')['state'],'held')
+
+    def test_invalid_edits_and_unknown_missions_have_no_partial_changes(self):
+        self.run_request(signed())
+        for index,(action,target,value) in enumerate((
+            ('edit_mission','missing',{'title':'new'}),('edit_mission','mission:one',{'every':'1m'}),
+            ('edit_mission','mission:one',{'title':'new','command':'ignored'}),
+            ('archive_mission','mission:one',{'confirmed':True}))):
+            self.run_request(signed(action,target,value,ident=f'bad:{index}'))
+            self.assertEqual(self.kv.receipt(f'bad:{index}')['state'],'rejected')
+        self.assertEqual(self.rows('SELECT title,status FROM office_missions')[0],('Review product ideas','active'))
+
+    def test_bad_signature_cannot_poison_a_later_valid_request(self):
+        record=signed(); bad={**record,'signature':'0'*64}
+        self.run_request(bad)
+        self.assertEqual(self.kv.receipt()['state'],'rejected')
+        self.run_request(record)
+        self.assertEqual(self.kv.receipt()['state'],'applied')
+        self.assertEqual(self.rows('SELECT COUNT(*) FROM office_missions')[0][0],1)

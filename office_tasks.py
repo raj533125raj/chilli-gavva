@@ -67,6 +67,41 @@ def add_mission(record, db_path=None, now=None):
         conn.close()
 
 
+def change_mission(record, db_path=None, now=None):
+    now = time.time() if now is None else now
+    patch = record["value"]
+    archive = record["action"] == "archive_mission"
+    if archive:
+        if patch is not None:
+            raise ValueError("archive requires null value")
+    elif (not isinstance(patch, dict) or not patch or set(patch) - {"title", "agent_id", "every"}):
+        raise ValueError("invalid mission edit")
+    conn = connect(db_path)
+    try:
+        with conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT title,agent_id,every,status FROM office_missions WHERE id=?", (record["target"],)).fetchone()
+            if not row:
+                return "rejected", "mission not found", None
+            if archive:
+                conn.execute("UPDATE office_missions SET status='archived',updated=? WHERE id=?", (now, record["target"]))
+            else:
+                if row[3] == "archived":
+                    return "held", "archived mission cannot be edited", None
+                value = {**dict(zip(("title", "agent_id", "every"), row[:3])), **patch}
+                title, recipient, every = mission_value(value)
+                conn.execute("UPDATE office_missions SET title=?,agent_id=?,every=?,next_run=?,updated=? WHERE id=?",
+                             (title, recipient, every, now + INTERVALS[every], now, record["target"]))
+            # An edit must not run the queued, superseded instructions; running work is left alone.
+            for task_id, payload in conn.execute("SELECT id,payload FROM tasks WHERE kind='office_task' AND status='queued'").fetchall():
+                if json.loads(payload).get("mission_id") == record["target"]:
+                    conn.execute("UPDATE tasks SET status='cancelled',finished_ts=? WHERE id=?",
+                                 (datetime.datetime.fromtimestamp(now, datetime.timezone.utc).isoformat(), task_id))
+        return "applied", "mission archived" if archive else "mission updated", None
+    finally:
+        conn.close()
+
+
 def task_enabled(payload, db_path=None, conn=None):
     try:
         recipient = agent(payload.get("agent_id"))

@@ -32,3 +32,10 @@ Definitions live in `office_missions`. The scheduler and workforce queue due wor
 per mission exists. There are at most 50 active missions, 20 pending office tasks and
 10 dispatches per tick. Pause, the kill switch, daily rest and cube Off suspend dispatch.
 Answers are advisory; they do not publish or perform the actions mentioned in a title.
+
+`edit_mission`: same target; value is a nonempty subset of `title, agent_id, every`.
+A valid edit resets the next due time and cancels queued superseded work atomically.
+`archive_mission`: same target, null value. Archiving cancels queued runs and prevents
+future dispatch. Running work is not interrupted. Archived missions cannot be edited.
+Receipts bind to the original request signature as well as the ID; invalid signatures
+cannot poison the replay record of a later authenticated request.
