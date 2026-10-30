@@ -2,7 +2,7 @@
 
 Usage:
     python3 recipe_runner.py recipes/daily_chilli_content.yaml
-    python3 recipe_runner.py recipes/shrimp_market_brief.yaml
+    python3 recipe_runner.py recipes/niche_budget_sheets.yaml
     python3 recipe_runner.py --list          # show all available recipes
 
 A recipe is a YAML file with:

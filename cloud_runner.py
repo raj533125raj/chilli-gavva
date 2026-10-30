@@ -29,7 +29,7 @@ def main():
         print(rest_window.rest_tasks())
         result = {"status": "rest", "ran": 0, "failed": 0}
     else:
-        result = workforce.run_once(max_tasks=3)
+        result = workforce.run_once(max_tasks=15)
         try:
             import scout
             scout.maybe_run()
