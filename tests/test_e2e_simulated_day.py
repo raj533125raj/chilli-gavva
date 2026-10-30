@@ -125,7 +125,8 @@ class E2ESimulatedDayTests(unittest.TestCase):
         expected_keys = {
             "generated_at", "kill_switch", "llm", "agents", "task_counts", "recent_tasks",
             "pending_approvals", "worker", "handoffs", "ai_health", "minutes",
-            "scout_ideas_count", "trend_items_count", "media_items_count", "cubes", "marketing_kits_count"
+            "scout_ideas_count", "trend_items_count", "media_items_count", "cubes", "marketing_kits_count",
+            "products", "reject_reasons", "report", "workers", "pipeline"
         }
         self.assertEqual(set(status.keys()), expected_keys)
 

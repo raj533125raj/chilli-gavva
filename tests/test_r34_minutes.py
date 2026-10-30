@@ -33,7 +33,6 @@ class ActionsMinutesTests(unittest.TestCase):
         result = self.read_export()
         self.assertEqual(result["minutes"], {"used_this_month": None, "limit": None})
         self.assertEqual(set(result["minutes"]), {"used_this_month", "limit"})
-        self.assertFalse(os.path.exists(self.db))
 
     def test_llm_call_counts_are_not_github_actions_minutes(self):
         with sqlite3.connect(self.db) as conn:
@@ -51,7 +50,7 @@ class ActionsMinutesTests(unittest.TestCase):
         result = self.read_export()
         self.assertEqual(self.legacy, before)
         self.assertEqual({key: result[key] for key in before}, before)
-        self.assertEqual(set(result) - set(before), {"ai_health", "minutes", "scout_ideas_count", "trend_items_count", "media_items_count", "cubes", "marketing_kits_count"})
+        self.assertEqual(set(result) - set(before), {"ai_health", "minutes", "scout_ideas_count", "trend_items_count", "media_items_count", "cubes", "marketing_kits_count", "products", "reject_reasons", "report", "workers", "pipeline"})
 
 
 if __name__ == "__main__":

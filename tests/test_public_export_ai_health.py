@@ -46,7 +46,7 @@ class AIHealthTests(unittest.TestCase):
         self.assertEqual(rows["OpenRouter"]["state"], "unknown")
         for row in rows.values():
             self.assertIsNone(row["model"])
-            self.assertEqual(set(row), {"provider", "model", "state", "checked_at"})
+            self.assertEqual(set(row), {"provider", "model", "state", "reason", "checked_at"})
             stamp = datetime.datetime.fromisoformat(row["checked_at"].replace("Z", "+00:00"))
             self.assertEqual(stamp.utcoffset(), datetime.timedelta(0))
 

@@ -12,6 +12,7 @@ import sys
 
 import guardrails
 import improver
+import public_export
 import service_intake
 import tool_builder
 import workforce
@@ -234,47 +235,8 @@ PUBLIC_AI_PROVIDERS = ("Groq", "Gemini", "Cloudflare", "OpenRouter", "FreeLLMAPI
 
 
 def _ai_health(db_path=None, checked_at=None):
-    """Read router observations without probing providers or reading credentials.
-
-    provider_log stores daily counts, not ordered events or model identifiers.
-    Only a latest day with exclusively successes/failures establishes an outcome;
-    mixed counts cannot establish the last outcome. Missing models stay null.
-    checked_at is the UTC snapshot check time, NOT a fabricated last-call time.
-    """
-    checked_at = checked_at or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    result = {name: {"provider": name, "model": None, "state": "unknown", "checked_at": checked_at}
-              for name in PUBLIC_AI_PROVIDERS}
-    conn = None
-    try:
-        uri = Path(db_path or guardrails.DB_PATH).resolve().as_uri() + "?mode=ro"
-        conn = sqlite3.connect(uri, uri=True)
-        if not _has_table(conn, "provider_log"):
-            return list(result.values())
-        rows = conn.execute("SELECT day, provider, ok, fail FROM provider_log ORDER BY day DESC").fetchall()
-        seen = set()
-        for day, provider, ok, fail in rows:
-            if provider not in result or provider in seen:
-                continue
-            try:
-                observed_day = datetime.date.fromisoformat(day)
-            except (TypeError, ValueError):
-                continue
-            if observed_day.isoformat() != day or day > checked_at[:10]:
-                continue
-            seen.add(provider)
-            if not all(isinstance(count, int) and count >= 0 for count in (ok, fail)):
-                continue
-            if ok > 0 and fail == 0:
-                result[provider]["state"] = "up"
-            elif fail > 0 and ok == 0:
-                result[provider]["state"] = "down"
-    except (sqlite3.Error, OSError, ValueError):
-        # A missing/unreadable recording is unknown, not a provider outage.
-        pass
-    finally:
-        if conn is not None:
-            conn.close()
-    return list(result.values())
+    """Read router observations with state, reason and checked_at."""
+    return public_export.get_public_ai_health(db_path, checked_at)
 
 
 def write_status(path=None, db_path=None):
@@ -283,36 +245,13 @@ def write_status(path=None, db_path=None):
     with open(path, "w", encoding="utf-8") as f:
         # Keep build_status's legacy in-process shape; the file gains only extra fields.
         snapshot = dict(build_status(db_path))
-        snapshot["ai_health"] = _ai_health(db_path, snapshot["generated_at"])
-        # Actions totals are fetched remotely by always_on, not persisted locally.
-        # Do not contact that service or substitute LLM usage or a guessed plan limit.
-        used_min = None
-        limit_min = None
-        db_file = db_path or guardrails.DB_PATH
-        if os.path.exists(db_file):
-            try:
-                m_conn = sqlite3.connect(db_file)
-                if _has_table(m_conn, "control"):
-                    r_used = m_conn.execute("SELECT value FROM control WHERE key IN ('month_minutes', 'used_this_month', 'minutes_used')").fetchone()
-                    r_lim = m_conn.execute("SELECT value FROM control WHERE key IN ('minutes_limit', 'limit', 'month_limit')").fetchone()
-                    if r_used and r_used[0] is not None:
-                        try:
-                            used_min = int(r_used[0])
-                        except (ValueError, TypeError):
-                            pass
-                    if r_lim and r_lim[0] is not None:
-                        try:
-                            limit_min = int(r_lim[0])
-                        except (ValueError, TypeError):
-                            pass
-                if (used_min is None and limit_min is None) and _has_table(m_conn, "action_minutes"):
-                    r_act = m_conn.execute("SELECT used_this_month, limit_minutes FROM action_minutes ORDER BY id DESC LIMIT 1").fetchone()
-                    if r_act:
-                        used_min, limit_min = r_act[0], r_act[1]
-                m_conn.close()
-            except Exception:
-                pass
-        snapshot["minutes"] = {"used_this_month": used_min, "limit": limit_min}
+        snapshot["ai_health"] = public_export.get_public_ai_health(db_path, snapshot["generated_at"])
+        snapshot["minutes"] = public_export.get_public_minutes(db_path)
+        snapshot["products"] = public_export.get_public_products(db_path)
+        snapshot["reject_reasons"] = public_export.get_public_reject_reasons(db_path)
+        snapshot["report"] = public_export.get_public_report(db_path)
+        snapshot["workers"] = public_export.get_public_workers(db_path)
+        snapshot["pipeline"] = public_export.get_public_pipeline(db_path)
         import cubes
         snapshot["cubes"] = cubes.get_public_cubes_export(db_path)
         scout_counts = {"total": 0, "pending": 0, "approved": 0}
