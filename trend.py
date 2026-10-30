@@ -27,8 +27,10 @@ import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 
+import cubes
 import guardrails
 import notify
+import rest_window
 
 TREND_STATE_KEY = "trend_last_run_day"
 _TIMEOUT = 10
@@ -121,6 +123,12 @@ def set_state(key, value, db_path=None):
 def _today_iso(now=None):
     now = now or datetime.datetime.now(datetime.timezone.utc)
     return now.date().isoformat()
+
+
+def is_paused(db_path=None):
+    if guardrails.is_killed() or rest_window.in_rest_window():
+        return True
+    return not cubes.is_kind_enabled("research", db_path=db_path)
 
 
 def already_ran_today(db_path=None, now=None):
@@ -381,6 +389,8 @@ def score_items(items: list[dict], llm_fn=None) -> list[dict]:
 
 def run_trend(db_path=None, llm=None, fetcher=None) -> list[dict]:
     """Run TREND agent: fetch, dedupe, score, save top 10 in DB, and send 1 Telegram digest."""
+    if is_paused(db_path):
+        return []
     if llm is None:
         try:
             import llm_router
@@ -424,6 +434,8 @@ def run_trend(db_path=None, llm=None, fetcher=None) -> list[dict]:
 
 def maybe_run(db_path=None, llm=None, now=None, fetcher=None):
     """Run TREND if it has not run today."""
+    if is_paused(db_path):
+        return {"ran": False, "reason": "paused"}
     if already_ran_today(db_path=db_path, now=now):
         sync_approved_trends(db_path)
         return {"ran": False, "reason": "already ran today"}

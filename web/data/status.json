@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-29T16:31:49Z",
+ "generated_at": "2026-10-30T01:06:08Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 8,
+  "calls_today": 108,
   "cap": 500
  },
  "agents": [
@@ -99,190 +99,171 @@
    "kind": "review",
    "status": "done",
    "agent": "QA Checker",
-   "attempts": 1
+   "attempts": 1,
+   "ts": "2026-10-28T22:56:41.253765",
+   "finished_ts": "2026-10-28T23:49:51.087603"
   },
   {
    "id": 154,
    "kind": "review",
    "status": "done",
    "agent": "QA Checker",
-   "attempts": 1
+   "attempts": 1,
+   "ts": "2026-10-28T22:56:38.408135",
+   "finished_ts": "2026-10-28T22:56:42.674792"
   },
   {
    "id": 153,
    "kind": "rewrite",
    "status": "done",
    "agent": "Draft Worker",
-   "attempts": 1
+   "attempts": 1,
+   "ts": "2026-10-28T22:04:18.814235",
+   "finished_ts": "2026-10-28T22:56:41.255011"
   },
   {
    "id": 152,
    "kind": "rewrite",
    "status": "done",
    "agent": "Draft Worker",
-   "attempts": 1
+   "attempts": 1,
+   "ts": "2026-10-28T22:04:17.413664",
+   "finished_ts": "2026-10-28T22:56:38.409246"
   },
   {
    "id": 151,
    "kind": "review",
    "status": "done",
    "agent": "QA Checker",
-   "attempts": 1
+   "attempts": 1,
+   "ts": "2026-10-28T20:21:16.721890",
+   "finished_ts": "2026-10-28T22:04:20.050922"
   },
   {
    "id": 150,
    "kind": "review",
    "status": "done",
    "agent": "QA Checker",
-   "attempts": 1
+   "attempts": 1,
+   "ts": "2026-10-28T20:21:14.091609",
+   "finished_ts": "2026-10-28T22:04:18.815529"
   },
   {
    "id": 149,
    "kind": "review",
    "status": "done",
    "agent": "QA Checker",
-   "attempts": 1
+   "attempts": 1,
+   "ts": "2026-10-28T20:21:11.655085",
+   "finished_ts": "2026-10-28T22:04:17.414884"
   },
   {
    "id": 148,
    "kind": "draft",
    "status": "done",
    "agent": "Draft Worker",
-   "attempts": 1
+   "attempts": 1,
+   "ts": "2026-10-28T20:19:27.804370",
+   "finished_ts": "2026-10-28T20:21:16.723106"
   },
   {
    "id": 147,
    "kind": "draft",
    "status": "done",
    "agent": "Draft Worker",
-   "attempts": 1
+   "attempts": 1,
+   "ts": "2026-10-28T20:19:26.041169",
+   "finished_ts": "2026-10-28T20:21:14.092996"
   },
   {
    "id": 146,
    "kind": "draft",
    "status": "done",
    "agent": "Draft Worker",
-   "attempts": 1
+   "attempts": 1,
+   "ts": "2026-10-28T20:19:24.444451",
+   "finished_ts": "2026-10-28T20:21:11.656286"
   },
   {
    "id": 145,
    "kind": "research",
    "status": "done",
    "agent": "Research Worker",
-   "attempts": 1
+   "attempts": 1,
+   "ts": "2026-10-28T20:19:22.732342",
+   "finished_ts": "2026-10-28T20:19:27.805605"
   },
   {
    "id": 144,
    "kind": "research",
    "status": "done",
    "agent": "Research Worker",
-   "attempts": 1
+   "attempts": 1,
+   "ts": "2026-10-28T20:19:22.731187",
+   "finished_ts": "2026-10-28T20:19:26.042412"
   }
  ],
  "pending_approvals": [
-  {
-   "id": 46,
-   "ts": "2026-10-29T10:03:50.030174",
-   "kind": "scout_idea",
-   "title": "Draft #46"
-  },
-  {
-   "id": 47,
-   "ts": "2026-10-29T10:03:50.032313",
-   "kind": "scout_idea",
-   "title": "Draft #47"
-  },
-  {
-   "id": 48,
-   "ts": "2026-10-29T10:03:50.034304",
-   "kind": "scout_idea",
-   "title": "Draft #48"
-  },
-  {
-   "id": 49,
-   "ts": "2026-10-29T10:03:50.036273",
-   "kind": "scout_idea",
-   "title": "Draft #49"
-  },
   {
    "id": 50,
    "ts": "2026-10-29T10:03:50.038337",
    "kind": "scout_idea",
    "title": "Draft #50"
+  },
+  {
+   "id": 51,
+   "ts": "2026-10-30T00:20:00.338148",
+   "kind": "scout_idea",
+   "title": "Draft #51"
+  },
+  {
+   "id": 52,
+   "ts": "2026-10-30T00:20:00.339997",
+   "kind": "scout_idea",
+   "title": "Draft #52"
+  },
+  {
+   "id": 53,
+   "ts": "2026-10-30T00:20:00.341636",
+   "kind": "scout_idea",
+   "title": "Draft #53"
   }
  ],
  "worker": {
   "running": false,
   "age_seconds": null
  },
- "handoffs": [
-  {
-   "from_agent": "Draft Worker",
-   "to_agent": "Content Manager",
-   "item": "draft #44",
-   "at": "2026-10-28T22:56:41Z"
-  },
-  {
-   "from_agent": "Draft Worker",
-   "to_agent": "Content Manager",
-   "item": "draft #43",
-   "at": "2026-10-28T22:56:38Z"
-  },
-  {
-   "from_agent": "Draft Worker",
-   "to_agent": "Content Manager",
-   "item": "draft #45",
-   "at": "2026-10-28T20:21:16Z"
-  },
-  {
-   "from_agent": "Draft Worker",
-   "to_agent": "Content Manager",
-   "item": "draft #44",
-   "at": "2026-10-28T20:21:14Z"
-  },
-  {
-   "from_agent": "Draft Worker",
-   "to_agent": "Content Manager",
-   "item": "draft #43",
-   "at": "2026-10-28T20:21:11Z"
-  }
- ],
+ "handoffs": [],
  "ai_health": [
   {
    "provider": "Groq",
    "model": null,
-   "state": "up",
-   "checked_at": "2026-10-29T16:31:49Z"
+   "state": "unknown",
+   "checked_at": "2026-10-30T01:06:08Z"
   },
   {
    "provider": "Gemini",
    "model": null,
-   "state": "down",
-   "checked_at": "2026-10-29T16:31:49Z"
-  },
-  {
-   "provider": "GitHubModels",
-   "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-29T16:31:49Z"
+   "checked_at": "2026-10-30T01:06:08Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
-   "state": "up",
-   "checked_at": "2026-10-29T16:31:49Z"
+   "state": "unknown",
+   "checked_at": "2026-10-30T01:06:08Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-29T16:31:49Z"
+   "checked_at": "2026-10-30T01:06:08Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-29T16:31:49Z"
+   "checked_at": "2026-10-30T01:06:08Z"
   }
  ],
  "minutes": {
@@ -531,16 +512,21 @@
   }
  ],
  "scout_ideas_count": {
-  "total": 5,
-  "pending": 5,
-  "approved": 0
+  "total": 10,
+  "pending": 4,
+  "approved": 6
  },
  "trend_items_count": {
-  "total": 10,
+  "total": 20,
   "proposed": 0,
   "approved": 0
  },
  "media_items_count": {
   "total": 0
+ },
+ "marketing_kits_count": {
+  "total": 8,
+  "draft": 8,
+  "approved": 0
  }
 }

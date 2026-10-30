@@ -49,7 +49,7 @@ class PublicStatusTests(unittest.TestCase):
     def test_recent_tasks_and_approvals_have_only_the_safe_keys(self):
         status = export_status.build_status(self.db)
         for task in status["recent_tasks"]:
-            self.assertEqual(set(task), {"id", "kind", "status", "agent", "attempts"})
+            self.assertEqual(set(task), {"id", "kind", "status", "agent", "attempts", "ts", "finished_ts"})
         self.assertGreaterEqual(len(status["pending_approvals"]), 1)
         for approval in status["pending_approvals"]:
             self.assertEqual(set(approval), {"id", "ts", "kind", "title"})

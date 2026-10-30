@@ -27,9 +27,11 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 import checker
+import cubes
 import guardrails
 import improver_loop
 import llm_router
+import rest_window
 
 CHANNELS = ("pinterest", "instagram", "youtube", "telegram", "seo", "calendar")
 
@@ -68,6 +70,12 @@ def _clean_no_money(text: str) -> str:
         return ""
     cleaned = _MONEY_PATTERNS.sub("[valuable offer]", text)
     return cleaned.strip()
+
+
+def is_paused(db_path: Optional[str] = None) -> bool:
+    if guardrails.is_killed() or rest_window.in_rest_window():
+        return True
+    return not cubes.is_kind_enabled("promotion", db_path=db_path)
 
 
 def _get_ready_products(db_path: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -540,6 +548,8 @@ def process_ready_products(
     llm_fn: Any = None
 ) -> List[Dict[str, Any]]:
     """Find all approved ready products without kits (or needing update), generate kits & notify."""
+    if is_paused(db_path):
+        return []
     ready_products = _get_ready_products(db_path=db_path)
     processed = []
 

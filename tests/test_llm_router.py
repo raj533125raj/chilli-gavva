@@ -75,7 +75,7 @@ class TestProviderStatus(unittest.TestCase):
             importlib.reload(llm_router)
             status = llm_router.provider_status()
         names = [s["provider"] for s in status]
-        self.assertEqual(names, ["Groq", "Gemini", "GitHubModels", "Cloudflare", "OpenRouter", "FreeLLMAPI"])
+        self.assertEqual(names, ["Groq", "Gemini", "Cloudflare", "OpenRouter", "FreeLLMAPI"])
         for s in status:
             self.assertFalse(s["configured"])
 
@@ -424,7 +424,7 @@ class TestAutoSwitch(unittest.TestCase):
         with patch.object(llm_router, "_freellmapi", return_value=None), \
                 patch.object(llm_router, "_groq", side_effect=fake_groq), \
                 patch.object(llm_router, "_gemini", return_value=None), \
-                patch.object(llm_router, "_github_models", return_value="backup answer"):
+                patch.object(llm_router, "_cloudflare", return_value="backup answer"):
             self.assertEqual(llm_router.chat("p"), "backup answer")
             self.assertEqual(llm_router.chat("p"), "backup answer")
         self.assertEqual(calls["groq"], 1)  # second call skipped Groq (cooling down)
@@ -460,3 +460,14 @@ class TestAutoSwitch(unittest.TestCase):
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "k", "OPENROUTER_MODEL": "m:free"}, clear=True):
             st = {s["provider"]: s["configured"] for s in llm_router.provider_status()}
         self.assertTrue(st["OpenRouter"])
+
+    def test_llm_router_never_reads_gemini_autofix_key(self):
+        env = {"GEMINI_API_KEY": "primary_key", "GEMINI_AUTOFIX_KEY": "autofix_key_secret"}
+        with patch.dict("os.environ", env, clear=True):
+            with patch("urllib.request.urlopen", return_value=_FakeResp(_make_groq_response("ok"))) as mock_url:
+                res = llm_router._gemini("hello")
+                self.assertEqual(res, "ok")
+                headers = mock_url.call_args.kwargs.get("headers") or mock_url.call_args.args[0].headers
+                auth = str(headers.get("Authorization") or headers.get("authorization") or "")
+                self.assertNotIn("autofix_key_secret", auth)
+                self.assertIn("primary_key", auth)

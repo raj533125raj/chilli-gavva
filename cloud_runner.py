@@ -22,21 +22,6 @@ def main():
             print("QA checklist re-scored drafts:", rescored)
     except Exception as exc:
         print(f"QA re-score skipped: {type(exc).__name__}")
-    try:
-        import scout
-        scout.maybe_run()
-    except Exception as exc:
-        print(f"SCOUT skipped: {type(exc).__name__}")
-    try:
-        import trend
-        trend.maybe_run()
-    except Exception as exc:
-        print(f"TREND skipped: {type(exc).__name__}")
-    try:
-        import marketing_agency
-        marketing_agency.process_ready_products()
-    except Exception as exc:
-        print(f"Marketing agency skipped: {type(exc).__name__}")
     import rest_window
     if guardrails.is_killed():
         result = {"status": "killed", "ran": 0, "failed": 0}
@@ -45,6 +30,21 @@ def main():
         result = {"status": "rest", "ran": 0, "failed": 0}
     else:
         result = workforce.run_once(max_tasks=15)
+        try:
+            import scout
+            scout.maybe_run()
+        except Exception as exc:
+            print(f"SCOUT skipped: {type(exc).__name__}")
+        try:
+            import trend
+            trend.maybe_run()
+        except Exception as exc:
+            print(f"TREND skipped: {type(exc).__name__}")
+        try:
+            import marketing_agency
+            marketing_agency.process_ready_products()
+        except Exception as exc:
+            print(f"Marketing agency skipped: {type(exc).__name__}")
     export_status.write_status()
     print(result)
     return result
