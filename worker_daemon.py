@@ -76,6 +76,9 @@ def one_pass(db_path=None, write_snapshot=True):
     if guardrails.is_killed():
         workforce.heartbeat("paused: kill switch is ON", db_path)
         result = {"status": "killed", "ran": 0, "failed": 0}
+    elif not guardrails.automation_allowed(db_path):
+        workforce.heartbeat("paused: manual autonomy", db_path)
+        result = {"status": "manual", "ran": 0, "failed": 0}
     else:
         workforce.ensure_daily_plan(db_path)
         result = workforce.run_once(max_tasks=15, db_path=db_path)
@@ -127,7 +130,7 @@ def loop(db_path=None, interval=None, max_loops=None, sleep=time.sleep, should_s
                 delay = min(MAX_IDLE_INTERVAL, max(interval, delay * 1.5))
                 # Queue idle — auto-seed research topics so agents always have work
                 try:
-                    if enable_seeding and not guardrails.is_killed():
+                    if enable_seeding and guardrails.automation_allowed(db_path):
                         import topic_pool
                         seeded = topic_pool.seed_if_idle(db_path=db_path)
                     else:

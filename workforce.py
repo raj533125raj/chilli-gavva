@@ -129,6 +129,8 @@ def enqueue(kind, payload=None, priority=5, db_path=None):
 
 def claim_next(db_path=None):
     import cubes
+    if not guardrails.automation_allowed(db_path):
+        return None
     conn = connect(db_path)
     conn.execute("BEGIN IMMEDIATE")
     rows = conn.execute("SELECT id, kind, payload, attempts FROM tasks WHERE status = 'queued' "
@@ -651,7 +653,10 @@ def default_llm(db_path=None):
             return engine.AutonomousResearchEngine.generate_with_ollama(prompt)
         except Exception:
             return None
-    return call
+    def scoped(prompt, size=None):
+        with guardrails.budget_context(db_path):
+            return call(prompt, size)
+    return scoped
 
 
 import time
@@ -678,7 +683,7 @@ def get_daily_pipeline_plan(db_path=None):
     import cubes
     import llm_router
 
-    cap = guardrails.daily_cap()
+    cap = guardrails.daily_cap(db_path)
     calls = guardrails.calls_today(db_path)
     remaining_calls = max(0, cap - calls)
 
@@ -745,6 +750,8 @@ def run_once(max_tasks=5, db_path=None, llm=None, rng=None, max_time_seconds=MAX
     start_time = time.time()
     if guardrails.is_killed():
         return {"status": "killed", "ran": 0, "failed": 0}
+    if not guardrails.automation_allowed(db_path):
+        return {"status": "manual", "ran": 0, "failed": 0}
     import rest_window
     if rest_window.in_rest_window():
         return {"status": "rest", "ran": 0, "failed": 0}   # daily 6-minute rest: no new AI work or drafts
@@ -763,6 +770,8 @@ def run_once(max_tasks=5, db_path=None, llm=None, rng=None, max_time_seconds=MAX
     for _ in range(max_tasks):
         if guardrails.is_killed():
             return {"status": "killed", "ran": ran, "failed": failed}
+        if not guardrails.automation_allowed(db_path):
+            return {"status": "manual", "ran": ran, "failed": failed}
         if time.time() - start_time >= max_time_seconds:
             break
         task = claim_next(db_path)

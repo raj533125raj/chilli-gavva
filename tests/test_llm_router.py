@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch, call
 _guardrails_stub = types.ModuleType("guardrails")
 _guardrails_stub.can_call_llm = lambda db_path=None: True
 _guardrails_stub.record_call = lambda: None
+_guardrails_stub.budget_scoped = lambda function: function
 # Capture real guardrails for restoration after each test
 _real_guardrails = sys.modules.get("guardrails")
 sys.modules.setdefault("guardrails", _guardrails_stub)
@@ -375,6 +376,13 @@ def _http429():
 class TestAutoSwitch(unittest.TestCase):
     def setUp(self):
         sys.modules["guardrails"] = _guardrails_stub
+        importlib.reload(llm_router)
+
+    def tearDown(self):
+        if _real_guardrails is not None:
+            sys.modules["guardrails"] = _real_guardrails
+        else:
+            sys.modules.pop("guardrails", None)
         importlib.reload(llm_router)
 
     def test_gemini_tries_next_model_when_model_missing(self):

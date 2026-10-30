@@ -149,7 +149,7 @@ def tick(db_path=None, now=None, dry_run=False, limit=None):
     import guardrails
     import rest_window
     now = time.time() if now is None else now
-    if guardrails.is_killed() or guardrails.is_paused(db_path) or rest_window.in_rest_window():
+    if not guardrails.automation_allowed(db_path) or rest_window.in_rest_window():
         return {'queued':0}
     limit = office_tasks.MAX_DISPATCH if limit is None else min(limit,office_tasks.MAX_DISPATCH)
     conn = connect(db_path)

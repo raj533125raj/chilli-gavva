@@ -74,3 +74,19 @@ the runtime receipt and scrubbed chat memory. This path sends no Telegram messag
 Action requests expressed in chat are held for their own explicit signed control;
 chat cannot approve, pause, execute tools, publish, or change budgets. Freeform work
 is held while paused, its cube is Off, the budget is exhausted, or no provider answers.
+
+## Autonomy and budgets
+
+`set_policy` targets `robot`; value is exactly `{autonomy, budget_limit, budget_unit}`.
+Modes are `manual`, `supervised`, `autonomous`. Manual stops automatic scheduler and
+workforce dispatch; supervised/autonomous never bypass human approval or allow tools.
+`set_autonomy` also accepts a mode string. `set_budget` accepts an integer call limit,
+or `{limit, unit}`. Zero is valid and blocks AI calls. Booleans are not numeric budgets.
+
+Call limits cannot exceed the lower configured ceiling or the hard 500-call daily cap.
+Requests below today's recorded usage are held without partial changes. Token budgets
+are held explicitly because this runtime has no authoritative token accounting; use
+`calls`. Effective budgets apply to prompts, vision/audio, retries and provider fallbacks.
+Each provider attempt atomically reserves a call before network IO, scoped to its database;
+parallel callers cannot overshoot. Failed attempts still consume a call. Chat facts and
+local trigger summaries do not consume AI calls. Changing autonomy never clears pause.

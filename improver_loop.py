@@ -338,6 +338,8 @@ def handle_callback(data, db_path=None):
 
 def maybe_run_weekly(send_fn, get_state_fn, set_state_fn, db_path=None, now=None):
     """Run improver loop on Sundays once a week."""
+    if not guardrails.automation_allowed(db_path):
+        return 0
     now_dt = now or datetime.datetime.now(datetime.timezone.utc)
     if now_dt.weekday() != 6:  # 6 is Sunday
         return 0

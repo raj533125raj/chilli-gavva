@@ -106,7 +106,7 @@ def build_status_private(db_path=None):
         "money": {"real_usd": round(real, 2)},
         "kill_switch": guardrails.is_killed(),
         "worker": workforce.worker_status(db_path),
-        "llm": {"calls_today": guardrails.calls_today(db_path), "cap": guardrails.daily_cap()},
+        "llm": {"calls_today": guardrails.calls_today(db_path), "cap": guardrails.daily_cap(db_path)},
         "agents": workforce.agent_states(db_path),
         "task_counts": counts,
         "recent_tasks": recent,

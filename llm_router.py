@@ -455,6 +455,7 @@ def pick_size(prompt: str, size: str | None = None) -> str:
     return LARGE if len(prompt or "") > _LARGE_PROMPT_CHARS else SMALL
 
 
+@guardrails.budget_scoped
 def chat(prompt: str, *, db_path=None, size: str | None = None) -> str | None:
     """Try each provider in order; return first non-None result.
 
@@ -528,6 +529,7 @@ def log_provider(name: str, ok: bool, db_path=None) -> None:
         pass
 
 
+@guardrails.budget_scoped
 def chat_vision(image_bytes: bytes, mime_type: str, prompt: str = "Describe and analyze this image in detail.", *, db_path=None) -> str | None:
     """Analyze an image using Gemini vision capability via GEMINI_API_KEY or GEMINI_API_KEY_2.
 
@@ -621,6 +623,7 @@ def chat_vision(image_bytes: bytes, mime_type: str, prompt: str = "Describe and 
     return None
 
 
+@guardrails.budget_scoped
 def chat_audio(audio_bytes: bytes, mime_type: str, prompt: str = "Transcribe and analyze this audio.", *, db_path=None) -> str | None:
     """Analyze/transcribe audio using Gemini audio capability via GEMINI_API_KEY or GEMINI_API_KEY_2.
 

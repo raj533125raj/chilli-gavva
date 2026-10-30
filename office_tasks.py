@@ -136,6 +136,8 @@ def tick(db_path=None, now=None, dry_run=False):
     now = time.time() if now is None else now
     if guardrails.is_killed() or guardrails.is_paused(db_path) or rest_window.in_rest_window():
         return {"queued": 0, "held": True}
+    if not guardrails.automation_allowed(db_path):
+        return {"queued": 0, "held": True}
     conn = connect(db_path)
     queued = 0
     try:
@@ -172,6 +174,8 @@ def tick(db_path=None, now=None, dry_run=False):
 def execute(task, ctx):
     import workforce
     payload = task["payload"]
+    if not guardrails.automation_allowed(ctx.get("db_path")):
+        raise workforce.AIUnavailable("office automation is held by policy")
     if not task_enabled(payload, ctx.get("db_path")):
         return {"summary": "office work no longer enabled", "next": []}
     recipient = agent(payload["agent_id"])

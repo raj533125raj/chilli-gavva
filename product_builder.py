@@ -1367,6 +1367,9 @@ def main(argv=None):
     if guardrails.is_killed():
         print("Product Builder: paused (kill switch or /pause), nothing built.")
         return
+    if not guardrails.automation_allowed(args.db):
+        print("Product Builder: automation held by owner policy.")
+        return
     import rest_window
     if rest_window.in_rest_window():
         print("Product Builder: daily rest window, nothing built.")

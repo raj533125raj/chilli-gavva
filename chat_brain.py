@@ -208,7 +208,7 @@ def classify_intent(message, db_path=None):
 def fetch_status(db_path=None):
     paused = guardrails.is_paused(db_path)
     calls = guardrails.calls_today(db_path)
-    cap = guardrails.daily_cap()
+    cap = guardrails.daily_cap(db_path)
     pending = len(guardrails.pending(db_path))
     status_str = "PAUSED ⏸" if paused else "RUNNING ▶️"
     return (f"🤖 Chilli Gavva Status:\n"

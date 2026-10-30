@@ -19,6 +19,9 @@ import os
 import re
 import sqlite3
 import sys
+import contextvars
+import functools
+from contextlib import contextmanager
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "agent_data.db")
@@ -28,10 +31,36 @@ DEFAULT_DAILY_CAP = 500  # own safety cap on LLM calls per day (Groq free tier a
 
 # When CHILLI_TEST=1, record_call() is a no-op so tests don't eat the real cap
 _TESTING = os.environ.get("CHILLI_TEST") == "1"
+_BUDGET_DB = contextvars.ContextVar("robot_budget_db", default=None)
+
+
+class BudgetExceeded(RuntimeError):
+    """The hard daily reservation limit was reached before a provider request."""
+
+
+def _effective_db(db_path=None):
+    return db_path if db_path is not None else (_BUDGET_DB.get() or DB_PATH)
+
+
+@contextmanager
+def budget_context(db_path=None):
+    token = _BUDGET_DB.set(_effective_db(db_path))
+    try:
+        yield
+    finally:
+        _BUDGET_DB.reset(token)
+
+
+def budget_scoped(function):
+    @functools.wraps(function)
+    def wrapped(*args, **kwargs):
+        with budget_context(kwargs.get("db_path")):
+            return function(*args, **kwargs)
+    return wrapped
 
 
 def connect(db_path=None):
-    conn = sqlite3.connect(db_path or DB_PATH)
+    conn = sqlite3.connect(_effective_db(db_path))
     conn.execute("""CREATE TABLE IF NOT EXISTS usage_log (
         day TEXT PRIMARY KEY, llm_calls INTEGER DEFAULT 0)""")
     conn.execute("""CREATE TABLE IF NOT EXISTS approvals (
@@ -86,12 +115,48 @@ def resume():
 
 
 # ---- LLM call budget ---------------------------------------------------------
-def daily_cap():
+def configured_daily_cap():
     try:
         with open(CONFIG_PATH, encoding="utf-8") as f:
-            return int(json.load(f).get("daily_llm_call_cap", DEFAULT_DAILY_CAP))
+            value = json.load(f).get("daily_llm_call_cap", DEFAULT_DAILY_CAP)
+            if type(value) is not int:
+                return DEFAULT_DAILY_CAP
+            return min(DEFAULT_DAILY_CAP, max(0, value))
     except Exception:
         return DEFAULT_DAILY_CAP
+
+
+def _cap(conn):
+    row = conn.execute("SELECT value FROM control WHERE key='office_daily_call_cap'").fetchone()
+    maximum = configured_daily_cap()
+    if not row:
+        return maximum
+    try:
+        return min(maximum, max(0, int(row[0])))
+    except (ValueError, TypeError):
+        return 0
+
+
+def daily_cap(db_path=None):
+    conn = connect(db_path)
+    try:
+        return _cap(conn)
+    finally:
+        conn.close()
+
+
+def autonomy(db_path=None):
+    conn = connect(db_path)
+    try:
+        row = conn.execute("SELECT value FROM control WHERE key='office_autonomy'").fetchone()
+        value = row[0] if row else "supervised"
+        return value if value in ("manual", "supervised", "autonomous") else "manual"
+    finally:
+        conn.close()
+
+
+def automation_allowed(db_path=None):
+    return not is_killed() and not is_paused(db_path) and autonomy(db_path) != "manual"
 
 
 def calls_today(db_path=None):
@@ -102,17 +167,25 @@ def calls_today(db_path=None):
 
 
 def can_call_llm(db_path=None):
-    return (not is_killed()) and calls_today(db_path) < daily_cap()
+    return (not is_killed()) and not is_paused(db_path) and calls_today(db_path) < daily_cap(db_path)
 
 
 def record_call(db_path=None):
     if _TESTING:
         return  # tests must not contaminate the real daily cap
     conn = connect(db_path)
-    conn.execute("INSERT INTO usage_log (day, llm_calls) VALUES (?, 1) "
-                 "ON CONFLICT(day) DO UPDATE SET llm_calls = llm_calls + 1", (today(),))
-    conn.commit()
-    conn.close()
+    try:
+        with conn:
+            # Every retry/fallback reserves atomically before network IO, so parallel callers
+            # cannot both consume the last call. A failed request still consumes its reservation.
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT llm_calls FROM usage_log WHERE day=?", (today(),)).fetchone()
+            if (row[0] if row else 0) >= _cap(conn):
+                raise BudgetExceeded("Daily LLM call budget reached.")
+            conn.execute("INSERT INTO usage_log (day, llm_calls) VALUES (?, 1) "
+                         "ON CONFLICT(day) DO UPDATE SET llm_calls = llm_calls + 1", (today(),))
+    finally:
+        conn.close()
 
 
 # ---- approvals ---------------------------------------------------------------

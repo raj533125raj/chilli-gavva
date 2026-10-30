@@ -136,6 +136,8 @@ def run_now(slot_name=None, dry_run=False, db_path=None):
     import guardrails
     if guardrails.is_killed():
         return {"skipped": True, "reason": "paused (kill switch or /pause)"}
+    if not guardrails.automation_allowed(db_path):
+        return {"skipped": True, "reason": "automation held by owner policy"}
     import rest_window
     if rest_window.in_rest_window():
         return {"skipped": True, "reason": "daily rest window (6:00-6:06 IST)"}

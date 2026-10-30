@@ -25,6 +25,8 @@ def main():
     import rest_window
     if guardrails.is_killed():
         result = {"status": "killed", "ran": 0, "failed": 0}
+    elif not guardrails.automation_allowed():
+        result = {"status": "manual", "ran": 0, "failed": 0}
     elif rest_window.in_rest_window():
         print(rest_window.rest_tasks())
         result = {"status": "rest", "ran": 0, "failed": 0}
