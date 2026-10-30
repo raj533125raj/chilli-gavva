@@ -134,7 +134,7 @@ def run_step(step, command, summary_path):
         output = result.stdout or ""
         # Keep the existing safe inbox diagnostic visible even on a successful command.
         for line in output.splitlines():
-            match = re.fullmatch(r"Control inbox: KV read failed \(([^()]+)\)", line)
+            match = re.fullmatch(r"Control inbox: KV (?:read|write) failed \(([^()]+)\)", line)
             if match and (match.group(1) in ERRORS or match.group(1) == "URLError"
                           or re.fullmatch(r"HTTP [1-5][0-9]{2}", match.group(1))
                           or match.group(1) == "HTTP 403 - check API token has Workers KV Storage Edit"):

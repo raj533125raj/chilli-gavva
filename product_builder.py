@@ -1314,6 +1314,9 @@ AI_DOWN = "no reply from the model"
 
 def build_pending(db_path=None, llm=None, max_builds=MAX_BUILDS_PER_RUN, out_dir=None):
     """Build products for approved niche drafts. At most max_builds model calls per run."""
+    import cubes
+    if not guardrails.automation_allowed(db_path) or cubes.get_cube_state("product", db_path) != "on":
+        return []
     out_dir = out_dir or PRODUCTS_DIR
     results, attempts = [], 0
     for item in _todo(db_path, out_dir):
@@ -1369,6 +1372,10 @@ def main(argv=None):
         return
     if not guardrails.automation_allowed(args.db):
         print("Product Builder: automation held by owner policy.")
+        return
+    import cubes
+    if cubes.get_cube_state("product", args.db) != "on":
+        print("Product Builder: product cube is Off.")
         return
     import rest_window
     if rest_window.in_rest_window():

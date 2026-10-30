@@ -776,6 +776,13 @@ def daily_waiting_line(db_path=None, now=None):
 
 def run(db_path=None, recovery=False):
     configured, token, chat_id = notify._telegram_configured()
+    # The office is an independent signed inbox. Telegram setup/outages must not block it.
+    if not recovery:
+        try:
+            import control_inbox
+            control_inbox.run(db_path)
+        except Exception as exc:
+            print(f"Control inbox skipped: {type(exc).__name__}")
     if not configured:
         print("Telegram not configured: skipping inbox.")
         return {"configured": False, "commands": 0, "alerts": 0}
@@ -788,11 +795,6 @@ def run(db_path=None, recovery=False):
     import autofix
     autofix.poll(get_state, set_state,
                  lambda text, buttons: send_text(token, chat_id, text, buttons), db_path)
-    try:
-        import control_inbox
-        control_inbox.run(db_path, send=lambda line: send_text(token, chat_id, line))
-    except Exception as exc:
-        print(f"Control inbox skipped: {type(exc).__name__}")
     print(stats_line(stats, subscription_note(token)))
     alerts = alert_new_drafts(token, chat_id, db_path)
     waiting_reminder = remind_waiting_drafts(token, chat_id, db_path)

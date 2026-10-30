@@ -2,6 +2,14 @@
 
 Last updated: 2026-10-30.
 
+Signed office runtime controls: recurring missions and edit/archive; time and state triggers;
+agent questions with scrubbed KV reply receipts; capped autonomy/call-budget policies; registered
+cube On/Off. Cloudflare errors are safe and nonfatal. Definitions and authenticated replay receipts
+live in SQLite, and signed runtime receipts survive a failed state save in KV. Missed schedule slots
+coalesce and dispatch is bounded. Manual mode stops automatic work; provider retries/fallbacks reserve
+each call atomically before network IO. Human approval remains required. Protocol and limits are
+documented in [docs/office-controls.md](docs/office-controls.md).
+
 Workflow reliability repair (robot-r58): failed steps expose scrubbed command diagnostics while alerts
 retain fixed safe summaries. The shared secret scrubber protects task errors/results, doctor cases,
 provider logs, media raw text, product notes and status exports. Save state repairs historical stored

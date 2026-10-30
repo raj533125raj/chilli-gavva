@@ -151,12 +151,13 @@ class RunFailureTests(unittest.TestCase):
         self.assertEqual(self.summary.read_text(), original)
 
     def test_safe_inbox_diagnostic_is_still_visible(self):
-        line = "Control inbox: KV read failed (HTTP 403 - check API token has Workers KV Storage Edit)"
-        result = subprocess.CompletedProcess([], 0, stdout=line + "\nprivate-request\n")
-        with mock.patch.object(failures.subprocess, "run", return_value=result), \
-                contextlib.redirect_stdout(io.StringIO()) as output:
-            self.assertEqual(failures.run_step("inbox", ["unused"], self.summary), 0)
-        self.assertEqual(output.getvalue(), line + "\nTelegram inbox: done\n")
+        for operation in ("read", "write"):
+            line = f"Control inbox: KV {operation} failed (HTTP 403 - check API token has Workers KV Storage Edit)"
+            result = subprocess.CompletedProcess([], 0, stdout=line + "\nprivate-request\n")
+            with mock.patch.object(failures.subprocess, "run", return_value=result), \
+                    contextlib.redirect_stdout(io.StringIO()) as output:
+                self.assertEqual(failures.run_step("inbox", ["unused"], self.summary), 0)
+            self.assertEqual(output.getvalue(), line + "\nTelegram inbox: done\n")
 
     def test_notification_error_does_not_lose_the_saved_count(self):
         self.finish()

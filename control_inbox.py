@@ -18,11 +18,13 @@ import telegram_inbox
 
 ACTION_NAMES = {"approve", "reject", "pause", "resume", "set_switch", "add_mission",
                 "edit_mission", "archive_mission", "add_trigger", "edit_trigger", "set_trigger", "delete_trigger",
-                "send_message", "chat", "ask", "route_request", "set_policy", "set_autonomy", "set_budget"}
+                "send_message", "chat", "ask", "route_request", "set_policy", "set_autonomy", "set_budget",
+                "set_cube", "cube_on", "cube_off"}
 PREFIX = "control:request:"
 RECEIPT_PREFIX = "runtime:receipt:"
 SIGNED_FIELDS = ("id", "action", "target", "value", "created_at", "nonce")
 MAX_REQUESTS = 50
+MAX_RECORDS = 1000  # bounded history scan; only new dispatches consume the request budget
 _not_configured_logged = False
 
 
@@ -62,7 +64,7 @@ def _logger():
     return log
 
 
-def fetch(env=None, http_request=None, log=None):
+def fetch(env=None, http_request=None, log=None, completed=None, skipped=None):
     """Bounded, paginated reads. A failed KV request logs at most once per run."""
     global _not_configured_logged
     config = _config(env)
@@ -76,7 +78,7 @@ def fetch(env=None, http_request=None, log=None):
     result, cursor, seen = [], "", set()
     try:
         for _ in range(10):
-            query = "keys?prefix=" + PREFIX + "&limit=100"
+            query = "keys?prefix=" + PREFIX + "&limit=1000"
             if cursor:
                 query += "&cursor=" + urllib.parse.quote(cursor, safe="")
             page = json.loads(_http(_url(account, namespace, query), token, http_request=http_request))
@@ -87,17 +89,22 @@ def fetch(env=None, http_request=None, log=None):
                 if not isinstance(name, str) or not name.startswith(PREFIX) or name in seen:
                     continue
                 seen.add(name)
+                match = re.fullmatch(re.escape(PREFIX) + r"\d{4}-\d{2}-\d{2}T[^Z]+Z:([A-Za-z0-9._:-]{1,80})", name)
+                if completed and match and match.group(1) in completed:
+                    if skipped is not None:
+                        skipped.append(name)
+                    continue
                 try:
                     raw = _http(_url(account, namespace, "values/" + urllib.parse.quote(name, safe="")), token,
                                 http_request=http_request)
                     record = json.loads(raw) if len(raw.encode()) <= 16384 else None
-                except (ValueError, UnicodeError):
+                except (ValueError, UnicodeError, RecursionError):
                     record = None
                 except Exception as error:
                     log("read", error)
                     return result
                 result.append((name, record))
-                if len(result) == MAX_REQUESTS:
+                if len(result) == MAX_RECORDS:
                     return result
             next_cursor = page.get("result_info", {}).get("cursor", "")
             if not next_cursor or next_cursor == cursor:
@@ -155,6 +162,7 @@ def _connect(db_path):
     conn = guardrails.connect(db_path)
     conn.execute("""CREATE TABLE IF NOT EXISTS office_requests (
         id TEXT PRIMARY KEY, nonce TEXT UNIQUE NOT NULL, digest TEXT NOT NULL, receipt TEXT NOT NULL)""")
+    conn.execute("CREATE TABLE IF NOT EXISTS office_receipt_outbox (id TEXT PRIMARY KEY)")
     conn.commit()
     try:
         with conn:
@@ -223,6 +231,9 @@ def _apply(record, db_path, now=None):
     if action in ("set_policy", "set_autonomy", "set_budget"):
         import office_policy
         return office_policy.apply(record, db_path)
+    if action in ("set_cube", "cube_on", "cube_off") or action == "set_switch" and record["target"] not in publisher.PUBLISH_TYPES:
+        import office_cubes
+        return office_cubes.apply(record, db_path)
     if action in ("send_message", "chat", "ask", "route_request"):
         import chat_brain
         import office_tasks
@@ -271,13 +282,43 @@ def run(db_path=None, env=None, http_request=None, now=None, send=None):
     now = time.time() if now is None else now
     log = _logger()
     applied = refused = 0
-    for name, record in fetch(env, http_request, log):
+    # Retry failed receipt writes before new work. Completed history must not occupy the
+    # bounded request batch forever and starve newer office controls.
+    with _connect(db_path) as conn:
+        pending = conn.execute("SELECT r.id,r.receipt FROM office_requests r JOIN office_receipt_outbox o ON o.id=r.id LIMIT ?",
+                               (MAX_REQUESTS,)).fetchall()
+        for ident, raw in pending:
+            if not _put_receipt(json.loads(raw), config, http_request, log):
+                return {"applied": 0, "refused": 0}
+            conn.execute("DELETE FROM office_receipt_outbox WHERE id=?", (ident,))
+        completed = {row[0] for row in conn.execute("SELECT id FROM office_requests WHERE id NOT IN (SELECT id FROM office_receipt_outbox)")}
+    skipped = []
+    requests = fetch(env, http_request, log, completed, skipped)
+    refused = len(skipped)
+    attempted = 0
+    for name, record in requests:
+        if attempted >= MAX_REQUESTS:
+            break
         reason = _reason(record, config[3], now)
         ident = record.get("id") if isinstance(record, dict) and _valid_id(record.get("id")) else "invalid:" + hashlib.sha256(name.encode()).hexdigest()[:40]
         if reason:
-            _put_receipt(_receipt(ident, "rejected", reason, now, source_signature=record.get("signature")
-                                 if isinstance(record, dict) else None), config, http_request, log)
+            if reason == "expired":
+                # Authentication passed; retain the outcome of already completed history.
+                with _connect(db_path) as conn:
+                    saved = conn.execute("SELECT nonce,digest,receipt FROM office_requests WHERE id=?", (ident,)).fetchone()
+                if saved and saved[:2] == (record["nonce"], _digest(_signed(record), config[3])):
+                    _put_receipt(json.loads(saved[2]), config, http_request, log)
+                    refused += 1
+                    continue
+                remote, reachable = _remote_receipt(ident, config, http_request, log)
+                if remote and remote.get("request_signature") == record["signature"]:
+                    refused += 1
+                    continue
+            written = _put_receipt(_receipt(ident, "rejected", reason, now, source_signature=record.get("signature")
+                                           if isinstance(record, dict) else None), config, http_request, log)
             refused += 1
+            if not written:
+                break
             continue
         digest = _digest(_signed(record), config[3])
         with _connect(db_path) as conn:
@@ -308,7 +349,12 @@ def run(db_path=None, env=None, http_request=None, now=None, send=None):
             if not reachable or not _put_receipt(receipt, config, http_request, log):
                 refused += 1
                 break
-            conn.execute("INSERT INTO office_requests VALUES (?, ?, ?, ?)", (ident, record["nonce"], digest, json.dumps(receipt)))
+            claimed = conn.execute("INSERT OR IGNORE INTO office_requests VALUES (?, ?, ?, ?)",
+                                   (ident, record["nonce"], digest, json.dumps(receipt)))
+            if not claimed.rowcount:
+                refused += 1
+                continue
+        attempted += 1
         try:
             state, reason, reply = _apply(record, db_path, now)
         except ValueError:
@@ -318,7 +364,10 @@ def run(db_path=None, env=None, http_request=None, now=None, send=None):
         receipt = _receipt(ident, state, reason, now, reply, record["signature"])
         with _connect(db_path) as conn:
             conn.execute("UPDATE office_requests SET receipt = ? WHERE id = ?", (json.dumps(receipt), ident))
-        _put_receipt(receipt, config, http_request, log)
+            conn.execute("INSERT OR IGNORE INTO office_receipt_outbox VALUES (?)", (ident,))
+        if _put_receipt(receipt, config, http_request, log):
+            with _connect(db_path) as conn:
+                conn.execute("DELETE FROM office_receipt_outbox WHERE id=?", (ident,))
         if state == "applied":
             applied += 1
             if send:

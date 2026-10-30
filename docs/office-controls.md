@@ -90,3 +90,24 @@ are held explicitly because this runtime has no authoritative token accounting; 
 Each provider attempt atomically reserves a call before network IO, scoped to its database;
 parallel callers cannot overshoot. Failed attempts still consume a call. Chat facts and
 local trigger summaries do not consume AI calls. Changing autonomy never clears pause.
+
+## Cube On/Off
+
+`set_cube` targets a registered cube ID (optionally `cube:<id>`). Values may be a
+boolean, `on`/`off`, or exactly `{enabled: boolean}`. `cube_on`/`cube_off` require null.
+The office's existing `set_switch` boolean form also accepts registered cube targets;
+publication switch targets retain their existing behavior. Unknown cubes are rejected,
+and enabling a planned/unimplemented cube is held. Enabling never clears global pause
+or changes human approval. Workforce, recurring work and the automatic product builder
+respect disabled cubes.
+
+Receipt write failures are kept in a SQLite outbox and retried before new work. Only
+the receipt is retried, never the completed action or agent call. Completed source keys
+are excluded from the bounded work batch so retained history does not starve new controls;
+old authenticated outcomes remain applied/held/rejected after request expiry.
+
+The main inbox processes signed office controls independently of Telegram setup and
+before Telegram polling, so a Telegram outage cannot block the office. CI supplies the
+existing workforce provider configuration to this step for agent questions. Recovery
+mode remains an update-only fallback. Both KV read and write diagnostics stay visible
+through the safe workflow log wrapper.
