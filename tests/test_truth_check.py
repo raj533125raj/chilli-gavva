@@ -219,5 +219,89 @@ class BuilderTruthTests(unittest.TestCase):
         self.assertEqual(pb.check_unchecked(self.db, self.out, self.notify), [])
 
 
+class EndToEndTruthTests(unittest.TestCase):
+    def test_fake_product_missing_pages_caught(self):
+        """Fake product claiming missing pages and unbuilt features is caught as NEEDS FIX."""
+        with tempfile.TemporaryDirectory() as d:
+            folder = os.path.join(d, "10-fake")
+            os.makedirs(folder)
+            spec = {"name": "Simple Planner", "listing": {"title": "Simple Planner", "buyer": "adults"},
+                    "pages": [{"title": "Today", "subtitle": "", "sections": [{"heading": "Tasks", "type": "lines", "items": [], "count": 5}]}]}
+            pb.build_planner_pdf(os.path.join(folder, "planner-A4.pdf"), spec, "A4")
+            with open(os.path.join(folder, "listing.md"), "w", encoding="utf-8") as f:
+                f.write("# Simple Planner\n\nIncludes 10 printable pages and interactive buttons.\n")
+            with open(os.path.join(folder, "README.md"), "w", encoding="utf-8") as f:
+                f.write("# Simple Planner\n")
+            res = tc.check(folder, with_images=False)
+            self.assertEqual(res["verdict"], "needs fix")
+            problems_str = " ".join(res["problems"])
+            self.assertIn("promises 10 pages, the files have only 3", problems_str)
+            self.assertIn("buttons", problems_str)
+
+    def test_correct_product_is_ready(self):
+        """Correct product matching built files passes truth check and is marked READY."""
+        with tempfile.TemporaryDirectory() as d:
+            folder = os.path.join(d, "11-correct")
+            os.makedirs(folder)
+            spec = {
+                "name": "Focus Planner",
+                "kind": "planner",
+                "short_name": "focus-planner",
+                "listing": {
+                    "title": "Focus Planner - Daily Printable Pages",
+                    "description": "Simple printable daily focus planner with 4 printable pages in A4 and US Letter sizes.",
+                    "tags": ["focus planner", "daily planner", "printable planner", "routine planner", "adhd planner"],
+                    "price_usd": 8,
+                    "buyer": "adults",
+                    "platform": "Gumroad"
+                },
+                "instructions": ["Print at 100% scale.", "Fill in daily sections."],
+                "cover_image_idea": "Clean presentation",
+                "pages": [
+                    {"title": "Daily Focus", "subtitle": "", "sections": [{"heading": "Top 3", "type": "checklist", "items": ["Task 1"], "count": 3}]},
+                    {"title": "Brain Dump", "subtitle": "", "sections": [{"heading": "Notes", "type": "lines", "items": [], "count": 10}]}
+                ]
+            }
+            pb.build_product(spec, 11, out_dir=d, folder_name="11-correct")
+            res = tc.check(os.path.join(d, "11-correct"), with_images=False)
+            self.assertEqual(res["verdict"], "ready", res["problems"])
+
+    def test_auto_rebuild_triggers_and_rechecks(self):
+        """Building pending products automatically truth checks and rebuilds when needed."""
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        db = os.path.join(tmp.name, "rebuild.db")
+        out = os.path.join(tmp.name, "products")
+        os.makedirs(out, exist_ok=True)
+
+        conn = guardrails.connect(db)
+        conn.execute("INSERT INTO approvals (ts, kind, title, payload, status) VALUES (?, 'public_draft', ?, ?, 'approved')",
+                     ("2026-10-24T12:00:00", "Draft: [ADHD Planners Agent] Daily Focus", "Daily Focus Planner payload"))
+        conn.commit()
+
+        def llm_reply(prompt, size=None):
+            return json.dumps({
+                "name": "Daily Focus",
+                "short_name": "daily-focus",
+                "listing": {
+                    "title": "Daily Focus Planner",
+                    "description": "Daily Focus Planner with 4 printable pages in A4 and US Letter.",
+                    "tags": ["focus", "planner", "daily", "adhd", "routine"],
+                    "price_usd": 8,
+                    "buyer": "adults",
+                    "platform": "Gumroad"
+                },
+                "instructions": ["Print on A4."],
+                "cover_image_idea": "Laptop",
+                "pages": [
+                    {"title": "Daily Focus", "subtitle": "", "sections": [{"heading": "Top 3", "type": "checklist", "items": ["One"], "count": 3}]}
+                ]
+            })
+
+        results = pb.build_pending(db_path=db, llm=llm_reply, max_builds=1, out_dir=out)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["status"], "built")
+
+
 if __name__ == "__main__":
     unittest.main()

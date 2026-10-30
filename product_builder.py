@@ -300,14 +300,41 @@ def _get_spec_names(spec):
     return [n.lower() for n in names if n]
 
 
-def _sanitize_text(text, spec):
+def _sanitize_text(text, spec, facts=None):
     if not text:
         return ""
     kind = spec.get("kind")
     spec_names = _get_spec_names(spec)
+    if facts:
+        import truth_check
+        fact_names = truth_check._names(facts)
+        all_names = list(set(spec_names + fact_names))
+    else:
+        all_names = spec_names
+
+    if facts:
+        actual_count = facts["pages"] if facts["kind"] == "pdf" else (len(facts["sheets"]) or len(facts["md"]) + len(facts["csv"]))
+        has_formulas = facts.get("formulas", 0) > 0
+        has_validations = facts.get("validations", 0) > 0
+        has_charts = facts.get("charts", 0) > 0
+    else:
+        if kind == "dated_planner":
+            actual_count = 15 + len(spec.get("pages") or [])
+        elif kind == "planner":
+            actual_count = len(spec.get("pages") or []) + 2 + (1 if spec.get("daily_page") else 0)
+        elif kind == "sheets":
+            actual_count = len(spec.get("sheets") or []) + 2
+        elif kind == "notion":
+            actual_count = len(spec.get("pages") or []) + len(spec.get("databases") or [])
+        else:
+            actual_count = 3
+        has_formulas = (kind in ("sheets", "resume"))
+        has_validations = (kind in ("sheets", "resume"))
+        has_charts = False
 
     # 1. Unproven features
-    text = re.sub(r"\bcharts?\b", "summaries", text, flags=re.I)
+    if not has_charts:
+        text = re.sub(r"\bcharts?\b", "summaries", text, flags=re.I)
     text = re.sub(r"\bgraphs?\b", "visuals", text, flags=re.I)
     text = re.sub(r"\bprogress bars?\b", "progress indicators", text, flags=re.I)
 
@@ -329,11 +356,15 @@ def _sanitize_text(text, spec):
     text = re.sub(r"\bcalendar views?\b", "calendar layout", text, flags=re.I)
     text = re.sub(r"\bkanban\b|\btimeline views?|\bgallery views?|\bboard views?\b", "view", text, flags=re.I)
 
+    if not any("dashboard" in n for n in all_names):
+        text = re.sub(r"\bdashboards?\b", "overview", text, flags=re.I)
+
     if kind not in ("sheets", "resume"):
         text = re.sub(r"\blinked databases?\b", "databases", text, flags=re.I)
         text = re.sub(r"\blinked to\b", "connected to", text, flags=re.I)
+        text = re.sub(r"\brelational\b|\brelations?\b|\broll-?ups?\b", "connected", text, flags=re.I)
 
-    if kind not in ("sheets", "resume"):
+    if not has_formulas:
         text = re.sub(r"\bformulas?\b", "calculations", text, flags=re.I)
         text = re.sub(r"\bauto(?:matic(?:ally)?)?[- ]calculat\w*\b", "calculated", text, flags=re.I)
         text = re.sub(r"\bcalculates? (?:automatically|instantly)\b", "calculates", text, flags=re.I)
@@ -341,26 +372,40 @@ def _sanitize_text(text, spec):
         text = re.sub(r"\bupdat\w* automatically\b", "updates", text, flags=re.I)
         text = re.sub(r"\brecalculat\w*\b", "calculates", text, flags=re.I)
 
-    if kind != "dated_planner" and not any(w in " ".join(spec_names) for w in ("year overview", "at a glance")):
+    if kind != "dated_planner" and not any(w in " ".join(all_names) for w in ("year overview", "at a glance")):
         text = re.sub(r"\bat a glance\b", "overview", text, flags=re.I)
         text = re.sub(r"\byear overview\b", "overview", text, flags=re.I)
 
     if kind != "dated_planner":
         text = re.sub(r"\b(?:12|twelve) monthly\b", "monthly", text, flags=re.I)
-
-    if kind != "dated_planner":
         text = re.sub(r"\bweekly spreads?\b", "undated weekly spreads", text, flags=re.I)
         text = re.sub(r"\bweekly pages?\b", "undated weekly pages", text, flags=re.I)
         text = re.sub(r"\bdaily dated pages?\b", "undated daily pages", text, flags=re.I)
         text = re.sub(r"\bdated weekly\b", "undated weekly", text, flags=re.I)
         text = re.sub(r"\bdated daily\b", "undated daily", text, flags=re.I)
 
-    if kind not in ("sheets", "resume"):
+    if not has_validations:
         text = re.sub(r"\bdrop-?downs?\b", "options", text, flags=re.I)
         text = re.sub(r"\bselect (?:field|option|menu)s?\b", "options", text, flags=re.I)
 
-    # 2. Named parts
-    def repl(m):
+    # 2. Counts
+    num_words = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
+                 "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
+                 "fifteen": 15, "sixteen": 16}
+
+    def repl_count(m):
+        raw_num = m.group(1).lower()
+        unit = m.group(2)
+        n = num_words.get(raw_num, int(raw_num) if raw_num.isdigit() else None)
+        if n is not None and n > actual_count:
+            return f"{actual_count} {unit}"
+        return m.group(0)
+
+    count_rx = re.compile(r"\b(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen)\s+((?:[a-z-]+,?\s){0,4}?(?:pages|sheets|tabs|worksheets|databases))\b", re.I)
+    text = count_rx.sub(repl_count, text)
+
+    # 3. Named parts
+    def repl_named(m):
         full = m.group(0)
         prefix = m.group(1)
         suffix = m.group(2)
@@ -371,11 +416,11 @@ def _sanitize_text(text, spec):
             return full
         part = f"{' '.join(words)} {suffix}".strip().lower()
         part_words = [w for w in re.findall(r"[a-z]+", part) if w not in ("database", "page", "sheet", "tab", "tracker", "section", "the", "and")]
-        if part_words and any(all(w in n for w in part_words) for n in spec_names):
+        if part_words and any(all(w in n for w in part_words) for n in all_names):
             return full
         return prefix.lower() + " " + suffix
 
-    text = _NAMED_RX.sub(repl, text)
+    text = _NAMED_RX.sub(repl_named, text)
     return text
 
 
@@ -949,6 +994,14 @@ def build_product(spec, approval_id, out_dir=None, folder_name=None):
     folder = os.path.join(out_dir, folder_name)
     os.makedirs(folder, exist_ok=True)
     files, how_to = BUILDERS[spec["kind"]](folder, spec)
+
+    # Extract actual facts from built files and sanitize listing text and instructions
+    import truth_check
+    facts = truth_check.facts(folder)
+    spec["listing"]["title"] = _sanitize_text(spec["listing"]["title"], spec, facts=facts)
+    spec["listing"]["description"] = _sanitize_text(spec["listing"]["description"], spec, facts=facts)
+    spec["instructions"] = [_sanitize_text(inst, spec, facts=facts) for inst in spec["instructions"]]
+
     with open(os.path.join(folder, "listing.md"), "w", encoding="utf-8") as f:
         f.write(_listing_md(spec))
     with open(os.path.join(folder, "cover_image_idea.txt"), "w", encoding="utf-8") as f:
@@ -1349,9 +1402,15 @@ def build_pending(db_path=None, llm=None, max_builds=MAX_BUILDS_PER_RUN, out_dir
             continue
         folder = build_product(spec, item["id"], out_dir)
         _record(db_path, item["id"], "built", folder, f"{spec['kind']} for {niche}", add_try=True)
-        verdict = truth_check_folder(item["id"], folder, db_path, out_dir)["verdict"]
+        tc_res = truth_check_folder(item["id"], folder, db_path, out_dir)
+        verdict = tc_res["verdict"]
+        if verdict != "ready":
+            # Auto-rebuild once if truth check failed
+            folder = build_product(spec, item["id"], out_dir, folder_name=folder)
+            tc_res = truth_check_folder(item["id"], folder, db_path, out_dir)
+            verdict = tc_res["verdict"]
         results.append({"id": item["id"], "status": "built" if verdict == "ready" else "needs_fix",
-                        "folder": folder})
+                        "folder": folder, "reasons": tc_res.get("problems", [])})
     if results:
         write_index(db_path, out_dir)
     return results
