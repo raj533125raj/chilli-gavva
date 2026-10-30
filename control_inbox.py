@@ -17,7 +17,8 @@ import secret_guard
 import telegram_inbox
 
 ACTION_NAMES = {"approve", "reject", "pause", "resume", "set_switch", "add_mission",
-                "edit_mission", "archive_mission", "add_trigger", "edit_trigger", "set_trigger", "delete_trigger"}
+                "edit_mission", "archive_mission", "add_trigger", "edit_trigger", "set_trigger", "delete_trigger",
+                "send_message", "chat", "ask", "route_request"}
 PREFIX = "control:request:"
 RECEIPT_PREFIX = "runtime:receipt:"
 SIGNED_FIELDS = ("id", "action", "target", "value", "created_at", "nonce")
@@ -219,6 +220,29 @@ def _apply(record, db_path, now=None):
     if action in ("add_trigger", "edit_trigger", "set_trigger", "delete_trigger"):
         import office_triggers
         return office_triggers.apply(record, db_path, now)
+    if action in ("send_message", "chat", "ask", "route_request"):
+        import chat_brain
+        import office_tasks
+        value = record["value"]
+        if action in ("chat", "ask") and isinstance(value, str):
+            recipient, text = record["target"], value
+        else:
+            fields = {"text", "thread_id", "role", "cube_id"} if action == "route_request" else {"text", "thread_id"}
+            if not isinstance(value, dict) or set(value) != fields:
+                raise ValueError("invalid agent message")
+            recipient, text = value["thread_id"], value["text"]
+            resolved = office_tasks.agent(recipient)
+            if action == "route_request":
+                if (record["target"] != "orchestrator" or not isinstance(value["role"], str)
+                        or value["role"].casefold() not in (resolved["name"].casefold(), resolved["role"].casefold())):
+                    return "held", "agent role no longer matches", None
+                import cubes
+                cube = cubes.get_cube_for_agent(resolved["name"])
+                if value["cube_id"] is not None and value["cube_id"] not in (cube["id"] if cube else None, "chilli-gavva-robot"):
+                    return "held", "agent cube no longer matches", None
+            elif office_tasks.agent(record["target"])["id"] != resolved["id"]:
+                raise ValueError("message thread does not match agent")
+        return chat_brain.office_reply(recipient, text, db_path)
     if action in ("approve", "reject"):
         if record["value"] is not None or not re.fullmatch(r"[1-9][0-9]{0,9}", record["target"]):
             return "rejected", "invalid draft identifier", None

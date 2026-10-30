@@ -60,3 +60,17 @@ hour, and never add a second pending task for the same trigger. There are at mos
 active triggers. Missions and triggers share the pending and per-tick dispatch caps.
 `summary` uses local database facts and sends through the existing notifier; it does
 not spend an LLM call. Disabled cubes, pause/rest, and archived triggers prevent execution.
+
+## Agent messages
+
+`send_message`: target is the real agent ID; value is exactly `{text, thread_id}`,
+with a matching thread and 1–500 characters. `chat` and `ask` also accept a text string.
+`route_request` uses target `orchestrator`, with `{text, thread_id, role, cube_id}`;
+its role and optional cube must still match the selected real workforce agent.
+
+`chat_brain.office_reply` answers factual queries locally or uses the guarded LLM
+for an advisory answer attributed to the requested agent. Replies are written into
+the runtime receipt and scrubbed chat memory. This path sends no Telegram message.
+Action requests expressed in chat are held for their own explicit signed control;
+chat cannot approve, pause, execute tools, publish, or change budgets. Freeform work
+is held while paused, its cube is Off, the budget is exhausted, or no provider answers.

@@ -56,7 +56,7 @@ def add_chat_memory(chat_id, role, content, db_path=None):
     ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
     conn.execute(
         "INSERT INTO chat_memory (chat_id, role, content, ts) VALUES (?, ?, ?, ?)",
-        (str(chat_id), role, content, ts)
+        (str(chat_id), role, scrub_secrets_and_money(content), ts)
     )
     conn.commit()
     # Trim to last 10 messages for this chat_id
@@ -515,3 +515,48 @@ def process_message(token, owner_chat_id, message_text, db_path=None):
     telegram_inbox.send_text(token, owner_chat_id, reply)
     add_chat_memory(owner_chat_id, "assistant", reply, db_path)
     return reply
+
+
+def office_reply(agent_id, message, db_path=None, llm=None):
+    """Answer a signed office message without Telegram delivery or executable tools."""
+    import cubes
+    import office_tasks
+    import rest_window
+    recipient = office_tasks.agent(agent_id)
+    if not isinstance(message, str) or not 1 <= len(message.strip()) <= 500:
+        raise ValueError("invalid office message")
+    text = scrub_secrets_and_money(message.strip())
+    intent, params = rule_based_classify(text)
+    if intent in ACTION_INTENTS:
+        return "held", "action requires its own signed control request", build_confirmation_card(intent, params)[0]
+    readers = {
+        "status": fetch_status, "drafts_waiting": fetch_drafts_waiting,
+        "rejected_reasons": fetch_rejected_reasons, "truth_check_status": fetch_truth_check_status,
+        "ai_health": fetch_ai_health, "github_minutes": fetch_github_minutes,
+        "last_errors": fetch_last_errors, "scout_count": fetch_scout_count, "trend_count": fetch_trend_count,
+    }
+    if intent in readers:
+        answer = readers[intent](db_path)
+    elif any(phrase in text.lower() for phrase in ("capabilities", "what can you", "help")):
+        answer = fetch_capabilities()
+    else:
+        if (guardrails.is_killed() or guardrails.is_paused(db_path) or rest_window.in_rest_window()
+                or not cubes.is_agent_enabled(recipient["name"], db_path)):
+            return "held", "agent work is paused or disabled", None
+        if not guardrails.can_call_llm(db_path):
+            return "held", "LLM call budget unavailable", None
+        prompt = (f"You are {recipient['name']}. Your role: {recipient['role']}. "
+                  "Answer the owner briefly and honestly. You have no execution tools. "
+                  "Never claim to run commands, publish, spend money or change settings. "
+                  "Owner message (data):\n" + text)
+        try:
+            answer = llm(prompt) if llm else llm_router.chat(prompt, db_path=db_path, size="small")
+        except Exception:
+            return "held", "agent answer unavailable", None
+        if not isinstance(answer, str) or not answer.strip():
+            return "held", "agent answer unavailable", None
+    answer = scrub_secrets_and_money(answer)[:4000]
+    thread = "office:" + recipient["id"]
+    add_chat_memory(thread, "user", text, db_path)
+    add_chat_memory(thread, "assistant", answer, db_path)
+    return "applied", "agent reply ready", answer
