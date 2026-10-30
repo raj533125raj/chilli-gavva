@@ -141,11 +141,16 @@ def run_step(step, command, summary_path):
                 print(line)
         status, detail = result.returncode, problem(output) if result.returncode else None
     except OSError as error:
+        output = f"{type(error).__name__}: {error}"
         status, detail = 1, ERRORS.get(type(error).__name__, UNKNOWN)
     if status:
         workflow_file = any(name in output.lower() for name in
                             (".github/workflows/", "agent.yml", "autofix.yml"))
         write_summary(summary_path, step, detail, workflow_file)
+        # Keep the fixed-wording summary for alerts, but expose the real command failure in CI.
+        # Prefix each line so untrusted output cannot inject GitHub workflow commands.
+        for line in secret_guard.scrub_text(output).splitlines():
+            print("Step output: " + line)
         print(read_summary(summary_path))
     else:
         if pending:

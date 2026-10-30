@@ -21,6 +21,7 @@ import re
 import sqlite3
 import sys
 import zipfile
+from urllib.parse import quote, quote_plus
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ALLOW_FILE = os.path.join(BASE_DIR, ".secret_guard_allow")
@@ -29,7 +30,7 @@ SKIP_DIRS = {".git", "__pycache__", "node_modules", ".venv", "venv"}
 # .enc = the encrypted database (random bytes; the plaintext copy is scanned before it is encrypted).
 BINARY_EXT = (".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf", ".webp", ".woff", ".woff2", ".ttf", ".enc")
 ZIP_EXT = (".zip", ".xlsx", ".docx", ".pptx")
-SECRET_ENV = ("GROQ_API_KEY", "GEMINI_API_KEY", "GEMINI_AUTOFIX_KEY", "OPENROUTER_API_KEY", "CF_API_TOKEN", "CF_ACCOUNT_ID",
+SECRET_ENV = ("GROQ_API_KEY", "GEMINI_API_KEY", "GEMINI_API_KEY_2", "GEMINI_AUTOFIX_KEY", "OPENROUTER_API_KEY", "CF_API_TOKEN", "CF_ACCOUNT_ID",
               "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "GITHUB_TOKEN", "GITHUB_MODELS_TOKEN", "ALWAYS_ON_SECRET",
               "ALWAYS_ON_URL", "FREELLMAPI_KEY", "WORKER_SECRET", "NVIDIA_API_KEY", "DB_KEY",
               "CONTROL_SIGNING_KEY", "CF_KV_NAMESPACE_ID")
@@ -49,6 +50,30 @@ PATTERNS = [
 EMAIL = re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b")
 SAFE_EMAIL = re.compile(r"(?i)(noreply|no-reply|example\.(com|org)|\.invalid$|@test\.|@localhost|"
                         r"users\.noreply\.github\.com|@anthropic\.com$|@email\.com$|@domain\.com$|@x$|@t$)")
+
+
+def scrub_text(text, replacement="[hidden]", env=None):
+    """Shared scrubber for diagnostics, stored text and provider prompts. Never logs values."""
+    env = os.environ if env is None else env
+    out = str(text) if text is not None else ""
+    values = set()
+    for name, value in env.items():
+        if value and (name in SECRET_ENV or re.search(
+                r"KEY|TOKEN|SECRET|PASSWORD|PASSWD|ACCOUNT|NAMESPACE|CHAT_ID", name, re.I)):
+            # Also cover URL-encoded credentials in request errors.
+            values.update((value, quote(value, safe=""), quote_plus(value, safe="")))
+    for value in sorted(values, key=len, reverse=True):
+        out = out.replace(value, replacement)
+    out = re.sub(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----",
+                 replacement, out, flags=re.S)
+    # Remove arbitrary query keys as well as recognizable provider key formats.
+    out = re.sub(r"(?i)((?:[?&]|&amp;)(?:key|api[_-]?key|token|access_token)=)[^\s&#\"'<>\\]+",
+                 lambda m: m.group(1) + replacement, out)
+    for _, rx in PATTERNS:
+        out = rx.sub(replacement, out)
+    out = re.sub(r"(?i)(\bAuthorization\s*[:=]\s*(?:Bearer|Basic)\s+)[^\s\"'<>]+",
+                 lambda m: m.group(1) + replacement, out)
+    return EMAIL.sub(lambda m: m.group(0) if SAFE_EMAIL.search(m.group(0)) else "name@example.com", out)
 
 
 def clean_ai_text(text):

@@ -94,7 +94,7 @@ class RunFailureTests(unittest.TestCase):
         self.assertEqual(failures.read_summary(self.summary),
                          "Step: Workflow setup\nProblem: The step could not finish.")
 
-    def test_run_step_captures_last_error_without_logging_private_output(self):
+    def test_run_step_keeps_safe_summary_and_prints_scrubbed_command_failure(self):
         raw = "private-request\nFileNotFoundError: private-path\nValueError: private-value\n"
         result = subprocess.CompletedProcess([], 1, stdout=raw)
         with mock.patch.object(failures.subprocess, "run", return_value=result), \
@@ -102,7 +102,35 @@ class RunFailureTests(unittest.TestCase):
             self.assertEqual(failures.run_step("save", ["unused"], self.summary), 1)
         expected = "Step: Save state\nProblem: ValueError: a value could not be read.\n"
         self.assertEqual(self.summary.read_text(), expected)
-        self.assertEqual(output.getvalue(), expected)
+        self.assertEqual(output.getvalue(), "".join("Step output: " + line + "\n"
+                                                  for line in raw.splitlines()) + expected)
+
+    def test_failure_output_scrubs_environment_keys_query_values_and_workflow_commands(self):
+        from urllib.parse import quote
+        private = "fixture/credential+only"
+        google = "AIza" + "X" * 35
+        raw = (f"fatal: permission denied; request https://example.com/models?key={google}&alt=json\n"
+               f"ValueError: {private} encoded={quote(private, safe='')} ?key=unknown-query-value\n"
+               "::warning::untrusted command\n")
+        result = subprocess.CompletedProcess([], 1, stdout=raw)
+        with mock.patch.dict(os.environ, {"GEMINI_API_KEY_2": private}), \
+                mock.patch.object(failures.subprocess, "run", return_value=result), \
+                contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(failures.run_step("save", ["unused"], self.summary), 1)
+        logged = output.getvalue()
+        for value in (private, quote(private, safe=""), google, "unknown-query-value"):
+            self.assertNotIn(value, logged)
+        self.assertIn("fatal: permission denied", logged)
+        self.assertIn("&alt=json", logged)
+        self.assertIn("Step output: ::warning::untrusted command", logged)
+        self.assertEqual(self.summary.read_text(),
+                         "Step: Save state\nProblem: ValueError: a value could not be read.\n")
+
+    def test_launch_error_prints_scrubbed_detail(self):
+        with mock.patch.object(failures.subprocess, "run", side_effect=FileNotFoundError("fixture-command")), \
+                contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(failures.run_step("save", ["unused"], self.summary), 1)
+        self.assertIn("Step output: FileNotFoundError: fixture-command", output.getvalue())
 
     def test_timeout_has_a_summary_before_the_command_finishes(self):
         def interrupted(*args, **kwargs):
