@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-30T02:56:18Z",
+ "generated_at": "2026-10-30T18:04:32Z",
  "kill_switch": false,
  "llm": {
   "calls_today": 108,
@@ -209,24 +209,6 @@
    "ts": "2026-10-29T10:03:50.038337",
    "kind": "scout_idea",
    "title": "Draft #50"
-  },
-  {
-   "id": 51,
-   "ts": "2026-10-30T00:20:00.338148",
-   "kind": "scout_idea",
-   "title": "Draft #51"
-  },
-  {
-   "id": 52,
-   "ts": "2026-10-30T00:20:00.339997",
-   "kind": "scout_idea",
-   "title": "Draft #52"
-  },
-  {
-   "id": 53,
-   "ts": "2026-10-30T00:20:00.341636",
-   "kind": "scout_idea",
-   "title": "Draft #53"
   }
  ],
  "worker": {
@@ -239,36 +221,446 @@
    "provider": "Groq",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-30T02:56:18Z"
+   "reason": "Mixed outcomes recorded",
+   "checked_at": "2026-10-30T18:04:32Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-30T02:56:18Z"
+   "reason": "Mixed outcomes recorded",
+   "checked_at": "2026-10-30T18:04:32Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-30T02:56:18Z"
+   "reason": "Mixed outcomes recorded",
+   "checked_at": "2026-10-30T18:04:32Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-30T02:56:18Z"
+   "reason": "No activity recorded",
+   "checked_at": "2026-10-30T18:04:32Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
-   "checked_at": "2026-10-30T02:56:18Z"
+   "reason": "No activity recorded",
+   "checked_at": "2026-10-30T18:04:32Z"
   }
  ],
  "minutes": {
   "used_this_month": null,
   "limit": null
+ },
+ "products": [
+  {
+   "id": 45,
+   "short_title": "Daily gratitude & habit tracker for ne",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": [
+     "Promises 'weekly or daily dated pages' (listing.md): no weekly or daily dated pages",
+     "Promises 'weekly or daily dated pages' (README.md): no weekly or daily dated pages"
+    ]
+   },
+   "store_url": null
+  },
+  {
+   "id": 44,
+   "short_title": "Study schedule planner for ADHD colleg",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": [
+     "Promises 'dashboard' (listing.md): no real dashboard in the files (a page that only describes one is"
+    ]
+   },
+   "store_url": null
+  },
+  {
+   "id": 43,
+   "short_title": "Family schedule binder for ADHD parent",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": [
+     "Promises 'charts / progress bars' (listing.md): no charts in the files",
+     "Promises 'weekly or daily dated pages' (listing.md): no weekly or daily dated pages",
+     "Promises 'charts / progress bars' (README.md): no charts in the files"
+    ]
+   },
+   "store_url": null
+  },
+  {
+   "id": 42,
+   "short_title": "Time\u2011block planner for freelance",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": [
+     "Promises 'stickers / digital tablet version' (listing.md): no stickers or tablet version in the file",
+     "Promises 'duplicate link' (README.md): there is no 'Duplicate' template link, only files to import"
+    ]
+   },
+   "store_url": null
+  },
+  {
+   "id": 41,
+   "short_title": "Time\u2011blocking planner for solo e",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": [
+     "Promises 'year overview page' (listing.md): no year overview page in the files",
+     "Promises 'Settings tab' (README.md): promised but not in the files",
+     "Promises 'Reminders tab' (README.md): promised but not in the files"
+    ]
+   },
+   "store_url": null
+  },
+  {
+   "id": 40,
+   "short_title": "Affiliate performance tracker fo",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": [
+     "Raw ** symbols in the listing images"
+    ]
+   },
+   "store_url": null
+  },
+  {
+   "id": 39,
+   "short_title": "College student rent & utilities track",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": [
+     "Promises 'duplicate link' (listing.md): there is no 'Duplicate' template link, only files to import",
+     "Promises 'duplicate link' (README.md): there is no 'Duplicate' template link, only files to import"
+    ]
+   },
+   "store_url": null
+  },
+  {
+   "id": 38,
+   "short_title": "Google Sheets boutique inventory cost",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": [
+     "Promises 'charts / progress bars' (listing.md): no charts in the files",
+     "Promises 'charts / progress bars' (README.md): no charts in the files"
+    ]
+   },
+   "store_url": null
+  },
+  {
+   "id": 37,
+   "short_title": "Google Sheets musician equipment budge",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": [
+     "Promises 'year overview page' (listing.md): no year overview page in the files"
+    ]
+   },
+   "store_url": null
+  },
+  {
+   "id": 36,
+   "short_title": "Subscription revenue tracker for",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": [
+     "Promises 'MRR tracker' (listing.md): promised but not in the files",
+     "Promises 'year overview page' (README.md): no year overview page in the files"
+    ]
+   },
+   "store_url": null
+  },
+  {
+   "id": 35,
+   "short_title": "Event planning budget tracker fo",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": [
+     "Promises 'year overview page' (README.md): no year overview page in the files"
+    ]
+   },
+   "store_url": null
+  },
+  {
+   "id": 34,
+   "short_title": "Expense reimbursement tracker fo",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": [
+     "Promises 'CurrencyRates tab' (listing.md): promised but not in the files",
+     "Promises 'Use tab' (listing.md): promised but not in the files",
+     "Promises 'Monthly Reports tab' (listing.md): promised but not in the files"
+    ]
+   },
+   "store_url": null
+  },
+  {
+   "id": 33,
+   "short_title": "Google Sheets wedding registry budget",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "READY",
+    "status": "READY",
+    "reasons": []
+   },
+   "store_url": null
+  },
+  {
+   "id": 32,
+   "short_title": "Google Sheets subscription cost monito",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": [
+     "Promises 'charts / progress bars' (listing.md): no charts in the files",
+     "Promises 'charts / progress bars' (README.md): no charts in the files",
+     "Raw ** symbols in the listing images"
+    ]
+   },
+   "store_url": null
+  },
+  {
+   "id": 31,
+   "short_title": "Google Sheets pet care expense tracker",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": [
+     "Promises 'Google Sheets tracker' (listing.md): promised but not in the files",
+     "Promises 'Use tab' (README.md): promised but not in the files"
+    ]
+   },
+   "store_url": null
+  },
+  {
+   "id": 30,
+   "short_title": "Networking Navigator\" - assists indivi",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": [
+     "Promises 'fillable / editable PDF' (listing.md): the PDFs are print-only (no fillable fields or link"
+    ]
+   },
+   "store_url": null
+  },
+  {
+   "id": 29,
+   "short_title": "Job Search Tracker\" - enables busy pro",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": [
+     "Promises 'year overview page' (listing.md): no year overview page in the files",
+     "Promises 'charts / progress bars' (listing.md): no charts in the files",
+     "Promises 'Overview tab' (README.md): promised but not in the files"
+    ]
+   },
+   "store_url": null
+  },
+  {
+   "id": 28,
+   "short_title": "Career Confidence\" - helps recent coll",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": [
+     "Score 95+ without enough proof from the files (red flag)"
+    ]
+   },
+   "store_url": null
+  },
+  {
+   "id": 27,
+   "short_title": "printable 2027 monthly planner for uni",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "READY",
+    "status": "READY",
+    "reasons": []
+   },
+   "store_url": null
+  },
+  {
+   "id": 26,
+   "short_title": "printable 2027 monthly planner for sma",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": [
+     "Promises 'Overview page' (README.md): promised but not in the files"
+    ]
+   },
+   "store_url": null
+  }
+ ],
+ "reject_reasons": [
+  {
+   "reason": "Formatting or rubric issue",
+   "count": 64
+  },
+  {
+   "reason": "Unclear value over free template",
+   "count": 47
+  },
+  {
+   "reason": "Product structure incomplete",
+   "count": 12
+  },
+  {
+   "reason": "Risky or prohibited claim",
+   "count": 7
+  },
+  {
+   "reason": "Target audience unclear",
+   "count": 4
+  }
+ ],
+ "report": {
+  "drafts_made": 5,
+  "drafts_waiting": 1,
+  "drafts_approved": 5,
+  "products_built": 0,
+  "errors": 0
+ },
+ "workers": [
+  {
+   "name": "CEO",
+   "state": "off",
+   "last_action": "Idle",
+   "last_seen": null
+  },
+  {
+   "name": "Research Manager",
+   "state": "off",
+   "last_action": "Idle",
+   "last_seen": null
+  },
+  {
+   "name": "Content Manager",
+   "state": "off",
+   "last_action": "Idle",
+   "last_seen": null
+  },
+  {
+   "name": "QA Reviewer",
+   "state": "off",
+   "last_action": "Idle",
+   "last_seen": null
+  },
+  {
+   "name": "Research Worker",
+   "state": "off",
+   "last_action": "Idle",
+   "last_seen": "2026-10-28T20:19:27.805605"
+  },
+  {
+   "name": "Draft Worker",
+   "state": "off",
+   "last_action": "Idle",
+   "last_seen": "2026-10-28T22:56:41.255011"
+  },
+  {
+   "name": "QA Checker",
+   "state": "off",
+   "last_action": "Idle",
+   "last_seen": "2026-10-28T23:49:51.087603"
+  },
+  {
+   "name": "Review Worker",
+   "state": "off",
+   "last_action": "Idle",
+   "last_seen": null
+  },
+  {
+   "name": "Coder Worker",
+   "state": "off",
+   "last_action": "Idle",
+   "last_seen": null
+  }
+ ],
+ "pipeline": {
+  "plan": {
+   "plan": 1,
+   "done": 0
+  },
+  "research": {
+   "plan": 4,
+   "done": 0
+  },
+  "drafts": {
+   "plan": 3,
+   "done": 0
+  },
+  "review": {
+   "plan": 3,
+   "done": 0
+  },
+  "product_builds": {
+   "plan": 2,
+   "done": 0
+  },
+  "promotion": {
+   "plan": 2,
+   "done": 0
+  }
  },
  "cubes": [
   {
@@ -513,8 +905,8 @@
  ],
  "scout_ideas_count": {
   "total": 10,
-  "pending": 4,
-  "approved": 6
+  "pending": 1,
+  "approved": 9
  },
  "trend_items_count": {
   "total": 20,
