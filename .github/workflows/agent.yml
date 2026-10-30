@@ -43,6 +43,8 @@ jobs:
     if: github.event_name != 'workflow_run'
     runs-on: ubuntu-24.04
     timeout-minutes: 12
+    outputs:
+      inbox_started: ${{ steps.inbox.outputs.started }}
     steps:
       # First step. The database is committed encrypted, so without the DB_KEY secret nothing can run.
       # The job stops here, before any step that reads or writes the database. The key is never printed.
@@ -204,6 +206,7 @@ jobs:
         run: python3 run_failure.py run cycle -- python3 cloud_runner.py
 
       - name: Telegram inbox (buttons, commands, new draft alerts, daily report)
+        id: inbox
         if: steps.gate.outputs.run == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -216,7 +219,9 @@ jobs:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           CF_KV_NAMESPACE_ID: ${{ secrets.CF_KV_NAMESPACE_ID }}
           CONTROL_SIGNING_KEY: ${{ secrets.CONTROL_SIGNING_KEY }}
-        run: python3 run_failure.py run inbox -- python3 telegram_inbox.py
+        run: |
+          echo "started=true" >> "$GITHUB_OUTPUT"
+          python3 run_failure.py run inbox -- python3 telegram_inbox.py
 
       - name: Export approved content
         if: steps.gate.outputs.run == 'true'
@@ -334,7 +339,7 @@ jobs:
 
   recovery_inbox:
     needs: cycle
-    if: always() && (needs.cycle.result == 'failure' || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Robot auto-fix checks'))
+    if: always() && needs.cycle.outputs.inbox_started != 'true' && (needs.cycle.result == 'failure' || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Robot auto-fix checks'))
     runs-on: ubuntu-24.04
     timeout-minutes: 6
     steps:
@@ -355,7 +360,7 @@ jobs:
           python3 run_failure.py run inbox -- bash -e -o pipefail <<'ROBOT_RECOVERY'
           python3 scripts/db_crypt.py decrypt
           cp agent_data.db "$RUNNER_TEMP/owner-before.db"
-          python3 telegram_inbox.py
+          python3 telegram_inbox.py --recovery
           if cmp -s agent_data.db "$RUNNER_TEMP/owner-before.db"; then exit 0; fi
           python3 sanitize_state.py
           python3 secret_guard.py agent_data.db

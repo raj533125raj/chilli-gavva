@@ -26,6 +26,11 @@ class Base(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.db = os.path.join(self.tmp.name, "r.db")
         self.addCleanup(self.tmp.cleanup)
+        original = dr.daily_receipts.claim
+        receipt = mock.patch.object(dr.daily_receipts, "claim",
+                                    side_effect=lambda day, db: original(day, db, env={}))
+        receipt.start()
+        self.addCleanup(receipt.stop)
 
     def approval(self, status="pending", reason=None, ts="2026-10-12T01:00:00", decided="2026-10-12T02:00:00"):
         conn = guardrails.connect(self.db)
@@ -156,9 +161,10 @@ class OncePerDayTests(Base):
         self.assertEqual(self.run_send(datetime.datetime(2026, 10, 12, 9, 0)), (False, []))   # already sent
         self.assertTrue(self.run_send(datetime.datetime(2026, 10, 13, 3, 45))[0])            # next day
 
-    def test_retry_when_telegram_fails(self):
+    def test_no_retry_after_an_uncertain_telegram_send(self):
         self.assertFalse(self.run_send(MONDAY, ok=False)[0])
-        self.assertTrue(self.run_send(MONDAY + datetime.timedelta(minutes=30))[0])
+        self.assertEqual(ti.get_state("daily_report_day", db_path=self.db), "2026-10-12")
+        self.assertEqual(self.run_send(MONDAY + datetime.timedelta(minutes=30)), (False, []))
 
     def test_inbox_run_sends_report_to_owner_only(self):
         calls = []

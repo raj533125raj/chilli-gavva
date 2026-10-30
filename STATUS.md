@@ -7,6 +7,11 @@ retain fixed safe summaries. The shared secret scrubber protects task errors/res
 provider logs, media raw text, product notes and status exports. Save state repairs historical stored
 text before scanning/encryption. Its bounded push retry refreshes origin/main explicitly and only
 rebases over code changes; newer state from another writer is never overwritten.
+Telegram confirms each incoming update with getUpdates(offset=update_id+1) before side effects.
+Recovery polls only when the main inbox never started, and sends no scheduled alerts or reports.
+Daily reports reserve the UTC date before sending using a date-only GitHub receipt tag in CI
+(`robot-daily-report/YYYY-MM-DD`), independent of the database commit; local runs keep an exclusive
+receipt beside their database. Failed/ambiguous sends consume that day's reservation to avoid repeats.
 
 ## Goal
 A zero-cost team of AI agents that researches and drafts low-cost digital products (Google Sheets

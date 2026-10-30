@@ -70,6 +70,7 @@ class RestBehaviourTests(unittest.TestCase):
         sent = []
         with mock.patch.object(ti, "fetch_updates", return_value=[{"update_id": 1, "message": {
                 "chat": {"id": 42}, "text": "/list"}}]), \
+                mock.patch.object(ti, "_call", return_value={"ok": True}), \
                 mock.patch.object(ti, "send_text", side_effect=lambda *a, **k: sent.append(a) or True):
             self.assertEqual(ti.process_updates("tok", "42", self.db), 1)
         self.assertTrue(sent)

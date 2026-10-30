@@ -122,7 +122,8 @@ class TelegramStateIsSavedTests(unittest.TestCase):
         git(self.dir, "add", "-A")
         git(self.dir, "commit", "-qm", "base")
         patches = [mock.patch.object(ti, "send_text", return_value=True),
-                   mock.patch.object(ti, "_call", return_value={"ok": True})]
+                   mock.patch.object(ti, "_call", return_value={"ok": True}),
+                   mock.patch.dict(os.environ, {"GITHUB_ACTIONS": "false", "GITHUB_TOKEN": ""})]
         for p in patches:
             p.start()
             self.addCleanup(p.stop)

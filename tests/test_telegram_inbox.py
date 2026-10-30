@@ -30,6 +30,9 @@ class InboxBase(unittest.TestCase):
         p1 = mock.patch.object(ti, "send_text", side_effect=fake_send)
         p1.start()
         self.addCleanup(p1.stop)
+        transport = mock.patch.object(ti, "_call", return_value={"ok": True})
+        transport.start()
+        self.addCleanup(transport.stop)
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -314,6 +317,7 @@ class StrictCommandTests(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         sent = []
         with mock.patch.object(ti, "fetch_updates", return_value=[_upd(1, "Approve button edhuku work avadam ledhu?")]), \
+                mock.patch.object(ti, "_call", return_value={"ok": True}), \
                 mock.patch.object(ti, "send_text", side_effect=lambda *a, **k: sent.append(a) or True):
             stats = ti.new_stats()
             self.assertEqual(ti.process_updates("tok", OWNER, os.path.join(tmp.name, "t.db"), stats), 1)

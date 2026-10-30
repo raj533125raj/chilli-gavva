@@ -401,6 +401,7 @@ class InboxIntegrationTests(unittest.TestCase):
         update = {"update_id": 1, "callback_query": {"id": "fixture", "data": f"af:merge:1:{SHA}",
                   "message": {"chat": {"id": "visitor"}}}}
         with mock.patch.object(telegram_inbox, "fetch_updates", return_value=[update]), \
+                mock.patch.object(telegram_inbox, "_call", return_value={"ok": True}), \
                 mock.patch.object(autofix, "decide") as decide:
             telegram_inbox.process_updates("fixture", "owner", self.db)
         decide.assert_not_called()

@@ -12,6 +12,7 @@ import datetime
 import sqlite3
 
 import guardrails
+import daily_receipts
 
 SEND_AFTER = datetime.time(3, 30)   # UTC
 
@@ -145,12 +146,16 @@ def due(last_sent_day, now=None):
     return now.time() >= SEND_AFTER and last_sent_day != now.date().isoformat()
 
 
-def maybe_send(send, get_state, set_state, db_path=None, now=None, status_fn=None):
-    """Send today's report once (first run after 03:30 UTC). send(text) -> bool. Returns True if sent."""
+def maybe_send(send, get_state, set_state, db_path=None, now=None, status_fn=None, claim=None):
+    """Reserve today's report before sending; failed/ambiguous delivery is never retried that day."""
     now = now or _now()
     if not due(get_state("daily_report_day", None, db_path), now):
         return False
-    if not send(report_text(db_path, now, status_fn)):
-        return False   # Telegram not reachable: try again on the next run
-    set_state("daily_report_day", now.date().isoformat(), db_path)
-    return True
+    text = report_text(db_path, now, status_fn)
+    day = now.date().isoformat()
+    if not (claim or daily_receipts.claim)(day, db_path):
+        print("Daily report skipped: date already reserved or reservation unavailable.")
+        return False
+    # Record the date first, too. A stale database is backed by the independent receipt above.
+    set_state("daily_report_day", day, db_path)
+    return bool(send(text))

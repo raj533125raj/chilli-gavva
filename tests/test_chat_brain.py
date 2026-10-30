@@ -166,7 +166,8 @@ class TestChatBrain(unittest.TestCase):
             }
         ]
 
-        with patch("telegram_inbox.fetch_updates", return_value=updates):
+        with patch("telegram_inbox.fetch_updates", return_value=updates), \
+                patch("telegram_inbox._call", return_value={"ok": True}):
             stats = telegram_inbox.new_stats()
             handled = telegram_inbox.process_updates(token, owner_chat_id, db_path=self.db_path, stats=stats)
             self.assertEqual(handled, 1)

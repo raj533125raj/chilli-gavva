@@ -19,6 +19,9 @@ class StartLinkTests(unittest.TestCase):
             "public_draft", "Sample draft", "Sample body", db_path=self.db
         )
         self.sent = []
+        transport = mock.patch.object(inbox, "_call", return_value={"ok": True})
+        transport.start()
+        self.addCleanup(transport.stop)
 
     def tearDown(self):
         self.temp.cleanup()

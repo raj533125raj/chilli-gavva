@@ -214,7 +214,8 @@ class TestMediaBrain(unittest.TestCase):
         }
         mock_fetch.return_value = [non_owner_update]
         stats = telegram_inbox.new_stats()
-        handled = telegram_inbox.process_updates("fake_token", "123456", db_path=self.db_path, stats=stats)
+        with patch("telegram_inbox._call", return_value={"ok": True}):
+            handled = telegram_inbox.process_updates("fake_token", "123456", db_path=self.db_path, stats=stats)
         self.assertEqual(handled, 0)
         self.assertEqual(stats["skipped"]["not owner chat"], 1)
 

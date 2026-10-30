@@ -17,6 +17,7 @@ reports/
 # The plaintext database never goes into git (the repo is public). The encrypted copy agent_data.db.enc is committed.
 agent_data.db
 agent_data.db-journal
+*.daily-receipts/
 archive/*.db
 *.db
 # Local-only files (roadmap #41).

@@ -34,7 +34,7 @@ class OwnerOnlyTests(unittest.TestCase):
 
             self.assertEqual(handled, 0)
             self.assertEqual(sent, [])
-            api_call.assert_not_called()
+            self.assertEqual([call.args[1] for call in api_call.call_args_list], ["getUpdates"] * 3)
             self.assertEqual(guardrails.get_approval(approval_id, db)["status"], "pending")
 
 

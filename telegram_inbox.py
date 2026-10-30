@@ -126,7 +126,9 @@ def _call(token, method, params, opener=None, sleep_fn=None):
                 sleep(max(0, min(retry_after or 0, 30)))
                 attempt += 1
                 continue
-            if 500 <= exc.code <= 599 and attempt == 0:
+            # An outbound message may have been delivered before a 5xx response.
+            # Retrying that non-idempotent request can send a duplicate.
+            if 500 <= exc.code <= 599 and attempt == 0 and method != "sendMessage":
                 sleep(2)
                 attempt += 1
                 continue
@@ -199,6 +201,22 @@ def fetch_updates(token, offset):
         LAST_FETCH_ERROR = str(data.get("error_code") or "not ok")
         return []
     return data.get("result", [])
+
+
+def acknowledge_update(token, update_id):
+    """Confirm on Telegram before any reply or side effect; independent of the next git save.
+
+    getUpdates also returns pending newer updates. Leave them unconfirmed for the normal poll.
+    An uncertain acknowledgement suppresses processing; a crash can lose a reply, never replay it.
+    """
+    try:
+        result = _call(token, "getUpdates", {"offset": update_id + 1, "timeout": 0,
+                                           "limit": 1, "allowed_updates": ALLOWED_UPDATES})
+        if isinstance(result, dict) and result.get("ok") is True:
+            return
+    except Exception:
+        pass
+    raise RuntimeError("Telegram acknowledgement failed; this update was not handled.")
 
 
 def subscription_note(token):
@@ -560,13 +578,23 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
 
     stats (optional dict from new_stats()) is filled with counts only: never ids, tokens or text.
     """
+    global LAST_FETCH_ERROR
     stats = stats if stats is not None else new_stats()
     offset = get_state("update_offset", None, db_path)
+    LAST_FETCH_ERROR = None
     updates = fetch_updates(token, offset)
+    if LAST_FETCH_ERROR:
+        raise RuntimeError("Telegram updates could not be read; inbox stopped before replies.")
     handled = 0
-    last = None
-    for upd in updates:
-        last = upd.get("update_id", last)
+    valid = [upd for upd in updates if type(upd.get("update_id")) is int]
+    next_offset = int(offset) if offset else None
+    for upd in sorted(valid, key=lambda item: item["update_id"]):
+        update_id = upd["update_id"]
+        if next_offset is not None and update_id < next_offset:
+            continue
+        acknowledge_update(token, update_id)
+        next_offset = update_id + 1
+        set_state("update_offset", next_offset, db_path)
         cb = upd.get("callback_query")
         if cb:
             stats["button"] += 1
@@ -663,8 +691,6 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
             send_text(token, owner_chat_id, "Press this test button. The reply comes on the next run "
                       "(about 1-2 minutes with the door bell).", [[("Test button", "t:ping")]])
         handled += 1
-    if last is not None:
-        set_state("update_offset", int(last) + 1, db_path)
     stats["handled"] = handled
     return handled
 
@@ -748,13 +774,17 @@ def daily_waiting_line(db_path=None, now=None):
     return f"Drafts waiting: {len(pending)} (oldest {oldest_hours}h)"
 
 
-def run(db_path=None):
+def run(db_path=None, recovery=False):
     configured, token, chat_id = notify._telegram_configured()
     if not configured:
         print("Telegram not configured: skipping inbox.")
         return {"configured": False, "commands": 0, "alerts": 0}
     stats = new_stats()
     commands = process_updates(token, chat_id, db_path, stats)
+    if recovery:
+        print(stats_line(stats))
+        return {"configured": True, "commands": commands, "alerts": 0,
+                "waiting_reminder": False, "daily_report": False}
     import autofix
     autofix.poll(get_state, set_state,
                  lambda text, buttons: send_text(token, chat_id, text, buttons), db_path)
@@ -789,7 +819,7 @@ def main(argv):
         configured, _, _ = notify._telegram_configured()
         print(f"Telegram configured: {'yes' if configured else 'no'}")
         return
-    run()
+    run(recovery="--recovery" in argv)
 
 
 if __name__ == "__main__":
