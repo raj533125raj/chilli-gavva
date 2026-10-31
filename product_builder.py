@@ -108,7 +108,17 @@ def niche_of(title):
 
 
 def _todo(db_path=None, out_dir=None):
-    """Approved drafts that still need a product, oldest first."""
+    """Scheduled image-tool probe: every approved, unfinished delivery is work.
+
+    This includes legacy builds and needs-fix packs. A folder on disk is never
+    proof of a complete product, and probing work must not mark anything built.
+    """
+    import product_pipeline
+    return product_pipeline.pending(db_path)
+
+
+def _core_todo(db_path=None, out_dir=None):
+    """Core file-builder queue; the scheduled CLI uses the delivery pipeline."""
     out_dir = out_dir or PRODUCTS_DIR
     conn = connect(db_path)
     rows = conn.execute("SELECT a.id, a.title, a.payload FROM approvals a "
@@ -1372,7 +1382,7 @@ def build_pending(db_path=None, llm=None, max_builds=MAX_BUILDS_PER_RUN, out_dir
         return []
     out_dir = out_dir or PRODUCTS_DIR
     results, attempts = [], 0
-    for item in _todo(db_path, out_dir):
+    for item in _core_todo(db_path, out_dir):
         niche = niche_of(item["title"])
         if not niche:
             _record(db_path, item["id"], "skipped", note="not from a niche agent")
@@ -1440,7 +1450,8 @@ def main(argv=None):
     if rest_window.in_rest_window():
         print("Product Builder: daily rest window, nothing built.")
         return
-    results = build_pending(db_path=args.db, max_builds=args.max)
+    import product_pipeline
+    results = product_pipeline.run_pending(db_path=args.db, max_builds=args.max)
     rebuilt = rebuild_versions(args.db)
     for approval_id, folder, verdict in rebuilt:
         print(f"Product Builder: new version of #{approval_id} -> {folder} ({verdict})")

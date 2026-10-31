@@ -15,14 +15,12 @@ Nothing is uploaded or posted automatically: all outputs stay private for hand u
 import os
 import re
 import json
-import sqlite3
 import datetime
 from typing import Dict, List, Any, Optional, Tuple
 
 import guardrails
 import product_builder
 import truth_check
-import mockups
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PRODUCTS_DIR = os.path.join(BASE_DIR, "exported_content", "products")
@@ -68,55 +66,14 @@ def connect(db_path=None):
 
 def is_eligible(approval_id: int, db_path=None) -> bool:
     """Draft must be owner-APPROVED and pass Product Council and QA checker."""
-    conn = guardrails.connect(db_path)
-    row = conn.execute("SELECT status, review FROM approvals WHERE id = ?", (approval_id,)).fetchone()
-    if not row or row[0] != "approved":
-        conn.close()
-        return False
-
-    review_text = row[1] or ""
-
-    # Check Product Council status
-    council_pass = False
-    try:
-        c_row = conn.execute(
-            "SELECT verdict FROM council_debates WHERE approval_id = ? AND stage = 'council_summary' "
-            "ORDER BY id DESC LIMIT 1",
-            (approval_id,)
-        ).fetchone()
-        if c_row and c_row[0] in ("PASS", "APPROVED"):
-            council_pass = True
-        else:
-            j_row = conn.execute(
-                "SELECT verdict FROM council_debates WHERE approval_id = ? AND stage = 'judge' "
-                "AND verdict = 'PASS' LIMIT 1",
-                (approval_id,)
-            ).fetchone()
-            if j_row:
-                council_pass = True
-    except sqlite3.Error:
-        council_pass = False
-
-    # Check QA Checker status
-    checker_pass = False
     import checker
-    score, _ = checker.parse_review(review_text)
-    if score is not None and score >= 70:
-        checker_pass = True
-    elif "CHECKER: PASS" in review_text.upper() or "CHECKER: APPROVE" in review_text.upper() or "PASSED" in review_text.upper():
-        checker_pass = True
-
-    conn.close()
-
-    # If no council debate records exist for this approval id (e.g. legacy or test-created draft), check review
-    if not council_pass:
-        conn = guardrails.connect(db_path)
-        has_debates = conn.execute("SELECT COUNT(*) FROM council_debates WHERE approval_id = ?", (approval_id,)).fetchone()[0] > 0
-        conn.close()
-        if not has_debates and score is not None and score >= 70:
-            council_pass = True
-
-    return council_pass and checker_pass
+    import product_council
+    item = guardrails.get_approval(approval_id, db_path)
+    summary = product_council.get_council_summary(approval_id, db_path)
+    return bool(item and item["status"] == "approved" and item["kind"] == "public_draft"
+                and approval_id not in product_builder.OWNER_HOLDS
+                and summary and summary["verdict"] in ("PASS", "APPROVED")
+                and checker.review_passes(item.get("review")))
 
 
 def get_eligible_drafts(db_path=None) -> List[Dict[str, Any]]:
@@ -138,8 +95,10 @@ def _ensure_13_tags(tags: List[str], niche: str) -> List[str]:
     """Ensure tag list contains 13 clean, unique search tags."""
     clean_tags = []
     seen = set()
+    kind = product_builder.NICHES.get(niche, {}).get("kind", "")
     for t in tags:
         item = re.sub(r"\s+", " ", str(t)).strip().lower()[:40]
+        item = product_builder._sanitize_text(item, {"kind": kind})
         if item and item not in seen:
             clean_tags.append(item)
             seen.add(item)
@@ -147,15 +106,17 @@ def _ensure_13_tags(tags: List[str], niche: str) -> List[str]:
     niche_info = product_builder.NICHES.get(niche, {})
     default_tags = niche_info.get("tags", [])
     backup_tags = [
-        "digital download", "printable template", "planner insert", "organization tool",
-        "instant download", "productivity tracker", "pdf printable", "lifestyle planner",
-        "work planner", "home organization", "daily routine", "focus template", "easy planning"
+        "digital download", "organization template", "personal use", "downloadable template",
+        "planning tool", "structured template", "simple layout", "everyday organization",
+        "practical template", "easy planning", "organized workflow", "ready made template",
+        "personal organization"
     ]
 
     for t in default_tags + backup_tags:
         if len(clean_tags) >= 13:
             break
         item = re.sub(r"\s+", " ", str(t)).strip().lower()[:40]
+        item = product_builder._sanitize_text(item, {"kind": kind})
         if item and item not in seen:
             clean_tags.append(item)
             seen.add(item)
@@ -173,12 +134,25 @@ def _format_launch_listing(spec: Dict[str, Any], file_list: List[str], facts: Op
     kind = spec.get("kind", "")
     if kind in ("planner", "dated_planner"):
         num_pages = facts["pages"] if facts and "pages" in facts else (len(spec.get("pages", [])) + 2 + (1 if spec.get("daily_page") else 0))
-        if "pages" not in description.lower():
-            description += f"\n\nDelivered as a {num_pages} printable pages planner in A4 and US Letter sizes."
-    elif kind == "sheets":
+        description += f"\n\nIncludes {num_pages} printable pages in A4 and US Letter sizes."
+    elif kind in ("sheets", "resume"):
         num_sheets = len(facts["sheets"]) if facts and "sheets" in facts else len(spec.get("sheets", []))
-        if "sheets" not in description.lower():
-            description += f"\n\nIncludes {num_sheets} worksheets."
+        description += f"\n\nIncludes {num_sheets} worksheets."
+    elif kind == "notion" and facts:
+        description += f"\n\nIncludes {len(facts['md']) + len(facts['csv'])} import pages and tables."
+    if facts:
+        # Evidence comes from the built files, giving the truth checker concrete
+        # parts to verify even when the model's description is very general.
+        parts = [f"{name} sheet" for name in facts["sheets"]
+                 if "dashboard" not in name.lower() or facts["kind"] == "sheets"]
+        parts += [os.path.splitext(name)[0].replace("-", " ").title() + " page"
+                  for name in facts["md"]]
+        parts += [os.path.splitext(name)[0].replace("-", " ").title() + " database"
+                  for name in facts["csv"]]
+        if parts:
+            description += "\n\nVerified contents: " + "; ".join(parts) + "."
+        if facts["formulas"]:
+            description += "\n\nThe workbook includes formulas."
     tags = listing.get("tags", [])
     buyer = listing.get("buyer", "")
     platform = listing.get("platform", "Gumroad")
@@ -250,9 +224,27 @@ def evaluate_pack_quality(folder_path: str, spec: Dict[str, Any]) -> Tuple[int, 
     files_on_disk = set(os.listdir(folder_path))
     required_images = ["cover.png", "preview-1.png", "preview-2.png", "preview-3.png"]
     missing_imgs = [img for img in required_images if img not in files_on_disk]
+    invalid_imgs = []
+    for name in required_images:
+        if name in missing_imgs:
+            continue
+        try:
+            from PIL import Image
+            with Image.open(os.path.join(folder_path, name)) as img:
+                if min(img.size) < 100:
+                    raise ValueError("Placeholder image")
+                img.verify()
+        except Exception:
+            invalid_imgs.append(name)
     if missing_imgs:
         score -= 15 * len(missing_imgs)
         reasons.append(f"Missing required listing images: {', '.join(missing_imgs)}")
+    if invalid_imgs:
+        reasons.append(f"Invalid or placeholder listing images: {', '.join(invalid_imgs)}")
+
+    deliverables = [name for name in files_on_disk if name.endswith((".pdf", ".xlsx", ".docx", ".zip"))]
+    if not deliverables:
+        reasons.append("Missing product deliverable files")
 
     required_docs = ["listing.md", "README.md", "LICENSE.txt", "CHECKLIST.md", "FILE_LIST.txt"]
     missing_docs = [doc for doc in required_docs if doc not in files_on_disk]
@@ -277,6 +269,8 @@ def evaluate_pack_quality(folder_path: str, spec: Dict[str, Any]) -> Tuple[int, 
         reasons.append("Listing description is too short")
 
     final_score = max(0, min(100, score))
+    if missing_imgs or invalid_imgs or missing_docs or not deliverables:
+        final_score = min(final_score, QUALITY_BAR - 1)
     if not reasons and final_score >= QUALITY_BAR:
         reasons.append("Complete upload-ready launch pack passing all quality standards")
 
@@ -284,9 +278,12 @@ def evaluate_pack_quality(folder_path: str, spec: Dict[str, Any]) -> Tuple[int, 
 
 
 def build_launch_pack(approval_id: int, db_path=None, out_dir=None, llm=None,
-                      max_fix_rounds=MAX_FIX_ROUNDS) -> Dict[str, Any]:
+                      max_fix_rounds=MAX_FIX_ROUNDS, spec=None, existing_folder=None) -> Dict[str, Any]:
     """Build a complete, upload-ready launch pack with automated quality fixer loop."""
     out_dir = out_dir or PRODUCTS_DIR
+    if not is_eligible(approval_id, db_path):
+        return {"approval_id": approval_id, "status": "blocked",
+                "reason": "Owner approval, council PASS and checker PASS are required"}
     os.makedirs(out_dir, exist_ok=True)
 
     conn = guardrails.connect(db_path)
@@ -297,39 +294,35 @@ def build_launch_pack(approval_id: int, db_path=None, out_dir=None, llm=None,
         return {"approval_id": approval_id, "status": "failed", "reason": "Draft not found"}
 
     title_text, payload_text = row[0] or "", row[1] or ""
-    niche = product_builder.niche_of(title_text) or "ADHD Planners Agent"
+    niche = product_builder.niche_of(title_text)
+    if not niche:
+        return {"approval_id": approval_id, "status": "blocked", "reason": "Unsupported product niche"}
+
+    if existing_folder:
+        if os.path.basename(existing_folder) != existing_folder:
+            raise ValueError("Invalid product folder")
+        folder = os.path.join(out_dir, existing_folder)
+        spec = product_builder.spec_from_folder(folder)
+        with open(os.path.join(folder, "listing.md"), encoding="utf-8") as stream:
+            listing = stream.read()
+        description = re.search(r"(?s)## Description\s*\n(.*?)(?=\n## |\Z)", listing)
+        title = listing.splitlines()[0].lstrip("# ")
+        spec.update(short_name=existing_folder.split("-", 1)[-1], niche=niche)
+        spec["listing"] = {"title": title, "description": description[1].strip() if description else "",
+                           "tags": re.findall(r"(?m)^- (.+)$", listing.split("## Tags", 1)[-1].split("\n## ", 1)[0])
+                           if "## Tags" in listing else [],
+                           "buyer": product_builder.NICHES[niche]["buyer"],
+                           "platform": "Gumroad"}
 
     # Step 1: Parse spec
-    spec = None
-    if llm:
+    if spec is None:
+        import workforce
+        llm = llm or workforce.default_llm(db_path)
         try:
             prompt = product_builder.spec_prompt(niche, payload_text)
             spec, _ = product_builder.parse_spec(llm(prompt, size="large"), niche)
         except Exception:
             spec = None
-
-    if spec is None:
-        # Fallback spec construction from payload and niche
-        kind = product_builder.NICHES[niche]["kind"]
-        example_spec = product_builder.EXAMPLES[kind]
-        desc_text = payload_text
-        if len(desc_text) < 100:
-            desc_text += "\n\nComplete printable daily focus planner template designed for personal productivity. Includes A4 and US Letter printable pages with structured daily sections and routine checklists."
-
-        spec, _ = product_builder.parse_spec(json.dumps({
-            "name": title_text.replace("Draft:", "").strip(),
-            "short_name": product_builder._slug(title_text),
-            "listing": {
-                "title": title_text.replace("Draft:", "").strip(),
-                "description": desc_text,
-                "tags": product_builder.NICHES[niche]["tags"],
-                "buyer": product_builder.NICHES[niche]["buyer"],
-                "platform": "Gumroad"
-            },
-            "instructions": ["Print at 100% scale.", "Fill in daily sections."],
-            "cover_image_idea": "Clean presentation layout",
-            **example_spec
-        }), niche)
 
     if not spec:
         return {"approval_id": approval_id, "status": "failed", "reason": "Failed to parse spec"}
@@ -337,7 +330,7 @@ def build_launch_pack(approval_id: int, db_path=None, out_dir=None, llm=None,
     # Ensure exactly 13 search tags
     spec["listing"]["tags"] = _ensure_13_tags(spec["listing"].get("tags", []), niche)
 
-    folder_name = f"{approval_id}-{spec['short_name']}"
+    folder_name = existing_folder or f"{approval_id}-{spec['short_name']}"
     folder_path = os.path.join(out_dir, folder_name)
 
     current_round = 1
@@ -346,21 +339,12 @@ def build_launch_pack(approval_id: int, db_path=None, out_dir=None, llm=None,
 
     while current_round <= max_fix_rounds:
         # Build core product files & media
-        product_builder.build_product(spec, approval_id, out_dir=out_dir, folder_name=folder_name)
-
-        # Ensure image files exist (write minimal placeholder PNGs if mockups were skipped or unavailable)
-        required_images = ["cover.png", "preview-1.png", "preview-2.png", "preview-3.png", "pinterest.png", "thumbnail.png"]
-        dummy_png = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02"
-                     b"\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\xcf\xc0\x00\x00\x03\x01"
-                     b"\x01\x00\x18\xdd\x8d\xb0\x00\x00\x00\x00IEND\xaeB`\x82")
-        for img_name in required_images:
-            img_path = os.path.join(folder_path, img_name)
-            if not os.path.exists(img_path):
-                with open(img_path, "wb") as f_img:
-                    f_img.write(dummy_png)
+        if not existing_folder:
+            product_builder.build_product(spec, approval_id, out_dir=out_dir, folder_name=folder_name)
 
         # Build additional launch pack files
-        files_built = sorted(os.listdir(folder_path))
+        files_built = sorted(os.path.relpath(os.path.join(base, name), folder_path)
+                             for base, _, names in os.walk(folder_path) for name in names)
 
         with open(os.path.join(folder_path, "LICENSE.txt"), "w", encoding="utf-8") as f:
             f.write("Personal use only. Do not resell, share, or redistribute these files.\n")
@@ -369,6 +353,7 @@ def build_launch_pack(approval_id: int, db_path=None, out_dir=None, llm=None,
             f.write("# How to Upload to Gumroad / Etsy\n\n" +
                     "\n".join([f"{i}. {step}" for i, step in enumerate(UPLOAD_CHECKLIST, 1)]) + "\n")
 
+        files_built = sorted(set(files_built) | {"FILE_LIST.txt", "CHECKLIST.md", "TRUTH_CHECK.md", "LAUNCH_PACK.json"})
         with open(os.path.join(folder_path, "FILE_LIST.txt"), "w", encoding="utf-8") as f:
             f.write("Included Launch Pack Files:\n" + "\n".join([f"- {name}" for name in files_built]) + "\n")
 
@@ -391,7 +376,7 @@ def build_launch_pack(approval_id: int, db_path=None, out_dir=None, llm=None,
             "quality_reasons": quality_reasons,
             "rounds": current_round,
             "truth_check_verdict": tc_res.get("verdict"),
-            "files": sorted(os.listdir(folder_path))
+            "files": files_built
         }
         with open(os.path.join(folder_path, "LAUNCH_PACK.json"), "w", encoding="utf-8") as f:
             f.write(json.dumps(pack_manifest, indent=2))
@@ -419,9 +404,6 @@ def build_launch_pack(approval_id: int, db_path=None, out_dir=None, llm=None,
     conn.commit()
     conn.close()
 
-    # Private encryption hand-off
-    encrypt_handoff(out_dir)
-
     return {
         "approval_id": approval_id,
         "status": status_str,
@@ -443,22 +425,19 @@ def truth_check_folder(approval_id: int, folder_name: str, db_path=None, out_dir
     return result
 
 
-def encrypt_handoff(products_dir: str):
-    """Privately encrypt the product pack tree if DB_KEY is present."""
-    if not os.environ.get("DB_KEY"):
-        return
-    try:
-        import scripts.db_crypt as db_crypt
-        db_crypt.pack_products(source=products_dir)
-    except Exception:
-        pass
+def encrypt_handoff(products_dir: str, destination=None):
+    """Encrypt privately; callers must handle failure before announcing readiness."""
+    from scripts import db_crypt
+    if destination is None:
+        destination = (os.path.join(BASE_DIR, db_crypt.PRODUCTS_ENCRYPTED)
+                       if os.path.realpath(products_dir) == os.path.realpath(PRODUCTS_DIR)
+                       else os.path.join(os.path.dirname(os.path.abspath(products_dir)),
+                                         "products.tar.gz.enc"))
+    db_crypt.pack_products(source=products_dir, dst=destination)
+    return destination
 
 
 def build_eligible_launch_packs(db_path=None, out_dir=None, llm=None) -> List[Dict[str, Any]]:
     """Build launch packs for all eligible approved drafts."""
-    eligible = get_eligible_drafts(db_path=db_path)
-    results = []
-    for item in eligible:
-        res = build_launch_pack(item["id"], db_path=db_path, out_dir=out_dir, llm=llm)
-        results.append(res)
-    return results
+    import product_pipeline
+    return product_pipeline.run_pending(db_path=db_path, out_dir=out_dir, llm=llm)

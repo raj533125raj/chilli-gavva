@@ -2,6 +2,25 @@
 
 Last updated: 2026-10-31.
 
+Approved-product delivery (robot-r65): the scheduled builder now runs council/checker
+gates, real product files, launch documentation and truth checks as one resumable
+pipeline. At most two attempts start per UTC day across runs. Owner approvals are
+committed independently and approved text is never rewritten by the council.
+Only confirmed private encryption marks a product built. The existing pack-products
+step persists readiness receipts; the owner inbox retries unsent ready messages.
+`/pack ID` lists saved file names only. Missing AI, unsafe reviews, incomplete images,
+truth-check failures and encryption failures remain pending with doctor cases.
+No fallback products or placeholder listing images are used in launch packs.
+
+Router test isolation: plain unittest runs use memory for implicit breaker, cap,
+cooldown and budget state, without requiring CHILLI_TEST. Legacy implicit
+guardrails and agent-memory callers use a disposable database instead of live state.
+Explicit temporary databases still exercise persistent caps and cross-process
+reservations. The live checkout database is protected from test reads/writes, including direct transport
+and provider-log calls. Router and health cases each get fresh state; a regression
+runs the health suite twice against an existing database with open breakers and
+verifies that its bytes are unchanged.
+
 Office agent controls (robot-r63): consume the wizard's signed `send_message` JSON
 for `add_agent` and `engine_change`. Strictly validated hires persist in the workforce
 registry paused; owner `set_switch` enables them subject to existing cube/global gates.
