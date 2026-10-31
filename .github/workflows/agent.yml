@@ -62,6 +62,7 @@ jobs:
       # (concurrency group), so the run before this one may already have saved a newer database.
       - uses: actions/checkout@v5
         if: ${{ !cancelled() }}
+        timeout-minutes: 2
         with:
           ref: main
           fetch-depth: 0
@@ -77,17 +78,28 @@ jobs:
           key: robot-failure-v1-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: robot-failure-v1-
 
+      # Keep the dependency definition in this workflow: no new tracked dependency file.
+      # setup-python hashes this generated requirements file for its pip download cache.
+      - name: Write image requirements
+        timeout-minutes: 1
+        run: printf '%s\n' 'Pillow==11.3.0' > .agent-image-requirements.txt
+
       - uses: actions/setup-python@v6
+        timeout-minutes: 2
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: .agent-image-requirements.txt
 
       # Open the database for this run. The plaintext file exists only on this runner and is never committed.
       - name: Open the database
+        timeout-minutes: 1
         env:
           DB_KEY: ${{ secrets.DB_KEY }}
         run: python3 run_failure.py run decrypt -- python3 scripts/db_crypt.py decrypt
 
       - name: Unpack private products
+        timeout-minutes: 2
         env:
           DB_KEY: ${{ secrets.DB_KEY }}
         run: python3 run_failure.py run unpack -- python3 scripts/db_crypt.py unpack-products
@@ -96,6 +108,7 @@ jobs:
       # Prints provider, model, OK/FAIL, error number or timeout, seconds. Never prints keys.
       - name: AI health check (manual only)
         if: github.event.inputs.health == 'yes'
+        timeout-minutes: 5
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -112,6 +125,7 @@ jobs:
       # Every run: report any secret or private data in the repository (the Save state step blocks on it).
       - name: Secret guard (report)
         continue-on-error: true
+        timeout-minutes: 2
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -128,6 +142,7 @@ jobs:
       # One writer at a time: when the Mac worker is alive this run stands down (all steps skip).
       - name: Skip if the Mac worker is running
         id: gate
+        timeout-minutes: 1
         env:
           ALWAYS_ON_URL: ${{ secrets.ALWAYS_ON_URL }}
           ALWAYS_ON_SECRET: ${{ secrets.ALWAYS_ON_SECRET }}
@@ -135,23 +150,53 @@ jobs:
           FORCE: ${{ github.event.inputs.force || 'no' }}
         run: python3 always_on.py gate --reason "$REASON" --force "$FORCE"
 
-      # Free tools for the listing images: Pillow draws them, poppler turns real PDF pages into pictures,
-      # and the URW fonts give poppler a free Helvetica twin (so bold text looks bold in the pictures).
-      # If this step fails, products are still built; only their images are skipped.
-      - name: Install free image tools
+      # Record the actual checkout SHA, not github.sha (checkout follows newest main).
+      # A cache miss or any comparison error keeps the full suite enabled.
+      - name: Restore last green revision
         if: steps.gate.outputs.run == 'true'
         continue-on-error: true
-        timeout-minutes: 6
+        timeout-minutes: 1
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/robot-green-sha.txt
+          key: robot-green-code-v1-${{ runner.os }}-py311-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: robot-green-code-v1-${{ runner.os }}-py311-
+
+      - name: Check whether the full suite is needed
+        id: test_plan
+        if: steps.gate.outputs.run == 'true'
+        continue-on-error: true
+        timeout-minutes: 1
+        shell: bash
         run: |
-          python3 -m pip install --quiet "Pillow==11.3.0"
-          if [ "$(dpkg-query -W -f='${Status}' poppler-utils 2>/dev/null)" != "install ok installed" ]; then
-            sudo apt-get -o Acquire::Retries=3 update -qq
+          head=$(git rev-parse HEAD)
+          echo "head=$head" >> "$GITHUB_OUTPUT"
+          run=true
+          if [ "$GITHUB_EVENT_NAME" = schedule ] && [ -f "$RUNNER_TEMP/robot-green-sha.txt" ]; then
+            base=$(cat "$RUNNER_TEMP/robot-green-sha.txt")
+            if [[ "$base" =~ ^[0-9a-f]{40}$ ]] && git merge-base --is-ancestor "$base" "$head"; then
+              # Everything except known state/docs counts as code, including tests,
+              # workflows, recipes, configuration and future file types.
+              if git diff --quiet "$base" "$head" -- . \
+                ':!agent_data.db.enc' ':!products.tar.gz.enc' ':!web/data/status.json' \
+                ':!.scheduler_locks' ':(exclude,glob)docs/**/*.md' ':!README.md'; then
+                run=false
+              fi
+            fi
           fi
-          sudo apt-get -o Acquire::Retries=3 install -y -qq --no-install-recommends poppler-utils fonts-urw-base35 > /dev/null
-          python3 -c "import mockups; print('Image tools ready:', mockups.available())"
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "Full unit suite required: $run"
+
+      # Preserve image-test coverage on full test runs, even without a pending build.
+      - name: Install test dependencies
+        if: steps.gate.outputs.run == 'true' && steps.test_plan.outputs.run != 'false'
+        timeout-minutes: 2
+        run: python3 -m pip install --quiet --disable-pip-version-check -r .agent-image-requirements.txt
 
       - name: Run tests first
-        if: steps.gate.outputs.run == 'true'
+        id: tests
+        if: steps.gate.outputs.run == 'true' && steps.test_plan.outputs.run != 'false'
+        timeout-minutes: 5
         env:
           CHILLI_TEST: "1"
           DB_KEY: ${{ secrets.DB_KEY }}
@@ -160,13 +205,14 @@ jobs:
           python3 -m unittest discover -s tests
           # Some tests write to the real database / status file. Put the committed copies back
           # (and drop files tests created) so test data is never saved by "Save state".
+          git checkout -- web/data/status.json agent_data.db.enc products.tar.gz.enc .scheduler_locks
           python3 scripts/db_crypt.py decrypt
-          git checkout -- web/data/status.json
           git clean -fdq -- exported_content .scheduler_locks
           ROBOT_STEP
 
       - name: Run scheduled recipe (if slot matches now)
         if: steps.gate.outputs.run == 'true'
+        timeout-minutes: 3
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -190,6 +236,7 @@ jobs:
 
       - name: Run one agent cycle
         if: steps.gate.outputs.run == 'true'
+        timeout-minutes: 9
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -208,6 +255,7 @@ jobs:
       - name: Telegram inbox (buttons, commands, new draft alerts, daily report)
         id: inbox
         if: steps.gate.outputs.run == 'true'
+        timeout-minutes: 6
         env:
           # Signed office agent questions use the same guarded provider chain as workforce tasks.
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
@@ -234,13 +282,54 @@ jobs:
 
       - name: Export approved content
         if: steps.gate.outputs.run == 'true'
+        timeout-minutes: 2
         run: python3 run_failure.py run export -- python3 content_export.py
+
+      # Recheck after Telegram: approvals made in this very run must get their images.
+      # The builder still runs even if there is no image work, retaining its bookkeeping.
+      - name: Check for approved product builds
+        id: image_work
+        if: steps.gate.outputs.run == 'true'
+        continue-on-error: true
+        timeout-minutes: 1
+        run: |
+          python3 - <<'PY'
+          import os
+          import cubes
+          import guardrails
+          import product_builder
+          needed = (guardrails.automation_allowed() and cubes.get_cube_state('product') == 'on'
+                    and any(product_builder.niche_of(item['title']) for item in product_builder._todo()))
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              print('needed=' + str(needed).lower(), file=output)
+          PY
+
+      # Free listing-image tools: install apt packages only for eligible approved drafts.
+      # If the probe fails, try installation so an optimization cannot remove images.
+      - name: Install free image tools
+        if: steps.gate.outputs.run == 'true' && steps.image_work.outputs.needed != 'false'
+        continue-on-error: true
+        timeout-minutes: 6
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check -r .agent-image-requirements.txt
+          missing=()
+          for package in poppler-utils fonts-urw-base35; do
+            if [ "$(dpkg-query -W -f='${Status}' "$package" 2>/dev/null)" != "install ok installed" ]; then
+              missing+=("$package")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            sudo apt-get -o Acquire::Retries=3 update -qq
+            sudo apt-get -o Acquire::Retries=3 install -y -qq --no-install-recommends "${missing[@]}" > /dev/null
+          fi
+          python3 -c "import mockups; print('Image tools ready:', mockups.available())"
 
       # Standard library only (xlsx/docx/pdf are written directly), so nothing to install.
       # A builder error never blocks "Save state"; unfinished drafts are retried next run.
       - name: Build product files from approved drafts
         if: steps.gate.outputs.run == 'true'
         continue-on-error: true
+        timeout-minutes: 6
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -259,12 +348,14 @@ jobs:
 
       - name: Pack private products
         if: steps.gate.outputs.run == 'true'
+        timeout-minutes: 2
         env:
           DB_KEY: ${{ secrets.DB_KEY }}
         run: python3 run_failure.py run pack -- python3 scripts/db_crypt.py pack-products
 
       - name: Save state
         if: steps.gate.outputs.run == 'true'
+        timeout-minutes: 3
         env:
           # Only for the secret guard: it looks for these exact values in memory and never prints them.
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
@@ -321,6 +412,7 @@ jobs:
 
       - name: Report minutes to the alarm clock
         if: always()
+        timeout-minutes: 1
         env:
           ALWAYS_ON_URL: ${{ secrets.ALWAYS_ON_URL }}
           ALWAYS_ON_SECRET: ${{ secrets.ALWAYS_ON_SECRET }}
@@ -329,6 +421,7 @@ jobs:
       - name: Update failure counter and alert on a repeated failure
         id: failure_result
         if: always()
+        timeout-minutes: 1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -345,6 +438,26 @@ jobs:
         with:
           path: ${{ runner.temp }}/robot-failure-state.json
           key: robot-failure-v1-${{ github.run_id }}-${{ github.run_attempt }}
+
+      # Advance the baseline only after the entire cycle is green. A skipped suite
+      # is safe here only because the SHA comparison proved the code unchanged.
+      - name: Remember green code revision
+        id: green_revision
+        if: success() && steps.gate.outputs.run == 'true' && steps.test_plan.outcome == 'success' && (steps.tests.outcome == 'success' || steps.test_plan.outputs.run == 'false')
+        continue-on-error: true
+        timeout-minutes: 1
+        env:
+          TESTED_SHA: ${{ steps.test_plan.outputs.head }}
+        run: printf '%s\n' "$TESTED_SHA" > "$RUNNER_TEMP/robot-green-sha.txt"
+
+      - name: Save green code revision
+        if: success() && steps.green_revision.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 1
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/robot-green-sha.txt
+          key: robot-green-code-v1-${{ runner.os }}-py311-${{ github.run_id }}-${{ github.run_attempt }}
 
   recovery_inbox:
     needs: cycle
