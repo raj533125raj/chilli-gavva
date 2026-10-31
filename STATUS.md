@@ -2,6 +2,10 @@
 
 Last updated: 2026-10-31.
 
+Office export repairs (robot-r69): the final public scrub rebuilds the connection
+protocol from fixed addresses, required environment names and supported engine modes.
+Connection objects cannot supply credential values or extra private fields.
+
 Approved-product delivery (robot-r65): the scheduled builder now runs council/checker
 gates, real product files, launch documentation and truth checks as one resumable
 pipeline. At most two attempts start per UTC day across runs. Owner approvals are

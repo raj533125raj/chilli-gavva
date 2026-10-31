@@ -25,6 +25,7 @@ import workforce
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PRODUCTS_DIR = os.path.join(BASE_DIR, "exported_content", "products")
+PUBLIC_CONNECTION_KEYS = ("CF_ACCOUNT_ID", "CF_KV_NAMESPACE_ID", "CF_API_TOKEN", "CONTROL_SIGNING_KEY")
 
 # Regex to scrub credentials, key=, token=, bearer tokens, API keys
 SECRET_PATTERN = re.compile(
@@ -67,7 +68,11 @@ def scrub_public_data(value):
     if isinstance(value, str):
         return scrub_text(value)
     if isinstance(value, dict):
-        return {scrub_text(key) if isinstance(key, str) else key: scrub_public_data(item)
+        # Rebuild this protocol description from constants. Credential NAMES are
+        # public even if a configured value happens to match one; never copy any
+        # incoming values or extra fields from a connection object.
+        return {scrub_text(key) if isinstance(key, str) else key:
+                get_public_agent_connection() if key == "agent_connection" else scrub_public_data(item)
                 for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [scrub_public_data(item) for item in value[:200]]
@@ -831,10 +836,9 @@ def get_public_office_export(db_path=None, checked_at=None):
 
 def get_public_agent_connection():
     """Protocol addresses and required environment NAMES; never inspect their values."""
-    import agent_engines
-    names = ["CF_ACCOUNT_ID", "CF_KV_NAMESPACE_ID", "CF_API_TOKEN", "CONTROL_SIGNING_KEY"]
+    names = list(PUBLIC_CONNECTION_KEYS)
     return {"inbox": "control:request:*", "outbox": "runtime:receipt:<id>",
-            "required_keys": names, "keys": list(names), "engines": agent_engines.modes()}
+            "required_keys": names, "keys": list(names), "engines": ["local", "cloud"]}
 
 
 def get_public_agent_metadata(db_path=None):
