@@ -171,9 +171,11 @@ def _connect(db_path):
         conn.close()
 
 
-def _receipt(ident, state, reason, now, reply=None, source_signature=None):
+def _receipt(ident, state, reason, now, reply=None, source_signature=None, request_type=None):
     result = {"id": ident, "state": state, "reason": reason,
               "at": datetime.datetime.fromtimestamp(now, datetime.timezone.utc).isoformat().replace("+00:00", "Z")}
+    if isinstance(request_type, str) and request_type in ACTION_NAMES:
+        result["type"] = request_type
     if reply is not None:
         result["reply"] = secret_guard.scrub_text(reply)[:4000]
     if isinstance(source_signature, str) and re.fullmatch(r"[0-9a-f]{64}", source_signature):
@@ -373,7 +375,7 @@ def run(db_path=None, env=None, http_request=None, now=None, send=None):
             state, reason, reply = "rejected", "invalid request value", None
         except Exception:
             state, reason, reply = "held", "runtime could not complete the request", None
-        receipt = _receipt(ident, state, reason, now, reply, record["signature"])
+        receipt = _receipt(ident, state, reason, now, reply, record["signature"], request_type=record["action"])
         with _connect(db_path) as conn:
             conn.execute("UPDATE office_requests SET receipt = ? WHERE id = ?", (json.dumps(receipt), ident))
             conn.execute("INSERT OR IGNORE INTO office_receipt_outbox VALUES (?)", (ident,))

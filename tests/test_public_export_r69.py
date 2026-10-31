@@ -92,6 +92,48 @@ class OfficeExportTests(unittest.TestCase):
             self.assertEqual(self.status()["workspaces"], rows)
         self.assertNotIn("private workspace instructions", json.dumps(rows))
 
+
+    def test_real_inbox_receipt_scheduler_mission_and_doctor_event_reach_status(self):
+        import control_inbox
+        import doctor
+        import office_tasks
+        import scheduler
+        from test_office_controls import ENV, FakeKV, signed
+        at = 1793448000
+        private = "PRIVATE_OFFICE_JOB_AND_PRODUCT_IDEA"
+        record = signed(stamp=at, value={"title": private, "agent_id": "chilli-gavva-robot-research-worker", "every": "1h"})
+        kv = FakeKV([record])
+        with mock.patch.object(guardrails, "is_killed", return_value=False), \
+                mock.patch("rest_window.in_rest_window", return_value=False):
+            self.assertEqual(control_inbox.run(self.db, ENV, kv, at)["applied"], 1)
+            with mock.patch.object(scheduler, "_load_schedule", return_value=[]), \
+                    mock.patch.object(office_tasks.time, "time", return_value=at + 3600):
+                scheduler.run_now(db_path=self.db)
+        with sqlite3.connect(self.db) as conn:
+            task_id = conn.execute("SELECT id FROM tasks WHERE kind='office_task'").fetchone()[0]
+            conn.execute("UPDATE tasks SET agent='Research Worker',attempts=2 WHERE id=?", (task_id,))
+        self.assertIn(task_id, [row["task_id"] for row in doctor.detect_stuck_tasks(self.db)])
+        doctor.record_case({"agent": "Research Worker", "step": "office_task", "error_class": "RuntimeError",
+                            "error_message": private, "last_5_actions": [private], "task_id": task_id},
+                           "loop_limit", private, private, "needs_owner", db_path=self.db)
+        before = Path(self.db).read_bytes()
+        public = public_export.get_public_office_export(self.db, NOW)
+        self.assertEqual(Path(self.db).read_bytes(), before)
+        receipt = next(row for row in public["receipts"] if row["id"] == record["id"])
+        self.assertEqual((receipt["state"], receipt["type"], receipt["safe_reason"]),
+                         ("applied", "add_mission", "Request applied"))
+        mission = next(row for row in public["schedules"] if row["id"] == record["target"])
+        self.assertEqual((mission["name"], mission["cadence"], mission["state"]), ("Recurring mission", "1h", "active"))
+        self.assertEqual(mission["next_run"], "2026-10-31T14:00:00Z")
+        self.assertIn("Stuck task check", [row["label"] for row in public["loop_events"]])
+        self.assertIn("Loop prevention check", [row["label"] for row in public["loop_events"]])
+        document = self.status()
+        for key in ("receipts", "schedules", "loop_events"):
+            self.assertEqual(document[key], public[key])
+        self.assertNotIn(private, json.dumps(document))
+        for row in document["receipts"]:
+            self.assertEqual(set(row), {"id", "type", "state", "safe_reason", "at"})
+
     def test_connection_names_survive_final_scrub_without_credential_values(self):
         secrets = {name: "private-connection-value-" + str(i)
                    for i, name in enumerate(public_export.PUBLIC_CONNECTION_KEYS)}

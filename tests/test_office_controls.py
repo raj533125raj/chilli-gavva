@@ -153,7 +153,8 @@ class ReceiptSafetyTests(OfficeBase):
     def test_receipt_shape_signature_nonce_replay_and_stale_database(self):
         record=signed(); self.run_request(record)
         receipt=self.kv.receipt()
-        self.assertEqual(set(receipt),{'id','state','reason','at','signature','request_signature'})
+        self.assertEqual(set(receipt),{'id','state','reason','at','signature','request_signature','type'})
+        self.assertEqual(receipt['type'], 'add_mission')
         self.assertEqual(receipt['at'],'2026-10-30T10:40:00Z')
         self.assertEqual(self.run_request()['refused'],1)
         self.assertEqual(self.rows('SELECT COUNT(*) FROM office_missions')[0][0],1)

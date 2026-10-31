@@ -722,15 +722,18 @@ def get_public_agent_budgets(db_path=None, checked_at=None):
 
 
 def get_public_loop_events(db_path=None):
-    """Last 50 failures/repeated attempts and Doctor cases, with fixed labels."""
+    """Failures, repeat/stuck detector candidates and persisted Doctor cases."""
     result = []
     rows = _office_rows(db_path, "SELECT id,agent,status,attempts,COALESCE(finished_ts,started_ts,ts) AS at "
                         "FROM tasks WHERE status='failed' OR attempts>=3 "
+                        "OR (status IN ('queued','running') AND attempts>=2) "
                         "ORDER BY julianday(COALESCE(finished_ts,started_ts,ts)) DESC,id DESC LIMIT 50")
     for row in rows:
-        loop = isinstance(row["attempts"], int) and row["attempts"] >= 3
+        stuck = row["status"] in ("queued", "running") and isinstance(row["attempts"], int) and row["attempts"] >= 2
+        loop = stuck or isinstance(row["attempts"], int) and row["attempts"] >= 3
         result.append({"agent": _public_agent(row["agent"]), "kind": "loop" if loop else "error",
-                       "label": "Repeated task attempts" if loop else "Task failed", "at": _iso(row["at"])})
+                       "label": "Stuck task check" if stuck and row["attempts"] < 3 else
+                       "Repeated task attempts" if loop else "Task failed", "at": _iso(row["at"])})
     for row in _office_rows(db_path, "SELECT agent,category,ts FROM doctor_cases ORDER BY julianday(ts) DESC,id DESC LIMIT 50"):
         loop = row["category"] in ("repeat_loop", "loop_limit", "stuck", "stuck_task")
         result.append({"agent": _public_agent(row["agent"]), "kind": "loop" if loop else "error",
