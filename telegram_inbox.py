@@ -45,14 +45,16 @@ import guardrails
 import notify
 
 API = "https://api.telegram.org/bot{token}/{method}"
-MAX_MESSAGE = 3800          # Telegram limit is 4096 characters
+MAX_MESSAGE = 3500          # Enforced maximum outgoing message limit
 MAX_UPDATES = 50
 _TIMEOUT = 15
 WAITING_DRAFT_AGE_SECONDS = 12 * 60 * 60
 WAITING_DRAFT_REMINDER_SECONDS = 12 * 60 * 60
 WAITING_DRAFT_REMINDER_STATE = "last_waiting_draft_reminder"
+UNKNOWN_TEXT_HINT = "Unknown message. Send /help for commands."
 
 HELP = ("\U0001f336️ Chilli Gavva approvals\n\n"
+        "/status - compact system status\n"
         "/list - drafts waiting\n"
         "/view ID - read a draft\n"
         "/approve ID - approve (several ids ok)\n"
@@ -143,13 +145,24 @@ def _call(token, method, params, opener=None, sleep_fn=None):
             return None
 
 
+def _scrub_outgoing(text: str) -> str:
+    """Scrub secrets, tokens, API keys, emails, and truncate to <= MAX_MESSAGE chars."""
+    if not text:
+        return ""
+    import public_export
+    scrubbed = public_export.scrub_text(text)
+    if len(scrubbed) > MAX_MESSAGE:
+        cut_suffix = "\n\n...(cut, message length limit)"
+        scrubbed = scrubbed[:MAX_MESSAGE - len(cut_suffix)] + cut_suffix
+    return scrubbed
+
+
 def send_text(token, chat_id, text, buttons=None):
     """Send plain text (no HTML parsing, so draft content can never break formatting).
 
     buttons: optional rows of (label, callback_data) shown as inline buttons under the message.
     """
-    if len(text) > MAX_MESSAGE:
-        text = text[:MAX_MESSAGE] + "\n\n...(cut, too long for one message)"
+    text = _scrub_outgoing(text)
     params = {"chat_id": chat_id, "text": text}
     if buttons:
         params["reply_markup"] = {"inline_keyboard": [[{"text": label, "callback_data": data} for label, data in row]
@@ -236,7 +249,7 @@ def subscription_note(token):
 
 
 # ---- command handling --------------------------------------------------------
-_COMMANDS = "list|view|approve|reject|pack|pipeline|pause|resume|buttontest|rules|cubes|doctor|autofix_drill|help|start"
+_COMMANDS = "status|list|view|approve|reject|pack|pipeline|pause|resume|buttontest|rules|cubes|doctor|autofix_drill|help|start"
 # "/approve 4", "/approve" or "/approve@bot 4 5": anything after a real slash command is fine.
 _SLASH_CMD = re.compile(rf"^/({_COMMANDS})(?:@\w+)?(?:\s+(.*))?$", re.IGNORECASE | re.DOTALL)
 # Without a slash only the bare form counts: "approve 4", "approve 4, 5", "list". A normal sentence such as
@@ -436,7 +449,134 @@ def pipeline_text(db_path=None):
     return "\n".join(lines)
 
 
+def _format_ist_time(ts_str):
+    """Convert ISO timestamp to IST string or return 'unknown'."""
+    if not ts_str:
+        return "unknown"
+    try:
+        from zoneinfo import ZoneInfo
+        ist_zone = ZoneInfo("Asia/Kolkata")
+        clean = ts_str.replace("Z", "+00:00")
+        dt = datetime.datetime.fromisoformat(clean)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=datetime.timezone.utc)
+        ist_dt = dt.astimezone(ist_zone)
+        return ist_dt.strftime("%Y-%m-%d %H:%M:%S IST")
+    except Exception:
+        return "unknown"
+
+
+def status_text(db_path=None):
+    """Compact status: AI providers, GitHub minutes, drafts, products, pipeline, last run IST."""
+    import public_export
+
+    # 1. AI providers ok/failing (names only)
+    ok_providers = []
+    fail_providers = []
+    try:
+        ai_health = public_export.get_public_ai_health(db_path)
+        for item in ai_health:
+            p_name = item.get("provider")
+            state = item.get("state")
+            if state == "up":
+                ok_providers.append(p_name)
+            elif state == "down":
+                fail_providers.append(p_name)
+    except Exception:
+        pass
+
+    ai_parts = []
+    if ok_providers:
+        ai_parts.append(f"ok: {', '.join(ok_providers)}")
+    if fail_providers:
+        ai_parts.append(f"failing: {', '.join(fail_providers)}")
+    ai_line = f"AI providers: {'; '.join(ai_parts)}" if ai_parts else "AI providers: unknown"
+
+    # 2. GitHub minutes used/limit or "unknown"
+    try:
+        minutes_info = public_export.get_public_minutes(db_path)
+        used = minutes_info.get("used_this_month")
+        limit = minutes_info.get("limit")
+        if used is not None and limit is not None:
+            min_str = f"{used}/{limit}"
+        elif used is not None:
+            min_str = str(used)
+        else:
+            min_str = "unknown"
+    except Exception:
+        min_str = "unknown"
+    gh_line = f"GitHub minutes: {min_str}"
+
+    # 3. Today's drafts made/waiting/approved & products built today
+    try:
+        rep = public_export.get_public_report(db_path)
+        d_made = rep.get("drafts_made", 0)
+        d_waiting = rep.get("drafts_waiting", 0)
+        d_approved = rep.get("drafts_approved", 0)
+        built_today = rep.get("products_built", 0)
+    except Exception:
+        d_made, d_waiting, d_approved, built_today = 0, 0, 0, 0
+    drafts_line = f"Drafts today: {d_made} made, {d_waiting} waiting, {d_approved} approved"
+    built_line = f"Products built today: {built_today}"
+
+    # 4. Products READY / NEEDS FIX counts
+    try:
+        products = public_export.get_public_products(db_path)
+        ready_cnt = sum(1 for p in products if (p.get("truth_check") or {}).get("verdict") == "READY")
+        needs_fix_cnt = sum(1 for p in products if (p.get("truth_check") or {}).get("verdict") == "NEEDS FIX")
+    except Exception:
+        ready_cnt, needs_fix_cnt = 0, 0
+    prod_check_line = f"Product quality: {ready_cnt} READY, {needs_fix_cnt} NEEDS FIX"
+
+    # 5. Pipeline plan vs done
+    try:
+        pipeline = public_export.get_public_pipeline(db_path)
+        pipe_items = []
+        for stage, data in pipeline.items():
+            pipe_items.append(f"{stage} {data.get('done', 0)}/{data.get('plan', 0)}")
+        pipe_line = f"Pipeline: {', '.join(pipe_items)}" if pipe_items else "Pipeline: unknown"
+    except Exception:
+        pipe_line = "Pipeline: unknown"
+
+    # 6. Last run time IST
+    last_run_ist = "unknown"
+    try:
+        hb = public_export.get_public_cloud_heartbeat()
+        end_ts = hb.get("last_run_end") or hb.get("last_run_start")
+        if end_ts:
+            last_run_ist = _format_ist_time(end_ts)
+        else:
+            state_ts = get_state("last_cloud_run_ts", None, db_path)
+            if state_ts:
+                last_run_ist = _format_ist_time(state_ts)
+            else:
+                import workforce
+                conn = workforce.connect(db_path)
+                row = conn.execute("SELECT ts FROM heartbeat WHERE name = 'worker'").fetchone()
+                if not row:
+                    row = conn.execute("SELECT MAX(finished_ts) FROM tasks WHERE status = 'done'").fetchone()
+                conn.close()
+                if row and row[0]:
+                    last_run_ist = _format_ist_time(row[0])
+    except Exception:
+        pass
+    last_run_line = f"Last run: {last_run_ist}"
+
+    return "\n".join([
+        "🤖 Chilli Gavva Status",
+        ai_line,
+        gh_line,
+        drafts_line,
+        built_line,
+        prod_check_line,
+        pipe_line,
+        last_run_line,
+    ])
+
+
 def handle_command(cmd, ids, db_path=None):
+    if cmd == "status":
+        return status_text(db_path)
     if cmd == "pack":
         import product_pipeline
         return product_pipeline.pack_text(ids[0], db_path) if ids else "Send /pack ID to list upload file names."
@@ -596,6 +736,39 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
     handled = 0
     valid = [upd for upd in updates if type(upd.get("update_id")) is int]
     next_offset = int(offset) if offset else None
+
+    # Pre-count occurrences of each message key for owner messages in this batch
+    def _message_key(m_text):
+        app_id = parse_start_payload(m_text)
+        if app_id is not None:
+            return ("start_payload", app_id)
+        c, c_ids = parse_command(m_text)
+        if not c:
+            u = re.findall(r"https?://[^\s]+", m_text)
+            if u:
+                return ("url", u[0])
+            import chat_brain
+            intent, _ = chat_brain.classify_intent(m_text, db_path=db_path)
+            if intent and intent != "capabilities":
+                return ("chat_brain", m_text)
+            return ("unknown_text",)
+        return ("command", c, tuple(c_ids))
+
+    key_counts = {}
+    for upd in sorted(valid, key=lambda item: item["update_id"]):
+        u_id = upd["update_id"]
+        if next_offset is not None and u_id < next_offset:
+            continue
+        msg_candidate = upd.get("message")
+        if not msg_candidate or "text" not in msg_candidate:
+            continue
+        if str((msg_candidate.get("chat") or {}).get("id", "")) != str(owner_chat_id):
+            continue
+        m_k = _message_key(msg_candidate.get("text", ""))
+        key_counts[m_k] = key_counts.get(m_k, 0) + 1
+
+    seen_message_keys = set()
+
     for upd in sorted(valid, key=lambda item: item["update_id"]):
         update_id = upd["update_id"]
         if next_offset is not None and update_id < next_offset:
@@ -661,43 +834,60 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
             continue
 
         message_text = msg.get("text", "")
+        m_key = _message_key(message_text)
+        is_duplicate = m_key in seen_message_keys
+        seen_message_keys.add(m_key)
+        total_k_count = key_counts.get(m_key, 1)
+        burst_note = f"\n\n(answered {total_k_count} messages)" if total_k_count > 1 else ""
 
         approval_id = parse_start_payload(message_text)
         if approval_id is not None:
-            reply = view_text(approval_id, db_path)
-            send_text(token, owner_chat_id, reply, draft_buttons(approval_id))
+            if not is_duplicate:
+                reply = view_text(approval_id, db_path) + burst_note
+                send_text(token, owner_chat_id, reply, draft_buttons(approval_id))
             handled += 1
             continue
+
         cmd, ids = parse_command(message_text)
         if not cmd:
             # Check for URL link in message_text
             urls = re.findall(r"https?://[^\s]+", message_text)
             if urls:
-                reply_text, buttons, _ = media_brain.process_url(urls[0], db_path=db_path)
-                send_text(token, owner_chat_id, reply_text, buttons)
+                if not is_duplicate:
+                    reply_text, buttons, _ = media_brain.process_url(urls[0], db_path=db_path)
+                    send_text(token, owner_chat_id, reply_text + burst_note, buttons)
                 handled += 1
                 continue
 
             import chat_brain
-            chat_brain.process_message(token, owner_chat_id, message_text, db_path=db_path)
+            intent, params = chat_brain.classify_intent(message_text, db_path=db_path)
+            if intent and intent != "capabilities":
+                if not is_duplicate:
+                    chat_brain.process_message(token, owner_chat_id, message_text + burst_note, db_path=db_path)
+            else:
+                if not is_duplicate:
+                    send_text(token, owner_chat_id, UNKNOWN_TEXT_HINT + burst_note)
             handled += 1
             continue
-        if cmd == "rules":
-            import improver_loop
-            text, buttons = improver_loop.format_rules_list(db_path)
-            send_text(token, owner_chat_id, text, buttons)
-        elif cmd == "cubes":
-            import cubes
-            text, buttons = cubes.format_telegram_cubes_list(db_path)
-            send_text(token, owner_chat_id, text, buttons)
-        else:
-            send_text(token, owner_chat_id, handle_command(cmd, ids, db_path))
-        if cmd == "list":       # fresh buttons for every waiting draft (up to 10)
-            for it in guardrails.pending(db_path)[:10]:
-                send_text(token, owner_chat_id, draft_card(it, db_path=db_path), draft_buttons(it["id"]))
-        elif cmd == "buttontest":
-            send_text(token, owner_chat_id, "Press this test button. The reply comes on the next run "
-                      "(about 1-2 minutes with the door bell).", [[("Test button", "t:ping")]])
+
+        if not is_duplicate:
+            if cmd == "rules":
+                import improver_loop
+                text, buttons = improver_loop.format_rules_list(db_path)
+                send_text(token, owner_chat_id, text + burst_note, buttons)
+            elif cmd == "cubes":
+                import cubes
+                text, buttons = cubes.format_telegram_cubes_list(db_path)
+                send_text(token, owner_chat_id, text + burst_note, buttons)
+            else:
+                reply = handle_command(cmd, ids, db_path) + burst_note
+                send_text(token, owner_chat_id, reply)
+            if cmd == "list":       # fresh buttons for every waiting draft (up to 10)
+                for it in guardrails.pending(db_path)[:10]:
+                    send_text(token, owner_chat_id, draft_card(it, db_path=db_path), draft_buttons(it["id"]))
+            elif cmd == "buttontest":
+                send_text(token, owner_chat_id, "Press this test button. The reply comes on the next run "
+                          "(about 1-2 minutes with the door bell)." + burst_note, [[("Test button", "t:ping")]])
         handled += 1
     stats["handled"] = handled
     return handled
@@ -810,9 +1000,19 @@ def run(db_path=None, recovery=False):
     waiting_reminder = remind_waiting_drafts(token, chat_id, db_path)
     try:  # one short health report a day (first run after 03:30 UTC), weekly letter on Sundays
         import daily_report
-        daily = daily_report.maybe_send(
-            lambda text: send_text(token, chat_id, text + "\n" + daily_waiting_line(db_path)),
-            get_state, set_state, db_path)
+        from zoneinfo import ZoneInfo
+        ist_now = datetime.datetime.now(ZoneInfo("Asia/Kolkata"))
+        ist_day_str = ist_now.date().isoformat()
+        last_ist_day = get_state("daily_report_ist_day", None, db_path)
+
+        if last_ist_day == ist_day_str:
+            daily = False
+        else:
+            daily = daily_report.maybe_send(
+                lambda text: send_text(token, chat_id, text + "\n" + daily_waiting_line(db_path)),
+                get_state, set_state, db_path)
+            if daily:
+                set_state("daily_report_ist_day", ist_day_str, db_path)
         import improver_loop
         improver_loop.maybe_run_weekly(
             lambda text, buttons=None: send_text(token, chat_id, text, buttons),
