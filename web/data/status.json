@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-31T01:12:08Z",
+ "generated_at": "2026-10-31T05:51:41Z",
  "kill_switch": false,
  "llm": {
   "calls_today": 1,
@@ -289,35 +289,35 @@
    "model": null,
    "state": "up",
    "reason": "All recent calls succeeded",
-   "checked_at": "2026-10-31T01:12:08Z"
+   "checked_at": "2026-10-31T05:51:41Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-10-31T01:12:08Z"
+   "checked_at": "2026-10-31T05:51:41Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-10-31T01:12:08Z"
+   "checked_at": "2026-10-31T05:51:41Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-10-31T01:12:08Z"
+   "checked_at": "2026-10-31T05:51:41Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-10-31T01:12:08Z"
+   "checked_at": "2026-10-31T05:51:41Z"
   }
  ],
  "minutes": {
@@ -729,6 +729,1111 @@
    "done": 0
   }
  },
+ "agent_budgets": [
+  {
+   "agent": "CEO",
+   "calls_used_today": null,
+   "calls_limit_today": null,
+   "context_percent": null
+  },
+  {
+   "agent": "Research Manager",
+   "calls_used_today": null,
+   "calls_limit_today": null,
+   "context_percent": null
+  },
+  {
+   "agent": "Content Manager",
+   "calls_used_today": null,
+   "calls_limit_today": null,
+   "context_percent": null
+  },
+  {
+   "agent": "QA Reviewer",
+   "calls_used_today": null,
+   "calls_limit_today": null,
+   "context_percent": null
+  },
+  {
+   "agent": "Research Worker",
+   "calls_used_today": null,
+   "calls_limit_today": null,
+   "context_percent": null
+  },
+  {
+   "agent": "Draft Worker",
+   "calls_used_today": null,
+   "calls_limit_today": null,
+   "context_percent": null
+  },
+  {
+   "agent": "QA Checker",
+   "calls_used_today": null,
+   "calls_limit_today": null,
+   "context_percent": null
+  },
+  {
+   "agent": "Review Worker",
+   "calls_used_today": null,
+   "calls_limit_today": null,
+   "context_percent": null
+  },
+  {
+   "agent": "Coder Worker",
+   "calls_used_today": null,
+   "calls_limit_today": null,
+   "context_percent": null
+  }
+ ],
+ "loop_events": [],
+ "activity_events": [
+  {
+   "id": "task:164",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-30T22:29:18.715751Z"
+  },
+  {
+   "id": "task:163",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-30T22:28:34.684947Z"
+  },
+  {
+   "id": "task:162",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-30T22:27:16.202423Z"
+  },
+  {
+   "id": "task:161",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-30T22:26:43.190370Z"
+  },
+  {
+   "id": "task:160",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-30T22:26:40.798210Z"
+  },
+  {
+   "id": "task:159",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-30T22:26:38.808511Z"
+  },
+  {
+   "id": "task:158",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-30T22:26:36.570601Z"
+  },
+  {
+   "id": "task:157",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-30T22:26:35.328497Z"
+  },
+  {
+   "id": "task:156",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-30T22:26:33.488310Z"
+  },
+  {
+   "id": "task:155",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-28T23:49:51.087603Z"
+  },
+  {
+   "id": "task:154",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-28T22:56:42.674792Z"
+  },
+  {
+   "id": "task:153",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-28T22:56:41.255011Z"
+  },
+  {
+   "id": "task:152",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-28T22:56:38.409246Z"
+  },
+  {
+   "id": "task:151",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-28T22:04:20.050922Z"
+  },
+  {
+   "id": "task:150",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-28T22:04:18.815529Z"
+  },
+  {
+   "id": "task:149",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-28T22:04:17.414884Z"
+  },
+  {
+   "id": "task:148",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-28T20:21:16.723106Z"
+  },
+  {
+   "id": "task:147",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-28T20:21:14.092996Z"
+  },
+  {
+   "id": "task:146",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-28T20:21:11.656286Z"
+  },
+  {
+   "id": "task:145",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-28T20:19:27.805605Z"
+  },
+  {
+   "id": "task:144",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-28T20:19:26.042412Z"
+  },
+  {
+   "id": "task:143",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-28T20:19:24.445786Z"
+  },
+  {
+   "id": "task:142",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-28T01:03:31.497957Z"
+  },
+  {
+   "id": "task:141",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-28T01:03:30.414753Z"
+  },
+  {
+   "id": "task:140",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-27T23:45:54.472182Z"
+  },
+  {
+   "id": "task:139",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-27T23:45:53.275077Z"
+  },
+  {
+   "id": "task:138",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-27T23:45:51.745853Z"
+  },
+  {
+   "id": "task:137",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-27T22:19:48.811634Z"
+  },
+  {
+   "id": "task:136",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-27T22:19:46.062519Z"
+  },
+  {
+   "id": "task:135",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-27T22:19:43.711041Z"
+  },
+  {
+   "id": "task:134",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-27T20:17:40.902847Z"
+  },
+  {
+   "id": "task:133",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-27T20:17:39.038845Z"
+  },
+  {
+   "id": "task:132",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-27T20:17:36.820755Z"
+  },
+  {
+   "id": "task:131",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-27T01:03:42.737536Z"
+  },
+  {
+   "id": "task:130",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-27T01:03:41.805916Z"
+  },
+  {
+   "id": "task:129",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-27T01:02:05.003066Z"
+  },
+  {
+   "id": "task:128",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-27T01:02:03.749960Z"
+  },
+  {
+   "id": "task:127",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-27T01:02:02.724085Z"
+  },
+  {
+   "id": "task:126",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-26T23:40:59.051675Z"
+  },
+  {
+   "id": "task:125",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-26T23:40:56.711358Z"
+  },
+  {
+   "id": "task:124",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-26T23:40:53.868071Z"
+  },
+  {
+   "id": "task:123",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-26T20:33:03.382630Z"
+  },
+  {
+   "id": "task:122",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-26T20:33:01.774503Z"
+  },
+  {
+   "id": "task:121",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-26T20:32:59.834597Z"
+  },
+  {
+   "id": "task:120",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-25T20:55:55.805651Z"
+  },
+  {
+   "id": "task:119",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-25T20:55:54.869677Z"
+  },
+  {
+   "id": "task:118",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-25T20:55:53.894756Z"
+  },
+  {
+   "id": "task:117",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-25T20:52:37.952791Z"
+  },
+  {
+   "id": "task:116",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-25T20:52:35.454141Z"
+  },
+  {
+   "id": "task:115",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-25T20:52:32.864388Z"
+  },
+  {
+   "id": "task:114",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-25T20:22:58.412238Z"
+  },
+  {
+   "id": "task:113",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-25T20:22:57.026868Z"
+  },
+  {
+   "id": "task:112",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-25T20:22:55.558401Z"
+  },
+  {
+   "id": "task:111",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-24T20:54:49.283237Z"
+  },
+  {
+   "id": "task:110",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-24T20:54:48.417152Z"
+  },
+  {
+   "id": "task:109",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-24T20:54:47.384613Z"
+  },
+  {
+   "id": "task:108",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-24T20:49:55.209599Z"
+  },
+  {
+   "id": "task:107",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-24T20:49:52.990888Z"
+  },
+  {
+   "id": "task:106",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-24T20:49:50.494270Z"
+  },
+  {
+   "id": "task:105",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-24T20:19:45.583914Z"
+  },
+  {
+   "id": "task:104",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-24T20:19:43.805484Z"
+  },
+  {
+   "id": "task:103",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-24T20:19:42.013261Z"
+  },
+  {
+   "id": "task:102",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-23T22:03:51.690588Z"
+  },
+  {
+   "id": "task:101",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-23T22:03:50.916573Z"
+  },
+  {
+   "id": "task:100",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-23T22:03:49.991990Z"
+  },
+  {
+   "id": "task:99",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-23T21:28:56.742748Z"
+  },
+  {
+   "id": "task:98",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-23T21:28:54.615793Z"
+  },
+  {
+   "id": "task:97",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-23T21:28:52.565046Z"
+  },
+  {
+   "id": "task:96",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-23T20:04:36.751962Z"
+  },
+  {
+   "id": "task:95",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-23T20:04:35.436159Z"
+  },
+  {
+   "id": "task:94",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-23T20:04:33.848682Z"
+  },
+  {
+   "id": "task:93",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-22T21:43:51.124148Z"
+  },
+  {
+   "id": "task:92",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-22T21:43:50.171876Z"
+  },
+  {
+   "id": "task:91",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-22T21:40:53.566145Z"
+  },
+  {
+   "id": "task:90",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-22T21:40:52.608231Z"
+  },
+  {
+   "id": "task:89",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-22T21:40:51.496370Z"
+  },
+  {
+   "id": "task:88",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-22T20:44:07.700052Z"
+  },
+  {
+   "id": "task:87",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-22T20:44:05.347727Z"
+  },
+  {
+   "id": "task:86",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-22T20:44:02.998677Z"
+  },
+  {
+   "id": "task:85",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-22T20:14:06.264843Z"
+  },
+  {
+   "id": "task:84",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-22T20:14:04.761302Z"
+  },
+  {
+   "id": "task:83",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-22T20:14:03.279654Z"
+  },
+  {
+   "id": "task:82",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-21T21:40:49.154984Z"
+  },
+  {
+   "id": "task:81",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-21T21:40:48.176377Z"
+  },
+  {
+   "id": "task:80",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-21T21:11:02.410237Z"
+  },
+  {
+   "id": "task:79",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-21T21:11:01.275158Z"
+  },
+  {
+   "id": "task:78",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-21T21:11:00.223433Z"
+  },
+  {
+   "id": "task:77",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-21T20:40:18.517556Z"
+  },
+  {
+   "id": "task:76",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-21T20:40:16.451599Z"
+  },
+  {
+   "id": "task:75",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-21T20:40:14.468593Z"
+  },
+  {
+   "id": "task:74",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-21T20:10:53.696161Z"
+  },
+  {
+   "id": "task:73",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-21T20:10:52.518651Z"
+  },
+  {
+   "id": "task:72",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-21T20:10:51.218274Z"
+  },
+  {
+   "id": "task:71",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-20T20:43:44.856153Z"
+  },
+  {
+   "id": "task:70",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-20T20:43:43.919596Z"
+  },
+  {
+   "id": "task:69",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-20T20:43:43.131196Z"
+  },
+  {
+   "id": "task:68",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-20T20:41:00.071952Z"
+  },
+  {
+   "id": "task:67",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-20T20:40:57.712180Z"
+  },
+  {
+   "id": "task:66",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-20T20:40:55.480880Z"
+  },
+  {
+   "id": "task:65",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-20T20:10:47.353447Z"
+  },
+  {
+   "id": "task:64",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-20T20:10:45.081237Z"
+  },
+  {
+   "id": "task:63",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-20T20:10:43.182188Z"
+  },
+  {
+   "id": "task:62",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-19T21:05:22.925752Z"
+  },
+  {
+   "id": "task:61",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-19T21:05:21.774440Z"
+  },
+  {
+   "id": "task:60",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-19T20:38:11.335263Z"
+  },
+  {
+   "id": "task:59",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-19T20:38:10.412917Z"
+  },
+  {
+   "id": "task:58",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-19T20:38:09.342186Z"
+  },
+  {
+   "id": "task:57",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-19T20:35:28.408919Z"
+  },
+  {
+   "id": "task:56",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-19T20:35:25.683274Z"
+  },
+  {
+   "id": "task:55",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-19T20:35:23.361682Z"
+  },
+  {
+   "id": "task:54",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-19T20:05:48.456602Z"
+  },
+  {
+   "id": "task:53",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-19T20:05:46.978992Z"
+  },
+  {
+   "id": "task:52",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-19T20:05:44.971259Z"
+  },
+  {
+   "id": "task:51",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-18T21:02:22.100522Z"
+  },
+  {
+   "id": "task:50",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-18T21:02:20.964868Z"
+  },
+  {
+   "id": "task:49",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-18T20:49:07.782925Z"
+  },
+  {
+   "id": "task:48",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-18T20:49:06.189720Z"
+  },
+  {
+   "id": "task:47",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-18T20:49:05.215473Z"
+  },
+  {
+   "id": "task:46",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-18T20:32:52.127906Z"
+  },
+  {
+   "id": "task:45",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-18T20:32:49.400925Z"
+  },
+  {
+   "id": "task:44",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-18T20:32:45.885473Z"
+  },
+  {
+   "id": "task:43",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-18T20:02:45.827251Z"
+  },
+  {
+   "id": "task:42",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-18T20:02:43.784993Z"
+  },
+  {
+   "id": "task:41",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-18T20:02:42.568499Z"
+  },
+  {
+   "id": "task:40",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-17T21:13:55.030097Z"
+  },
+  {
+   "id": "task:39",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-17T21:13:54.035731Z"
+  },
+  {
+   "id": "task:38",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-17T20:43:25.962500Z"
+  },
+  {
+   "id": "task:37",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-17T20:43:24.833855Z"
+  },
+  {
+   "id": "task:36",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-17T20:43:23.937605Z"
+  },
+  {
+   "id": "task:35",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-17T20:41:03.498148Z"
+  },
+  {
+   "id": "task:34",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-17T20:41:01.344021Z"
+  },
+  {
+   "id": "task:33",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-17T20:40:58.860441Z"
+  },
+  {
+   "id": "task:32",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-17T20:13:48.955494Z"
+  },
+  {
+   "id": "task:31",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-17T20:13:47.323567Z"
+  },
+  {
+   "id": "task:30",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-17T20:13:45.199631Z"
+  },
+  {
+   "id": "task:29",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-16T20:32:22.780447Z"
+  },
+  {
+   "id": "task:28",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-16T20:32:21.439507Z"
+  },
+  {
+   "id": "task:27",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-16T20:32:20.600838Z"
+  },
+  {
+   "id": "task:26",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-16T20:30:33.444221Z"
+  },
+  {
+   "id": "task:25",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-16T20:30:30.672973Z"
+  },
+  {
+   "id": "task:24",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-16T20:30:28.824550Z"
+  },
+  {
+   "id": "task:23",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-16T20:00:31.461019Z"
+  },
+  {
+   "id": "task:22",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-16T20:00:30.071219Z"
+  },
+  {
+   "id": "task:21",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-16T20:00:28.719421Z"
+  },
+  {
+   "id": "task:20",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-15T21:26:54.703705Z"
+  },
+  {
+   "id": "task:19",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-15T21:26:53.849212Z"
+  },
+  {
+   "id": "task:18",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-15T21:16:22.152606Z"
+  },
+  {
+   "id": "task:17",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-15T21:16:21.297204Z"
+  },
+  {
+   "id": "task:16",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-15T21:16:19.780208Z"
+  },
+  {
+   "id": "task:15",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-15T20:46:32.133115Z"
+  },
+  {
+   "id": "task:14",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-15T20:46:29.588107Z"
+  },
+  {
+   "id": "task:13",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-15T20:46:26.653600Z"
+  },
+  {
+   "id": "task:12",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-15T20:16:29.668178Z"
+  },
+  {
+   "id": "task:11",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-15T20:16:27.807552Z"
+  },
+  {
+   "id": "task:10",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-15T20:16:26.114559Z"
+  },
+  {
+   "id": "task:9",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-14T23:39:56.773688Z"
+  },
+  {
+   "id": "task:8",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-14T23:39:51.202884Z"
+  },
+  {
+   "id": "task:7",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-10-14T23:39:44.344231Z"
+  },
+  {
+   "id": "task:6",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-14T23:33:36.655237Z"
+  },
+  {
+   "id": "task:5",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-14T23:33:36.393270Z"
+  },
+  {
+   "id": "task:4",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-10-14T23:33:36.124728Z"
+  },
+  {
+   "id": "task:3",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-14T21:43:13.584587Z"
+  },
+  {
+   "id": "task:2",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-14T21:43:03.057381Z"
+  },
+  {
+   "id": "task:1",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-10-14T21:42:46.103520Z"
+  }
+ ],
+ "schedules": [],
+ "receipts": [],
+ "workspaces": [
+  {
+   "id": "executive",
+   "name": "Executive Department",
+   "floor": null
+  },
+  {
+   "id": "research",
+   "name": "Research Department",
+   "floor": null
+  },
+  {
+   "id": "content",
+   "name": "Content Department",
+   "floor": null
+  },
+  {
+   "id": "qa",
+   "name": "Quality Assurance Department",
+   "floor": null
+  },
+  {
+   "id": "product",
+   "name": "Product & Engineering Department",
+   "floor": null
+  },
+  {
+   "id": "marketing",
+   "name": "Marketing Department",
+   "floor": null
+  }
+ ],
+ "cloud_heartbeat": {
+  "last_run_start": "2026-10-31T05:51:41Z",
+  "last_run_end": "2026-10-31T05:51:41Z",
+  "runner": "github-actions",
+  "run_id": "41174071794"
+ },
+ "changelog": [
+  "Add safe capped office telemetry to public status exports",
+  "Fix product quality end to end (#18)",
+  "agent: state + content update [skip ci]",
+  "agent: state + content update [skip ci]",
+  "agent: state + content update [skip ci]",
+  "feat: apply signed cube controls and complete office inbox integration",
+  "feat: enforce signed autonomy policies and atomic LLM call budgets",
+  "feat: answer signed office agent chats through scrubbed KV receipts",
+  "feat: dispatch signed time and state triggers with bounded summaries",
+  "feat: edit and archive signed recurring missions",
+  "feat: consume signed recurring missions with durable KV receipts",
+  "agent: state + content update [skip ci]",
+  "Implement upload-ready launch pack builder module (#17)",
+  "feat: Add safe public dashboard fields to public_export.py and export_status.py (#16)",
+  "fix: acknowledge Telegram before replies and reserve daily deliveries",
+  "fix: scrub persisted diagnostics and harden state save retries",
+  "fix: expose scrubbed step diagnostics alongside safe failure summaries",
+  "agent: state + content update [skip ci]",
+  "feat: adapt daily pipeline quotas and raise max tasks with time budget stop (#15)",
+  "agent: state + content update [skip ci]"
+ ],
  "cubes": [
   {
    "id": "executive",
