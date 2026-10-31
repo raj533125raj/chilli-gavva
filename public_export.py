@@ -509,7 +509,7 @@ PUBLIC_AI_PROVIDERS = ("Groq", "Gemini", "Cloudflare", "OpenRouter", "FreeLLMAPI
 
 
 def get_public_ai_health(db_path=None, checked_at=None) -> list:
-    """Read router observations with reason and checked_at."""
+    """Latest model observations, with legacy daily tallies as a fallback."""
     checked_at = checked_at or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     result = {
         name: {
@@ -530,10 +530,9 @@ def get_public_ai_health(db_path=None, checked_at=None) -> list:
         uri = Path(db_file).resolve().as_uri() + "?mode=ro"
         conn = sqlite3.connect(uri, uri=True)
         if not _has_table(conn, "provider_log"):
-            conn.close()
-            return list(result.values())
-
-        rows = conn.execute("SELECT day, provider, ok, fail FROM provider_log ORDER BY day DESC").fetchall()
+            rows = []
+        else:
+            rows = conn.execute("SELECT day, provider, ok, fail FROM provider_log ORDER BY day DESC").fetchall()
         seen = set()
         for day, provider, ok, fail in rows:
             if provider not in result or provider in seen:
@@ -560,6 +559,38 @@ def get_public_ai_health(db_path=None, checked_at=None) -> list:
         conn.close()
     except Exception:
         pass
+
+    import llm_provider_state
+    import llm_router
+    cutoff = _iso(checked_at)
+    cutoff = datetime.datetime.fromisoformat(cutoff.replace("Z", "+00:00")).timestamp() if cutoff else None
+    latest = {}
+    for record in _office_rows(db_path, "SELECT provider,model,data FROM llm_model_health"):
+        provider, model = record["provider"], record["model"]
+        if provider not in result or llm_router._public_model(model) != model or scrub_text(model) != model:
+            continue
+        try:
+            state = json.loads(record["data"])
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(state, dict):
+            continue
+        at = _number(state.get("observed_at"))
+        if not at or cutoff is None or at > cutoff or type(state.get("last_ok")) is not bool:
+            continue
+        if provider not in latest or at > latest[provider][0]:
+            latest[provider] = (at, model, state)
+    for provider, (at, model, state) in latest.items():
+        row = result[provider]
+        row["model"] = model
+        if cutoff - at >= llm_provider_state.RECENT_SECONDS:
+            row.update(state="unknown", reason="No recent activity recorded")
+        elif state["last_ok"]:
+            row.update(state="up", reason="Latest request succeeded")
+        else:
+            kind = state.get("last_kind")
+            reason = llm_provider_state.REASONS.get(kind, "Provider request failed") if isinstance(kind, str) else "Provider request failed"
+            row.update(state="down", reason=reason)
 
     return list(result.values())
 

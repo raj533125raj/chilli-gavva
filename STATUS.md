@@ -7,6 +7,8 @@ protocol from fixed addresses, required environment names and supported engine m
 Connection objects cannot supply credential values or extra private fields.
 Agent budgets read the real guardrails usage/cap and owner policy with an explicit
 shared scope; recorded agent-specific usage and context override that fallback.
+Provider health exports the latest observed model id and fixed outcome reason from
+the router health ledger, falling back to legacy provider tallies when unavailable.
 
 Approved-product delivery (robot-r65): the scheduled builder now runs council/checker
 gates, real product files, launch documentation and truth checks as one resumable

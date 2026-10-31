@@ -33,6 +33,7 @@ class OfficeExportTests(unittest.TestCase):
         export_status.write_status(str(path), self.db)
         return json.loads(path.read_text())
 
+
     def test_connection_names_survive_final_scrub_without_credential_values(self):
         secrets = {name: "private-connection-value-" + str(i)
                    for i, name in enumerate(public_export.PUBLIC_CONNECTION_KEYS)}
@@ -83,3 +84,44 @@ class OfficeExportTests(unittest.TestCase):
         row = next(row for row in public_export.get_public_agent_budgets(self.db, NOW) if row["agent"] == "Draft Worker")
         self.assertEqual((row["calls_used_today"], row["calls_limit_today"], row["context_percent"], row["scope"]),
                          (4, 12, 42.5, "agent"))
+
+    def test_model_health_uses_latest_real_observation_without_daily_tally(self):
+        import llm_provider_state
+        at = 1793448000  # NOW, 2026-10-31 12:00 UTC
+        with mock.patch.object(llm_provider_state.time, "time", return_value=at - 120):
+            llm_provider_state.observe("Groq", "openai/gpt-oss-120b", True, path=self.db)
+        with mock.patch.object(llm_provider_state.time, "time", return_value=at - 60):
+            llm_provider_state.observe("Groq", "openai/gpt-oss-20b", False, "rate_limit", path=self.db)
+            llm_provider_state.observe("Gemini", "gemini-3.8-flash", True, path=self.db)
+        before = Path(self.db).read_bytes()
+        rows = {row["provider"]: row for row in public_export.get_public_ai_health(self.db, NOW)}
+        self.assertEqual(Path(self.db).read_bytes(), before)
+        self.assertEqual((rows["Groq"]["model"], rows["Groq"]["state"]), ("openai/gpt-oss-20b", "down"))
+        self.assertEqual(rows["Groq"]["reason"], "Provider request rate exceeded")
+        self.assertEqual(rows["Gemini"]["model"], "gemini-3.8-flash")
+        self.assertIsNone(rows["Cloudflare"]["model"])
+        with mock.patch.object(export_status, "build_status", return_value={"generated_at": NOW}):
+            self.assertEqual(self.status()["ai_health"], list(rows.values()))
+
+    def test_health_rejects_private_malformed_future_models_and_marks_stale_observations(self):
+        import llm_provider_state
+        at = 1793448000
+        private_model = "fixture-private-model-value"
+        with sqlite3.connect(self.db) as conn:
+            conn.execute("CREATE TABLE llm_model_health(provider,model,data)")
+            conn.executemany("INSERT INTO llm_model_health VALUES (?,?,?)", [
+                ("Groq", "openai/gpt-oss-20b", json.dumps({"observed_at": at - 90000, "last_ok": True})),
+                ("Groq", private_model, json.dumps({"observed_at": at - 1, "last_ok": True})),
+                ("Groq", "future", json.dumps({"observed_at": at + 1, "last_ok": True})),
+                ("Gemini", "private prompt with spaces", json.dumps({"observed_at": at, "last_ok": True})),
+                ("Gemini", "broken", "[]"), ("Gemini", "broken", "not JSON"),
+                ("Gemini", "broken", json.dumps({"observed_at": "private", "last_ok": True})),
+                ("Cloudflare", "broken", json.dumps({"observed_at": at, "last_ok": "private"})),
+                ("unknown", "private", json.dumps({"observed_at": at, "last_ok": True})),
+            ])
+        with mock.patch.dict(os.environ, {"R69_MODEL_SECRET": private_model}):
+            rows = {row["provider"]: row for row in public_export.get_public_ai_health(self.db, NOW)}
+        self.assertEqual(rows["Groq"]["model"], "openai/gpt-oss-20b")
+        self.assertEqual(rows["Groq"]["state"], "unknown")
+        self.assertIsNone(rows["Gemini"]["model"])
+        self.assertNotIn(private_model, json.dumps(rows))
