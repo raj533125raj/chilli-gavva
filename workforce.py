@@ -681,6 +681,19 @@ CUBE_BASE_QUOTAS = {
 }
 
 
+def product_call_reserve(db_path=None):
+    """Leave a small free-call allowance for approved products after the draft cycle."""
+    import cubes
+    import product_builder
+    import product_pipeline
+    if (cubes.get_cube_state("product", db_path) != "on"
+            or not cubes.is_kind_enabled("review", db_path=db_path)):
+        return 0
+    waiting = [item for item in product_pipeline.pending(db_path)
+               if product_builder.niche_of(item["title"])]
+    return min(guardrails.daily_cap(db_path), 5 * min(2, len(waiting)))
+
+
 def get_daily_pipeline_plan(db_path=None):
     """Generate a daily plan per enabled cube with quotas.
 
@@ -714,6 +727,7 @@ def get_daily_pipeline_plan(db_path=None):
         cap_mult = 0.5
 
     mult = min(health_mult, cap_mult)
+    has_approved_work = product_call_reserve(db_path) > 0
 
     all_cubes = cubes.list_cubes(include_archived=True, db_path=db_path)
 
@@ -733,6 +747,8 @@ def get_daily_pipeline_plan(db_path=None):
                 q_val = max(0, int(round(base_q * mult)))
             else:
                 q_val = 0
+            if stage == "product_builds" and base_q and is_enabled and remaining_calls > 0 and has_approved_work:
+                q_val = max(1, q_val)
             quotas[stage] = q_val
             total_quotas[stage] += q_val
 
@@ -781,6 +797,9 @@ def run_once(max_tasks=5, db_path=None, llm=None, rng=None, max_time_seconds=MAX
         if not guardrails.automation_allowed(db_path):
             return {"status": "manual", "ran": ran, "failed": failed}
         if time.time() - start_time >= max_time_seconds:
+            break
+        reserve = product_call_reserve(db_path)
+        if reserve and guardrails.daily_cap(db_path) - guardrails.calls_today(db_path) <= reserve:
             break
         task = claim_next(db_path)
         if not task:

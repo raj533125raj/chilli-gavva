@@ -295,6 +295,10 @@ def run_council(approval_id: Optional[int], draft_text: str, topic: str = "",
         }
 
     current_draft = draft_text or ""
+    approval = guardrails.get_approval(approval_id, db_path) if approval_id else None
+    may_rewrite = not approval or approval.get("status", "pending") == "pending"
+    if approval and approval.get("status") == "approved":
+        current_draft = approval.get("payload") or ""
     ai_calls = 0
     passed = False
     final_round = 1
@@ -324,23 +328,35 @@ def run_council(approval_id: Optional[int], draft_text: str, topic: str = "",
 
         # 3. Fixer
         needs_fix = (critic_res.get("verdict") == "FLAGGED" or last_conviction < 7 or len(weaknesses) > 0)
-        if needs_fix:
+        if needs_fix and may_rewrite:
             fixed_draft, f_calls = run_fixer(current_draft, topic, weaknesses, buyer_answer,
                                              ctx=ctx, db_path=db_path, allow_ai=(ai_calls < max_ai_calls))
             ai_calls += f_calls
             if fixed_draft and fixed_draft.strip() != current_draft.strip():
                 current_draft = fixed_draft
+                rewritten = True
                 if approval_id:
                     conn = guardrails.connect(db_path)
-                    conn.execute("UPDATE approvals SET payload = ? WHERE id = ? AND status = 'pending'",
-                                 (current_draft, approval_id))
+                    changed = conn.execute("UPDATE approvals SET payload = ? WHERE id = ? AND status = 'pending'",
+                                           (current_draft, approval_id)).rowcount
                     conn.commit()
+                    if not changed:
+                        # An owner can approve while the fixer is working. Judge
+                        # the saved text, never the now-unapproved local rewrite.
+                        saved = conn.execute("SELECT payload FROM approvals WHERE id=?", (approval_id,)).fetchone()
+                        if saved:
+                            current_draft = saved[0] or ""
+                        may_rewrite = False
+                        rewritten = False
                     conn.close()
-                log_debate(approval_id, r, "fixer", "REWRITTEN", "Rewrote weak parts of draft", db_path=db_path)
+                log_debate(approval_id, r, "fixer", "REWRITTEN" if rewritten else "SKIPPED",
+                           "Rewrote weak parts of draft" if rewritten else "Owner decision retained; saved draft reviewed",
+                           db_path=db_path)
             else:
                 log_debate(approval_id, r, "fixer", "UNCHANGED", "Draft unchanged", db_path=db_path)
         else:
-            log_debate(approval_id, r, "fixer", "SKIPPED", "No major fixes required", db_path=db_path)
+            reason = "No major fixes required" if not needs_fix else "Owner-approved draft retained for review"
+            log_debate(approval_id, r, "fixer", "SKIPPED", reason, db_path=db_path)
 
         # 4. Judge
         qa_res = qa_checklist.score(current_draft)

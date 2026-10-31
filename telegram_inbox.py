@@ -56,6 +56,7 @@ HELP = ("\U0001f336️ Chilli Gavva approvals\n\n"
         "/list - drafts waiting\n"
         "/view ID - read a draft\n"
         "/approve ID - approve (several ids ok)\n"
+        "/pack ID - list encrypted upload pack file names\n"
         "/reject ID - reject\n"
         "/pipeline - daily plan vs done per stage, backlog & stuck items\n"
         "/cubes - department cubes status and controls\n"
@@ -235,7 +236,7 @@ def subscription_note(token):
 
 
 # ---- command handling --------------------------------------------------------
-_COMMANDS = "list|view|approve|reject|pipeline|pause|resume|buttontest|rules|cubes|doctor|autofix_drill|help|start"
+_COMMANDS = "list|view|approve|reject|pack|pipeline|pause|resume|buttontest|rules|cubes|doctor|autofix_drill|help|start"
 # "/approve 4", "/approve" or "/approve@bot 4 5": anything after a real slash command is fine.
 _SLASH_CMD = re.compile(rf"^/({_COMMANDS})(?:@\w+)?(?:\s+(.*))?$", re.IGNORECASE | re.DOTALL)
 # Without a slash only the bare form counts: "approve 4", "approve 4, 5", "list". A normal sentence such as
@@ -436,6 +437,9 @@ def pipeline_text(db_path=None):
 
 
 def handle_command(cmd, ids, db_path=None):
+    if cmd == "pack":
+        import product_pipeline
+        return product_pipeline.pack_text(ids[0], db_path) if ids else "Send /pack ID to list upload file names."
     if cmd == "list":
         return list_text(db_path)
     if cmd == "view":
@@ -796,6 +800,8 @@ def run(db_path=None, recovery=False):
         print(stats_line(stats))
         return {"configured": True, "commands": commands, "alerts": 0,
                 "waiting_reminder": False, "daily_report": False}
+    import product_pipeline
+    product_pipeline.notify_ready(db_path, lambda text: send_text(token, chat_id, text))
     import autofix
     autofix.poll(get_state, set_state,
                  lambda text, buttons: send_text(token, chat_id, text, buttons), db_path)

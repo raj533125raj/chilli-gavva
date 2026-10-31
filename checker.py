@@ -98,7 +98,7 @@ def rule_based_fallback(draft_text: str, topic: str = "") -> Dict[str, Any]:
         "score": score,
         "verdict": verdict,
         "reasons": reasons[:3],
-        "passed": score >= 70,
+        "passed": score >= 70 and verdict == "pass",
         "fallback": True
     }
 
@@ -150,7 +150,7 @@ def parse_checker_response(response_text: str) -> Optional[Dict[str, Any]]:
         "score": score_int,
         "verdict": verdict,
         "reasons": clean_reasons,
-        "passed": score_int >= 70,
+        "passed": score_int >= 70 and verdict == "pass",
         "fallback": False
     }
 
@@ -217,7 +217,10 @@ def parse_review(review_text: Optional[str]) -> Tuple[Optional[int], List[str]]:
         return None, []
 
     # Look for 'Checker: 82/100' or 'score 82/100' or '82/100'
-    m = re.search(r"(?:Checker:\s*|score\s*)?(\d{1,3})\s*/\s*100", review_text, re.IGNORECASE)
+    # The checklist and the checker can have different scores. Prefer the checker.
+    m = re.search(r"Checker:\s*(\d{1,3})\s*/\s*100", review_text, re.IGNORECASE)
+    if not m:
+        m = re.search(r"(?:score\s*)?(\d{1,3})\s*/\s*100", review_text, re.IGNORECASE)
     score = int(m.group(1)) if m else None
 
     # Look for top reasons after '| top:' or '| issues:'
@@ -228,3 +231,12 @@ def parse_review(review_text: Optional[str]) -> Tuple[Optional[int], List[str]]:
         reasons = [r.strip() for r in raw_reasons if r.strip()]
 
     return score, reasons
+
+
+def review_passes(review_text: Optional[str]) -> bool:
+    """A high checklist score never overrides a rejected or unavailable checker."""
+    score, _ = parse_review(review_text)
+    verdict = re.search(r"CHECKER:\s*(PASS|APPROVE|REVISE|REJECT|UNAVAILABLE)\b",
+                        review_text or "", re.IGNORECASE)
+    return bool(score is not None and 70 <= score <= 100 and verdict
+                and verdict[1].upper() in ("PASS", "APPROVE"))
