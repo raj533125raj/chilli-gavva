@@ -218,11 +218,13 @@ def _handoffs(db_path=None, now_utc=None):
 def build_status(db_path=None):
     """The snapshot written to web/data/status.json (safe for a public repo)."""
     full = build_status_private(db_path)
+    metadata = public_export.get_public_agent_metadata(db_path)
     return {
         "generated_at": full["generated_at"],
         "kill_switch": full["kill_switch"],
         "llm": {"calls_today": full["llm"]["calls_today"], "cap": full["llm"]["cap"]},
-        "agents": [{k: a.get(k) for k in PUBLIC_AGENT_KEYS} for a in full["agents"]],
+        "agents": [{**{k: a.get(k) for k in PUBLIC_AGENT_KEYS}, **metadata.get(a["name"], {})}
+                   for a in full["agents"]],
         "task_counts": full["task_counts"],
         "recent_tasks": [{k: t.get(k) for k in PUBLIC_TASK_KEYS} for t in full["recent_tasks"]],
         "pending_approvals": [_public_approval(a) for a in full["pending_approvals"]],

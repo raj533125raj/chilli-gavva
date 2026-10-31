@@ -232,6 +232,11 @@ def _apply(record, db_path, now=None):
         import office_policy
         return office_policy.apply(record, db_path)
     if action in ("set_cube", "cube_on", "cube_off") or action == "set_switch" and record["target"] not in publisher.PUBLISH_TYPES:
+        if action == "set_switch":
+            import office_agents
+            result = office_agents.set_enabled(record["target"], record["value"], db_path)
+            if result is not None:
+                return result
         import office_cubes
         return office_cubes.apply(record, db_path)
     if action in ("send_message", "chat", "ask", "route_request"):
@@ -245,17 +250,24 @@ def _apply(record, db_path, now=None):
             if not isinstance(value, dict) or set(value) != fields:
                 raise ValueError("invalid agent message")
             recipient, text = value["thread_id"], value["text"]
-            resolved = office_tasks.agent(recipient)
+            resolved = office_tasks.agent(recipient, db_path)
             if action == "route_request":
                 if (record["target"] != "orchestrator" or not isinstance(value["role"], str)
                         or value["role"].casefold() not in (resolved["name"].casefold(), resolved["role"].casefold())):
                     return "held", "agent role no longer matches", None
                 import cubes
-                cube = cubes.get_cube_for_agent(resolved["name"])
+                cube = cubes.get_cube_for_agent(resolved["name"], db_path=db_path)
                 if value["cube_id"] is not None and value["cube_id"] not in (cube["id"] if cube else None, "chilli-gavva-robot"):
                     return "held", "agent cube no longer matches", None
-            elif office_tasks.agent(record["target"])["id"] != resolved["id"]:
+            elif office_tasks.agent(record["target"], db_path)["id"] != resolved["id"]:
                 raise ValueError("message thread does not match agent")
+        if action == "send_message":
+            if not isinstance(text, str) or not 1 <= len(text.strip()) <= 500:
+                raise ValueError("invalid agent message")
+            import office_agents
+            result = office_agents.apply_message(text, db_path)
+            if result is not None:
+                return result
         return chat_brain.office_reply(recipient, text, db_path)
     if action in ("approve", "reject"):
         if record["value"] is not None or not re.fullmatch(r"[1-9][0-9]{0,9}", record["target"]):

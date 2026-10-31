@@ -38,7 +38,7 @@ def definition(value, conn):
         raise ValueError('invalid trigger')
     if type(value['enabled']) is not bool or not isinstance(value['label'], str) or not 1 <= len(value['label'].strip()) <= 120:
         raise ValueError('invalid trigger')
-    recipient = office_tasks.agent(value['agent_id'])['id']
+    recipient = office_tasks.agent(value['agent_id'], conn=conn)['id']
     kind, action = value['kind'], value.get('action', 'ask_agent')
     if kind not in ('at', 'agent_state', 'task_done', 'state') or action not in ('ask_agent', 'summary'):
         raise ValueError('invalid trigger type')
@@ -62,7 +62,7 @@ def definition(value, conn):
     elif kind == 'agent_state':
         if value.get('match_state') not in ('idle','working','error') or value.get('at') is not None or value.get('condition') is not None:
             raise ValueError('invalid agent state')
-        result['watch_id'] = office_tasks.agent(value.get('watch_id'))['id']
+        result['watch_id'] = office_tasks.agent(value.get('watch_id'), conn=conn)['id']
     else:
         if any(value.get(k) is not None for k in ('at','match_state','condition')):
             raise ValueError('invalid task condition')
@@ -127,7 +127,7 @@ def _matches(value,conn,now):
         row = conn.execute('SELECT status FROM tasks WHERE id=?',(_task_id(value['watch_id']),)).fetchone()
         return bool(row and row[0]=='done')
     if kind == 'agent_state':
-        name = office_tasks.agent(value['watch_id'])['name']
+        name = office_tasks.agent(value['watch_id'], conn=conn)['name']
         running = conn.execute("SELECT 1 FROM tasks WHERE agent=? AND status='running' LIMIT 1",(name,)).fetchone()
         last = conn.execute('SELECT status FROM tasks WHERE agent=? ORDER BY id DESC LIMIT 1',(name,)).fetchone()
         state = 'working' if running else 'error' if last and last[0]=='failed' else 'idle'

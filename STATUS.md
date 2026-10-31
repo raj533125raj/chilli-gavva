@@ -1,6 +1,13 @@
 # STATUS (read this first)
 
-Last updated: 2026-10-30.
+Last updated: 2026-10-31.
+
+Office agent controls (robot-r63): consume the wizard's signed `send_message` JSON
+for `add_agent` and `engine_change`. Strictly validated hires persist in the workforce
+registry paused; owner `set_switch` enables them subject to existing cube/global gates.
+Per-agent provider/model selections apply to advisory chat and workforce calls through
+the existing router transports. Public status includes connection protocol addresses,
+required key names and supported engine modes; private briefings and credentials stay out.
 
 Signed office runtime controls: recurring missions and edit/archive; time and state triggers;
 agent questions with scrubbed KV reply receipts; capped autonomy/call-budget policies; registered

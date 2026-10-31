@@ -1,7 +1,6 @@
 """Bounded recurring office work; definitions are data, never executable commands."""
 import datetime
 import json
-import re
 import time
 
 import cubes
@@ -26,18 +25,12 @@ def connect(db_path=None):
     return conn
 
 
-def agent(value):
-    import workforce
-    if not isinstance(value, str):
-        raise ValueError("invalid agent")
-    for row in workforce.AGENTS:
-        slug = re.sub(r"[^a-z0-9]+", "-", row["name"].lower()).strip("-")
-        if value in (row["name"], slug, "chilli-gavva-robot-" + slug):
-            return {**row, "id": "chilli-gavva-robot-" + slug}
-    raise ValueError("unknown agent")
+def agent(value, db_path=None, conn=None):
+    import office_agents
+    return office_agents.resolve(value, db_path, conn)
 
 
-def mission_value(value):
+def mission_value(value, db_path=None):
     if not isinstance(value, dict) or set(value) != {"title", "agent_id", "every"}:
         raise ValueError("invalid mission")
     title, every = value["title"], value["every"]
@@ -46,12 +39,12 @@ def mission_value(value):
     every = INTERVAL_ALIASES.get(every, every)
     if every not in INTERVALS:
         raise ValueError("invalid interval")
-    return secret_guard.scrub_text(title.strip()), agent(value["agent_id"])["id"], every
+    return secret_guard.scrub_text(title.strip()), agent(value["agent_id"], db_path)["id"], every
 
 
 def add_mission(record, db_path=None, now=None):
     now = time.time() if now is None else now
-    title, recipient, every = mission_value(record["value"])
+    title, recipient, every = mission_value(record["value"], db_path)
     conn = connect(db_path)
     try:
         with conn:
@@ -89,7 +82,7 @@ def change_mission(record, db_path=None, now=None):
                 if row[3] == "archived":
                     return "held", "archived mission cannot be edited", None
                 value = {**dict(zip(("title", "agent_id", "every"), row[:3])), **patch}
-                title, recipient, every = mission_value(value)
+                title, recipient, every = mission_value(value, db_path)
                 conn.execute("UPDATE office_missions SET title=?,agent_id=?,every=?,next_run=?,updated=? WHERE id=?",
                              (title, recipient, every, now + INTERVALS[every], now, record["target"]))
             # An edit must not run the queued, superseded instructions; running work is left alone.
@@ -104,7 +97,7 @@ def change_mission(record, db_path=None, now=None):
 
 def task_enabled(payload, db_path=None, conn=None):
     try:
-        recipient = agent(payload.get("agent_id"))
+        recipient = agent(payload.get("agent_id"), db_path, conn)
     except (AttributeError, ValueError):
         return False
     if not cubes.is_agent_enabled(recipient["name"], db_path, conn=conn):
@@ -178,7 +171,7 @@ def execute(task, ctx):
         raise workforce.AIUnavailable("office automation is held by policy")
     if not task_enabled(payload, ctx.get("db_path")):
         return {"summary": "office work no longer enabled", "next": []}
-    recipient = agent(payload["agent_id"])
+    recipient = agent(payload["agent_id"], ctx.get("db_path"))
     if payload.get("summary"):
         import chat_brain
         import notify

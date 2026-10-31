@@ -92,8 +92,10 @@ def off_limits(topic):
 
 def connect(db_path=None):
     import cubes
+    import office_agents
     conn = improver.connect(db_path)
     cubes.ensure_tables(conn)
+    office_agents.ensure_tables(conn)
     conn.execute("""CREATE TABLE IF NOT EXISTS tasks (
         id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, kind TEXT, payload TEXT,
         status TEXT DEFAULT 'queued', attempts INTEGER DEFAULT 0, agent TEXT,
@@ -153,7 +155,7 @@ def claim_next(db_path=None):
     agent = KIND_TO_AGENT.get(kind, "CEO")
     if kind == "office_task":
         import office_tasks
-        agent = office_tasks.agent(json.loads(payload)["agent_id"])["name"]
+        agent = office_tasks.agent(json.loads(payload)["agent_id"], db_path, conn)["name"]
     conn.execute("UPDATE tasks SET status = 'running', attempts = attempts + 1, agent = ?, started_ts = ?, machine_id = ? "
                  "WHERE id = ?", (agent, datetime.datetime.now().isoformat(), MACHINE_ID, task_id))
     conn.commit()
@@ -363,6 +365,11 @@ def _ask(ctx, prompt, size=None):
     Test stubs and older callables that take only (prompt) still work.
     """
     fn = ctx["llm"]
+    if ctx.get("agent") and not ctx.get("custom_llm", True):
+        import office_agents
+        recipient = office_agents.resolve(ctx["agent"], ctx.get("db_path"))
+        if recipient.get("engine") or recipient.get("provider"):
+            return office_agents.chat(recipient, prompt, ctx.get("db_path"), size)
     if size is not None:
         try:
             params = inspect.signature(fn).parameters
@@ -757,7 +764,8 @@ def run_once(max_tasks=5, db_path=None, llm=None, rng=None, max_time_seconds=MAX
         return {"status": "rest", "ran": 0, "failed": 0}   # daily 6-minute rest: no new AI work or drafts
     import office_tasks
     office_tasks.tick(db_path)
-    ctx = {"db_path": db_path, "llm": llm or default_llm(db_path), "rng": rng or random}
+    ctx = {"db_path": db_path, "llm": llm or default_llm(db_path), "rng": rng or random,
+           "custom_llm": llm is not None}
     recover_stuck(db_path)
     sync_human_decisions(db_path)
     try:
@@ -777,6 +785,7 @@ def run_once(max_tasks=5, db_path=None, llm=None, rng=None, max_time_seconds=MAX
         task = claim_next(db_path)
         if not task:
             break
+        ctx["agent"] = task["agent"]
         try:
             result = STEPS[task["kind"]](task, ctx)
             for follow in result.pop("next", []):
@@ -817,9 +826,11 @@ def ensure_daily_plan(db_path=None):
 
 
 def agent_states(db_path=None):
+    import cubes
+    import office_agents
     conn = connect(db_path)
     out = []
-    for a in AGENTS:
+    for a in office_agents.registered(conn=conn):
         running = conn.execute("SELECT COUNT(*) FROM tasks WHERE agent = ? AND status = 'running'",
                                (a["name"],)).fetchone()[0]
         last = conn.execute("SELECT status FROM tasks WHERE agent = ? ORDER BY id DESC LIMIT 1",
@@ -827,6 +838,8 @@ def agent_states(db_path=None):
         done = conn.execute("SELECT COUNT(*) FROM tasks WHERE agent = ? AND status = 'done'",
                             (a["name"],)).fetchone()[0]
         state = "working" if running else ("error" if last and last[0] == "failed" else "idle")
+        if not cubes.is_agent_enabled(a["name"], db_path, conn=conn):
+            state = "paused"
         out.append({**a, "state": state, "tasks_done": done})
     conn.close()
     return out

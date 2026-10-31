@@ -128,7 +128,7 @@ class E2ESimulatedDayTests(unittest.TestCase):
             "scout_ideas_count", "trend_items_count", "media_items_count", "cubes", "marketing_kits_count",
             "products", "reject_reasons", "report", "workers", "pipeline",
             "agent_budgets", "loop_events", "activity_events", "schedules", "receipts",
-            "workspaces", "cloud_heartbeat", "changelog"
+            "workspaces", "cloud_heartbeat", "changelog", "agent_connection"
         }
         self.assertEqual(set(status.keys()), expected_keys)
 

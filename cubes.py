@@ -192,7 +192,7 @@ def get_cube_for_kind(kind, registry_path=None):
     return None
 
 
-def get_cube_for_agent(agent_name, registry_path=None):
+def get_cube_for_agent(agent_name, registry_path=None, db_path=None, conn=None):
     registry = load_registry(registry_path)
     # Primary membership check (captain, main agents, sub agents)
     for c in registry:
@@ -205,6 +205,10 @@ def get_cube_for_agent(agent_name, registry_path=None):
         if (agent_name == c.get("right_hand") or
             agent_name == c.get("left_hand")):
             return c
+    import office_agents
+    for agent in office_agents.registered(db_path, conn):
+        if agent["name"] == agent_name and agent.get("workspace"):
+            return next((c for c in registry if c["id"] == agent["workspace"]["cube_id"]), None)
     return None
 
 
@@ -217,7 +221,11 @@ def is_kind_enabled(kind, db_path=None, registry_path=None, conn=None):
 
 
 def is_agent_enabled(agent_name, db_path=None, registry_path=None, conn=None):
-    c = get_cube_for_agent(agent_name, registry_path)
+    import office_agents
+    for agent in office_agents.registered(db_path, conn):
+        if agent["name"] == agent_name and agent.get("enabled") is False:
+            return False
+    c = get_cube_for_agent(agent_name, registry_path, db_path, conn)
     if not c:
         return True
     st = get_cube_state(c["id"], db_path=db_path, conn=conn)
@@ -327,12 +335,19 @@ def get_public_cubes_export(db_path=None, registry_path=None):
     """
     try:
         import workforce
-        wf_agents = workforce.AGENTS
+        import office_agents
+        wf_agents = office_agents.registered(db_path)
     except Exception:
         wf_agents = []
 
     wf_map = {a["name"]: a for a in wf_agents}
     registry = load_registry(registry_path)
+    registry = [dict(c, agents=list(c["agents"])) for c in registry]
+    for agent in wf_agents:
+        if agent.get("workspace"):
+            for cube in registry:
+                if cube["id"] == agent["workspace"]["cube_id"]:
+                    cube["agents"].append(agent["name"])
 
     export_list = []
     for c in registry:

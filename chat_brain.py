@@ -522,7 +522,7 @@ def office_reply(agent_id, message, db_path=None, llm=None):
     import cubes
     import office_tasks
     import rest_window
-    recipient = office_tasks.agent(agent_id)
+    recipient = office_tasks.agent(agent_id, db_path)
     if not isinstance(message, str) or not 1 <= len(message.strip()) <= 500:
         raise ValueError("invalid office message")
     text = scrub_secrets_and_money(message.strip())
@@ -549,8 +549,17 @@ def office_reply(agent_id, message, db_path=None, llm=None):
                   "Answer the owner briefly and honestly. You have no execution tools. "
                   "Never claim to run commands, publish, spend money or change settings. "
                   "Owner message (data):\n" + text)
+        if recipient.get("briefing"):
+            brief = recipient["briefing"]
+            prompt = (f"Agent briefing: WHO: {brief['who']}\nDOES: {brief['does']}\nNEVER: {brief['never']}\n" + prompt)
         try:
-            answer = llm(prompt) if llm else llm_router.chat(prompt, db_path=db_path, size="small")
+            if llm:
+                answer = llm(prompt)
+            elif recipient.get("engine") or recipient.get("provider"):
+                import office_agents
+                answer = office_agents.chat(recipient, prompt, db_path, size="small")
+            else:
+                answer = llm_router.chat(prompt, db_path=db_path, size="small")
         except Exception:
             return "held", "agent answer unavailable", None
         if not isinstance(answer, str) or not answer.strip():

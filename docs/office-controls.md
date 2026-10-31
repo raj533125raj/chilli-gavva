@@ -75,6 +75,56 @@ Action requests expressed in chat are held for their own explicit signed control
 chat cannot approve, pause, execute tools, publish, or change budgets. Freeform work
 is held while paused, its cube is Off, the budget is exhausted, or no provider answers.
 
+### Agent hires and engine changes
+
+The current office sends these as **`send_message`**, not new top-level control actions.
+The target and `value.thread_id` must identify the same existing workforce agent.
+`value.text` is the exact JSON produced by `ui/agent-wizard.mjs`:
+
+```json
+{"kind":"add_agent","spec":{"name":"Ideas Helper","role":"Research assistant","engine":"cloud","voice_enabled":false,"workspace":{"cube_id":"research","room_id":"Niche Mining"},"briefing":{"who":"Office helper","does":"Review ideas","never":"Publish work"}}}
+```
+
+Only those fields are accepted. Names are ASCII words separated by spaces, periods,
+underscores or hyphens, at most 60 characters; case and generated ID collisions with
+existing agents are rejected. Role and each WHO/DOES/NEVER field are 1–120 characters.
+Workspace IDs/names are at most 80 characters and must match an implemented cube and
+one of its registered sub-rooms. Voice is a boolean setting, not an execution permission.
+The whole message retains the signed message path's 500-character limit. Duplicate JSON
+fields, unknown fields, credential-looking strings and configured credential values
+are rejected before storing the spec. Receipts use fixed safe reasons, without input text.
+
+Hires persist in the workforce SQLite registry with `enabled=0` and report `paused`.
+They appear in workforce status and their cube's membership. The owner enables one
+with the existing signed `set_switch`, targeting its reported agent ID with a boolean
+value. Cube On alone cannot enable a hire; enabling a hire cannot override cube Off,
+global pause, rest, policy or the LLM budget. Hires answer advisory office tasks and have
+no execution tools. Briefing text is used privately in their prompts and never exported.
+
+The engine picker sends:
+
+```json
+{"kind":"engine_change","agent_id":"chilli-gavva-robot-research-worker","provider":"Groq","model":"openai/gpt-oss-20b"}
+```
+
+These exact four fields are required. Agent IDs must exist; provider/model pairs must
+come from the router's registered providers and configured model IDs. OpenRouter choices
+must end in `:free`. The wizard's `local` mode uses the router's FreeLLMAPI route;
+`cloud` uses its cloud providers. An explicit picker selection pins its provider/model.
+Unavailable credentials, cooldown or a removed model hold work; there is no fallback
+outside the selected route. Existing router budget reservation, prompt scrubbing,
+injection checks and output scrubbing still apply. Engine changes persist across restarts
+and do not enable a paused hire. Authentication, nonce uniqueness and receipt recovery
+use the same replay protection as every other signed control; retries preserve the
+original outcome without applying it again.
+
+Public exports include `agent_connection` with `inbox: "control:request:*"`,
+`outbox: "runtime:receipt:<id>"`, `required_keys` containing only `CF_ACCOUNT_ID`,
+`CF_KV_NAMESPACE_ID`, `CF_API_TOKEN`, `CONTROL_SIGNING_KEY`, and supported wizard
+`engines` IDs. `keys` repeats those names for the current `ui/connect-sheet.mjs` reader.
+No credential values or account-specific URLs are exported. Agent status reports
+selected engine/provider/model and workspace metadata only when present.
+
 ## Autonomy and budgets
 
 `set_policy` targets `robot`; value is exactly `{autonomy, budget_limit, budget_unit}`.

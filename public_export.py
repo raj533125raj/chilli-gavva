@@ -376,10 +376,12 @@ def get_public_workers(db_path=None) -> list:
     db_file = db_path or guardrails.DB_PATH
     w_status = workforce.worker_status(db_file)
     daemon_running = w_status.get("running", False)
+    import office_agents
+    agents = office_agents.registered(db_file)
 
     workers = []
     if not os.path.exists(db_file):
-        for a in workforce.AGENTS:
+        for a in agents:
             workers.append({
                 "name": a["name"],
                 "state": "off",
@@ -390,7 +392,7 @@ def get_public_workers(db_path=None) -> list:
 
     try:
         conn = sqlite3.connect(db_file)
-        for a in workforce.AGENTS:
+        for a in agents:
             name = a["name"]
 
             # Running task for this agent?
@@ -415,6 +417,8 @@ def get_public_workers(db_path=None) -> list:
                 last_seen = None
                 if l_task:
                     last_seen = l_task[0] or l_task[1] or l_task[2]
+            if a.get("enabled") is False:
+                state, action = "paused", "Paused"
 
             workers.append({
                 "name": name,
@@ -425,7 +429,7 @@ def get_public_workers(db_path=None) -> list:
 
         conn.close()
     except Exception:
-        for a in workforce.AGENTS:
+        for a in agents:
             workers.append({
                 "name": a["name"],
                 "state": "off",
@@ -816,12 +820,33 @@ def get_public_changelog(repo_dir=None):
 
 def get_public_office_export(db_path=None, checked_at=None):
     checked_at = checked_at or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    return {"agent_budgets": get_public_agent_budgets(db_path, checked_at),
+    return {"agent_connection": get_public_agent_connection(),
+            "agent_budgets": get_public_agent_budgets(db_path, checked_at),
             "loop_events": get_public_loop_events(db_path),
             "activity_events": get_public_activity_events(db_path),
             "schedules": get_public_schedules(db_path), "receipts": get_public_receipts(db_path),
             "workspaces": get_public_workspaces(), "cloud_heartbeat": get_public_cloud_heartbeat(checked_at),
             "changelog": get_public_changelog()}
+
+
+def get_public_agent_connection():
+    """Protocol addresses and required environment NAMES; never inspect their values."""
+    import agent_engines
+    names = ["CF_ACCOUNT_ID", "CF_KV_NAMESPACE_ID", "CF_API_TOKEN", "CONTROL_SIGNING_KEY"]
+    return {"inbox": "control:request:*", "outbox": "runtime:receipt:<id>",
+            "required_keys": names, "keys": list(names), "engines": agent_engines.modes()}
+
+
+def get_public_agent_metadata(db_path=None):
+    """Only identity, workspace and routing observations; briefing stays private."""
+    import office_agents
+    result = {}
+    for agent in office_agents.registered(db_path):
+        if not any(key in agent for key in ("engine", "provider", "workspace")):
+            continue
+        fields = {key: agent[key] for key in ("id", "engine", "provider", "model", "workspace") if key in agent}
+        result[agent["name"]] = scrub_public_data(fields)
+    return result
 
 
 def get_full_public_export(db_path=None, checked_at=None) -> dict:
