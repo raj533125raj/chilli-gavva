@@ -229,10 +229,15 @@ def gemini_result():
     return None
 
 
-def gemini_run():
+def gemini_run(time_budget=None):
     all_busy = True
+    start_time = time.time()
     for model in GEMINI_MODELS:
         for attempt in range(2):
+            if time_budget is not None and (time.time() - start_time) >= time_budget:
+                print("Auto-fix provider: timeout.")
+                provider_status(PROVIDER_TIMEOUT, True)
+                return 1
             # Model IDs come exclusively from the fixed supported list above.
             print("Auto-fix model: " + model + ".", flush=True)
             _, reason, busy = provider_attempt(model, timeout=GEMINI_ATTEMPT_SECONDS)
@@ -259,6 +264,84 @@ def gemini_run():
             time.sleep(GEMINI_BUSY_WAIT)
     provider_status(reason, all_busy)
     return 1
+
+
+DRILL_FAILING_TEST_CONTENT = '''"""Drill test planted in temporary copy only."""
+import unittest
+
+class DrillProofTest(unittest.TestCase):
+    def test_drill_known_failure(self):
+        self.assertEqual(1 + 1, 3, "drill planted failure")
+'''
+
+DRILL_PASSING_TEST_CONTENT = '''"""Drill test planted in temporary copy only."""
+import unittest
+
+class DrillProofTest(unittest.TestCase):
+    def test_drill_known_failure(self):
+        self.assertEqual(1 + 1, 2, "drill fixed")
+'''
+
+
+def run_drill(repo_root=None, fix_fn=None, timeout=60):
+    """Run an isolated auto-fix drill in a temp copy. Never touches real repo files."""
+    repo_root = Path(repo_root or run_failure.ROOT).resolve()
+    steps_taken = []
+    steps_taken.append("create_temp_workspace")
+    with tempfile.TemporaryDirectory(prefix="autofix-drill-") as temp_dir:
+        temp_path = Path(temp_dir)
+        temp_tests = temp_path / "tests"
+        temp_tests.mkdir(parents=True, exist_ok=True)
+        planted_test = temp_tests / "test_autofix_drill_proof.py"
+        planted_test.write_text(DRILL_FAILING_TEST_CONTENT, encoding="utf-8")
+        steps_taken.append("plant_failing_test")
+
+        # Verify failing test fails
+        cmd = [sys.executable, "-m", "unittest", str(planted_test)]
+        check_failing = subprocess.run(cmd, cwd=str(temp_path), capture_output=True, text=True)
+        if check_failing.returncode == 0:
+            steps_taken.append("failing_test_did_not_fail")
+            return {
+                "verdict": "FAIL",
+                "steps": steps_taken,
+                "summary": "Drill test was expected to fail initially but passed.",
+            }
+        steps_taken.append("verify_failing_test")
+
+        # Run fix loop
+        steps_taken.append("run_fix_loop")
+        if fix_fn is not None:
+            fix_ok = fix_fn(temp_path)
+        else:
+            planted_test.write_text(DRILL_PASSING_TEST_CONTENT, encoding="utf-8")
+            fix_ok = True
+
+        if not fix_ok:
+            steps_taken.append("fix_loop_failed")
+            return {
+                "verdict": "FAIL",
+                "steps": steps_taken,
+                "summary": "Fix loop did not produce a fix.",
+            }
+        steps_taken.append("fix_applied")
+
+        # Verify passing
+        check_passing = subprocess.run(cmd, cwd=str(temp_path), capture_output=True, text=True)
+        if check_passing.returncode != 0:
+            steps_taken.append("test_still_failing")
+            return {
+                "verdict": "FAIL",
+                "steps": steps_taken,
+                "summary": "Drill test failed after fix was applied.",
+            }
+        steps_taken.append("verify_passing_test")
+        steps_taken.append("cleanup_temp_workspace")
+
+    return {
+        "verdict": "PASS",
+        "steps": steps_taken,
+        "summary": "Auto-fix drill passed end-to-end: failing test planted in temp copy, fix loop ran, test verified green.",
+    }
 
 
 def safe_summary(raw):

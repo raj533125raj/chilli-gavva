@@ -691,3 +691,26 @@ class ProviderOrderTests(unittest.TestCase):
         self.assertIn("if: always() && !cancelled() && needs.fix.outputs.enabled == 'true'", result)
         self.assertIn("run: python3 autofix_retry.py record", result)
         self.assertNotIn("TELEGRAM", result)
+
+
+class DrillTests(unittest.TestCase):
+    def test_drill_pass_in_temp_directory(self):
+        res = autofix.run_drill()
+        self.assertEqual(res["verdict"], "PASS")
+        self.assertIn("create_temp_workspace", res["steps"])
+        self.assertIn("plant_failing_test", res["steps"])
+        self.assertIn("verify_failing_test", res["steps"])
+        self.assertIn("run_fix_loop", res["steps"])
+        self.assertIn("fix_applied", res["steps"])
+        self.assertIn("verify_passing_test", res["steps"])
+        self.assertIn("cleanup_temp_workspace", res["steps"])
+        self.assertFalse(Path("tests/test_autofix_drill_proof.py").exists())
+
+    def test_drill_fail_when_fix_loop_fails(self):
+        res = autofix.run_drill(fix_fn=lambda p: False)
+        self.assertEqual(res["verdict"], "FAIL")
+        self.assertIn("fix_loop_failed", res["steps"])
+
+    def test_drill_telegram_command_registered(self):
+        res = telegram_inbox.handle_command("autofix_drill", [])
+        self.assertTrue(res.startswith("Auto-fix drill: PASS"))
