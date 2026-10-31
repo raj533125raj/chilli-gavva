@@ -6,9 +6,21 @@ A successful run resets the count. Further failures in the same streak do not
 send the same alert again once it has been delivered. If delivery fails, the next
 failed run tries to deliver it again.
 
+The repeated-failure alert ends with exactly one dispatch outcome, also printed
+in the run log: `Auto-fix: started`, or `Auto-fix: not started — <reason>`.
+The reasons are: `setup/workflow problem needs a human`, `already tried in the
+last 24 h`, `no GitHub token`, or `GitHub refused the request`. Started means
+GitHub accepted the dispatch; the later proposal still has to pass its checks.
+Telegram delivery failure does not prevent dispatch, and a later notification
+attempt respects the saved dispatch reservation.
+
 When auto-fix is configured, the second failure also starts a repair proposal.
 Only one new problem can start in 24 hours, including across successful runs. Workflow
-file failures go straight to this runbook because the AI cannot edit workflows.
+file failures and setup problems go straight to this runbook because the AI cannot
+edit workflows or install runner dependencies. Missing tools and apt failures use
+`setup problem: <tool>` in the safe summary; unrecognized paths/modules use a fixed
+generic label, never private details. A refused or timed-out dispatch keeps its
+daily reservation to avoid duplicates, but is not recorded as a running repair.
 If every attempted AI provider is busy, rate limited, or times out without a
 proposal, auto-fix waits quietly. The next failing robot cycle after 30 minutes
 starts another attempt for the same problem, up to three attempts total. The
@@ -40,6 +52,51 @@ safe summary, status, and due time). A short-lived outcome artifact contains onl
 safe summary and status fields. Raw provider output, private logs, and the
 database are excluded.
 If the cache is unavailable or has been removed, a new streak starts at zero.
+
+## 31 Oct red runs
+
+[41198138044](https://github.com/raj533125raj/chilli-gavva/actions/runs/41198138044),
+[41199080601](https://github.com/raj533125raj/chilli-gavva/actions/runs/41199080601),
+and [41201978492](https://github.com/raj533125raj/chilli-gavva/actions/runs/41201978492)
+failed at **Run tests first** after the minutes-saving change omitted Poppler
+from the test dependency installation. Pillow alone could not render PDF pages.
+The first two cycle logs show eight launch-pack/product-delivery assertion
+failures and repeated `listing images skipped ... FileNotFoundError` messages.
+
+The second run checked out `b1955dd9987f52e608b8b4630a2531ba54cc7a69` and
+restored cache `robot-failure-v1-41198138044-1`. The first run's finish log says
+`temporary problem, will retry`, establishing `consecutive_failures: 1` and
+`alerted: false` for the replay. With that state, a successful fake Telegram
+sender, a fake GitHub token, and the exact eight failed test names from the log,
+the old finish code increments to 2 and marks the alert delivered, but calls the
+dispatcher zero times and prints nothing.
+
+The precise blocker was `workflow_failure()`: it searched the entire summary for
+the substring `workflow`. One failed product test was named
+`test_split_workflow_confirms_encryption_then_inbox_retries_send`. That method
+name falsely classified a product delivery failure as a workflow-file failure.
+This predicate blocked dispatch regardless of the cached daily timestamp; no
+GitHub request was attempted on that path. The absence of a dispatch was not
+evidence of a GitHub API refusal. The guard now checks explicit workflow-file
+markers, the setup/key steps, and workflow/parity test modules, so an incidental
+word in a product method cannot block a repair. The regression test replays the
+exact eight names and cached count, and confirms one accepted dispatch.
+
+New summaries recognize the missing PDF renderer as `setup problem: pdftoppm`.
+That setup failure correctly reports `Auto-fix: not started — setup/workflow
+problem needs a human`, rather than silently suppressing a repair. Product tests
+requiring real images now skip unless `mockups.available()`; policy, gating,
+failure, and fake-image tests still run without Poppler. `tests/test_ci_parity.py`
+guards the existing Pillow/Poppler installation before every full suite. It
+rejects removal of either dependency or a product-only installation condition.
+No workflow changes are part of this repair.
+
+Repair verification: the full `python3 -m unittest discover -s tests` suite passed
+with Pillow and Poppler available (1,173 tests, 1 skipped), then with a PATH of
+normal-tool symlinks excluding both `pdftoppm` and `pdftocairo` (1,173 tests,
+27 skipped). The second environment verified that neither renderer was found and
+`mockups.available()` was false. Encrypted products/database, scheduler locks,
+and dashboard status were unchanged.
 
 ## GitHub setup
 

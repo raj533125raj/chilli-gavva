@@ -427,12 +427,7 @@ def safe_summary(raw):
     step = next((line[6:] for line in lines if line.startswith("Step: ")
                  and line[6:] in run_failure.STEPS.values()), run_failure.STEPS["workflow"])
     detail = next((line[9:] for line in lines if line.startswith("Problem: ")), run_failure.UNKNOWN)
-    if detail.startswith("Failed tests: "):
-        names = run_failure.safe_test_names(detail[14:].split(", "))
-        detail = "Failed tests: " + ", ".join(names) if names else run_failure.UNKNOWN
-    elif detail not in {*run_failure.ERRORS.values(), run_failure.PENDING, run_failure.UNKNOWN,
-                        run_failure.KEY_MISSING, "A command could not complete its work."}:
-        detail = run_failure.UNKNOWN
+    detail = run_failure.safe_detail(detail)
     return f"Step: {step}\nProblem: {detail}"
 
 

@@ -19,7 +19,7 @@ DELAY = 30 * 60
 MAX_ATTEMPTS = 3
 ARTIFACT = "robot-autofix-result"
 FILENAME = "autofix-result.json"
-PHASES = {"running", "waiting", "exhausted", "manual", "proposed", "cancelled"}
+PHASES = {"running", "waiting", "exhausted", "manual", "proposed", "cancelled", "dispatch_failed"}
 BUSY_FAILED = "Auto-fix tried 3 times, AI servers were busy. Use the robot-fix-runbook."
 
 
@@ -69,25 +69,42 @@ def cancel(path, now):
     run_failure.write_state(path, state)
 
 
-def dispatch_due(path, env, now, dispatch=None, summary=None):
+def dispatch_request(path, retry, env, dispatch=None):
+    try:
+        started = (dispatch or autofix.dispatch_fix)(retry["summary"], env,
+                                                    problem=retry["problem"], attempt=retry["attempt"])
+    except Exception:
+        started = False
+    if started is True:
+        return run_failure.AUTOFIX_STARTED
+    # Keep the reservation after an ambiguous API failure, but don't claim a running repair.
+    # A verified late artifact may still prove an ambiguous request reached GitHub.
+    retry.update(phase="dispatch_failed", notified=True)
+    save_retry(path, retry)
+    return run_failure.autofix_not_started("GitHub refused the request")
+
+
+def dispatch_due(path, env, now, dispatch=None, summary=None, report=print):
     retry = saved_retry(path)
     if not retry or retry["phase"] != "waiting" or retry["attempt"] >= MAX_ATTEMPTS:
         return False
     if run_failure.read_count(path) == 0 or (summary is not None and summary != retry["summary"]):
         cancel(path, now)
         return False
-    if retry.get("due_at", float("inf")) > now or not env.get("GITHUB_TOKEN"):
+    if retry.get("due_at", float("inf")) > now:
+        return False
+    if run_failure.workflow_failure(path, summary or retry["summary"]):
+        report(run_failure.autofix_not_started("setup/workflow problem needs a human"))
+        return False
+    if not env.get("GITHUB_TOKEN"):
+        report(run_failure.autofix_not_started("no GitHub token"))
         return False
     retry.update(attempt=retry["attempt"] + 1, phase="running")
     retry.pop("due_at", None)
     # Reserve before dispatch: an API timeout may still start the workflow.
     # This deliberately leaves the daily NEW-problem timestamp unchanged.
     save_retry(path, retry)
-    try:
-        (dispatch or autofix.dispatch_fix)(retry["summary"], env,
-                                          problem=retry["problem"], attempt=retry["attempt"])
-    except Exception:
-        print("Auto-fix retry could not start.")
+    report(dispatch_request(path, retry, env, dispatch))
     return True
 
 

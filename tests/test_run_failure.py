@@ -45,7 +45,8 @@ class RunFailureTests(unittest.TestCase):
             "Step: Run tests first\nProblem: AssertionError: a check failed.\n"
             "What to do: open the robot-fix-runbook, paste this message into Codex.\n"
             "robot-fix-runbook: https://github.com/example/robot/blob/main/docs/robot-fix-runbook.md\n"
-            "https://github.com/example/robot/actions/runs/1")
+            "https://github.com/example/robot/actions/runs/1\n"
+            "Auto-fix: not started — no GitHub token")
         self.finish()
         self.send.assert_called_once()
 
@@ -100,7 +101,7 @@ class RunFailureTests(unittest.TestCase):
         with mock.patch.object(failures.subprocess, "run", return_value=result), \
                 contextlib.redirect_stdout(io.StringIO()) as output:
             self.assertEqual(failures.run_step("save", ["unused"], self.summary), 1)
-        expected = "Step: Save state\nProblem: ValueError: a value could not be read.\n"
+        expected = "Step: Save state\nProblem: setup problem: required file or tool\n"
         self.assertEqual(self.summary.read_text(), expected)
         self.assertEqual(output.getvalue(), "".join("Step output: " + line + "\n"
                                                   for line in raw.splitlines()) + expected)
@@ -179,6 +180,154 @@ class RunFailureTests(unittest.TestCase):
         for data in ("invalid", "[]", '{"consecutive_failures": -1}', '{"consecutive_failures": true}'):
             self.state.write_text(data)
             self.assertEqual(failures.read_count(self.state), 0)
+
+
+class AutofixHonestyTests(unittest.TestCase):
+    setUp = RunFailureTests.setUp
+
+    def attempt(self, dispatch, **kwargs):
+        env = dict(self.env, GITHUB_TOKEN="fixture")
+        env.update(kwargs.pop("env", {}))
+        with contextlib.redirect_stdout(io.StringIO()) as log:
+            failures.finish("failure", self.state, self.summary, self.send, env,
+                            dispatch, now=kwargs.pop("now", 100000))
+        return log.getvalue()
+
+    def prepare(self, detail=failures.UNKNOWN, **state):
+        failures.write_summary(self.summary, "tests", detail)
+        self.state.write_text(json.dumps(dict(consecutive_failures=1, alerted=False, **state)))
+
+    def assert_outcome(self, log, outcome):
+        message = self.send.call_args.args[0]
+        self.assertEqual(message.splitlines()[-1], outcome)
+        self.assertEqual(sum(line.startswith("Auto-fix:") for line in message.splitlines()), 1)
+        self.assertIn(outcome + "\n", log)
+
+    def test_31_oct_cached_first_failure_dispatches_despite_product_workflow_method_name(self):
+        methods = (
+            "test_approved_to_real_encrypted_pack_and_names_only_command",
+            "test_changed_files_before_encryption_confirmation_are_not_announced",
+            "test_encryption_outage_never_notifies_or_loses_approval_and_resumes_without_ai",
+            "test_existing_core_files_finish_without_regenerating_the_product",
+            "test_one_missing_or_placeholder_image_blocks_an_otherwise_ready_pack",
+            "test_pack_cli_failure_goes_to_doctor_and_retries_without_rebuild",
+            "test_split_workflow_confirms_encryption_then_inbox_retries_send",
+        )
+        names = ["test_launch_pack.TestLaunchPack.test_build_full_launch_pack"]
+        names += ["test_product_pipeline.DeliveryTests." + method for method in methods]
+        self.prepare("Failed tests: " + ", ".join(names))
+        self.env["GITHUB_RUN_ID"] = "41199080601"
+        dispatch = mock.Mock(return_value=True)
+        log = self.attempt(dispatch, now=1793448040)
+        self.assertFalse(failures.workflow_failure(self.summary, failures.read_summary(self.summary)))
+        dispatch.assert_called_once_with(failures.read_summary(self.summary),
+                                         dict(self.env, GITHUB_TOKEN="fixture"),
+                                         problem="41199080601", attempt=1)
+        self.assertEqual(failures.read_state(self.state), (2, True))
+        self.assert_outcome(log, "Auto-fix: started")
+
+    def test_every_skip_reason_is_in_the_alert_and_log(self):
+        for detail, state, env, reason in (
+            ("setup problem: pdftoppm", {}, {}, "setup/workflow problem needs a human"),
+            (failures.UNKNOWN, {"last_autofix_dispatch": 99999}, {}, "already tried in the last 24 h"),
+            (failures.UNKNOWN, {}, {"GITHUB_TOKEN": ""}, "no GitHub token"),
+        ):
+            with self.subTest(reason=reason):
+                self.prepare(detail, **state)
+                dispatch = mock.Mock(return_value=True)
+                self.assert_outcome(self.attempt(dispatch, env=env), failures.autofix_not_started(reason))
+                dispatch.assert_not_called()
+
+    def test_false_or_exception_from_github_never_claims_started(self):
+        import autofix_retry
+        for raises in (False, True):
+            with self.subTest(raises=raises):
+                self.prepare()
+                dispatch = mock.Mock(return_value=False,
+                                     side_effect=RuntimeError("private-request") if raises else None)
+                log = self.attempt(dispatch)
+                self.assert_outcome(log, "Auto-fix: not started — GitHub refused the request")
+                self.assertNotIn("private-request", log)
+                self.assertEqual(failures.last_autofix_dispatch(self.state), 100000)
+                self.assertEqual(autofix_retry.saved_retry(self.state)["phase"], "dispatch_failed")
+
+    def test_late_verified_result_can_recover_an_ambiguous_dispatch(self):
+        import autofix_retry
+        self.prepare()
+        self.attempt(mock.Mock(side_effect=TimeoutError("private-request")))
+        request = autofix_retry.saved_retry(self.state)
+        result = dict(request, run_id="900", outcome="busy")
+        self.assertEqual(autofix_retry.accept_result(self.state, result, 100001, 100002, self.send), "waiting")
+        self.assertEqual(autofix_retry.saved_retry(self.state)["due_at"], 101802)
+
+    def test_telegram_failure_does_not_block_or_duplicate_dispatch(self):
+        self.prepare()
+        self.send.return_value = False
+        dispatch = mock.Mock(return_value=True)
+        self.assert_outcome(self.attempt(dispatch), "Auto-fix: started")
+        self.send.return_value = True
+        self.assert_outcome(self.attempt(dispatch, now=100001),
+                            "Auto-fix: not started — already tried in the last 24 h")
+        dispatch.assert_called_once()
+        self.assertEqual(failures.read_state(self.state), (3, True))
+
+    def test_retry_reports_boolean_failure_and_success_honestly(self):
+        import autofix_retry
+        for started in (False, True):
+            with self.subTest(started=started):
+                self.prepare()
+                env = dict(self.env, GITHUB_TOKEN="fixture")
+                request = autofix_retry.start_request(failures.read_summary(self.summary), env)
+                request.update(phase="waiting", due_at=100)
+                autofix_retry.save_retry(self.state, request)
+                with contextlib.redirect_stdout(io.StringIO()) as log:
+                    self.assertTrue(autofix_retry.dispatch_due(self.state, env, 100,
+                                                             mock.Mock(return_value=started)))
+                expected = ("Auto-fix: started" if started else
+                            "Auto-fix: not started — GitHub refused the request")
+                self.assertEqual(log.getvalue(), expected + "\n")
+
+    def test_due_retry_result_is_in_the_second_failure_alert(self):
+        import autofix_retry
+        for started in (False, True):
+            with self.subTest(started=started):
+                self.prepare(last_autofix_dispatch=99900)
+                request = autofix_retry.start_request(failures.read_summary(self.summary), self.env)
+                request.update(phase="waiting", due_at=100000)
+                autofix_retry.save_retry(self.state, request)
+                dispatch = mock.Mock(return_value=started)
+                log = self.attempt(dispatch)
+                expected = ("Auto-fix: started" if started else
+                            "Auto-fix: not started — GitHub refused the request")
+                self.assert_outcome(log, expected)
+                self.assertEqual(log.count("Auto-fix:"), 1)
+                self.assertEqual(failures.last_autofix_dispatch(self.state), 99900)
+                dispatch.assert_called_once_with(failures.read_summary(self.summary),
+                                                 dict(self.env, GITHUB_TOKEN="fixture"),
+                                                 problem=self.env["GITHUB_RUN_ID"], attempt=2)
+
+    def test_setup_diagnostics_are_fixed_safe_and_take_priority_over_test_failures(self):
+        import autofix
+        failed = "FAIL: test_first_failure_is_silent (test_run_failure.RunFailureTests.test_first_failure_is_silent)\n"
+        for raw, tool in (
+            ("FileNotFoundError: [Errno 2] No such file or directory: 'pdftoppm'", "pdftoppm"),
+            ("FileNotFoundError: [Errno 2] No such file or directory: '/private/account/data'", "required file or tool"),
+            ("/bin/bash: pdftocairo: command not found", "pdftocairo"),
+            ("Product Builder: listing images skipped for #1: FileNotFoundError", "pdftoppm"),
+            ("ModuleNotFoundError: No module named 'PIL'", "Pillow"),
+            ("E: Unable to locate package poppler-utils", "apt-get"),
+            ("apt-get failed with exit status 100: private-request", "apt-get"),
+        ):
+            with self.subTest(raw=raw):
+                detail = failures.problem(failed + raw, env={})
+                self.assertEqual(detail, "setup problem: " + tool)
+                failures.write_summary(self.summary, "tests", detail)
+                safe = failures.read_summary(self.summary)
+                self.assertEqual(autofix.safe_summary(safe), safe)
+                self.assertNotIn("private", safe)
+                self.assertTrue(failures.workflow_failure(self.summary, safe))
+        self.summary.write_text("Step: Run tests first\nProblem: setup problem: private-account")
+        self.assertEqual(failures.read_summary(self.summary), "Step: Run tests first\nProblem: " + failures.UNKNOWN)
 
 
 class FailureWorkflowTests(unittest.TestCase):

@@ -11,6 +11,7 @@ import cubes
 import doctor
 import guardrails
 import launch_pack
+import mockups
 import product_builder
 import product_council
 import product_pipeline as pipeline
@@ -70,6 +71,7 @@ class DeliveryTests(unittest.TestCase):
         with pipeline.connect(self.db) as conn:
             return conn.execute("SELECT status, folder, files FROM product_deliveries WHERE approval_id=?", (aid,)).fetchone()
 
+    @unittest.skipUnless(mockups.available(), "needs Pillow and poppler (free image tools)")
     def test_approved_to_real_encrypted_pack_and_names_only_command(self):
         aid = self.approved()
         self.run_pipeline()
@@ -98,6 +100,7 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(len(self.prompts), 5)
         self.assertEqual(len(self.sent), 1)
 
+    @unittest.skipUnless(mockups.available(), "needs Pillow and poppler (free image tools)")
     def test_encryption_outage_never_notifies_or_loses_approval_and_resumes_without_ai(self):
         aid = self.approved()
         with mock.patch.object(launch_pack, "encrypt_handoff", side_effect=OSError("private detail")):
@@ -113,6 +116,7 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(self.state(aid)[0], "ready")
         self.assertEqual(len(self.sent), 1)
 
+    @unittest.skipUnless(mockups.available(), "needs Pillow and poppler (free image tools)")
     def test_split_workflow_confirms_encryption_then_inbox_retries_send(self):
         aid = self.approved()
         with mock.patch.dict(os.environ, {"DB_KEY": ""}):
@@ -131,6 +135,7 @@ class DeliveryTests(unittest.TestCase):
         pipeline.notify_ready(self.db, lambda text: self.sent.append(text) or True)
         self.assertEqual(len(self.sent), 1)
 
+    @unittest.skipUnless(mockups.available(), "needs Pillow and poppler (free image tools)")
     def test_pack_cli_failure_goes_to_doctor_and_retries_without_rebuild(self):
         aid = self.approved()
         with mock.patch.dict(os.environ, {"DB_KEY": ""}):
@@ -144,6 +149,7 @@ class DeliveryTests(unittest.TestCase):
         self.run_pipeline()
         self.assertEqual(self.state(aid)[0], "ready")
 
+    @unittest.skipUnless(mockups.available(), "needs Pillow and poppler (free image tools)")
     def test_existing_core_files_finish_without_regenerating_the_product(self):
         aid = self.approved(checker.format_review(90, []), council=True)
         spec, reason = product_builder.parse_spec(fake_spec(""), "ADHD Planners Agent")
@@ -178,6 +184,7 @@ class DeliveryTests(unittest.TestCase):
             self.assertEqual(conn.execute("SELECT status FROM tasks WHERE id=?", (task,)).fetchone()[0], "queued")
         self.assertEqual(self.prompts, [])
 
+    @unittest.skipUnless(mockups.available(), "needs Pillow and poppler (free image tools)")
     def test_changed_files_before_encryption_confirmation_are_not_announced(self):
         aid = self.approved()
         with mock.patch.dict(os.environ, {"DB_KEY": ""}):
@@ -282,6 +289,7 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(result["status"], "needs_fix")
         self.assertFalse((Path(self.out) / result["folder"] / "cover.png").exists())
 
+    @unittest.skipUnless(mockups.available(), "needs Pillow and poppler (free image tools)")
     def test_one_missing_or_placeholder_image_blocks_an_otherwise_ready_pack(self):
         aid = self.approved(checker.format_review(90, []), council=True)
         result = launch_pack.build_launch_pack(aid, self.db, self.out, fake_spec)
@@ -300,6 +308,7 @@ class DeliveryTests(unittest.TestCase):
         self.assertLess(quality, launch_pack.QUALITY_BAR)
         self.assertTrue(any("placeholder" in reason for reason in reasons))
 
+    @unittest.skipUnless(mockups.available(), "needs Pillow and poppler (free image tools)")
     def test_other_supported_formats_reach_truth_ready_with_real_files(self):
         from test_product_builder import SPECS
         for niche in ("Budget Sheets Agent", "Resume Bundle Agent", "Notion Templates Agent"):

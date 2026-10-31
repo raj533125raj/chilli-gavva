@@ -18,6 +18,7 @@ from unittest import mock
 
 import guardrails
 import launch_pack
+import mockups
 import product_council
 
 
@@ -92,6 +93,7 @@ class TestLaunchPack(unittest.TestCase):
         self.assertEqual(len(eligible_drafts), 1)
         self.assertEqual(eligible_drafts[0]["id"], aid_valid)
 
+    @unittest.skipUnless(mockups.available(), "needs Pillow and poppler (free image tools)")
     def test_build_full_launch_pack(self):
         aid = self._create_approved_draft()
         res = launch_pack.build_launch_pack(aid, db_path=self.db_path, out_dir=self.out_dir)
@@ -136,6 +138,7 @@ class TestLaunchPack(unittest.TestCase):
         self.assertIn("pack_quality", manifest)
         self.assertIn("quality_reasons", manifest)
 
+    @unittest.skipUnless(mockups.available(), "needs Pillow and poppler (free image tools)")
     def test_quality_evaluation_and_fixer_loop(self):
         aid = self._create_approved_draft()
         res = launch_pack.build_launch_pack(aid, db_path=self.db_path, out_dir=self.out_dir, max_fix_rounds=2)
@@ -151,6 +154,7 @@ class TestLaunchPack(unittest.TestCase):
         self.assertEqual(row[0], res["status"])
         self.assertEqual(row[1], res["pack_quality"])
 
+    @unittest.skipUnless(mockups.available(), "needs Pillow and poppler (free image tools)")
     def test_encryption_handoff(self):
         aid = self._create_approved_draft()
 
