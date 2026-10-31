@@ -12,6 +12,8 @@ the router health ledger, falling back to legacy provider tallies when unavailab
 Daily office reports use IST dates, bounded fixed completion labels and aggregate
 counts only. Sunday letters summarize the last seven IST calendar days; private
 Telegram report prose, financial records and product ideas are never copied.
+Workspace exports retain configured floor_id values (including zero), with legacy
+floor values supported and absent mappings left unknown.
 
 Approved-product delivery (robot-r65): the scheduled builder now runs council/checker
 gates, real product files, launch documentation and truth checks as one resumable

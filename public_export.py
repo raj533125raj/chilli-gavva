@@ -826,15 +826,25 @@ def get_public_receipts(db_path=None):
 
 
 def get_public_workspaces():
-    """Small registry projection; floor is unknown until explicitly configured."""
+    """Registry floor ids (or legacy floor values), never inferred from row order."""
     import cubes
     try:
         rows = cubes.load_registry()
     except (OSError, ValueError, TypeError):
         return []
-    return [{"id": _short(row.get("id"), 80), "name": _short(row.get("name")),
-             "floor": _short(row["floor"], 80) if isinstance(row.get("floor"), str)
-             else row.get("floor") if type(row.get("floor")) is int else None} for row in rows[:50]]
+    result = []
+    for row in rows[:50]:
+        floor = None
+        for key in ("floor_id", "floor"):
+            value = row.get(key)
+            if isinstance(value, str) and value.strip():
+                floor = _short(value, 80)
+                break
+            if type(value) is int:
+                floor = value
+                break
+        result.append({"id": _short(row.get("id"), 80), "name": _short(row.get("name")), "floor": floor})
+    return result
 
 
 _EXPORT_PROCESS_STARTED_AT = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

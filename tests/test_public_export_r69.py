@@ -75,6 +75,23 @@ class OfficeExportTests(unittest.TestCase):
         self.assertEqual(public_export.get_public_office_reports(missing, NOW)["daily_report"]["items_done"], [])
         self.assertFalse(Path(missing).exists())
 
+
+    def test_workspace_floor_ids_flow_from_real_registry_and_legacy_floor_is_preserved(self):
+        import cubes
+        registry = cubes.load_registry()
+        registry[0].update(floor_id="operations", floor="old-floor", private_prompt="private workspace instructions")
+        registry[1]["floor_id"] = 0
+        registry[2]["floor"] = "Main"
+        registry[3]["floor_id"] = True  # bool is not an integer floor
+        registry[4]["floor_id"] = {"private": "instructions"}
+        registry_path = self.root / "cubes.json"
+        registry_path.write_text(json.dumps(registry))
+        with mock.patch.object(cubes, "CUBES_JSON_PATH", str(registry_path)):
+            rows = public_export.get_public_workspaces()
+            self.assertEqual([row["floor"] for row in rows[:6]], ["operations", 0, "Main", None, None, None])
+            self.assertEqual(self.status()["workspaces"], rows)
+        self.assertNotIn("private workspace instructions", json.dumps(rows))
+
     def test_connection_names_survive_final_scrub_without_credential_values(self):
         secrets = {name: "private-connection-value-" + str(i)
                    for i, name in enumerate(public_export.PUBLIC_CONNECTION_KEYS)}
