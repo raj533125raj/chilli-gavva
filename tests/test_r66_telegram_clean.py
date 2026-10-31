@@ -27,6 +27,10 @@ def _upd(uid, text, chat=OWNER):
 
 class TestR66TelegramClean(unittest.TestCase):
     def setUp(self):
+        # CI runners set these; /status must use the test data, not the live GitHub run.
+        env = mock.patch.dict(os.environ, {"GITHUB_ACTIONS": "", "RUNNER_ENVIRONMENT": "", "GITHUB_RUN_ID": ""})
+        env.start()
+        self.addCleanup(env.stop)
         self.tmp = tempfile.TemporaryDirectory()
         self.db = os.path.join(self.tmp.name, "clean_test.db")
         self.sent = []
