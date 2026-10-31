@@ -163,20 +163,20 @@ def _ensure_13_tags(tags: List[str], niche: str) -> List[str]:
     return clean_tags[:13]
 
 
-def _format_launch_listing(spec: Dict[str, Any], file_list: List[str]) -> str:
+def _format_launch_listing(spec: Dict[str, Any], file_list: List[str], facts: Optional[Dict[str, Any]] = None) -> str:
     """Format listing.md containing title, description, 13 tags, FAQ, file list, license, and checklist."""
     listing = spec.get("listing", {})
-    title = listing.get("title", spec.get("name", "Digital Product"))
-    description = listing.get("description", "")
+    title = product_builder._sanitize_text(listing.get("title", spec.get("name", "Digital Product")), spec, facts=facts)
+    description = product_builder._sanitize_text(listing.get("description", ""), spec, facts=facts)
 
     # Ensure description explicitly states deliverable facts for truth checker
     kind = spec.get("kind", "")
     if kind in ("planner", "dated_planner"):
-        num_pages = len(spec.get("pages", [])) + 2 + (1 if spec.get("daily_page") else 0)
+        num_pages = facts["pages"] if facts and "pages" in facts else (len(spec.get("pages", [])) + 2 + (1 if spec.get("daily_page") else 0))
         if "pages" not in description.lower():
             description += f"\n\nDelivered as a {num_pages} printable pages planner in A4 and US Letter sizes."
     elif kind == "sheets":
-        num_sheets = len(spec.get("sheets", []))
+        num_sheets = len(facts["sheets"]) if facts and "sheets" in facts else len(spec.get("sheets", []))
         if "sheets" not in description.lower():
             description += f"\n\nIncludes {num_sheets} worksheets."
     tags = listing.get("tags", [])
@@ -372,7 +372,8 @@ def build_launch_pack(approval_id: int, db_path=None, out_dir=None, llm=None,
         with open(os.path.join(folder_path, "FILE_LIST.txt"), "w", encoding="utf-8") as f:
             f.write("Included Launch Pack Files:\n" + "\n".join([f"- {name}" for name in files_built]) + "\n")
 
-        listing_content = _format_launch_listing(spec, files_built)
+        facts = truth_check.facts(folder_path)
+        listing_content = _format_launch_listing(spec, files_built, facts=facts)
         with open(os.path.join(folder_path, "listing.md"), "w", encoding="utf-8") as f:
             f.write(listing_content)
 
@@ -395,18 +396,20 @@ def build_launch_pack(approval_id: int, db_path=None, out_dir=None, llm=None,
         with open(os.path.join(folder_path, "LAUNCH_PACK.json"), "w", encoding="utf-8") as f:
             f.write(json.dumps(pack_manifest, indent=2))
 
-        if final_quality >= QUALITY_BAR or current_round >= max_fix_rounds:
+        if final_quality >= QUALITY_BAR and tc_res.get("verdict") == "ready":
+            break
+        if current_round >= max_fix_rounds:
             break
 
         # Fixer loop actions for next round
         current_round += 1
-        spec["listing"]["title"] = product_builder._sanitize_text(spec["listing"]["title"], spec)
-        spec["listing"]["description"] = product_builder._sanitize_text(spec["listing"]["description"], spec)
+        spec["listing"]["title"] = product_builder._sanitize_text(spec["listing"]["title"], spec, facts=facts)
+        spec["listing"]["description"] = product_builder._sanitize_text(spec["listing"]["description"], spec, facts=facts)
         spec["listing"]["tags"] = _ensure_13_tags(spec["listing"].get("tags", []), niche)
 
     # Record launch pack in database
     conn = connect(db_path)
-    status_str = "ready" if final_quality >= QUALITY_BAR else "needs_fix"
+    status_str = "ready" if (final_quality >= QUALITY_BAR and tc_res.get("verdict") == "ready") else "needs_fix"
     conn.execute(
         "INSERT OR REPLACE INTO launch_packs (approval_id, status, quality_score, reasons, folder, rounds, ts) "
         "VALUES (?, ?, ?, ?, ?, ?, ?)",
