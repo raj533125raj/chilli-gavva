@@ -134,6 +134,16 @@ class OfficeExportTests(unittest.TestCase):
         for row in document["receipts"]:
             self.assertEqual(set(row), {"id", "type", "state", "safe_reason", "at"})
 
+
+    def test_workflow_cache_restore_and_save_use_v5(self):
+        import re
+        versions = []
+        workflows = Path(__file__).resolve().parents[1] / ".github" / "workflows"
+        for path in workflows.glob("*.yml"):
+            versions.extend(re.findall(r"uses:\s+actions/cache/(?:restore|save)@([^\s]+)", path.read_text()))
+        self.assertTrue(versions)
+        self.assertEqual(set(versions), {"v5"})
+
     def test_connection_names_survive_final_scrub_without_credential_values(self):
         secrets = {name: "private-connection-value-" + str(i)
                    for i, name in enumerate(public_export.PUBLIC_CONNECTION_KEYS)}

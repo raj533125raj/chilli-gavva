@@ -18,6 +18,8 @@ Stuck tasks use the Doctor detector's two-attempt threshold. New signed office
 receipts retain their known action type; legacy receipts keep unknown types.
 Integration coverage exercises a real inbox receipt, scheduler mission and Doctor
 case through the final public JSON without exposing instructions or signatures.
+Workflow cache restore/save references use actions/cache v5; all other workflow
+content is unchanged.
 
 Approved-product delivery (robot-r65): the scheduled builder now runs council/checker
 gates, real product files, launch documentation and truth checks as one resumable

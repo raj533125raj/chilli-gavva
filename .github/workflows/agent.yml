@@ -72,7 +72,7 @@ jobs:
         if: always()
         continue-on-error: true
         timeout-minutes: 1
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ runner.temp }}/robot-failure-state.json
           key: robot-failure-v1-${{ github.run_id }}-${{ github.run_attempt }}
@@ -156,7 +156,7 @@ jobs:
         if: steps.gate.outputs.run == 'true'
         continue-on-error: true
         timeout-minutes: 1
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ runner.temp }}/robot-green-sha.txt
           key: robot-green-code-v1-${{ runner.os }}-py311-${{ github.run_id }}-${{ github.run_attempt }}
@@ -441,7 +441,7 @@ jobs:
         if: always() && steps.failure_result.outcome == 'success'
         continue-on-error: true
         timeout-minutes: 1
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ${{ runner.temp }}/robot-failure-state.json
           key: robot-failure-v1-${{ github.run_id }}-${{ github.run_attempt }}
@@ -461,7 +461,7 @@ jobs:
         if: success() && steps.green_revision.outcome == 'success'
         continue-on-error: true
         timeout-minutes: 1
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ${{ runner.temp }}/robot-green-sha.txt
           key: robot-green-code-v1-${{ runner.os }}-py311-${{ github.run_id }}-${{ github.run_attempt }}
@@ -519,7 +519,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v5
         with:
           path: ${{ runner.temp }}/robot-failure-state.json
           key: robot-failure-v1-${{ github.run_id }}-${{ github.run_attempt }}
@@ -530,7 +530,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python3 autofix_retry.py receive
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@v5
         with:
           path: ${{ runner.temp }}/robot-failure-state.json
           key: robot-failure-v1-${{ github.run_id }}-${{ github.run_attempt }}
