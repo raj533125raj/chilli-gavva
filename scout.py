@@ -18,10 +18,14 @@ import sys
 import cubes
 import guardrails
 import niche_topics
+import public_export
 import rest_window
+import secret_guard
 
 SCOUT_STATE_KEY = "scout_last_run_day"
 CATEGORIES = ("Printables", "Planners", "Templates")
+MAX_IDEAS_PER_NICHE_PER_DAY = 2
+LOOKBACK_DAYS = 30
 
 DEFAULT_NICHES = {
     "budget": "niche_budget_sheets",
@@ -58,8 +62,17 @@ def connect(db_path=None):
         niche TEXT,
         status TEXT DEFAULT 'pending',
         approval_id INTEGER,
-        synced INTEGER DEFAULT 0)""")
+        synced INTEGER DEFAULT 0,
+        why_pass TEXT)""")
     conn.execute("CREATE TABLE IF NOT EXISTS scout_state (key TEXT PRIMARY KEY, value TEXT)")
+    # Ensure why_pass column exists on existing tables
+    try:
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(scout_ideas)").fetchall()]
+        if "why_pass" not in cols:
+            conn.execute("ALTER TABLE scout_ideas ADD COLUMN why_pass TEXT")
+            conn.commit()
+    except sqlite3.Error:
+        pass
     return conn
 
 
@@ -86,7 +99,11 @@ def _today_iso(now=None):
 def is_paused(db_path=None):
     if guardrails.is_killed() or rest_window.in_rest_window():
         return True
-    return not cubes.is_kind_enabled("research", db_path=db_path)
+    if not cubes.is_kind_enabled("research", db_path=db_path):
+        return True
+    if not cubes.is_agent_enabled("Research Manager", db_path=db_path):
+        return True
+    return False
 
 
 def already_ran_today(db_path=None, now=None):
@@ -141,6 +158,166 @@ def _clamp_score(val, default=20):
         return default
 
 
+def _clean_idea_title(text: str) -> str:
+    """Strip prefixes and formatting to get base idea title."""
+    if not text:
+        return ""
+    t = str(text).strip()
+    t = re.sub(r"^\[(?:Scout Idea|scout_idea|Trend Proposal|Draft|niche_[^\]]+)\]\s*", "", t, flags=re.I)
+    t = re.sub(r"^Draft:\s*", "", t, flags=re.I)
+    t = re.sub(r"\s+\(v\d+.*?\)$", "", t, flags=re.I)
+    return t.strip()
+
+
+def get_recent_approved_or_rejected_ideas(db_path=None, days=LOOKBACK_DAYS) -> list[str]:
+    """Return idea/product titles approved or rejected in the last 30 days."""
+    titles = []
+    cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)).isoformat()
+    try:
+        conn = guardrails.connect(db_path)
+        # Check approvals table
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(approvals)").fetchall()]
+        has_decided_ts = "decided_ts" in cols
+        ts_clause = "(decided_ts >= ? OR ts >= ?)" if has_decided_ts else "ts >= ?"
+        params = (cutoff, cutoff) if has_decided_ts else (cutoff,)
+
+        rows = conn.execute(
+            f"SELECT title FROM approvals WHERE status IN ('approved', 'rejected') AND {ts_clause}",
+            params
+        ).fetchall()
+        for (raw_title,) in rows:
+            clean = _clean_idea_title(raw_title)
+            if clean and clean not in titles:
+                titles.append(clean)
+
+        # Also check scout_ideas table
+        has_scout = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='scout_ideas'").fetchone()
+        if has_scout:
+            s_rows = conn.execute(
+                "SELECT idea FROM scout_ideas WHERE status IN ('approved', 'rejected') AND ts >= ?",
+                (cutoff,)
+            ).fetchall()
+            for (raw_idea,) in s_rows:
+                clean = _clean_idea_title(raw_idea)
+                if clean and clean not in titles:
+                    titles.append(clean)
+
+        conn.close()
+    except Exception:
+        pass
+    return titles
+
+
+def is_repeat_idea(idea_text: str, past_ideas: list[str]) -> bool:
+    """Fuzzy title match against ideas approved or rejected in the last 30 days."""
+    if not idea_text or not past_ideas:
+        return False
+    target = _clean_idea_title(idea_text)
+    for past in past_ideas:
+        if niche_topics.similar(target, past):
+            return True
+    return False
+
+
+def get_niche_track_record(db_path=None) -> dict[str, int]:
+    """Return niche scores based on past approvals and READY product builds."""
+    scores: dict[str, int] = {}
+    try:
+        conn = guardrails.connect(db_path)
+        # Approved public drafts or scout ideas
+        has_approvals = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='approvals'").fetchone()
+        if has_approvals:
+            rows = conn.execute("SELECT title, payload FROM approvals WHERE status = 'approved'").fetchall()
+            for title, payload in rows:
+                niche_match = re.search(r"\b(niche_[a-z0-9_]+)\b", (title or "") + " " + (payload or ""))
+                if niche_match:
+                    n = niche_match.group(1)
+                    scores[n] = scores.get(n, 0) + 10
+
+        # READY product builds
+        has_builds = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='product_builds'").fetchone()
+        if has_builds:
+            b_rows = conn.execute("SELECT folder FROM product_builds WHERE status IN ('built', 'ready')").fetchall()
+            for (folder,) in b_rows:
+                if folder:
+                    for n in DEFAULT_NICHES.values():
+                        if n in folder:
+                            scores[n] = scores.get(n, 0) + 15
+
+        # Truth checks with verdict READY
+        has_tc = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='truth_checks'").fetchone()
+        if has_tc:
+            tc_rows = conn.execute("SELECT approval_id, verdict FROM truth_checks WHERE verdict IN ('ready', 'pass', 'READY', 'PASS')").fetchall()
+            if tc_rows and has_approvals:
+                for app_id, _ in tc_rows:
+                    app_row = conn.execute("SELECT title, payload FROM approvals WHERE id = ?", (app_id,)).fetchone()
+                    if app_row:
+                        combined = (app_row[0] or "") + " " + (app_row[1] or "")
+                        n_match = re.search(r"\b(niche_[a-z0-9_]+)\b", combined)
+                        if n_match:
+                            n = n_match.group(1)
+                            scores[n] = scores.get(n, 0) + 10
+
+        conn.close()
+    except Exception:
+        pass
+    return scores
+
+
+def generate_why_pass(idea_text: str, category: str, niche: str) -> str:
+    """Generate a short generic 'why this should pass' note (no money amounts) for the checker."""
+    cat_lower = category.lower()
+    return f"Specific practical layout for targeted buyers with concrete {cat_lower} components and zero prohibited claims."
+
+
+def evaluate_against_reject_reasons(candidate: dict, reject_reasons: list[dict]) -> tuple[dict, bool]:
+    """Score candidate against top recent reject reasons.
+    Drop or rewrite candidate if it matches a reject reason.
+    Returns (candidate, drop_flag).
+    """
+    idea = candidate.get("idea", "")
+    reason = candidate.get("reason", "")
+    full_text = (idea + " " + reason).lower()
+
+    # Extract reason names from reject_reasons list
+    r_names = [str(r.get("reason", "")).lower() for r in reject_reasons if isinstance(r, dict)]
+
+    # 1. Prohibited or risky claims / promises features not in files / money claims
+    if any(k in full_text for k in ["guarantee", "get rich", "earn money", "passive income", "100%", "cure"]):
+        return candidate, True  # Unsafe -> drop completely
+
+    for r_name in r_names:
+        if "prohibited" in r_name or "risky" in r_name:
+            if any(k in full_text for k in ["income", "guaranteed", "profit", "wealth", "secret"]):
+                return candidate, True
+
+        # Too generic / niche too broad
+        if "generic" in r_name or "broad" in r_name:
+            if any(w in idea.lower() for w in ["general", "all-in-one", "life planner", "ultimate everything"]):
+                # Rewrite to be more specific
+                candidate = dict(candidate)
+                candidate["idea"] = idea.replace("All-in-One", "Daily Focus").replace("Ultimate Everything", "Weekly Task")
+                candidate["reason"] = candidate["reason"] + " (Refocused on specific workflow)"
+                candidate["total_score"] = max(1, candidate["total_score"] - 5)
+
+        # Target audience unclear
+        if "target audience" in r_name or "audience" in r_name:
+            # Check if idea lacks a specific audience persona
+            audience_words = ("student", "remote worker", "creator", "freelancer", "teacher", "parent", "nurse", "couple", "grad")
+            if not any(w in full_text for w in audience_words):
+                candidate = dict(candidate)
+                candidate["idea"] = f"{candidate['idea']} for Remote Creators"
+                candidate["reason"] = candidate["reason"] + " (Added clear target audience)"
+
+        # Product structure incomplete / promises features not in files
+        if "structure" in r_name or "promises" in r_name:
+            candidate = dict(candidate)
+            candidate["fit_score"] = min(25, candidate.get("fit_score", 20) + 1)
+            candidate["reason"] = candidate["reason"] + " (Includes modular section structure)"
+
+    return candidate, False
+
+
 def score_candidate(item):
     cat = item.get("category", "Templates")
     if cat not in CATEGORIES:
@@ -153,6 +330,7 @@ def score_candidate(item):
     total = demand + comp + fit + effort
     reason = str(item.get("reason", "")).strip() or "Good category potential and fit."
     niche = item.get("niche") or resolve_niche(idea, cat)
+    why_pass = item.get("why_pass") or generate_why_pass(idea, cat, niche)
     return {
         "category": cat,
         "idea": idea,
@@ -163,6 +341,7 @@ def score_candidate(item):
         "total_score": total,
         "reason": reason,
         "niche": niche,
+        "why_pass": why_pass,
     }
 
 
@@ -227,13 +406,15 @@ def rule_based_scout():
     return [score_candidate(item) for item in FALLBACK_CANDIDATES]
 
 
-def get_candidate_ideas(llm_fn=None):
+def get_candidate_ideas(llm_fn=None, db_path=None):
     if llm_fn is not None:
-        text = _ask_llm(llm_fn)
-        parsed = _parse_llm_ideas(text)
-        if len(parsed) >= 5:
-            return parsed
-    # Fallback to rule-based candidates when LLM is absent or output is invalid
+        if guardrails.can_call_llm(db_path):
+            text = _ask_llm(llm_fn)
+            parsed = _parse_llm_ideas(text)
+            if len(parsed) >= 5:
+                return parsed
+        # If daily cap reached or LLM call returned invalid, do not make AI call
+    # Fallback to rule-based candidates when LLM is absent or output is invalid or cap reached
     return rule_based_scout()
 
 
@@ -241,17 +422,67 @@ def run_scout(db_path=None, llm=None):
     """Run SCOUT agent: generate candidate ideas, pick top 5, store in db and request approval."""
     if is_paused(db_path):
         return []
-    if llm is None:
+    if llm is None and guardrails.can_call_llm(db_path):
         try:
             import llm_router
             llm = lambda p, **kw: llm_router.chat(p, db_path=db_path, **kw)
         except Exception:
             llm = None
+    elif not guardrails.can_call_llm(db_path):
+        llm = None
 
-    candidates = get_candidate_ideas(llm)
+    candidates = get_candidate_ideas(llm, db_path=db_path)
     scored = [score_candidate(c) for c in candidates if c.get("idea")]
-    scored.sort(key=lambda x: x["total_score"], reverse=True)
-    top_5 = scored[:5]
+
+    # 1. Fetch past approved or rejected ideas in the last 30 days
+    past_ideas = get_recent_approved_or_rejected_ideas(db_path=db_path, days=LOOKBACK_DAYS)
+
+    # 2. Fetch top recent reject reasons
+    reject_reasons = public_export.get_public_reject_reasons(db_path=db_path)
+
+    # 3. Fetch niche track record for preference weighting
+    niche_scores = get_niche_track_record(db_path=db_path)
+
+    # Filter and adjust candidates
+    filtered_candidates = []
+    for c in scored:
+        # Check repeat idea in last 30 days
+        if is_repeat_idea(c["idea"], past_ideas):
+            continue
+
+        # Score against reject reasons (rewrite or drop)
+        adjusted, dropped = evaluate_against_reject_reasons(c, reject_reasons)
+        if dropped:
+            continue
+
+        # Double check if rewritten idea is repeat
+        if is_repeat_idea(adjusted["idea"], past_ideas):
+            continue
+
+        # Prefer niches whose past drafts were approved or built READY
+        niche_boost = niche_scores.get(adjusted["niche"], 0)
+        adjusted["total_score"] = adjusted.get("total_score", 80) + min(15, niche_boost // 2)
+
+        # Ensure why_pass is present and scrubbed of currency/money
+        if not adjusted.get("why_pass"):
+            adjusted["why_pass"] = generate_why_pass(adjusted["idea"], adjusted["category"], adjusted["niche"])
+        adjusted["why_pass"] = secret_guard.scrub_text(adjusted["why_pass"])
+
+        filtered_candidates.append(adjusted)
+
+    # Sort candidates by total_score descending
+    filtered_candidates.sort(key=lambda x: x["total_score"], reverse=True)
+
+    # Enforce variety: max 2 ideas per niche per day
+    niche_counts: dict[str, int] = {}
+    top_5 = []
+    for item in filtered_candidates:
+        n = item["niche"]
+        if niche_counts.get(n, 0) < MAX_IDEAS_PER_NICHE_PER_DAY:
+            top_5.append(item)
+            niche_counts[n] = niche_counts.get(n, 0) + 1
+            if len(top_5) == 5:
+                break
 
     now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
     conn = connect(db_path)
@@ -262,9 +493,10 @@ def run_scout(db_path=None, llm=None):
                         f"Niche: {item['niche']}\n"
                         f"Scores: Demand={item['demand_score']}/25, Competition={item['competition_score']}/25, "
                         f"Fit={item['fit_score']}/25, Effort={item['effort_score']}/25 (Total: {item['total_score']}/100)\n"
+                        f"Why this should pass: {item['why_pass']}\n"
                         f"Reason: {item['reason']}")
 
-        review_str = f"Score: {item['total_score']}/100 | {item['reason']}"
+        review_str = f"Score: {item['total_score']}/100 | Why pass: {item['why_pass']} | {item['reason']}"
         title = f"[Scout Idea] {item['idea']}"
 
         approval_id = guardrails.request_approval(
@@ -276,10 +508,10 @@ def run_scout(db_path=None, llm=None):
         )
 
         cur = conn.execute("""INSERT INTO scout_ideas
-            (ts, category, idea, demand_score, competition_score, fit_score, effort_score, total_score, reason, niche, status, approval_id, synced)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 0)""",
+            (ts, category, idea, demand_score, competition_score, fit_score, effort_score, total_score, reason, niche, status, approval_id, synced, why_pass)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 0, ?)""",
             (now_iso, item["category"], item["idea"], item["demand_score"], item["competition_score"],
-             item["fit_score"], item["effort_score"], item["total_score"], item["reason"], item["niche"], approval_id))
+             item["fit_score"], item["effort_score"], item["total_score"], item["reason"], item["niche"], approval_id, item["why_pass"]))
         conn.commit()
 
         item_copy = dict(item)

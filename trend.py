@@ -128,7 +128,11 @@ def _today_iso(now=None):
 def is_paused(db_path=None):
     if guardrails.is_killed() or rest_window.in_rest_window():
         return True
-    return not cubes.is_kind_enabled("research", db_path=db_path)
+    if not cubes.is_kind_enabled("research", db_path=db_path):
+        return True
+    if not cubes.is_agent_enabled("Research Manager", db_path=db_path):
+        return True
+    return False
 
 
 def already_ran_today(db_path=None, now=None):
@@ -347,13 +351,14 @@ Items to evaluate:
 {items_json}"""
 
 
-def score_items(items: list[dict], llm_fn=None) -> list[dict]:
+def score_items(items: list[dict], llm_fn=None, db_path=None) -> list[dict]:
     """Score candidates using llm_router with rule-based fallback."""
     if not items:
         return []
 
     scored = []
-    if llm_fn is not None:
+    # Only call LLM if allowed by daily cap
+    if llm_fn is not None and guardrails.can_call_llm(db_path):
         try:
             compact = [{"title": it["title"], "snippet": it.get("snippet", "")} for it in items[:12]]
             prompt = SCORE_PROMPT.format(items_json=json.dumps(compact))
@@ -391,16 +396,18 @@ def run_trend(db_path=None, llm=None, fetcher=None) -> list[dict]:
     """Run TREND agent: fetch, dedupe, score, save top 10 in DB, and send 1 Telegram digest."""
     if is_paused(db_path):
         return []
-    if llm is None:
+    if llm is None and guardrails.can_call_llm(db_path):
         try:
             import llm_router
             llm = lambda p, **kw: llm_router.chat(p, db_path=db_path, **kw)
         except Exception:
             llm = None
+    elif not guardrails.can_call_llm(db_path):
+        llm = None
 
     raw = fetch_all_raw_trends(fetcher=fetcher)
     unique = dedupe_items(raw)
-    scored = score_items(unique, llm_fn=llm)
+    scored = score_items(unique, llm_fn=llm, db_path=db_path)
 
     scored.sort(key=lambda x: x.get("score", 0), reverse=True)
     top_10 = scored[:10]
