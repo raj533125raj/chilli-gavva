@@ -654,11 +654,10 @@ def _number(value, maximum=None):
 
 
 def get_public_agent_budgets(db_path=None, checked_at=None):
-    """Per-agent observations, when recorded; task counts are not LLM call counts.
+    """Recorded agent budgets, falling back to the explicitly shared guardrails cap.
 
-    Current usage_log records only a shared daily total. Optional agent_usage rows
-    (day, agent, calls_used, calls_limit, context_percent) supply actual per-agent
-    telemetry; absent observations remain null, including context utilization.
+    A shared count is never presented as an attributed agent count: scope tells
+    consumers which ledger applies. Tasks are not used to infer LLM usage.
     """
     day = (checked_at or guardrails.today())[:10]
     rows = _office_rows(db_path, "SELECT agent,calls_used,calls_limit,context_percent "
@@ -666,14 +665,28 @@ def get_public_agent_budgets(db_path=None, checked_at=None):
     observed = {}
     for row in rows:
         observed.setdefault(row["agent"], row)
+    shared = _office_rows(db_path, "SELECT COALESCE((SELECT llm_calls FROM usage_log WHERE day=?),0) AS used FROM sqlite_master WHERE type='table' AND name='usage_log'", (day,))
+    shared_used = _number(shared[0]["used"]) if shared else None
+    shared_limit = None
+    if shared:
+        shared_limit = guardrails.configured_daily_cap()
+        policy = _office_rows(db_path, "SELECT value FROM control WHERE key='office_daily_call_cap'")
+        if policy:
+            try:
+                shared_limit = min(shared_limit, max(0, int(policy[0]["value"])))
+            except (TypeError, ValueError):
+                shared_limit = 0  # same fail-closed policy as guardrails._cap
+    import office_agents
     result = []
-    for agent in workforce.AGENTS[:20]:
-        row = observed.get(agent["name"], {})
-        used, limit = _number(row.get("calls_used")), _number(row.get("calls_limit"))
+    for agent in office_agents.registered(db_path)[:20]:
+        row = observed.get(agent["name"], observed.get(agent["id"]))
+        used = _number(row.get("calls_used")) if row is not None else shared_used
+        limit = _number(row.get("calls_limit")) if row is not None else shared_limit
         result.append({"agent": _short(agent["name"]),
+                       "scope": "agent" if row is not None else "shared",
                        "calls_used_today": used if type(used) is int else None,
                        "calls_limit_today": limit if type(limit) is int else None,
-                       "context_percent": _number(row.get("context_percent"), 100)})
+                       "context_percent": _number((row or {}).get("context_percent"), 100)})
     return result
 
 

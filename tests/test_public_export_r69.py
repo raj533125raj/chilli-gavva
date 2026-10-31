@@ -47,3 +47,39 @@ class OfficeExportTests(unittest.TestCase):
                     self.assertNotIn(secret, json.dumps(document))
             clean = public_export.scrub_public_data({"agent_connection": {"token": secrets["CF_API_TOKEN"]}})
             self.assertEqual(clean["agent_connection"], public_export.get_public_agent_connection())
+
+    def test_shared_budget_uses_guardrails_records_and_owner_cap_read_only(self):
+        with sqlite3.connect(self.db) as conn:
+            conn.execute("INSERT INTO usage_log VALUES (?,17)", (NOW[:10],))
+            conn.execute("INSERT INTO usage_log VALUES ('2026-10-30',99)")
+            conn.execute("INSERT INTO control VALUES ('office_daily_call_cap','30')")
+        before = Path(self.db).read_bytes()
+        rows = public_export.get_public_agent_budgets(self.db, NOW)
+        self.assertEqual(Path(self.db).read_bytes(), before)
+        for row in rows:
+            self.assertEqual((row["calls_used_today"], row["calls_limit_today"], row["scope"]), (17, 30, "shared"))
+            self.assertIsNone(row["context_percent"])
+        with mock.patch.object(guardrails, "configured_daily_cap", return_value=20):
+            self.assertTrue(all(row["calls_limit_today"] == 20
+                                for row in public_export.get_public_agent_budgets(self.db, NOW)))
+
+    def test_empty_day_zero_bad_cap_fails_closed_and_missing_ledger_is_unknown(self):
+        rows = public_export.get_public_agent_budgets(self.db, NOW)
+        self.assertTrue(all(row["calls_used_today"] == 0 for row in rows))
+        with sqlite3.connect(self.db) as conn:
+            conn.execute("INSERT INTO control VALUES ('office_daily_call_cap','invalid')")
+        self.assertTrue(all(row["calls_limit_today"] == 0
+                            for row in public_export.get_public_agent_budgets(self.db, NOW)))
+        missing = str(self.root / "missing.db")
+        rows = public_export.get_public_agent_budgets(missing, NOW)
+        self.assertTrue(all(row["calls_used_today"] is None and row["calls_limit_today"] is None for row in rows))
+        self.assertFalse(Path(missing).exists())
+
+    def test_recorded_agent_budget_overrides_shared_ledger(self):
+        with sqlite3.connect(self.db) as conn:
+            conn.execute("INSERT INTO usage_log VALUES (?,100)", (NOW[:10],))
+            conn.execute("CREATE TABLE agent_usage(day,agent,calls_used,calls_limit,context_percent)")
+            conn.execute("INSERT INTO agent_usage VALUES (?, 'chilli-gavva-robot-draft-worker',4,12,42.5)", (NOW[:10],))
+        row = next(row for row in public_export.get_public_agent_budgets(self.db, NOW) if row["agent"] == "Draft Worker")
+        self.assertEqual((row["calls_used_today"], row["calls_limit_today"], row["context_percent"], row["scope"]),
+                         (4, 12, 42.5, "agent"))

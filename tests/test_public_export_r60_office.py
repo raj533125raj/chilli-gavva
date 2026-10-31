@@ -58,10 +58,11 @@ class OfficeExportTests(unittest.TestCase):
         rows = public_export.get_public_agent_budgets(self.db, NOW)
         writer = next(row for row in rows if row["agent"] == "Draft Worker")
         self.assertEqual(writer, {"agent": "Draft Worker", "calls_used_today": 7,
-                                  "calls_limit_today": 25, "context_percent": 37.5})
+                                  "calls_limit_today": 25, "context_percent": 37.5, "scope": "agent"})
         ceo = next(row for row in rows if row["agent"] == "CEO")
         self.assertEqual([ceo[key] for key in ("calls_used_today", "calls_limit_today", "context_percent")], [None]*3)
-        self.assertTrue(all(row["calls_used_today"] is None for row in rows if row["agent"] != "Draft Worker"))
+        self.assertTrue(all(row["calls_used_today"] == 999 and row["scope"] == "shared"
+                            for row in rows if row["agent"] not in ("Draft Worker", "CEO")))
         self.assertLessEqual(len(rows), 20)
 
     def test_loop_and_activity_caps_latest_first_fixed_labels_and_ids(self):

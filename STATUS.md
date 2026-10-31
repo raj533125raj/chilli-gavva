@@ -5,6 +5,8 @@ Last updated: 2026-10-31.
 Office export repairs (robot-r69): the final public scrub rebuilds the connection
 protocol from fixed addresses, required environment names and supported engine modes.
 Connection objects cannot supply credential values or extra private fields.
+Agent budgets read the real guardrails usage/cap and owner policy with an explicit
+shared scope; recorded agent-specific usage and context override that fallback.
 
 Approved-product delivery (robot-r65): the scheduled builder now runs council/checker
 gates, real product files, launch documentation and truth checks as one resumable
