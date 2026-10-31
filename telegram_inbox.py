@@ -235,7 +235,7 @@ def subscription_note(token):
 
 
 # ---- command handling --------------------------------------------------------
-_COMMANDS = "list|view|approve|reject|pipeline|pause|resume|buttontest|rules|cubes|doctor|help|start"
+_COMMANDS = "list|view|approve|reject|pipeline|pause|resume|buttontest|rules|cubes|doctor|autofix_drill|help|start"
 # "/approve 4", "/approve" or "/approve@bot 4 5": anything after a real slash command is fine.
 _SLASH_CMD = re.compile(rf"^/({_COMMANDS})(?:@\w+)?(?:\s+(.*))?$", re.IGNORECASE | re.DOTALL)
 # Without a slash only the bare form counts: "approve 4", "approve 4, 5", "list". A normal sentence such as
@@ -468,6 +468,10 @@ def handle_command(cmd, ids, db_path=None):
     if cmd == "doctor":
         import doctor
         return doctor.format_last_cases(db_path=db_path)
+    if cmd == "autofix_drill":
+        import autofix
+        res = autofix.run_drill()
+        return f"Auto-fix drill: {res['verdict']}\n{res['summary']}"
     return HELP
 
 

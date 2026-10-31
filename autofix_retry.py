@@ -91,11 +91,25 @@ def dispatch_due(path, env, now, dispatch=None, summary=None):
     return True
 
 
+def terminal_message(retry):
+    if not retry:
+        return autofix.FAILED
+    phase = retry.get("phase")
+    reason = retry.get("reason", "")
+    if phase == "exhausted":
+        if reason:
+            return f"Auto-fix tried 3 times, AI servers were busy ({reason}). Use the robot-fix-runbook."
+        return BUSY_FAILED
+    if phase == "manual" and reason:
+        return f"Auto-fix gave up: {reason}. Use the robot-fix-runbook."
+    return autofix.FAILED
+
+
 def notify_terminal(path, send=None):
     retry = saved_retry(path)
     if not retry or retry["phase"] not in {"manual", "exhausted"} or retry["notified"]:
         return False
-    message = BUSY_FAILED if retry["phase"] == "exhausted" else autofix.FAILED
+    message = terminal_message(retry)
     try:
         delivered = (send or notify.send)(message)
     except Exception:
@@ -134,6 +148,8 @@ def accept_result(path, result, created_at, now, send=None):
         run_failure.write_state(path, state)
     retry.update(last_result=run_id, notified=False)
     retry.pop("due_at", None)
+    if "reason" in result and isinstance(result["reason"], str):
+        retry["reason"] = result["reason"]
     if outcome == "busy":
         if retry["attempt"] < MAX_ATTEMPTS:
             retry.update(phase="waiting", due_at=now + DELAY)

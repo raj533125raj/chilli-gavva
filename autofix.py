@@ -229,10 +229,15 @@ def gemini_result():
     return None
 
 
-def gemini_run():
+def gemini_run(time_budget=None):
     all_busy = True
+    start_time = time.time()
     for model in GEMINI_MODELS:
         for attempt in range(2):
+            if time_budget is not None and (time.time() - start_time) >= time_budget:
+                print("Auto-fix provider: timeout.")
+                provider_status(PROVIDER_TIMEOUT, True)
+                return 1
             # Model IDs come exclusively from the fixed supported list above.
             print("Auto-fix model: " + model + ".", flush=True)
             _, reason, busy = provider_attempt(model, timeout=GEMINI_ATTEMPT_SECONDS)
@@ -259,6 +264,161 @@ def gemini_run():
             time.sleep(GEMINI_BUSY_WAIT)
     provider_status(reason, all_busy)
     return 1
+
+
+DRILL_FAILING_TEST_CONTENT = '''"""Drill test planted in temporary copy only."""
+import unittest
+
+class DrillProofTest(unittest.TestCase):
+    def test_drill_known_failure(self):
+        self.assertEqual(1 + 1, 3, "drill planted failure")
+'''
+
+DRILL_PASSING_TEST_CONTENT = '''"""Drill test planted in temporary copy only."""
+import unittest
+
+class DrillProofTest(unittest.TestCase):
+    def test_drill_known_failure(self):
+        self.assertEqual(1 + 1, 2, "drill fixed")
+'''
+
+
+def real_drill_fix_loop(temp_workspace, env=None, time_budget=120):
+    """Executes the patient provider fix loop for the drill in temp_workspace."""
+    env = dict(os.environ if env is None else env)
+    # Rule 4: GEMINI_AUTOFIX_KEY is strictly reserved for auto-fix operations
+    autofix_key = env.get("GEMINI_AUTOFIX_KEY") or env.get("GEMINI_API_KEY")
+    if not autofix_key:
+        print("Auto-fix drill: GEMINI_AUTOFIX_KEY is not configured.", flush=True)
+        return False
+
+    drill_env = dict(env)
+    drill_env["GEMINI_API_KEY"] = autofix_key
+    # Never leak other keys or expose secrets
+    start_time = time.time()
+
+    # Try Gemini models in order with backoff
+    for model in GEMINI_MODELS:
+        backoff = GEMINI_BUSY_WAIT
+        for attempt in range(2):
+            if time.time() - start_time >= time_budget:
+                return False
+            cmd = ["opencode", "github", "run"]
+            call_env = dict(drill_env, MODEL=model)
+            try:
+                proc = subprocess.Popen(cmd, cwd=str(temp_workspace), stdout=subprocess.PIPE,
+                                        stderr=subprocess.STDOUT, text=True, errors="replace",
+                                        env=call_env)
+                out, _ = proc.communicate(timeout=GEMINI_ATTEMPT_SECONDS)
+                reason, busy = classify_provider_output(out)
+            except Exception:
+                reason, busy = PROVIDER_TIMEOUT, True
+
+            # Verify if planted test now passes
+            planted = Path(temp_workspace) / "tests" / "test_autofix_drill_proof.py"
+            test_res = subprocess.run([sys.executable, "-m", "unittest", str(planted)],
+                                      cwd=str(temp_workspace), capture_output=True, text=True)
+            if test_res.returncode == 0:
+                return True
+
+            if reason != SERVER_BUSY or attempt == 1:
+                break
+            time.sleep(min(backoff, max(1, int(time_budget - (time.time() - start_time)))))
+            backoff *= 2
+
+    # Try NVIDIA if configured
+    if drill_env.get("NVIDIA_API_KEY") and (time.time() - start_time < time_budget):
+        try:
+            proc = subprocess.Popen(["opencode", "github", "run"], cwd=str(temp_workspace),
+                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                    errors="replace",
+                                    env=dict(drill_env, MODEL="nim/deepseek-ai/deepseek-v4.1-flash"))
+            proc.communicate(timeout=PROVIDER_ATTEMPT_SECONDS)
+        except Exception:
+            pass
+        planted = Path(temp_workspace) / "tests" / "test_autofix_drill_proof.py"
+        test_res = subprocess.run([sys.executable, "-m", "unittest", str(planted)],
+                                  cwd=str(temp_workspace), capture_output=True, text=True)
+        if test_res.returncode == 0:
+            return True
+
+    # Try Groq if configured
+    if drill_env.get("GROQ_API_KEY") and (time.time() - start_time < time_budget):
+        try:
+            proc = subprocess.Popen(["opencode", "github", "run"], cwd=str(temp_workspace),
+                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                    errors="replace",
+                                    env=dict(drill_env, MODEL="groq/openai/gpt-oss-120b"))
+            proc.communicate(timeout=PROVIDER_ATTEMPT_SECONDS)
+        except Exception:
+            pass
+        planted = Path(temp_workspace) / "tests" / "test_autofix_drill_proof.py"
+        test_res = subprocess.run([sys.executable, "-m", "unittest", str(planted)],
+                                  cwd=str(temp_workspace), capture_output=True, text=True)
+        if test_res.returncode == 0:
+            return True
+
+    return False
+
+
+def run_drill(repo_root=None, fix_fn=None, timeout=120, env=None):
+    """Run an isolated auto-fix drill in a temp copy. Never touches real repo files."""
+    repo_root = Path(repo_root or run_failure.ROOT).resolve()
+    steps_taken = []
+    steps_taken.append("create_temp_workspace")
+    with tempfile.TemporaryDirectory(prefix="autofix-drill-") as temp_dir:
+        temp_path = Path(temp_dir)
+        temp_tests = temp_path / "tests"
+        temp_tests.mkdir(parents=True, exist_ok=True)
+        planted_test = temp_tests / "test_autofix_drill_proof.py"
+        planted_test.write_text(DRILL_FAILING_TEST_CONTENT, encoding="utf-8")
+        steps_taken.append("plant_failing_test")
+
+        # Verify failing test fails
+        cmd = [sys.executable, "-m", "unittest", str(planted_test)]
+        check_failing = subprocess.run(cmd, cwd=str(temp_path), capture_output=True, text=True)
+        if check_failing.returncode == 0:
+            steps_taken.append("failing_test_did_not_fail")
+            return {
+                "verdict": "FAIL",
+                "steps": steps_taken,
+                "summary": "Drill test was expected to fail initially but passed.",
+            }
+        steps_taken.append("verify_failing_test")
+
+        # Run fix loop
+        steps_taken.append("run_fix_loop")
+        if fix_fn is not None:
+            fix_ok = fix_fn(temp_path)
+        else:
+            fix_ok = real_drill_fix_loop(temp_path, env=env, time_budget=timeout)
+
+        if not fix_ok:
+            steps_taken.append("fix_loop_failed")
+            return {
+                "verdict": "FAIL",
+                "steps": steps_taken,
+                "summary": "Fix loop did not produce a fix.",
+            }
+        steps_taken.append("fix_applied")
+
+        # Verify passing
+        check_passing = subprocess.run(cmd, cwd=str(temp_path), capture_output=True, text=True)
+        if check_passing.returncode != 0:
+            steps_taken.append("test_still_failing")
+            return {
+                "verdict": "FAIL",
+                "steps": steps_taken,
+                "summary": "Drill test failed after fix was applied.",
+            }
+        steps_taken.append("verify_passing_test")
+        steps_taken.append("cleanup_temp_workspace")
+
+    return {
+        "verdict": "PASS",
+        "steps": steps_taken,
+        "summary": "Auto-fix drill passed end-to-end: failing test planted in temp copy, fix loop ran, test verified green.",
+    }
 
 
 def safe_summary(raw):
