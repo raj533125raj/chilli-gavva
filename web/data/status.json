@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-30T22:29:18Z",
+ "generated_at": "2026-10-31T00:12:49Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 157,
+  "calls_today": 1,
   "cap": 500
  },
  "agents": [
@@ -227,6 +227,36 @@
    "ts": "2026-10-30T22:26:43.184830",
    "kind": "public_draft",
    "title": "Draft #58"
+  },
+  {
+   "id": 59,
+   "ts": "2026-10-31T00:12:47.335754",
+   "kind": "scout_idea",
+   "title": "Draft #59"
+  },
+  {
+   "id": 60,
+   "ts": "2026-10-31T00:12:47.450075",
+   "kind": "scout_idea",
+   "title": "Draft #60"
+  },
+  {
+   "id": 61,
+   "ts": "2026-10-31T00:12:47.452211",
+   "kind": "scout_idea",
+   "title": "Draft #61"
+  },
+  {
+   "id": 62,
+   "ts": "2026-10-31T00:12:47.454000",
+   "kind": "scout_idea",
+   "title": "Draft #62"
+  },
+  {
+   "id": 63,
+   "ts": "2026-10-31T00:12:47.455833",
+   "kind": "scout_idea",
+   "title": "Draft #63"
   }
  ],
  "worker": {
@@ -257,37 +287,37 @@
   {
    "provider": "Groq",
    "model": null,
-   "state": "unknown",
-   "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-10-30T22:29:18Z"
+   "state": "up",
+   "reason": "All recent calls succeeded",
+   "checked_at": "2026-10-31T00:12:49Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-10-30T22:29:18Z"
+   "checked_at": "2026-10-31T00:12:49Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-10-30T22:29:18Z"
+   "checked_at": "2026-10-31T00:12:49Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-10-30T22:29:18Z"
+   "checked_at": "2026-10-31T00:12:49Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-10-30T22:29:18Z"
+   "checked_at": "2026-10-31T00:12:49Z"
   }
  ],
  "minutes": {
@@ -611,9 +641,9 @@
   }
  ],
  "report": {
-  "drafts_made": 8,
-  "drafts_waiting": 4,
-  "drafts_approved": 5,
+  "drafts_made": 5,
+  "drafts_waiting": 9,
+  "drafts_approved": 0,
   "products_built": 0,
   "errors": 0
  },
@@ -680,15 +710,15 @@
   },
   "research": {
    "plan": 4,
-   "done": 3
+   "done": 0
   },
   "drafts": {
    "plan": 3,
-   "done": 3
+   "done": 0
   },
   "review": {
    "plan": 3,
-   "done": 3
+   "done": 0
   },
   "product_builds": {
    "plan": 2,
@@ -941,12 +971,12 @@
   }
  ],
  "scout_ideas_count": {
-  "total": 10,
-  "pending": 1,
+  "total": 15,
+  "pending": 6,
   "approved": 9
  },
  "trend_items_count": {
-  "total": 20,
+  "total": 30,
   "proposed": 0,
   "approved": 0
  },
