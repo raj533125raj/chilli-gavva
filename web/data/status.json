@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-31T13:16:54Z",
+ "generated_at": "2026-10-31T15:25:19Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 1,
+  "calls_today": 7,
   "cap": 500
  },
  "agents": [
@@ -286,38 +286,38 @@
  "ai_health": [
   {
    "provider": "Groq",
-   "model": null,
+   "model": "openai/gpt-oss-120b",
    "state": "up",
-   "reason": "All recent calls succeeded",
-   "checked_at": "2026-10-31T13:16:54Z"
+   "reason": "Latest request succeeded",
+   "checked_at": "2026-10-31T15:25:19Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-10-31T13:16:54Z"
+   "checked_at": "2026-10-31T15:25:19Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-10-31T13:16:54Z"
+   "checked_at": "2026-10-31T15:25:19Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-10-31T13:16:54Z"
+   "checked_at": "2026-10-31T15:25:19Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-10-31T13:16:54Z"
+   "checked_at": "2026-10-31T15:25:19Z"
   }
  ],
  "minutes": {
@@ -621,7 +621,7 @@
  "reject_reasons": [
   {
    "reason": "Formatting or rubric issue",
-   "count": 65
+   "count": 73
   },
   {
    "reason": "Unclear value over free template",
@@ -637,7 +637,7 @@
   },
   {
    "reason": "Target audience unclear",
-   "count": 7
+   "count": 11
   }
  ],
  "report": {
@@ -752,60 +752,82 @@
  "agent_budgets": [
   {
    "agent": "CEO",
-   "calls_used_today": null,
-   "calls_limit_today": null,
+   "scope": "shared",
+   "calls_used_today": 7,
+   "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
-   "calls_used_today": null,
-   "calls_limit_today": null,
+   "scope": "shared",
+   "calls_used_today": 7,
+   "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
-   "calls_used_today": null,
-   "calls_limit_today": null,
+   "scope": "shared",
+   "calls_used_today": 7,
+   "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
-   "calls_used_today": null,
-   "calls_limit_today": null,
+   "scope": "shared",
+   "calls_used_today": 7,
+   "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
-   "calls_used_today": null,
-   "calls_limit_today": null,
+   "scope": "shared",
+   "calls_used_today": 7,
+   "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
-   "calls_used_today": null,
-   "calls_limit_today": null,
+   "scope": "shared",
+   "calls_used_today": 7,
+   "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
-   "calls_used_today": null,
-   "calls_limit_today": null,
+   "scope": "shared",
+   "calls_used_today": 7,
+   "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
-   "calls_used_today": null,
-   "calls_limit_today": null,
+   "scope": "shared",
+   "calls_used_today": 7,
+   "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
-   "calls_used_today": null,
-   "calls_limit_today": null,
+   "scope": "shared",
+   "calls_used_today": 7,
+   "calls_limit_today": 500,
    "context_percent": null
   }
  ],
- "loop_events": [],
+ "loop_events": [
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-10-31T13:17:03Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-10-31T13:17:00Z"
+  }
+ ],
  "activity_events": [
   {
    "id": "task:164",
@@ -1827,12 +1849,21 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-10-31T13:16:54Z",
-  "last_run_end": "2026-10-31T13:16:54Z",
+  "last_run_start": "2026-10-31T15:25:19Z",
+  "last_run_end": "2026-10-31T15:25:19Z",
   "runner": "github-actions",
-  "run_id": "41204629201"
+  "run_id": "41214515938"
  },
  "changelog": [
+  "fix: preserve latest budget readings across agent histories and aliases",
+  "chore: upgrade cache restore and save actions to v5",
+  "fix: export real office receipts schedules and stuck-task events",
+  "fix: retain configured workspace floor ids in office exports",
+  "feat: export private-safe daily office reports and Sunday letters",
+  "fix: export model ids from recorded provider health",
+  "fix: export recorded agent and shared guardrails budgets",
+  "fix: preserve public office connection protocol through status scrubbing",
+  "agent: state + content update [skip ci]",
   "Repair old NEEDS FIX products (max 3/day) from the daily product pipeline (Jules R66-JB + guarded hook)",
   "CI: install poppler + URW fonts before full test runs (R65 launch-pack tests need real image tools; minutes saver had dropped them)",
   "agent: owner inbox state [skip ci]",
@@ -1843,17 +1874,24 @@
   "Complete approved product delivery with encrypted readiness receipts",
   "Reduce provider failures with model caps and circuit breakers",
   "Merge branch 'feat-autofix-drill-and-reliable-retries-3440904720822841541' of https://github.com/raj533125raj/chilli-gavva into robot-r63",
-  "Handle signed office agent hires and engine changes",
-  "Reduce agent workflow setup and unchanged schedule test costs",
-  "Prove auto-fix end to end with drill mode and patient retries",
-  "agent: state + content update [skip ci]",
-  "Prove auto-fix end to end with drill mode and patient retries",
-  "Add safe capped office telemetry to public status exports",
-  "Fix product quality end to end (#18)",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]"
+  "Handle signed office agent hires and engine changes"
  ],
+ "daily_report": {
+  "date_ist": "2026-10-31",
+  "summary": "9 tasks completed; 0 approvals reviewed; 0 products built.",
+  "items_done": [
+   "Review completed",
+   "Review completed",
+   "Review completed",
+   "Draft completed",
+   "Draft completed",
+   "Draft completed",
+   "Research completed",
+   "Research completed",
+   "Research completed"
+  ]
+ },
+ "sunday_letter": null,
  "cubes": [
   {
    "id": "executive",
