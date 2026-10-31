@@ -11,12 +11,16 @@ All exported data is strictly safe for public repositories:
 
 import datetime
 import json
+import math
 import os
 import re
 import sqlite3
+import subprocess
+from contextlib import closing
 from pathlib import Path
 
 import guardrails
+import secret_guard
 import workforce
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -24,13 +28,17 @@ PRODUCTS_DIR = os.path.join(BASE_DIR, "exported_content", "products")
 
 # Regex to scrub credentials, key=, token=, bearer tokens, API keys
 SECRET_PATTERN = re.compile(
-    r"(?:api_?key|token|bearer|secret|password|cred|gsk_[a-zA-Z0-9]+|AIza[a-zA-Z0-9_-]+)\s*[:=]\s*[^\s,;'\"]+",
+    r"\b(?:api[_-]?key|key|access_token|token|secret|password|cred)\b[\"']?\s*[:=]\s*"
+    r"(?:\"[^\"]*\"|'[^']*'|[^\s,;&]+)|\bBearer\s+[^\s,;\"']+",
     re.IGNORECASE
 )
 
-# Regex to scrub money / currency amounts (NO currency in public export)
+# Regex to scrub money / currency amounts (NO currency in public export).
+_CURRENCIES = (r"USD|INR|EUR|GBP|JPY|CAD|AUD|NZD|CHF|CNY|RMB|HKD|SGD|AED|SAR|"
+               r"KRW|RUB|BRL|MXN|ZAR|SEK|NOK|DKK|Rs\.?|dollars|rupees|cents|euros|pounds|yen")
 CURRENCY_PATTERN = re.compile(
-    r"(\$|₹|€|£)\s*\d+(?:\.\d+)?|\b\d+(?:\.\d+)?\s*(?:USD|INR|EUR|GBP|dollars|rupees|cents)\b",
+    r"[$₹€£¥₩₽]\s*[+-]?\d[\d,.]*|\b(?:" + _CURRENCIES + r")\s*[:=]?\s*[+-]?\d[\d,.]*"
+    r"|\b[+-]?\d[\d,.]*\s*(?:(?:" + _CURRENCIES + r")\b|[$₹€£¥₩₽])",
     re.IGNORECASE
 )
 
@@ -47,15 +55,23 @@ def scrub_text(text: str) -> str:
     """Scrub secrets, tokens, API keys, and money/currency values from any public string."""
     if not text or not isinstance(text, str):
         return ""
-    # Try llm_router scrub if available
-    try:
-        import llm_router
-        text = llm_router.scrub(text)
-    except Exception:
-        pass
+    text = secret_guard.scrub_text(text)
     text = SECRET_PATTERN.sub("[redacted]", text)
+    text = secret_guard.EMAIL.sub("[redacted]", text)
     text = CURRENCY_PATTERN.sub("[hidden]", text)
     return text.strip()
+
+
+def scrub_public_data(value):
+    """Apply the public string policy recursively, with a final cap on every list."""
+    if isinstance(value, str):
+        return scrub_text(value)
+    if isinstance(value, dict):
+        return {scrub_text(key) if isinstance(key, str) else key: scrub_public_data(item)
+                for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [scrub_public_data(item) for item in value[:200]]
+    return value
 
 
 def _clean_product_title(title: str) -> str:
@@ -581,15 +597,243 @@ def get_public_minutes(db_path=None) -> dict:
     }
 
 
+# These readers never initialize tables or persist telemetry in the private DB.
+def _office_rows(db_path, query, params=()):
+    try:
+        uri = Path(db_path or guardrails.DB_PATH).resolve().as_uri() + "?mode=ro"
+        with closing(sqlite3.connect(uri, uri=True)) as conn:
+            conn.row_factory = sqlite3.Row
+            return [dict(row) for row in conn.execute(query, params)]
+    except (OSError, sqlite3.Error):
+        return []
+
+
+def _iso(value):
+    """Normalize recorded timestamps; reject arbitrary text rather than copying it."""
+    try:
+        if type(value) in (int, float):
+            stamp = datetime.datetime.fromtimestamp(value, datetime.timezone.utc)
+        elif isinstance(value, str):
+            stamp = datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if stamp.tzinfo is None:
+                stamp = stamp.replace(tzinfo=datetime.timezone.utc)
+        else:
+            return None
+        return stamp.astimezone(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+    except (ValueError, TypeError, OverflowError, OSError):
+        return None
+
+
+def _short(value, limit=120):
+    return " ".join(scrub_text(value).split())[:limit]
+
+
+def _public_agent(value):
+    if isinstance(value, str):
+        for agent in workforce.AGENTS:
+            name = agent["name"]
+            slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+            if value in (name, slug, "chilli-gavva-robot-" + slug):
+                return _short(name)
+    return "Unknown agent"
+
+
+def _number(value, maximum=None):
+    if type(value) not in (int, float) or not math.isfinite(value) or value < 0:
+        return None
+    return value if maximum is None or value <= maximum else None
+
+
+def get_public_agent_budgets(db_path=None, checked_at=None):
+    """Per-agent observations, when recorded; task counts are not LLM call counts.
+
+    Current usage_log records only a shared daily total. Optional agent_usage rows
+    (day, agent, calls_used, calls_limit, context_percent) supply actual per-agent
+    telemetry; absent observations remain null, including context utilization.
+    """
+    day = (checked_at or guardrails.today())[:10]
+    rows = _office_rows(db_path, "SELECT agent,calls_used,calls_limit,context_percent "
+                        "FROM agent_usage WHERE day=? ORDER BY rowid DESC LIMIT 100", (day,))
+    observed = {}
+    for row in rows:
+        observed.setdefault(row["agent"], row)
+    result = []
+    for agent in workforce.AGENTS[:20]:
+        row = observed.get(agent["name"], {})
+        used, limit = _number(row.get("calls_used")), _number(row.get("calls_limit"))
+        result.append({"agent": _short(agent["name"]),
+                       "calls_used_today": used if type(used) is int else None,
+                       "calls_limit_today": limit if type(limit) is int else None,
+                       "context_percent": _number(row.get("context_percent"), 100)})
+    return result
+
+
+def get_public_loop_events(db_path=None):
+    """Last 50 failures/repeated attempts and Doctor cases, with fixed labels."""
+    result = []
+    rows = _office_rows(db_path, "SELECT id,agent,status,attempts,COALESCE(finished_ts,started_ts,ts) AS at "
+                        "FROM tasks WHERE status='failed' OR attempts>=3 "
+                        "ORDER BY julianday(COALESCE(finished_ts,started_ts,ts)) DESC,id DESC LIMIT 50")
+    for row in rows:
+        loop = isinstance(row["attempts"], int) and row["attempts"] >= 3
+        result.append({"agent": _public_agent(row["agent"]), "kind": "loop" if loop else "error",
+                       "label": "Repeated task attempts" if loop else "Task failed", "at": _iso(row["at"])})
+    for row in _office_rows(db_path, "SELECT agent,category,ts FROM doctor_cases ORDER BY julianday(ts) DESC,id DESC LIMIT 50"):
+        loop = row["category"] in ("repeat_loop", "loop_limit", "stuck", "stuck_task")
+        result.append({"agent": _public_agent(row["agent"]), "kind": "loop" if loop else "error",
+                       "label": "Loop prevention check" if loop else "Recovery check", "at": _iso(row["ts"])})
+    return sorted((row for row in result if row["at"]),
+                  key=lambda row: datetime.datetime.fromisoformat(row["at"].replace("Z", "+00:00")),
+                  reverse=True)[:50]
+
+
+def get_public_activity_events(db_path=None):
+    """Stable task identifiers for the archive; never copy payloads/results/errors."""
+    labels = {"queued": "Task queued", "running": "Task started", "done": "Task completed",
+              "failed": "Task failed", "cancelled": "Task cancelled"}
+    rows = _office_rows(db_path, "SELECT id,agent,status,COALESCE(finished_ts,started_ts,ts) AS at "
+                        "FROM tasks ORDER BY julianday(COALESCE(finished_ts,started_ts,ts)) DESC,id DESC LIMIT 200")
+    return [{"id": _short("task:" + str(row["id"]), 80), "agent": _public_agent(row["agent"]),
+             "label": labels.get(row["status"], "Task activity"), "at": _iso(row["at"])}
+            for row in rows if _iso(row["at"])]
+
+
+def _trigger_condition(value):
+    kind = value.get("kind")
+    if kind == "at":
+        return "At scheduled time"
+    if kind == "task_done":
+        watch = value.get("watch_id")
+        if isinstance(watch, str) and re.fullmatch(r"task:[1-9][0-9]{0,9}", watch):
+            return watch + " completed"
+    if kind == "agent_state" and value.get("match_state") in ("idle", "working", "error"):
+        return _public_agent(value.get("watch_id")) + " is " + value["match_state"]
+    if kind == "state":
+        condition = value.get("condition")
+        if (isinstance(condition, dict) and condition.get("metric") in ("drafts_waiting", "queued_tasks", "failed_tasks")
+                and condition.get("op") in (">", ">=", "<", "<=", "==")
+                and type(condition.get("value")) is int and 0 <= condition["value"] <= 10000):
+            return f"{condition['metric']} {condition['op']} {condition['value']}"
+    return "Unknown condition"
+
+
+def get_public_schedules(db_path=None):
+    """Capped definitions. Mission titles and trigger labels are executable prompts."""
+    result = []
+    for row in _office_rows(db_path, "SELECT id,every,next_run,status,updated FROM office_missions ORDER BY updated DESC,id LIMIT 100"):
+        state = row["status"] if row["status"] in ("active", "paused", "archived") else "unknown"
+        result.append({"id": _short(row["id"], 80), "name": "Recurring mission",
+                       "cadence": row["every"] if row["every"] in ("1h", "1d", "1w") else None,
+                       "next_run": _iso(row["next_run"]) if state == "active" else None,
+                       "state": state, "_updated": _number(row["updated"]) or 0})
+    for row in _office_rows(db_path, "SELECT id,definition,archived,last_fired,updated FROM office_triggers ORDER BY updated DESC,id LIMIT 100"):
+        try:
+            value = json.loads(row["definition"])
+            if not isinstance(value, dict):
+                continue
+        except (ValueError, TypeError):
+            continue
+        state = "archived" if row["archived"] else "active" if value.get("enabled") is True else "paused"
+        result.append({"id": _short(row["id"], 80), "name": "Office trigger",
+                       "condition": _trigger_condition(value),
+                       "next_run": _iso(value.get("at")) if state == "active" and value.get("kind") == "at" and row["last_fired"] is None else None,
+                       "state": state, "_updated": _number(row["updated"]) or 0})
+    result.sort(key=lambda row: row["_updated"], reverse=True)
+    return [{key: value for key, value in row.items() if key != "_updated"} for row in result[:100]]
+
+
+def get_public_receipts(db_path=None):
+    """Receipt outcomes only. Replies, signatures, digests and raw reasons stay private.
+
+    Older receipts do not store request type, so it is explicitly unknown.
+    """
+    actions = {"approve", "reject", "pause", "resume", "set_switch", "add_mission", "edit_mission",
+               "archive_mission", "add_trigger", "edit_trigger", "set_trigger", "delete_trigger",
+               "send_message", "chat", "ask", "route_request", "set_policy", "set_autonomy", "set_budget",
+               "set_cube", "cube_on", "cube_off"}
+    reasons = {"applied": "Request applied", "held": "Request held", "rejected": "Request rejected"}
+    rows = _office_rows(db_path, "SELECT id,receipt FROM office_requests "
+                        "ORDER BY julianday(json_extract(CASE WHEN json_valid(receipt) THEN receipt ELSE '{}' END,'$.at')) DESC,rowid DESC LIMIT 50")
+    result = []
+    for row in rows:
+        try:
+            value = json.loads(row["receipt"])
+            if not isinstance(value, dict):
+                continue
+        except (ValueError, TypeError):
+            continue
+        state = value.get("state")
+        state = state if isinstance(state, str) and state in reasons else "unknown"
+        request_type = value.get("type")
+        result.append({"id": _short(row["id"], 80),
+                       "type": request_type if isinstance(request_type, str) and request_type in actions else "unknown",
+                       "state": state, "safe_reason": reasons.get(state, "Outcome unavailable"),
+                       "at": _iso(value.get("at"))})
+    return [row for row in result if row["at"]][:50]
+
+
+def get_public_workspaces():
+    """Small registry projection; floor is unknown until explicitly configured."""
+    import cubes
+    try:
+        rows = cubes.load_registry()
+    except (OSError, ValueError, TypeError):
+        return []
+    return [{"id": _short(row.get("id"), 80), "name": _short(row.get("name")),
+             "floor": _short(row["floor"], 80) if isinstance(row.get("floor"), str)
+             else row.get("floor") if type(row.get("floor")) is int else None} for row in rows[:50]]
+
+
+_EXPORT_PROCESS_STARTED_AT = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def get_public_cloud_heartbeat(checked_at=None):
+    """Cloud cycle export interval, not a claim that the whole workflow has finished.
+
+    export_status is imported before cloud_runner executes its cycle. Local and
+    self-hosted processes must never claim a GitHub-hosted cloud observation.
+    """
+    checked_at = checked_at or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    run_id = os.environ.get("GITHUB_RUN_ID", "")
+    cloud = (os.environ.get("GITHUB_ACTIONS") == "true" and
+             os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted" and
+             re.fullmatch(r"[0-9]{1,30}", run_id) is not None)
+    return {"last_run_start": _iso(_EXPORT_PROCESS_STARTED_AT) if cloud else None,
+            "last_run_end": _iso(checked_at) if cloud else None,
+            "runner": "github-actions" if cloud else None, "run_id": _short(run_id, 30) if cloud else None}
+
+
+def get_public_changelog(repo_dir=None):
+    """Only the last 20 local commit subjects; never author identities or bodies."""
+    try:
+        result = subprocess.run(["git", "log", "-20", "--no-show-signature", "--no-notes",
+                                 "--no-decorate", "--no-color", "--format=%s"], cwd=repo_dir or BASE_DIR,
+                                capture_output=True, text=True, timeout=5, check=True)
+        return [_short(subject, 160) for subject in result.stdout.splitlines()[:20]]
+    except (OSError, UnicodeError, subprocess.SubprocessError):
+        return []
+
+
+def get_public_office_export(db_path=None, checked_at=None):
+    checked_at = checked_at or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return {"agent_budgets": get_public_agent_budgets(db_path, checked_at),
+            "loop_events": get_public_loop_events(db_path),
+            "activity_events": get_public_activity_events(db_path),
+            "schedules": get_public_schedules(db_path), "receipts": get_public_receipts(db_path),
+            "workspaces": get_public_workspaces(), "cloud_heartbeat": get_public_cloud_heartbeat(checked_at),
+            "changelog": get_public_changelog()}
+
+
 def get_full_public_export(db_path=None, checked_at=None) -> dict:
     """Consolidate all new safe public fields."""
     checked_at = checked_at or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    return {
+    return scrub_public_data({
         "products": get_public_products(db_path),
         "reject_reasons": get_public_reject_reasons(db_path),
         "report": get_public_report(db_path),
         "workers": get_public_workers(db_path),
         "pipeline": get_public_pipeline(db_path),
         "ai_health": get_public_ai_health(db_path, checked_at=checked_at),
-        "minutes": get_public_minutes(db_path)
-    }
+        "minutes": get_public_minutes(db_path),
+        **get_public_office_export(db_path, checked_at)
+    })

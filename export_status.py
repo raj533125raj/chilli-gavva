@@ -253,6 +253,7 @@ def write_status(path=None, db_path=None):
         snapshot["report"] = public_export.get_public_report(db_path)
         snapshot["workers"] = public_export.get_public_workers(db_path)
         snapshot["pipeline"] = public_export.get_public_pipeline(db_path)
+        snapshot.update(public_export.get_public_office_export(db_path, snapshot["generated_at"]))
         import cubes
         snapshot["cubes"] = cubes.get_public_cubes_export(db_path)
         scout_counts = {"total": 0, "pending": 0, "approved": 0}
@@ -283,7 +284,7 @@ def write_status(path=None, db_path=None):
         except Exception:
             pass
         snapshot["marketing_kits_count"] = mkt_counts
-        json.dump(secret_guard.scrub_data(snapshot), f, indent=1)
+        json.dump(public_export.scrub_public_data(snapshot), f, indent=1)
     return path
 
 
