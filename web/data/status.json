@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-30T18:04:32Z",
+ "generated_at": "2026-10-31T00:12:49Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 108,
+  "calls_today": 1,
   "cap": 500
  },
  "agents": [
@@ -48,7 +48,7 @@
     "research"
    ],
    "state": "idle",
-   "tasks_done": 45
+   "tasks_done": 48
   },
   {
    "name": "Draft Worker",
@@ -59,7 +59,7 @@
     "rewrite"
    ],
    "state": "idle",
-   "tasks_done": 55
+   "tasks_done": 58
   },
   {
    "name": "QA Checker",
@@ -69,7 +69,7 @@
     "review"
    ],
    "state": "idle",
-   "tasks_done": 55
+   "tasks_done": 58
   },
   {
    "name": "Review Worker",
@@ -91,9 +91,90 @@
   }
  ],
  "task_counts": {
-  "done": 155
+  "done": 164
  },
  "recent_tasks": [
+  {
+   "id": 164,
+   "kind": "review",
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1,
+   "ts": "2026-10-30T22:26:43.187401",
+   "finished_ts": "2026-10-30T22:29:18.715751"
+  },
+  {
+   "id": 163,
+   "kind": "review",
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1,
+   "ts": "2026-10-30T22:26:40.795110",
+   "finished_ts": "2026-10-30T22:28:34.684947"
+  },
+  {
+   "id": 162,
+   "kind": "review",
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1,
+   "ts": "2026-10-30T22:26:38.805472",
+   "finished_ts": "2026-10-30T22:27:16.202423"
+  },
+  {
+   "id": 161,
+   "kind": "draft",
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1,
+   "ts": "2026-10-30T22:26:36.566931",
+   "finished_ts": "2026-10-30T22:26:43.190370"
+  },
+  {
+   "id": 160,
+   "kind": "draft",
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1,
+   "ts": "2026-10-30T22:26:35.324650",
+   "finished_ts": "2026-10-30T22:26:40.798210"
+  },
+  {
+   "id": 159,
+   "kind": "draft",
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1,
+   "ts": "2026-10-30T22:26:33.482145",
+   "finished_ts": "2026-10-30T22:26:38.808511"
+  },
+  {
+   "id": 158,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1,
+   "ts": "2026-10-30T22:26:31.833506",
+   "finished_ts": "2026-10-30T22:26:36.570601"
+  },
+  {
+   "id": 157,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1,
+   "ts": "2026-10-30T22:26:31.832083",
+   "finished_ts": "2026-10-30T22:26:35.328497"
+  },
+  {
+   "id": 156,
+   "kind": "research",
+   "status": "done",
+   "agent": "Research Worker",
+   "attempts": 1,
+   "ts": "2026-10-30T22:26:31.830414",
+   "finished_ts": "2026-10-30T22:26:33.488310"
+  },
   {
    "id": 155,
    "kind": "review",
@@ -120,87 +201,6 @@
    "attempts": 1,
    "ts": "2026-10-28T22:04:18.814235",
    "finished_ts": "2026-10-28T22:56:41.255011"
-  },
-  {
-   "id": 152,
-   "kind": "rewrite",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1,
-   "ts": "2026-10-28T22:04:17.413664",
-   "finished_ts": "2026-10-28T22:56:38.409246"
-  },
-  {
-   "id": 151,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1,
-   "ts": "2026-10-28T20:21:16.721890",
-   "finished_ts": "2026-10-28T22:04:20.050922"
-  },
-  {
-   "id": 150,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1,
-   "ts": "2026-10-28T20:21:14.091609",
-   "finished_ts": "2026-10-28T22:04:18.815529"
-  },
-  {
-   "id": 149,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1,
-   "ts": "2026-10-28T20:21:11.655085",
-   "finished_ts": "2026-10-28T22:04:17.414884"
-  },
-  {
-   "id": 148,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1,
-   "ts": "2026-10-28T20:19:27.804370",
-   "finished_ts": "2026-10-28T20:21:16.723106"
-  },
-  {
-   "id": 147,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1,
-   "ts": "2026-10-28T20:19:26.041169",
-   "finished_ts": "2026-10-28T20:21:14.092996"
-  },
-  {
-   "id": 146,
-   "kind": "draft",
-   "status": "done",
-   "agent": "Draft Worker",
-   "attempts": 1,
-   "ts": "2026-10-28T20:19:24.444451",
-   "finished_ts": "2026-10-28T20:21:11.656286"
-  },
-  {
-   "id": 145,
-   "kind": "research",
-   "status": "done",
-   "agent": "Research Worker",
-   "attempts": 1,
-   "ts": "2026-10-28T20:19:22.732342",
-   "finished_ts": "2026-10-28T20:19:27.805605"
-  },
-  {
-   "id": 144,
-   "kind": "research",
-   "status": "done",
-   "agent": "Research Worker",
-   "attempts": 1,
-   "ts": "2026-10-28T20:19:22.731187",
-   "finished_ts": "2026-10-28T20:19:26.042412"
   }
  ],
  "pending_approvals": [
@@ -209,48 +209,115 @@
    "ts": "2026-10-29T10:03:50.038337",
    "kind": "scout_idea",
    "title": "Draft #50"
+  },
+  {
+   "id": 56,
+   "ts": "2026-10-30T22:26:38.802641",
+   "kind": "public_draft",
+   "title": "Draft #56"
+  },
+  {
+   "id": 57,
+   "ts": "2026-10-30T22:26:40.791991",
+   "kind": "public_draft",
+   "title": "Draft #57"
+  },
+  {
+   "id": 58,
+   "ts": "2026-10-30T22:26:43.184830",
+   "kind": "public_draft",
+   "title": "Draft #58"
+  },
+  {
+   "id": 59,
+   "ts": "2026-10-31T00:12:47.335754",
+   "kind": "scout_idea",
+   "title": "Draft #59"
+  },
+  {
+   "id": 60,
+   "ts": "2026-10-31T00:12:47.450075",
+   "kind": "scout_idea",
+   "title": "Draft #60"
+  },
+  {
+   "id": 61,
+   "ts": "2026-10-31T00:12:47.452211",
+   "kind": "scout_idea",
+   "title": "Draft #61"
+  },
+  {
+   "id": 62,
+   "ts": "2026-10-31T00:12:47.454000",
+   "kind": "scout_idea",
+   "title": "Draft #62"
+  },
+  {
+   "id": 63,
+   "ts": "2026-10-31T00:12:47.455833",
+   "kind": "scout_idea",
+   "title": "Draft #63"
   }
  ],
  "worker": {
   "running": false,
   "age_seconds": null
  },
- "handoffs": [],
+ "handoffs": [
+  {
+   "from_agent": "Draft Worker",
+   "to_agent": "Content Manager",
+   "item": "draft #58",
+   "at": "2026-10-30T22:26:43Z"
+  },
+  {
+   "from_agent": "Draft Worker",
+   "to_agent": "Content Manager",
+   "item": "draft #57",
+   "at": "2026-10-30T22:26:40Z"
+  },
+  {
+   "from_agent": "Draft Worker",
+   "to_agent": "Content Manager",
+   "item": "draft #56",
+   "at": "2026-10-30T22:26:38Z"
+  }
+ ],
  "ai_health": [
   {
    "provider": "Groq",
    "model": null,
-   "state": "unknown",
-   "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-10-30T18:04:32Z"
+   "state": "up",
+   "reason": "All recent calls succeeded",
+   "checked_at": "2026-10-31T00:12:49Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-10-30T18:04:32Z"
+   "checked_at": "2026-10-31T00:12:49Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-10-30T18:04:32Z"
+   "checked_at": "2026-10-31T00:12:49Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-10-30T18:04:32Z"
+   "checked_at": "2026-10-31T00:12:49Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-10-30T18:04:32Z"
+   "checked_at": "2026-10-31T00:12:49Z"
   }
  ],
  "minutes": {
@@ -554,29 +621,29 @@
  "reject_reasons": [
   {
    "reason": "Formatting or rubric issue",
-   "count": 64
+   "count": 65
   },
   {
    "reason": "Unclear value over free template",
-   "count": 47
-  },
-  {
-   "reason": "Product structure incomplete",
-   "count": 12
+   "count": 48
   },
   {
    "reason": "Risky or prohibited claim",
-   "count": 7
+   "count": 14
+  },
+  {
+   "reason": "Product structure incomplete",
+   "count": 14
   },
   {
    "reason": "Target audience unclear",
-   "count": 4
+   "count": 7
   }
  ],
  "report": {
   "drafts_made": 5,
-  "drafts_waiting": 1,
-  "drafts_approved": 5,
+  "drafts_waiting": 9,
+  "drafts_approved": 0,
   "products_built": 0,
   "errors": 0
  },
@@ -609,19 +676,19 @@
    "name": "Research Worker",
    "state": "off",
    "last_action": "Idle",
-   "last_seen": "2026-10-28T20:19:27.805605"
+   "last_seen": "2026-10-30T22:26:36.570601"
   },
   {
    "name": "Draft Worker",
    "state": "off",
    "last_action": "Idle",
-   "last_seen": "2026-10-28T22:56:41.255011"
+   "last_seen": "2026-10-30T22:26:43.190370"
   },
   {
    "name": "QA Checker",
    "state": "off",
    "last_action": "Idle",
-   "last_seen": "2026-10-28T23:49:51.087603"
+   "last_seen": "2026-10-30T22:29:18.715751"
   },
   {
    "name": "Review Worker",
@@ -904,12 +971,12 @@
   }
  ],
  "scout_ideas_count": {
-  "total": 10,
-  "pending": 1,
+  "total": 15,
+  "pending": 6,
   "approved": 9
  },
  "trend_items_count": {
-  "total": 20,
+  "total": 30,
   "proposed": 0,
   "approved": 0
  },
