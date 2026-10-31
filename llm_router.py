@@ -1,41 +1,33 @@
-"""LLM fallback router: FreeLLMAPI (local) → Groq → Gemini (free) → OpenRouter (free) → Cloudflare Workers AI.
+"""LLM fallback router using stdlib HTTP transports and public-safe health records.
 
-All of them use OpenAI-compatible /v1/chat/completions, all via stdlib urllib — zero third-party deps.
+Default order: Groq, Gemini, Cloudflare Workers AI, OpenRouter, FreeLLMAPI.
+Recent success rates prefer reliable providers per task (small/large by default;
+chat(task_kind="research"/"draft"/"review"/"code") supplies a bounded task label).
+Ties preserve the default order. Unknown tasks become "general", never prompt text.
 
-Usage:
-    python3 llm_router.py health     # one tiny test per provider/model + one long-answer test
-    import llm_router
-    text = llm_router.chat("write a headline about Indian spices")          # auto size
-    text = llm_router.chat(long_prompt, size="large")                         # strong model
-    # Returns str on success, None if all providers failed.
+Optional credentials: GROQ_API_KEY, GEMINI_API_KEY, GEMINI_API_KEY_2,
+OPENROUTER_API_KEY plus OPENROUTER_MODEL, CF_API_TOKEN plus CF_ACCOUNT_ID,
+FREELLMAPI_KEY (local). Missing credentials skip that provider. The separate
+auto-fix credential is never selected for router requests.
 
-Environment variables (all optional — missing key = skip that provider):
-    FREELLMAPI_KEY       freellmapi local router token (starts freellmapi-). Run locally: freellmapi.co
-    FREELLMAPI_BASE_URL  Override local router URL (default: http://localhost:3001/v1)
-    GROQ_API_KEY         Groq console.groq.com — free, no card
-    GEMINI_API_KEY       aistudio.google.com/apikey — free, no card
-    GEMINI_MODEL         Optional comma list of Gemini models to try (default: gemini-3.8-flash,gemini-flash-latest,gemini-3.5-flash)
-    OPENROUTER_API_KEY   openrouter.ai free account key
-    OPENROUTER_MODEL     Required with OPENROUTER_API_KEY: a current free model id (ends with ":free")
-    CF_API_TOKEN         Cloudflare API token with Workers AI read
-    CF_ACCOUNT_ID        Cloudflare account ID (Settings → scroll down)
+Cloudflare uses the native /ai/run endpoint with the current FP8 Llama model;
+CF_MODEL optionally supplies comma-separated native model ids. Large requests
+use a longer timeout/output budget; oversized requests skip without truncation.
 
-Behaviour:
-    - FreeLLMAPI: pools 7B+ free tokens/month from 34 providers — used first when running locally
-    - Groq: size routing — "small" = openai/gpt-oss-20b, "large" = openai/gpt-oss-120b
-      (large falls back to small), retries once on 429
-    - Gemini: OpenAI-compatible endpoint, tries GEMINI_MODEL list in order (unknown or busy model -> next)
-    - OpenRouter: OpenAI-compatible, only when both key and a free model id are set
-    - Cloudflare: @cf/meta/llama-3.1-8b-instruct, free 10k neurons/day
-    - On any non-retryable error: skip to next provider
-    - Auto-switch: a provider that answers "429 too many requests" is skipped for
-      COOLDOWN_MINUTES (remembered in agent_data.db across cloud runs), so the next
-      free provider takes over automatically until the limit resets
-    - Returns None if every provider fails or all keys are absent
-    - Prompt-injection guard (roadmap #55), OFF by default: set CHILLI_GUARD_ENABLED=1 (or true/yes/on)
-      to turn it on. When on, chat() scans the scrubbed prompt with injection_guard before any provider
-      call; a HIGH-severity finding blocks the call and returns a "blocked_by_guard" result that names
-      the pattern only (never the text). When off, behaviour is exactly as before.
+Each provider/model has a persistent circuit breaker (three consecutive failures
+of the same kind; five minute cooldown, then one half-open probe) and UTC daily
+attempt cap. LLM_MODEL_DAILY_CAPS overrides individual caps with nested JSON:
+{"Cloudflare": {"@cf/meta/llama-3.1-8b-instruct-fp8": 20}}. Defaults are 40 for
+Cloudflare and 100 for other models; these are local safety caps, not vendor quota
+estimates. Every retry, key rotation and media fallback shares the reservations.
+Account rate limits retain the 30 minute cooldown; Cloudflare daily quota waits
+until the next UTC day instead of repeatedly retrying an exhausted allocation.
+
+provider_status() includes model caps, circuits and fixed failure reasons;
+get_provider_health() returns public-safe observations without making requests.
+python3 llm_router.py health probes use the same model caps and breakers as chat.
+No provider error messages, response bodies, credentials or prompts are stored
+in health. All runtime calls still obey the global budget and injection guard.
 """
 import datetime
 import json
@@ -47,10 +39,13 @@ import sys
 import time
 import urllib.error
 import urllib.request
+import contextvars
+import functools
 
 import guardrails
 import injection_guard
 import secret_guard
+import llm_provider_state as provider_state
 
 # --- Prompt-injection guard flag (OFF by default) --------------------------
 GUARD_ENABLED = os.environ.get("CHILLI_GUARD_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
@@ -84,12 +79,154 @@ _TIMEOUT_LARGE = 60  # long answers (product drafts) on the large model need mor
 # Some APIs sit behind Cloudflare, which refuses Python's default "Python-urllib" user agent with 403.
 _UA = {"User-Agent": "chilli-gavva/1.0"}
 
+# These are local safety caps, not estimates of vendors' token/neurons quotas.
+# Override individual models with LLM_MODEL_DAILY_CAPS JSON, for example:
+# {"Cloudflare": {"@cf/meta/llama-3.1-8b-instruct-fp8": 20}}.
+DEFAULT_MODEL_DAILY_CAP = 100
+_TASK_KINDS = {"general", "small", "large", "research", "draft", "review", "code", "vision", "audio", "health"}
+_ROUTER_DB = contextvars.ContextVar("llm_router_db", default=None)
+_TASK = contextvars.ContextVar("llm_router_task", default="general")
+_RETRY_AFTER = contextvars.ContextVar("llm_retry_after", default=5.0)
+_ATTEMPTS = contextvars.ContextVar("llm_provider_attempts", default=0)
+_LAST_FAILURE_KIND = contextvars.ContextVar("llm_last_failure_kind", default="")
+_MEMORY_STATE = sqlite3.connect(":memory:", check_same_thread=False)
+
+
+def _state_path(db_path=None):
+    path = db_path or _ROUTER_DB.get()
+    budget = getattr(guardrails, "_BUDGET_DB", None)
+    budget_path = budget.get() if budget is not None else None
+    # budget_scoped fills in DB_PATH even when a test supplied no database.
+    # That implicit default must never turn test observations into real state.
+    if (not path and getattr(guardrails, "_TESTING", False)
+            and budget_path == getattr(guardrails, "DB_PATH", None)):
+        return _MEMORY_STATE
+    path = path or budget_path
+    if path == ":memory:":
+        return _MEMORY_STATE
+    if path:
+        return path
+    if getattr(guardrails, "_TESTING", False):
+        return _MEMORY_STATE
+    return getattr(guardrails, "DB_PATH", None) or _MEMORY_STATE
+
+
+def _router_scoped(function):
+    @functools.wraps(function)
+    def wrapped(*args, **kwargs):
+        db_token = _ROUTER_DB.set(kwargs.get("db_path"))
+        task = kwargs.get("task_kind") or {
+            "chat_vision": "vision", "chat_audio": "audio", "health": "health"
+        }.get(function.__name__)
+        if task is None:
+            task = pick_size(args[0] if args else kwargs.get("prompt", ""), kwargs.get("size"))
+        task_token = _TASK.set(task if task in _TASK_KINDS else "general")
+        attempts_token = _ATTEMPTS.set(0)
+        try:
+            return function(*args, **kwargs)
+        finally:
+            _TASK.reset(task_token)
+            _ATTEMPTS.reset(attempts_token)
+            _ROUTER_DB.reset(db_token)
+    return wrapped
+
+
+def _model_cap(provider, model):
+    default = 40 if provider == "Cloudflare" else DEFAULT_MODEL_DAILY_CAP
+    try:
+        caps = json.loads(os.environ.get("LLM_MODEL_DAILY_CAPS", "{}"))
+        cap = caps.get(provider, {}).get(model, default)
+        return min(500, max(0, cap)) if type(cap) is int else 0
+    except (ValueError, TypeError, AttributeError):
+        return 0  # malformed cap configuration must not silently remove a limit
+
+
+def _public_model(model):
+    if not isinstance(model, str) or not re.fullmatch(r"[A-Za-z0-9@_./:\-]{1,100}", model):
+        return "configured-model"
+    return model if scrub(model) == model else "configured-model"
+
+
+class _ProviderError(ValueError):
+    def __init__(self, kind, status=None):
+        self.kind = kind if kind in provider_state.REASONS else "provider_error"
+        self.status = status
+        super().__init__(self.kind)
+
+
+def _failure_kind(exc, description=""):
+    if isinstance(exc, _ProviderError):
+        return exc.kind
+    if description in ("quota", "rate limit", "timeout", "network"):
+        return {"rate limit": "rate_limit"}.get(description, description)
+    code = description.split()[-1] if description else ""
+    if code in ("3036",):
+        return "quota"
+    if code in ("3040", "4006"):
+        return "capacity"
+    if code in ("5007", "3042", "model_not_found", "NOT_FOUND") or getattr(exc, "code", None) == 404:
+        return "invalid_model"
+    if code == "3006" or getattr(exc, "code", None) == 413:
+        return "request_too_large"
+    if code in ("3007", "3008") or getattr(exc, "code", None) in (408, 504):
+        return "timeout"
+    if getattr(exc, "code", None) in (401, 403):
+        return "authentication"
+    if isinstance(exc, (ValueError, KeyError, IndexError, TypeError, AttributeError)):
+        return "response_parse"
+    if isinstance(exc, OSError) and not isinstance(exc, urllib.error.HTTPError):
+        return "network"
+    return "provider_error"
+
+
+def _request_json(req, provider, model, timeout, parse):
+    """All runtime HTTP attempts share reservations, breakers and safe diagnostics."""
+    _LAST_FAILURE_KIND.set("")
+    if provider == "Cloudflare" and in_cooldown(provider, _ROUTER_DB.get()):
+        return None, None
+    if _public_model(model) != model or not provider_state.reserve(
+            provider, model, _model_cap(provider, model), _state_path()):
+        return None, None
+    try:
+        guardrails.record_call()
+    except Exception:
+        # A global budget rejection is not a provider failure.
+        return None, None
+    try:
+        _ATTEMPTS.set(_ATTEMPTS.get() + 1)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            text = parse(json.loads(resp.read().decode()))
+        if not isinstance(text, str):
+            raise _ProviderError("response_parse")
+        text = text.strip()
+        if not text:
+            raise _ProviderError("empty_response")
+    except Exception as exc:
+        if getattr(exc, "code", None) == 429:
+            try:
+                _RETRY_AFTER.set(max(0.0, min(float(exc.headers.get("retry-after", "5")), 20.0)))
+            except (ValueError, TypeError, AttributeError):
+                _RETRY_AFTER.set(5.0)
+        description = _describe(exc)
+        kind = _failure_kind(exc, description)
+        _LAST_FAILURE_KIND.set(kind)
+        provider_state.observe(provider, model, False, kind, _TASK.get(), _state_path())
+        if provider == "Cloudflare" and kind == "quota":
+            now = _now()
+            midnight = (now + datetime.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+            set_cooldown(provider, minutes=(midnight - now).total_seconds() / 60,
+                         db_path=_ROUTER_DB.get())
+        _log_fail(provider, model, description)
+        return None, getattr(exc, "code", getattr(exc, "status", None))
+    provider_state.observe(provider, model, True, task=_TASK.get(), path=_state_path())
+    return text, 200
+
 
 def _error_detail(exc) -> str:
     """A short public error code from the response body (e.g. "invalid_api_key", "1010"). Never the key."""
     import re
     try:
-        raw = (exc.read() or b"")[:4000].decode("utf-8", "replace")
+        raw = (exc.read(4000) or b"").decode("utf-8", "replace")
     except Exception:
         return ""
     if "error code: 1010" in raw or "error code:1010" in raw:
@@ -97,9 +234,15 @@ def _error_detail(exc) -> str:
     try:
         data = json.loads(raw)
         err = data[0] if isinstance(data, list) and data else data
+        if isinstance(err, dict) and err.get("errors"):
+            err = err["errors"][0]
         err = err.get("error", err) if isinstance(err, dict) else {}
         values = [err.get(k) for k in ("code", "status", "type")] if isinstance(err, dict) else []
-        code = next((v for v in values if isinstance(v, str) and v), "")
+        known = {"invalid_api_key", "invalid_request_error", "NOT_FOUND", "UNAVAILABLE", "RESOURCE_EXHAUSTED",
+                 "PERMISSION_DENIED", "UNAUTHENTICATED", "INVALID_ARGUMENT", "model_not_found",
+                 "insufficient_quota", "quota_exceeded", "daily_limit_exceeded", "rate_limit_exceeded",
+                 "3006", "3007", "3008", "3036", "3040", "3042", "4006", "5007", "5035"}
+        code = next((str(v) for v in values if str(v) in known), "")
     except Exception:
         return ""
     return code if re.fullmatch(r"[A-Za-z0-9_.\-]{1,40}", code) else ""
@@ -107,24 +250,30 @@ def _error_detail(exc) -> str:
 
 def _describe(exc) -> str:
     """Short, secret-free reason for a failed request: quota, rate limit, down, timeout or HTTP status."""
+    if isinstance(exc, _ProviderError):
+        return "empty answer" if exc.kind == "empty_response" else exc.kind
     if isinstance(exc, urllib.error.HTTPError):
         detail = _error_detail(exc)
         detail_lower = detail.lower()
         if exc.code == 429:
-            if "quota" in detail_lower or "daily" in detail_lower:
+            if "quota" in detail_lower or "daily" in detail_lower or detail == "3036":
                 return "quota"
+            if detail in ("3040", "4006"):
+                return f"429 {detail}"
             return "rate limit"
         return f"{exc.code} {detail}".strip()
     if isinstance(exc, (socket.timeout, TimeoutError)):
         return "timeout"
     if isinstance(exc, urllib.error.URLError):
         return "timeout" if isinstance(exc.reason, (socket.timeout, TimeoutError)) else "network"
-    return type(exc).__name__
+    return type(exc).__name__ if type(exc).__name__ in {
+        "OSError", "ValueError", "KeyError", "IndexError", "TypeError", "AttributeError", "JSONDecodeError"
+    } else "provider error"
 
 
 def _log_fail(provider: str, model: str, reason) -> None:
     """One short line per failed provider call so CI logs show WHY the AI failed. Never logs keys."""
-    print(scrub(f"LLM {provider} {model}: FAIL {reason}"), file=sys.stderr)
+    print(scrub(f"LLM {provider} {_public_model(model)}: FAIL {reason}"), file=sys.stderr)
 
 # ---------------------------------------------------------------------------
 # Auto-switch: remember providers that hit their free limit (HTTP 429)
@@ -139,8 +288,8 @@ def _note_429(name: str) -> None:
 
 
 def _cooldown_db(db_path=None):
-    path = db_path or getattr(guardrails, "DB_PATH", None)
-    if not path:
+    path = _state_path(db_path)
+    if isinstance(path, sqlite3.Connection):
         return None
     try:
         conn = sqlite3.connect(path)
@@ -156,11 +305,18 @@ def _now():
 
 def set_cooldown(name: str, minutes: int = COOLDOWN_MINUTES, db_path=None) -> None:
     until = _now() + datetime.timedelta(minutes=minutes)
-    _MEM_COOLDOWN[name] = until
+    key = (_state_path(db_path), name)
+    if minutes >= 0:
+        until = max(until, _MEM_COOLDOWN.get(key, until))
+    _MEM_COOLDOWN[key] = until
     conn = _cooldown_db(db_path)
     if conn is None:
         return
     try:
+        if minutes >= 0:
+            row = conn.execute("SELECT until FROM llm_cooldown WHERE provider=?", (name,)).fetchone()
+            if row:
+                until = max(until, datetime.datetime.fromisoformat(row[0]))
         conn.execute("INSERT INTO llm_cooldown (provider, until) VALUES (?, ?) "
                      "ON CONFLICT(provider) DO UPDATE SET until = excluded.until", (name, until.isoformat()))
         conn.commit()
@@ -171,7 +327,7 @@ def set_cooldown(name: str, minutes: int = COOLDOWN_MINUTES, db_path=None) -> No
 
 
 def in_cooldown(name: str, db_path=None) -> bool:
-    until = _MEM_COOLDOWN.get(name)
+    until = _MEM_COOLDOWN.get((_state_path(db_path), name))
     conn = _cooldown_db(db_path)
     if conn is not None:
         try:
@@ -203,17 +359,9 @@ def _freellmapi(prompt: str) -> str | None:
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.7,
     }
-    try:
-        req = urllib.request.Request(
-            url, data=json.dumps(body).encode(), headers=headers
-        )
-        guardrails.record_call()
-        with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
-            data = json.loads(resp.read().decode())
-            return data["choices"][0]["message"]["content"].strip() or None
-    except Exception:
-        # Silently skip — localhost not running is expected in cloud/CI
-        return None
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers)
+    text, _ = _request_json(req, "FreeLLMAPI", "auto", _TIMEOUT, _chat_parse)
+    return text
 
 
 # ---------------------------------------------------------------------------
@@ -255,33 +403,19 @@ def _groq_call(prompt: str, api_key: str, model: str, timeout: float = _TIMEOUT)
     }
 
     for attempt in (1, 2):
-        try:
-            req = urllib.request.Request(
-                url, data=json.dumps(body).encode(), headers=headers
-            )
-            guardrails.record_call()
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                data = json.loads(resp.read().decode())
-                text = data["choices"][0]["message"]["content"].strip() or None
-                if not text:
-                    _log_fail("Groq", model, "empty answer")
-                return text
-        except urllib.error.HTTPError as e:
-            if e.code == 429 and attempt == 2:
-                _note_429("Groq")
-            if e.code == 429 and attempt == 1:
-                wait = 5.0
-                try:
-                    wait = min(float(e.headers.get("retry-after", "5")), 20.0)
-                except (ValueError, TypeError):
-                    pass
-                time.sleep(wait)
-                continue
-            _log_fail("Groq", model, _describe(e))
+        req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers)
+        text, status = _request_json(req, "Groq", model, timeout, _chat_parse)
+        if text:
+            return text
+        if status != 429:
             return None
-        except Exception as exc:
-            _log_fail("Groq", model, _describe(exc))
+        if _LAST_FAILURE_KIND.get() == "quota":
+            _note_429("Groq")
             return None
+        if attempt == 1:
+            time.sleep(_RETRY_AFTER.get())
+        else:
+            _note_429("Groq")
     return None
 
 
@@ -295,23 +429,11 @@ def _openai_style_call(url: str, api_key: str, model: str, prompt: str, name: st
     if extra_headers:
         headers.update(extra_headers)
     body = {"model": model, "messages": [{"role": "user", "content": prompt}], "temperature": 0.7}
-    try:
-        req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers)
-        guardrails.record_call()
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            data = json.loads(resp.read().decode())
-            text = (((data.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
-            if not text:
-                _log_fail(name, model, "empty answer")
-            return (text or None), 200
-    except urllib.error.HTTPError as e:
-        if e.code == 429:
-            _note_429(name)
-        _log_fail(name, model, _describe(e))
-        return None, e.code
-    except Exception as exc:
-        _log_fail(name, model, _describe(exc))
-        return None, None
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers)
+    text, status = _request_json(req, name, model, timeout, _chat_parse)
+    if status == 429:
+        _note_429(name)
+    return text, status
 
 
 def _gemini_models() -> list[str]:
@@ -359,38 +481,68 @@ def _openrouter(prompt: str) -> str | None:
 # ---------------------------------------------------------------------------
 # Provider 4: Cloudflare Workers AI (free 10k neurons/day)
 # ---------------------------------------------------------------------------
-def _cloudflare(prompt: str) -> str | None:
+# The original unquantized model has left the current catalogue. Use the
+# documented FP8 model (32k context), not an invented/retired model id.
+# https://developers.cloudflare.com/workers-ai/models/llama-3.1-8b-instruct-fp8/
+_CF_MODEL = "@cf/meta/llama-3.1-8b-instruct-fp8"
+_CF_CONTEXT_TOKENS = 32000
+
+
+def _cloudflare_models():
+    raw = os.environ.get("CF_MODEL", "") or _CF_MODEL
+    # Explicit overrides allow rollout without another code change. Unsafe ids
+    # are ignored and never echoed to health or used in a request URL.
+    return list(dict.fromkeys(m.strip() for m in raw.split(",")
+                             if m.strip().startswith("@cf/") and _public_model(m.strip()) == m.strip()))
+
+
+def _cf_parse(data):
+    if not isinstance(data, dict):
+        raise _ProviderError("response_parse")
+    if data.get("success") is False or data.get("errors"):
+        errors = data.get("errors") or [{}]
+        code = str(errors[0].get("code", "")) if isinstance(errors, list) and isinstance(errors[0], dict) else ""
+        # Workers AI returns errors[].code as an integer, including inside HTTP
+        # 200 envelopes. Never retain message: it can echo the request or a key.
+        kinds = {"5007": ("invalid_model", 400), "3042": ("invalid_model", 404),
+                 "3006": ("request_too_large", 413), "3007": ("timeout", 408),
+                 "3008": ("timeout", 408), "3036": ("quota", 429),
+                 "3040": ("capacity", 429), "4006": ("capacity", 429),
+                 "5035": ("authentication", 403)}
+        raise _ProviderError(*kinds.get(code, ("provider_error", None)))
+    result = data.get("result", data)
+    if not isinstance(result, dict):
+        raise _ProviderError("response_parse")
+    return result.get("response", "")
+
+
+def _cloudflare(prompt: str, size: str | None = None) -> str | None:
     token = os.environ.get("CF_API_TOKEN", "")
     account_id = os.environ.get("CF_ACCOUNT_ID", "")
     if not token or not account_id or token.startswith("YOUR_"):
         return None
-
-    # Cloudflare uses OpenAI-compatible endpoint
-    url = (
-        f"https://api.cloudflare.com/client/v4/accounts/{account_id}"
-        "/ai/run/@cf/meta/llama-3.1-8b-instruct"
-    )
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-        **_UA,
-    }
-    body = {
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 1024,
-    }
-    try:
-        req = urllib.request.Request(
-            url, data=json.dumps(body).encode(), headers=headers
-        )
-        guardrails.record_call()
-        with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
-            data = json.loads(resp.read().decode())
-            # Shape: {"result": {"response": "..."}, "success": true}
-            return (data.get("result") or {}).get("response", "").strip() or None
-    except Exception as exc:
-        _log_fail("Cloudflare", "llama-3.1-8b-instruct", _describe(exc))
+    resolved = pick_size(prompt, size)
+    timeout = _TIMEOUT_LARGE if resolved == LARGE else _TIMEOUT
+    output_tokens = 4096 if resolved == LARGE else 1024
+    # UTF-8 bytes bound the input token count conservatively (including non-ASCII
+    # text); leave room for the chat template. Skip oversized input intact rather
+    # than sending a request guaranteed to exceed this model's context window.
+    if len(prompt.encode("utf-8")) + output_tokens + 512 > _CF_CONTEXT_TOKENS:
         return None
+    body = {"messages": [{"role": "user", "content": prompt}], "max_tokens": output_tokens}
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json", **_UA}
+    for model in _cloudflare_models():
+        url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{model}"
+        req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers)
+        text, status = _request_json(req, "Cloudflare", model, timeout, _cf_parse)
+        if text:
+            return text
+        # Model circuits/caps handle repeated failures independently. Account
+        # quota/rate errors also preserve the existing provider-level cooldown.
+        if status == 429 and _LAST_FAILURE_KIND.get() in ("quota", "rate_limit"):
+            _note_429("Cloudflare")
+            break  # an account-wide limit cannot be solved by another model
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -456,13 +608,16 @@ def pick_size(prompt: str, size: str | None = None) -> str:
 
 
 @guardrails.budget_scoped
-def chat(prompt: str, *, db_path=None, size: str | None = None) -> str | None:
+@_router_scoped
+def chat(prompt: str, *, db_path=None, size: str | None = None, task_kind: str | None = None) -> str | None:
     """Try each provider in order; return first non-None result.
 
     size: "small" (fast model), "large" (stronger model) or None (auto by prompt length).
     Only Groq has both sizes today; other providers use their single free model.
     Respects guardrails.can_call_llm() before the first attempt.
     Returns None if all providers fail or daily cap is hit.
+    task_kind: optional bounded label (research/draft/review/code); defaults to
+    small/large. Recent success rates reorder providers within that task only.
     """
     if not guardrails.can_call_llm(db_path):
         print("LLM: skipped (kill switch on or daily call cap reached)", file=sys.stderr)
@@ -477,7 +632,8 @@ def chat(prompt: str, *, db_path=None, size: str | None = None) -> str | None:
             return blocked_by_guard_result(guard_reasons)
     resolved = pick_size(prompt, size)
     _mod_globals = globals()
-    order = [(name, fn.__name__) for name, fn in _PROVIDERS]
+    order = provider_state.order([(name, fn.__name__) for name, fn in _PROVIDERS],
+                                 _TASK.get(), _state_path(db_path))
     try:
         configured = {s["provider"] for s in provider_status() if s["configured"]}
     except Exception:
@@ -487,16 +643,19 @@ def chat(prompt: str, *, db_path=None, size: str | None = None) -> str | None:
             continue  # this free provider hit its limit recently: let the next one work
         fn = _mod_globals[fn_name]
         _RATE_LIMITED.discard(name)
+        before_attempts = _ATTEMPTS.get()
         try:
-            if name == "Groq":
+            if name in ("Groq", "Cloudflare"):
                 result = fn(prompt, size=resolved)
             elif name in ("Gemini", "GitHubModels") and resolved == LARGE:
                 result = fn(prompt, timeout=_TIMEOUT_LARGE)  # long drafts need more than 25 s
             else:
                 result = fn(prompt)
         except Exception:
+            # Transport errors are normally handled per model. An unexpected
+            # provider exception must not expose its message or stop fallback.
             result = None
-        if name in configured:
+        if name in configured and _ATTEMPTS.get() > before_attempts:
             log_provider(name, bool(result), db_path)
         if result:
             try:  # sample emails or key-shaped strings in AI text must never reach the repository
@@ -530,6 +689,7 @@ def log_provider(name: str, ok: bool, db_path=None) -> None:
 
 
 @guardrails.budget_scoped
+@_router_scoped
 def chat_vision(image_bytes: bytes, mime_type: str, prompt: str = "Describe and analyze this image in detail.", *, db_path=None) -> str | None:
     """Analyze an image using Gemini vision capability via GEMINI_API_KEY or GEMINI_API_KEY_2.
 
@@ -575,18 +735,15 @@ def chat_vision(image_bytes: bytes, mime_type: str, prompt: str = "Describe and 
             }
             try:
                 req = urllib.request.Request(openai_url, data=json.dumps(body).encode(), headers=headers)
-                guardrails.record_call()
-                with urllib.request.urlopen(req, timeout=_TIMEOUT_LARGE) as resp:
-                    data = json.loads(resp.read().decode())
-                    text = (((data.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
-                    if text:
-                        log_provider("Gemini", True, db_path)
-                        try:
-                            import secret_guard
-                            text = secret_guard.clean_ai_text(text)
-                        except Exception:
-                            pass
-                        return text
+                text, _ = _request_json(req, "Gemini", model, _TIMEOUT_LARGE, _chat_parse)
+                if text:
+                    log_provider("Gemini", True, db_path)
+                    try:
+                        import secret_guard
+                        text = secret_guard.clean_ai_text(text)
+                    except Exception:
+                        pass
+                    return text
             except Exception as exc:
                 _log_fail("Gemini-Vision-OpenAI", model, _describe(exc))
 
@@ -603,19 +760,10 @@ def chat_vision(image_bytes: bytes, mime_type: str, prompt: str = "Describe and 
             try:
                 req = urllib.request.Request(native_url, data=json.dumps(native_body).encode(),
                                              headers={"Content-Type": "application/json", **_UA})
-                guardrails.record_call()
-                with urllib.request.urlopen(req, timeout=_TIMEOUT_LARGE) as resp:
-                    data = json.loads(resp.read().decode())
-                    parts = (((data.get("candidates") or [{}])[0].get("content") or {}).get("parts") or [])
-                    text = "".join(p.get("text", "") for p in parts if isinstance(p, dict)).strip()
-                    if text:
-                        log_provider("Gemini", True, db_path)
-                        try:
-                            import secret_guard
-                            text = secret_guard.clean_ai_text(text)
-                        except Exception:
-                            pass
-                        return text
+                text, _ = _request_json(req, "Gemini", model, _TIMEOUT_LARGE, _native_parse)
+                if text:
+                    log_provider("Gemini", True, db_path)
+                    return secret_guard.clean_ai_text(text)
             except Exception as exc:
                 _log_fail("Gemini-Vision-Native", model, _describe(exc))
 
@@ -624,6 +772,7 @@ def chat_vision(image_bytes: bytes, mime_type: str, prompt: str = "Describe and 
 
 
 @guardrails.budget_scoped
+@_router_scoped
 def chat_audio(audio_bytes: bytes, mime_type: str, prompt: str = "Transcribe and analyze this audio.", *, db_path=None) -> str | None:
     """Analyze/transcribe audio using Gemini audio capability via GEMINI_API_KEY or GEMINI_API_KEY_2.
 
@@ -663,19 +812,10 @@ def chat_audio(audio_bytes: bytes, mime_type: str, prompt: str = "Transcribe and
             try:
                 req = urllib.request.Request(native_url, data=json.dumps(native_body).encode(),
                                              headers={"Content-Type": "application/json", **_UA})
-                guardrails.record_call()
-                with urllib.request.urlopen(req, timeout=_TIMEOUT_LARGE) as resp:
-                    data = json.loads(resp.read().decode())
-                    parts = (((data.get("candidates") or [{}])[0].get("content") or {}).get("parts") or [])
-                    text = "".join(p.get("text", "") for p in parts if isinstance(p, dict)).strip()
-                    if text:
-                        log_provider("Gemini", True, db_path)
-                        try:
-                            import secret_guard
-                            text = secret_guard.clean_ai_text(text)
-                        except Exception:
-                            pass
-                        return text
+                text, _ = _request_json(req, "Gemini", model, _TIMEOUT_LARGE, _native_parse)
+                if text:
+                    log_provider("Gemini", True, db_path)
+                    return secret_guard.clean_ai_text(text)
             except Exception as exc:
                 _log_fail("Gemini-Audio-Native", model, _describe(exc))
 
@@ -683,7 +823,21 @@ def chat_audio(audio_bytes: bytes, mime_type: str, prompt: str = "Transcribe and
     return None
 
 
-def provider_status() -> list[dict]:
+def _provider_models(name):
+    if name == "Groq":
+        return list(dict.fromkeys(_groq_models(LARGE)))
+    if name == "Gemini":
+        return _gemini_models()
+    if name == "Cloudflare":
+        return _cloudflare_models()
+    if name == "OpenRouter":
+        return [os.environ.get("OPENROUTER_MODEL", "").strip()] if os.environ.get("OPENROUTER_MODEL") else []
+    if name == "GitHubModels":
+        return _github_models_list()
+    return ["auto"] if name == "FreeLLMAPI" else []
+
+
+def provider_status(db_path=None) -> list[dict]:
     """Return which providers have their env vars configured (does NOT make network calls)."""
     status = []
     for name, _ in _PROVIDERS:
@@ -708,8 +862,46 @@ def provider_status() -> list[dict]:
             configured = bool(tok and acc and not tok.startswith("YOUR_"))
         else:
             configured = False
-        status.append({"provider": name, "configured": configured})
+        models = _provider_models(name)
+        status.append({"provider": name, "configured": configured,
+                       "models": [provider_state.health(name, model, _model_cap(name, model),
+                                                        _state_path(db_path))
+                                  for model in models if _public_model(model) == model]})
     return status
+
+
+def get_provider_health(db_path=None, checked_at=None):
+    """Public-safe latest observations, usable by /health and ai_health exports.
+
+    Only allowlisted providers/model ids and fixed failure descriptions leave
+    the router. This read never creates a missing database or sends a request.
+    """
+    checked_at = checked_at or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    snapshots = provider_state.snapshots(_state_path(db_path))
+    rows = []
+    for name, _ in _PROVIDERS:
+        observed = [(model, state) for provider, model, state in snapshots
+                    if provider == name and _public_model(model) == model and state.get("observed_at")]
+        row = {"provider": name, "model": None, "state": "unknown",
+               "reason": "No activity recorded", "checked_at": checked_at, "failure_reasons": {}}
+        if observed:
+            model, state = max(observed, key=lambda item: item[1]["observed_at"])
+            row["model"] = model
+            for _, data in observed:
+                for kind, count in data["failures"].items():
+                    if kind in provider_state.REASONS and type(count) is int and count > 0:
+                        prior = row["failure_reasons"].get(kind, {}).get("count", 0)
+                        row["failure_reasons"][kind] = {"count": prior + count,
+                                                        "reason": provider_state.REASONS[kind]}
+            if state["observed_at"] <= time.time() - provider_state.RECENT_SECONDS:
+                row["reason"] = "No recent activity recorded"
+            elif state.get("last_ok"):
+                row.update(state="up", reason="Latest request succeeded")
+            else:
+                row.update(state="down", reason=provider_state.REASONS.get(
+                    state["last_kind"], "Provider request failed"))
+        rows.append(row)
+    return rows
 
 
 # ---------------------------------------------------------------------------
@@ -739,6 +931,11 @@ def _chat_parse(data):
     return ((data.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
 
 
+def _native_parse(data):
+    parts = (((data.get("candidates") or [{}])[0].get("content") or {}).get("parts") or [])
+    return "".join(p.get("text", "") for p in parts if isinstance(p, dict))
+
+
 def _targets():
     """(provider, model, url, headers, extra_body, parse) for every configured provider and model."""
     out = []
@@ -761,22 +958,46 @@ def _targets():
     tok, acc = os.environ.get("CF_API_TOKEN", ""), os.environ.get("CF_ACCOUNT_ID", "")
     if tok and acc and not tok.startswith("YOUR_"):
         headers = {"Authorization": f"Bearer {tok}", "Content-Type": "application/json", **_UA}
-        url = f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/@cf/meta/llama-3.1-8b-instruct"
-        out.append(("Cloudflare", "llama-3.1-8b-instruct", url, headers,
-                    lambda d: (d.get("result") or {}).get("response") or ""))
-    return out
+        for model in _cloudflare_models():
+            url = f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/{model}"
+            out.append(("Cloudflare", model, url, headers, _cf_parse))
+    return [target for target in out if _public_model(target[1]) == target[1]]
 
 
-def health(probe=_probe, long_timeout=90):
+@guardrails.budget_scoped
+@_router_scoped
+def health(probe=_probe, long_timeout=90, *, db_path=None):
     """Run one tiny test per provider/model, then one long-answer test on the first large model that works.
 
     Returns a list of result dicts. Nothing here contains a key: only provider, model, ok, reason, seconds.
     """
     results = []
     targets = _targets()
+
+    def attempt(provider, model, url, headers, body, timeout, parse):
+        if provider == "Cloudflare":
+            body = {k: v for k, v in body.items() if k != "model"}
+            body["max_tokens"] = 4096 if timeout == long_timeout else 64
+        if probe is not _probe:
+            # Injectable deterministic diagnostic for existing offline callers.
+            # Production probes use the same accounting/transport as chat.
+            return probe(url, headers, body, timeout, parse)
+        started = time.time()
+        if not guardrails.can_call_llm(db_path):
+            return False, "Global call budget unavailable", 0
+        req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers)
+        text, _ = _request_json(req, provider, model, timeout, parse)
+        state = provider_state.health(provider, model, _model_cap(provider, model), _state_path(db_path))
+        reason = "" if text else state["reason"] or "Provider skipped by budget or circuit"
+        if not text and state["capped"]:
+            reason = "Model daily cap reached"
+        elif not text and state["breaker"] == "open":
+            reason = "Circuit cooling down: " + (state["reason"] or "Provider request failed")
+        return bool(text), reason, time.time() - started
+
     for provider, model, url, headers, parse in targets:
         body = {"model": model, "messages": [{"role": "user", "content": HEALTH_PROMPT}]}
-        ok, reason, secs = probe(url, headers, body, _TIMEOUT, parse)
+        ok, reason, secs = attempt(provider, model, url, headers, body, _TIMEOUT, parse)
         results.append({"test": "tiny", "provider": provider, "model": model, "ok": ok,
                         "reason": reason, "seconds": round(secs, 1)})
     large = os.environ.get("GROQ_MODEL_LARGE", "openai/gpt-oss-120b")
@@ -786,7 +1007,7 @@ def health(probe=_probe, long_timeout=90):
     for pick in working:
         target = next(t for t in targets if t[0] == pick["provider"] and t[1] == pick["model"])
         body = {"model": target[1], "messages": [{"role": "user", "content": LONG_PROMPT}]}
-        ok, reason, secs = probe(target[2], target[3], body, long_timeout, target[4])
+        ok, reason, secs = attempt(target[0], target[1], target[2], target[3], body, long_timeout, target[4])
         if ok and secs > _TIMEOUT:
             reason = f"slower than the old {_TIMEOUT}s limit"
         results.append({"test": "long", "provider": target[0], "model": target[1], "ok": ok,
