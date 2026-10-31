@@ -266,4 +266,10 @@ def run_pending(db_path=None, out_dir=None, llm=None, max_builds=DAILY_BUILDS,
         except Exception:
             encryption_failed(db_path)
     notify_ready(db_path, notify_fn)
+    # R66-JB: repair up to 3 old NEEDS FIX products per day. Never stops the pipeline.
+    try:
+        import product_repair
+        product_repair.run_daily(db_path=db_path, out_dir=out_dir, llm=llm, max_repairs=3)
+    except Exception:
+        pass
     return results
