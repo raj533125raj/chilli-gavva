@@ -692,10 +692,8 @@ def get_public_agent_budgets(db_path=None, checked_at=None):
     """
     day = (checked_at or guardrails.today())[:10]
     rows = _office_rows(db_path, "SELECT agent,calls_used,calls_limit,context_percent "
-                        "FROM agent_usage WHERE day=? ORDER BY rowid DESC LIMIT 100", (day,))
-    observed = {}
-    for row in rows:
-        observed.setdefault(row["agent"], row)
+                        "FROM agent_usage WHERE rowid IN (SELECT MAX(rowid) FROM agent_usage "
+                        "WHERE day=? GROUP BY agent) ORDER BY rowid DESC", (day,))
     shared = _office_rows(db_path, "SELECT COALESCE((SELECT llm_calls FROM usage_log WHERE day=?),0) AS used FROM sqlite_master WHERE type='table' AND name='usage_log'", (day,))
     shared_used = _number(shared[0]["used"]) if shared else None
     shared_limit = None
@@ -710,7 +708,9 @@ def get_public_agent_budgets(db_path=None, checked_at=None):
     import office_agents
     result = []
     for agent in office_agents.registered(db_path)[:20]:
-        row = observed.get(agent["name"], observed.get(agent["id"]))
+        # Rows are newest first across both supported identifiers. A busy agent
+        # must not crowd another agent's known budget out of a global history cap.
+        row = next((row for row in rows if row["agent"] in (agent["name"], agent["id"])), None)
         used = _number(row.get("calls_used")) if row is not None else shared_used
         limit = _number(row.get("calls_limit")) if row is not None else shared_limit
         result.append({"agent": _short(agent["name"]),

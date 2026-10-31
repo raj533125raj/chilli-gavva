@@ -144,6 +144,17 @@ class OfficeExportTests(unittest.TestCase):
         self.assertTrue(versions)
         self.assertEqual(set(versions), {"v5"})
 
+    def test_budget_history_keeps_quiet_agents_and_latest_name_or_id_observation(self):
+        with sqlite3.connect(self.db) as conn:
+            conn.execute("CREATE TABLE agent_usage(day,agent,calls_used,calls_limit,context_percent)")
+            conn.execute("INSERT INTO agent_usage VALUES (?, 'CEO',2,20,10)", (NOW[:10],))
+            conn.executemany("INSERT INTO agent_usage VALUES (?, 'Draft Worker',?,50,NULL)",
+                             [(NOW[:10], i) for i in range(120)])
+            conn.execute("INSERT INTO agent_usage VALUES (?, 'chilli-gavva-robot-draft-worker',7,50,25)", (NOW[:10],))
+        rows = {row["agent"]: row for row in public_export.get_public_agent_budgets(self.db, NOW)}
+        self.assertEqual((rows["CEO"]["calls_used_today"], rows["CEO"]["scope"]), (2, "agent"))
+        self.assertEqual((rows["Draft Worker"]["calls_used_today"], rows["Draft Worker"]["context_percent"]), (7, 25))
+
     def test_connection_names_survive_final_scrub_without_credential_values(self):
         secrets = {name: "private-connection-value-" + str(i)
                    for i, name in enumerate(public_export.PUBLIC_CONNECTION_KEYS)}
