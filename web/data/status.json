@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-31T10:53:58Z",
+ "generated_at": "2026-10-31T13:16:54Z",
  "kill_switch": false,
  "llm": {
   "calls_today": 1,
@@ -289,35 +289,35 @@
    "model": null,
    "state": "up",
    "reason": "All recent calls succeeded",
-   "checked_at": "2026-10-31T10:53:58Z"
+   "checked_at": "2026-10-31T13:16:54Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-10-31T10:53:58Z"
+   "checked_at": "2026-10-31T13:16:54Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-10-31T10:53:58Z"
+   "checked_at": "2026-10-31T13:16:54Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-10-31T10:53:58Z"
+   "checked_at": "2026-10-31T13:16:54Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-10-31T10:53:58Z"
+   "checked_at": "2026-10-31T13:16:54Z"
   }
  ],
  "minutes": {
@@ -1827,12 +1827,20 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-10-31T10:53:58Z",
-  "last_run_end": "2026-10-31T10:53:58Z",
+  "last_run_start": "2026-10-31T13:16:54Z",
+  "last_run_end": "2026-10-31T13:16:54Z",
   "runner": "github-actions",
-  "run_id": "41194545522"
+  "run_id": "41204629201"
  },
  "changelog": [
+  "Repair old NEEDS FIX products (max 3/day) from the daily product pipeline (Jules R66-JB + guarded hook)",
+  "CI: install poppler + URW fonts before full test runs (R65 launch-pack tests need real image tools; minutes saver had dropped them)",
+  "agent: owner inbox state [skip ci]",
+  "Merge remote-tracking branch 'l/r65' into push65",
+  "agent: state + content update [skip ci]",
+  "Merge isolated router tests into robot-r65",
+  "Isolate router and health tests from live agent state",
+  "Complete approved product delivery with encrypted readiness receipts",
   "Reduce provider failures with model caps and circuit breakers",
   "Merge branch 'feat-autofix-drill-and-reliable-retries-3440904720822841541' of https://github.com/raj533125raj/chilli-gavva into robot-r63",
   "Handle signed office agent hires and engine changes",
@@ -1844,15 +1852,7 @@
   "Fix product quality end to end (#18)",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "feat: apply signed cube controls and complete office inbox integration",
-  "feat: enforce signed autonomy policies and atomic LLM call budgets",
-  "feat: answer signed office agent chats through scrubbed KV receipts",
-  "feat: dispatch signed time and state triggers with bounded summaries",
-  "feat: edit and archive signed recurring missions",
-  "feat: consume signed recurring missions with durable KV receipts",
-  "agent: state + content update [skip ci]",
-  "Implement upload-ready launch pack builder module (#17)"
+  "agent: state + content update [skip ci]"
  ],
  "cubes": [
   {
