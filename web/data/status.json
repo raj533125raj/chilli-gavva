@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-31T05:51:41Z",
+ "generated_at": "2026-10-31T10:53:58Z",
  "kill_switch": false,
  "llm": {
   "calls_today": 1,
@@ -289,35 +289,35 @@
    "model": null,
    "state": "up",
    "reason": "All recent calls succeeded",
-   "checked_at": "2026-10-31T05:51:41Z"
+   "checked_at": "2026-10-31T10:53:58Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-10-31T05:51:41Z"
+   "checked_at": "2026-10-31T10:53:58Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-10-31T05:51:41Z"
+   "checked_at": "2026-10-31T10:53:58Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-10-31T05:51:41Z"
+   "checked_at": "2026-10-31T10:53:58Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-10-31T05:51:41Z"
+   "checked_at": "2026-10-31T10:53:58Z"
   }
  ],
  "minutes": {
@@ -728,6 +728,26 @@
    "plan": 2,
    "done": 0
   }
+ },
+ "agent_connection": {
+  "inbox": "control:request:*",
+  "outbox": "runtime:receipt:<id>",
+  "required_keys": [
+   "CF_ACCOUNT_ID",
+   "CF_KV_NAMESPACE_ID",
+   "CF_API_TOKEN",
+   "CONTROL_SIGNING_KEY"
+  ],
+  "keys": [
+   "CF_ACCOUNT_ID",
+   "CF_KV_NAMESPACE_ID",
+   "CF_API_TOKEN",
+   "CONTROL_SIGNING_KEY"
+  ],
+  "engines": [
+   "local",
+   "cloud"
+  ]
  },
  "agent_budgets": [
   {
@@ -1807,12 +1827,19 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-10-31T05:51:41Z",
-  "last_run_end": "2026-10-31T05:51:41Z",
+  "last_run_start": "2026-10-31T10:53:58Z",
+  "last_run_end": "2026-10-31T10:53:58Z",
   "runner": "github-actions",
-  "run_id": "41174071794"
+  "run_id": "41194545522"
  },
  "changelog": [
+  "Reduce provider failures with model caps and circuit breakers",
+  "Merge branch 'feat-autofix-drill-and-reliable-retries-3440904720822841541' of https://github.com/raj533125raj/chilli-gavva into robot-r63",
+  "Handle signed office agent hires and engine changes",
+  "Reduce agent workflow setup and unchanged schedule test costs",
+  "Prove auto-fix end to end with drill mode and patient retries",
+  "agent: state + content update [skip ci]",
+  "Prove auto-fix end to end with drill mode and patient retries",
   "Add safe capped office telemetry to public status exports",
   "Fix product quality end to end (#18)",
   "agent: state + content update [skip ci]",
@@ -1825,14 +1852,7 @@
   "feat: edit and archive signed recurring missions",
   "feat: consume signed recurring missions with durable KV receipts",
   "agent: state + content update [skip ci]",
-  "Implement upload-ready launch pack builder module (#17)",
-  "feat: Add safe public dashboard fields to public_export.py and export_status.py (#16)",
-  "fix: acknowledge Telegram before replies and reserve daily deliveries",
-  "fix: scrub persisted diagnostics and harden state save retries",
-  "fix: expose scrubbed step diagnostics alongside safe failure summaries",
-  "agent: state + content update [skip ci]",
-  "feat: adapt daily pipeline quotas and raise max tasks with time budget stop (#15)",
-  "agent: state + content update [skip ci]"
+  "Implement upload-ready launch pack builder module (#17)"
  ],
  "cubes": [
   {
