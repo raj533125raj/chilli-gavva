@@ -46,12 +46,25 @@ def _telegram_configured(cfg=None):
     return bool(token and chat_id and not token.startswith("YOUR_")), token, chat_id
 
 
+def _scrub_outgoing(text: str) -> str:
+    """Scrub secrets, tokens, API keys, emails, and truncate to max 3500 chars."""
+    if not text:
+        return ""
+    import public_export
+    scrubbed = public_export.scrub_text(text)
+    if len(scrubbed) > 3500:
+        cut_suffix = "\n\n...(cut, message length limit)"
+        scrubbed = scrubbed[:3500 - len(cut_suffix)] + cut_suffix
+    return scrubbed
+
+
 def send(message: str) -> bool:
     """Send message via Telegram. Returns True on success."""
     cfg = _cfg()
     configured, token, chat_id = _telegram_configured(cfg)
     if not configured:
         return False
+    message = _scrub_outgoing(message)
     url = TELEGRAM_API.format(token=token)
     body = json.dumps({"chat_id": chat_id, "text": message, "parse_mode": "HTML"}).encode()
     try:
