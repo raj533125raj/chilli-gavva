@@ -5,6 +5,7 @@ import sys
 import types
 import unittest
 from unittest.mock import MagicMock, patch, call
+from tests.router_test_support import RouterTestCase
 
 
 # ---------------------------------------------------------------------------
@@ -69,7 +70,7 @@ class _HTTPError(Exception):
 # ---------------------------------------------------------------------------
 # provider_status
 # ---------------------------------------------------------------------------
-class TestProviderStatus(unittest.TestCase):
+class TestProviderStatus(RouterTestCase):
     def test_all_missing(self):
         env = {}
         with patch.dict("os.environ", env, clear=True):
@@ -111,8 +112,9 @@ class TestProviderStatus(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # _groq
 # ---------------------------------------------------------------------------
-class TestGroqProvider(unittest.TestCase):
+class TestGroqProvider(RouterTestCase):
     def setUp(self):
+        super().setUp()
         importlib.reload(llm_router)
 
     def test_returns_none_if_no_key(self):
@@ -170,8 +172,9 @@ class TestGroqProvider(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # _gemini
 # ---------------------------------------------------------------------------
-class TestGeminiProvider(unittest.TestCase):
+class TestGeminiProvider(RouterTestCase):
     def setUp(self):
+        super().setUp()
         importlib.reload(llm_router)
 
     def test_returns_none_if_no_key(self):
@@ -202,8 +205,9 @@ class TestGeminiProvider(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # _cloudflare
 # ---------------------------------------------------------------------------
-class TestCloudflareProvider(unittest.TestCase):
+class TestCloudflareProvider(RouterTestCase):
     def setUp(self):
+        super().setUp()
         importlib.reload(llm_router)
 
     def test_returns_none_if_no_vars(self):
@@ -233,8 +237,9 @@ class TestCloudflareProvider(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # chat() — the main public function
 # ---------------------------------------------------------------------------
-class TestChat(unittest.TestCase):
+class TestChat(RouterTestCase):
     def setUp(self):
+        super().setUp()
         sys.modules["guardrails"] = _guardrails_stub  # ensure stub is active
         importlib.reload(llm_router)
 
@@ -303,8 +308,9 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------------------
 # Size routing (small = 8B, large = 70B with fallback to 8B)
 # ---------------------------------------------------------------------------
-class TestSizeRouting(unittest.TestCase):
+class TestSizeRouting(RouterTestCase):
     def setUp(self):
+        super().setUp()
         self._env = patch.dict("os.environ", {"GROQ_API_KEY": "gsk_test"}, clear=True)
         self._env.start()
 
@@ -373,8 +379,9 @@ def _http429():
     return _uerr.HTTPError("u", 429, "too many", {"retry-after": "0"}, None)
 
 
-class TestAutoSwitch(unittest.TestCase):
+class TestAutoSwitch(RouterTestCase):
     def setUp(self):
+        super().setUp()
         sys.modules["guardrails"] = _guardrails_stub
         importlib.reload(llm_router)
 

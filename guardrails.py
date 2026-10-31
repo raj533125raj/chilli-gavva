@@ -21,10 +21,16 @@ import sqlite3
 import sys
 import contextvars
 import functools
+import tempfile
 from contextlib import contextmanager
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "agent_data.db")
+# Legacy callers without an explicit fixture must not open a decrypted runtime
+# database merely because unittest was launched without CHILLI_TEST.
+_TEST_DATABASE = (tempfile.TemporaryDirectory(prefix="robot-tests-")
+                  if os.environ.get("CHILLI_TEST") == "1"
+                  or "unittest" in sys.modules or "pytest" in sys.modules else None)
+DB_PATH = os.path.join(_TEST_DATABASE.name if _TEST_DATABASE else BASE_DIR, "agent_data.db")
 KILL_FILE = os.path.join(BASE_DIR, "KILL_SWITCH")
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 DEFAULT_DAILY_CAP = 500  # own safety cap on LLM calls per day (Groq free tier allows far more)

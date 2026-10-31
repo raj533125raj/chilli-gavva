@@ -20,7 +20,10 @@ import json
 import os
 import sqlite3
 
-DB_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "agent_data.db")
+import guardrails
+
+# Share the safe default used by the rest of the workforce, including tests.
+DB_DEFAULT = guardrails.DB_PATH
 
 
 def connect(db_path=None):
