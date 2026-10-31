@@ -11,6 +11,7 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import llm_router  # noqa: E402
+from tests.router_test_support import RouterTestCase
 
 SECRET = "gsk_SECRET_should_never_appear"
 ENV = {"GROQ_API_KEY": SECRET, "GEMINI_API_KEY": "AIza_SECRET_too", "GEMINI_MODEL": "gem-a,gem-b",
@@ -21,7 +22,7 @@ def http_error(code, body=b"{}"):
     return urllib.error.HTTPError("https://example.invalid", code, "err", {}, io.BytesIO(body))
 
 
-class HealthTests(unittest.TestCase):
+class HealthTests(RouterTestCase):
     def run_health(self, outcomes):
         """outcomes: model -> (ok, reason, secs) for tiny tests; 'long' key for the long test."""
         calls = []
@@ -96,7 +97,7 @@ class HealthTests(unittest.TestCase):
             self.assertEqual(llm_router._probe("https://x.invalid", {}, {}, 1, lambda d: "")[:2], (False, "timeout"))
 
 
-class ErrorDetailTests(unittest.TestCase):
+class ErrorDetailTests(RouterTestCase):
     def test_public_error_codes_are_shown(self):
         groq = b'{"error": {"message": "Invalid API Key", "type": "invalid_request_error", "code": "invalid_api_key"}}'
         self.assertEqual(llm_router._describe(http_error(401, groq)), "401 invalid_api_key")
@@ -153,7 +154,7 @@ class ErrorDetailTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(llm_router.groq_model_names(), [])
 
-class GeminiFallbackTests(unittest.TestCase):
+class GeminiFallbackTests(RouterTestCase):
     def test_busy_or_retired_model_moves_to_next(self):
         class Resp(io.BytesIO):
             def __enter__(self):
@@ -211,7 +212,7 @@ class GeminiFallbackTests(unittest.TestCase):
             self.assertNotIn(name, router_text)
 
 
-class PrivacyTests(unittest.TestCase):
+class PrivacyTests(RouterTestCase):
     def test_scrub_hides_secrets_and_chat_id(self):
         env = {"TELEGRAM_CHAT_ID": "123456789", "GROQ_API_KEY": "gsk_abcdefghijklmnop1234"}
         text = ("chat 123456789 key gsk_abcdefghijklmnop1234 other gsk_ZZZZZZZZZZZZZZZZZZZZ "
@@ -240,7 +241,7 @@ class PrivacyTests(unittest.TestCase):
         self.assertNotIn("42.5", seen[0])
 
 
-class FailureLogTests(unittest.TestCase):
+class FailureLogTests(RouterTestCase):
     def test_groq_failure_prints_one_line_without_key(self):
         err = io.StringIO()
         with patch.dict(os.environ, ENV, clear=True), redirect_stderr(err), \

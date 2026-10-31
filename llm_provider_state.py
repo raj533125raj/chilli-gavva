@@ -6,6 +6,8 @@ without an explicit database use an isolated in-memory store, never the state fi
 """
 import datetime
 import json
+import os
+import sys
 import sqlite3
 import threading
 import time
@@ -34,12 +36,28 @@ RECENT_LIMIT = 20
 
 _memory = sqlite3.connect(":memory:", check_same_thread=False)
 _lock = threading.RLock()
+_REAL_DB = Path(__file__).resolve().with_name("agent_data.db")
+
+
+def running_tests():
+    """Plain unittest/pytest invocations are tests even without CHILLI_TEST."""
+    return (os.environ.get("CHILLI_TEST") == "1"
+            or "unittest" in sys.modules or "pytest" in sys.modules)
+
+
+def safe_path(path):
+    """Never open the checkout's live state file from a test, even explicitly."""
+    if path and not isinstance(path, sqlite3.Connection) and running_tests():
+        if Path(path).resolve() == _REAL_DB.resolve():
+            return _memory
+    return path
 
 
 @contextmanager
 def _connection(path):
     # Serialize the shared in-memory connection. File databases additionally use
     # BEGIN IMMEDIATE to serialize reservations across processes.
+    path = safe_path(path)
     with _lock:
         memory = isinstance(path, sqlite3.Connection) or not path
         conn = (path if path else _memory) if memory else sqlite3.connect(path, timeout=5)
@@ -115,6 +133,7 @@ def observe(provider, model, ok, kind="", task="general", path=None):
 
 
 def snapshots(path=None):
+    path = safe_path(path)
     conn = None
     try:
         with _lock:
