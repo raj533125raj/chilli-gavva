@@ -190,8 +190,15 @@ jobs:
       # Preserve image-test coverage on full test runs, even without a pending build.
       - name: Install test dependencies
         if: steps.gate.outputs.run == 'true' && steps.test_plan.outputs.run != 'false'
-        timeout-minutes: 2
-        run: python3 -m pip install --quiet --disable-pip-version-check -r .agent-image-requirements.txt
+        timeout-minutes: 4
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check -r .agent-image-requirements.txt
+          # Product/launch-pack tests need poppler (PDF page pictures) and the URW fonts, same as real builds.
+          if [ "$(dpkg-query -W -f='${Status}' poppler-utils 2>/dev/null)" != "install ok installed" ]; then
+            sudo apt-get -o Acquire::Retries=3 update -qq
+          fi
+          sudo apt-get -o Acquire::Retries=3 install -y -qq --no-install-recommends poppler-utils fonts-urw-base35 > /dev/null
+          python3 -c "import mockups; print('Image tools ready:', mockups.available())"
 
       - name: Run tests first
         id: tests
