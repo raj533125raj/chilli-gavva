@@ -694,8 +694,12 @@ class ProviderOrderTests(unittest.TestCase):
 
 
 class DrillTests(unittest.TestCase):
-    def test_drill_pass_in_temp_directory(self):
-        res = autofix.run_drill()
+    def test_drill_pass_with_fix_fn(self):
+        def fake_fix(workspace):
+            target = workspace / "tests" / "test_autofix_drill_proof.py"
+            target.write_text(autofix.DRILL_PASSING_TEST_CONTENT, encoding="utf-8")
+            return True
+        res = autofix.run_drill(fix_fn=fake_fix)
         self.assertEqual(res["verdict"], "PASS")
         self.assertIn("create_temp_workspace", res["steps"])
         self.assertIn("plant_failing_test", res["steps"])
@@ -711,6 +715,97 @@ class DrillTests(unittest.TestCase):
         self.assertEqual(res["verdict"], "FAIL")
         self.assertIn("fix_loop_failed", res["steps"])
 
-    def test_drill_telegram_command_registered(self):
-        res = telegram_inbox.handle_command("autofix_drill", [])
-        self.assertTrue(res.startswith("Auto-fix drill: PASS"))
+    def test_drill_real_loop_busy_then_success(self):
+        real_popen = subprocess.Popen
+        calls = []
+        def fake_popen(cmd, **kwargs):
+            if cmd == ["opencode", "github", "run"]:
+                calls.append(kwargs.get("env", {}).get("MODEL"))
+                proc = mock.MagicMock()
+                if len(calls) == 1:
+                    # first attempt returns 503 busy
+                    proc.communicate.return_value = ("HTTP 503 Service Unavailable", None)
+                else:
+                    # second attempt succeeds by fixing the planted test
+                    workspace = Path(kwargs["cwd"])
+                    (workspace / "tests" / "test_autofix_drill_proof.py").write_text(autofix.DRILL_PASSING_TEST_CONTENT)
+                    proc.communicate.return_value = ("Fix applied", None)
+                return proc
+            return real_popen(cmd, **kwargs)
+
+        env = {"GEMINI_AUTOFIX_KEY": "test-key"}
+        with mock.patch("subprocess.Popen", side_effect=fake_popen), \
+                mock.patch("time.sleep", return_value=None):
+            res = autofix.run_drill(env=env, timeout=120)
+        self.assertEqual(res["verdict"], "PASS")
+        self.assertGreaterEqual(len(calls), 2)
+
+    def test_drill_real_loop_all_busy_until_budget_ends(self):
+        real_popen = subprocess.Popen
+        def fake_popen(cmd, **kwargs):
+            if cmd == ["opencode", "github", "run"]:
+                proc = mock.MagicMock()
+                proc.communicate.return_value = ("HTTP 503 Service Unavailable", None)
+                return proc
+            return real_popen(cmd, **kwargs)
+
+        env = {"GEMINI_AUTOFIX_KEY": "test-key"}
+        with mock.patch("subprocess.Popen", side_effect=fake_popen), \
+                mock.patch("time.sleep", return_value=None):
+            res = autofix.run_drill(env=env, timeout=0.01)
+        self.assertEqual(res["verdict"], "FAIL")
+
+    def test_drill_bad_patch_rejected(self):
+        def bad_fix(workspace):
+            # Writes syntax error or failing test
+            (workspace / "tests" / "test_autofix_drill_proof.py").write_text("invalid syntax !!!")
+            return True
+        res = autofix.run_drill(fix_fn=bad_fix)
+        self.assertEqual(res["verdict"], "FAIL")
+        self.assertIn("test_still_failing", res["steps"])
+
+    def test_drill_never_touches_main_repo(self):
+        head_before = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True).stdout
+        def fake_fix(workspace):
+            (workspace / "tests" / "test_autofix_drill_proof.py").write_text(autofix.DRILL_PASSING_TEST_CONTENT)
+            return True
+        res = autofix.run_drill(fix_fn=fake_fix)
+        self.assertEqual(res["verdict"], "PASS")
+        head_after = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True).stdout
+        self.assertEqual(head_before, head_after)
+        self.assertFalse(Path("tests/test_autofix_drill_proof.py").exists())
+
+    def test_autofix_drill_telegram_owner_only(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_path = str(Path(td) / "test.db")
+            # Owner chat gets response
+            update_owner = {"update_id": 100, "message": {"chat": {"id": "123456"}, "text": "/autofix_drill"}}
+            with mock.patch.object(telegram_inbox, "fetch_updates", return_value=[update_owner]), \
+                    mock.patch.object(telegram_inbox, "acknowledge_update"), \
+                    mock.patch.object(telegram_inbox, "_call", return_value={"ok": True}), \
+                    mock.patch.object(telegram_inbox, "send_text") as mock_send, \
+                    mock.patch.object(autofix, "run_drill", return_value={"verdict": "PASS", "summary": "drill passed"}):
+                stats = telegram_inbox.new_stats()
+                handled = telegram_inbox.process_updates("token", "123456", db_path=db_path, stats=stats)
+                self.assertEqual(handled, 1)
+                mock_send.assert_called_once_with("token", "123456", "Auto-fix drill: PASS\ndrill passed")
+
+            # Non-owner chat is completely ignored
+            update_non_owner = {"update_id": 101, "message": {"chat": {"id": "stranger_chat"}, "text": "/autofix_drill"}}
+            with mock.patch.object(telegram_inbox, "fetch_updates", return_value=[update_non_owner]), \
+                    mock.patch.object(telegram_inbox, "acknowledge_update"), \
+                    mock.patch.object(telegram_inbox, "_call", return_value={"ok": True}), \
+                    mock.patch.object(telegram_inbox, "send_text") as mock_send, \
+                    mock.patch.object(autofix, "run_drill") as mock_drill:
+                stats = telegram_inbox.new_stats()
+                handled = telegram_inbox.process_updates("token", "123456", db_path=db_path, stats=stats)
+                self.assertEqual(handled, 0)
+                self.assertEqual(stats["skipped"]["not owner chat"], 1)
+                mock_drill.assert_not_called()
+                mock_send.assert_not_called()
+
+    def test_secret_guard_scans_clean_on_drill(self):
+        import secret_guard
+        # Ensure GEMINI_AUTOFIX_KEY is not leaked into output or files
+        code_text = Path("autofix.py").read_text()
+        self.assertEqual(secret_guard.scan_text(code_text), [])
