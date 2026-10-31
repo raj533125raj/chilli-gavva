@@ -734,9 +734,41 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
     if LAST_FETCH_ERROR:
         raise RuntimeError("Telegram updates could not be read; inbox stopped before replies.")
     handled = 0
-    items_to_process = []
     valid = [upd for upd in updates if type(upd.get("update_id")) is int]
     next_offset = int(offset) if offset else None
+
+    # Pre-count occurrences of each message key for owner messages in this batch
+    def _message_key(m_text):
+        app_id = parse_start_payload(m_text)
+        if app_id is not None:
+            return ("start_payload", app_id)
+        c, c_ids = parse_command(m_text)
+        if not c:
+            u = re.findall(r"https?://[^\s]+", m_text)
+            if u:
+                return ("url", u[0])
+            import chat_brain
+            intent, _ = chat_brain.classify_intent(m_text, db_path=db_path)
+            if intent and intent != "capabilities":
+                return ("chat_brain", m_text)
+            return ("unknown_text",)
+        return ("command", c, tuple(c_ids))
+
+    key_counts = {}
+    for upd in sorted(valid, key=lambda item: item["update_id"]):
+        u_id = upd["update_id"]
+        if next_offset is not None and u_id < next_offset:
+            continue
+        msg_candidate = upd.get("message")
+        if not msg_candidate or "text" not in msg_candidate:
+            continue
+        if str((msg_candidate.get("chat") or {}).get("id", "")) != str(owner_chat_id):
+            continue
+        m_k = _message_key(msg_candidate.get("text", ""))
+        key_counts[m_k] = key_counts.get(m_k, 0) + 1
+
+    seen_message_keys = set()
+
     for upd in sorted(valid, key=lambda item: item["update_id"]):
         update_id = upd["update_id"]
         if next_offset is not None and update_id < next_offset:
@@ -802,86 +834,43 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
             continue
 
         message_text = msg.get("text", "")
+        m_key = _message_key(message_text)
+        is_duplicate = m_key in seen_message_keys
+        seen_message_keys.add(m_key)
+        total_k_count = key_counts.get(m_key, 1)
+        burst_note = f"\n\n(answered {total_k_count} messages)" if total_k_count > 1 else ""
 
         approval_id = parse_start_payload(message_text)
         if approval_id is not None:
-            items_to_process.append({
-                "type": "start_payload",
-                "key": ("start_payload", approval_id),
-                "approval_id": approval_id,
-            })
+            if not is_duplicate:
+                reply = view_text(approval_id, db_path) + burst_note
+                send_text(token, owner_chat_id, reply, draft_buttons(approval_id))
+            handled += 1
             continue
 
         cmd, ids = parse_command(message_text)
         if not cmd:
+            # Check for URL link in message_text
             urls = re.findall(r"https?://[^\s]+", message_text)
             if urls:
-                items_to_process.append({
-                    "type": "url",
-                    "key": ("url", urls[0]),
-                    "url": urls[0],
-                })
+                if not is_duplicate:
+                    reply_text, buttons, _ = media_brain.process_url(urls[0], db_path=db_path)
+                    send_text(token, owner_chat_id, reply_text + burst_note, buttons)
+                handled += 1
                 continue
 
-            # Check if chat_brain can handle known action or query intent (not generic capabilities)
             import chat_brain
             intent, params = chat_brain.classify_intent(message_text, db_path=db_path)
             if intent and intent != "capabilities":
-                items_to_process.append({
-                    "type": "chat_brain",
-                    "key": ("chat_brain", message_text),
-                    "message_text": message_text,
-                })
+                if not is_duplicate:
+                    chat_brain.process_message(token, owner_chat_id, message_text + burst_note, db_path=db_path)
             else:
-                # Unknown text gets ONE short hint line, never the full help menu
-                items_to_process.append({
-                    "type": "unknown_text",
-                    "key": ("unknown_text",),
-                })
+                if not is_duplicate:
+                    send_text(token, owner_chat_id, UNKNOWN_TEXT_HINT + burst_note)
+            handled += 1
             continue
 
-        # Standard command
-        items_to_process.append({
-            "type": "command",
-            "key": ("command", cmd, tuple(ids)),
-            "cmd": cmd,
-            "ids": ids,
-        })
-
-    # Group queued owner messages mapping to the same command / action
-    groups = []
-    group_map = {}
-    for item in items_to_process:
-        k = item["key"]
-        if k not in group_map:
-            group = {"item": item, "count": 1}
-            group_map[k] = group
-            groups.append(group)
-        else:
-            group_map[k]["count"] += 1
-
-    for grp in groups:
-        item = grp["item"]
-        count = grp["count"]
-        handled += count
-        burst_note = f"\n\n(answered {count} messages)" if count > 1 else ""
-
-        itype = item["type"]
-        if itype == "start_payload":
-            approval_id = item["approval_id"]
-            reply = view_text(approval_id, db_path) + burst_note
-            send_text(token, owner_chat_id, reply, draft_buttons(approval_id))
-        elif itype == "url":
-            import media_brain
-            reply_text, buttons, _ = media_brain.process_url(item["url"], db_path=db_path)
-            send_text(token, owner_chat_id, reply_text + burst_note, buttons)
-        elif itype == "chat_brain":
-            import chat_brain
-            chat_brain.process_message(token, owner_chat_id, item["message_text"] + burst_note, db_path=db_path)
-        elif itype == "unknown_text":
-            send_text(token, owner_chat_id, UNKNOWN_TEXT_HINT + burst_note)
-        elif itype == "command":
-            cmd, ids = item["cmd"], item["ids"]
+        if not is_duplicate:
             if cmd == "rules":
                 import improver_loop
                 text, buttons = improver_loop.format_rules_list(db_path)
@@ -899,7 +888,7 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
             elif cmd == "buttontest":
                 send_text(token, owner_chat_id, "Press this test button. The reply comes on the next run "
                           "(about 1-2 minutes with the door bell)." + burst_note, [[("Test button", "t:ping")]])
-
+        handled += 1
     stats["handled"] = handled
     return handled
 
