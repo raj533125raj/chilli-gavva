@@ -867,6 +867,51 @@ def get_public_changelog(repo_dir=None):
         return []
 
 
+def _office_report_period(db_path, start, end):
+    """Counts and fixed task labels only; never load private report prose."""
+    params = (start.isoformat(), end.isoformat())
+    tasks = _office_rows(db_path, "SELECT COUNT(*) AS total FROM tasks WHERE status='done' "
+                         "AND julianday(COALESCE(finished_ts,ts)) BETWEEN julianday(?) AND julianday(?)", params)
+    reviews = _office_rows(db_path, "SELECT COUNT(*) AS total FROM approvals WHERE status IN ('approved','rejected') "
+                           "AND julianday(decided_ts) BETWEEN julianday(?) AND julianday(?)", params)
+    builds = _office_rows(db_path, "SELECT COUNT(*) AS total FROM product_builds WHERE status='built' "
+                          "AND julianday(ts) BETWEEN julianday(?) AND julianday(?)", params)
+    counts = [rows[0]["total"] if rows else 0 for rows in (tasks, reviews, builds)]
+    summary = (f"{counts[0]} tasks completed; {counts[1]} approvals reviewed; {counts[2]} products built."
+               if any(counts) else "No completed work recorded.")
+    return summary, counts
+
+
+def get_public_office_reports(db_path=None, checked_at=None):
+    """Daily IST snapshot and Sunday review using aggregate records, never owner messages."""
+    stamp = _iso(checked_at or datetime.datetime.now(datetime.timezone.utc).isoformat())
+    if not stamp:
+        return {"daily_report": None, "sunday_letter": None}
+    ist = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+    end = datetime.datetime.fromisoformat(stamp.replace("Z", "+00:00")).astimezone(ist)
+    start = end.replace(hour=0, minute=0, second=0, microsecond=0)
+    summary, counts = _office_report_period(db_path, start, end)
+    labels = {"plan": "Planning completed", "research": "Research completed", "draft": "Draft completed",
+              "rewrite": "Revision completed", "review": "Review completed", "code_proposal": "Code proposal completed",
+              "office_task": "Office task completed"}
+    tasks = _office_rows(db_path, "SELECT kind FROM tasks WHERE status='done' "
+                         "AND julianday(COALESCE(finished_ts,ts)) BETWEEN julianday(?) AND julianday(?) "
+                         "ORDER BY julianday(COALESCE(finished_ts,ts)) DESC,id DESC LIMIT 10",
+                         (start.isoformat(), end.isoformat()))
+    items = [labels.get(row["kind"], "Task completed") for row in tasks]
+    if counts[1]:
+        items.append("Approval reviewed")
+    if counts[2]:
+        items.append("Product built")
+    date = end.date().isoformat()
+    sunday = None
+    if end.weekday() == 6:
+        weekly_summary, _ = _office_report_period(db_path, start - datetime.timedelta(days=6), end)
+        sunday = {"date_ist": date, "summary": weekly_summary}
+    return {"daily_report": {"date_ist": date, "summary": summary, "items_done": items[:10]},
+            "sunday_letter": sunday}
+
+
 def get_public_office_export(db_path=None, checked_at=None):
     checked_at = checked_at or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return {"agent_connection": get_public_agent_connection(),
@@ -875,7 +920,7 @@ def get_public_office_export(db_path=None, checked_at=None):
             "activity_events": get_public_activity_events(db_path),
             "schedules": get_public_schedules(db_path), "receipts": get_public_receipts(db_path),
             "workspaces": get_public_workspaces(), "cloud_heartbeat": get_public_cloud_heartbeat(checked_at),
-            "changelog": get_public_changelog()}
+            "changelog": get_public_changelog(), **get_public_office_reports(db_path, checked_at)}
 
 
 def get_public_agent_connection():

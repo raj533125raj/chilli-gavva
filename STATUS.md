@@ -9,6 +9,9 @@ Agent budgets read the real guardrails usage/cap and owner policy with an explic
 shared scope; recorded agent-specific usage and context override that fallback.
 Provider health exports the latest observed model id and fixed outcome reason from
 the router health ledger, falling back to legacy provider tallies when unavailable.
+Daily office reports use IST dates, bounded fixed completion labels and aggregate
+counts only. Sunday letters summarize the last seven IST calendar days; private
+Telegram report prose, financial records and product ideas are never copied.
 
 Approved-product delivery (robot-r65): the scheduled builder now runs council/checker
 gates, real product files, launch documentation and truth checks as one resumable

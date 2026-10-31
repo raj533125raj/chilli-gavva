@@ -66,7 +66,7 @@ class PublicExportTests(unittest.TestCase):
 
     def test_exact_public_fields_and_utc_health_schema(self):
         status = self.read_export()
-        expected = LEGACY_FIELDS | NEW_PUBLIC_FIELDS | {"ai_health", "minutes", "scout_ideas_count", "trend_items_count", "media_items_count", "cubes", "marketing_kits_count", "agent_budgets", "loop_events", "activity_events", "schedules", "receipts", "workspaces", "cloud_heartbeat", "changelog", "agent_connection"}
+        expected = LEGACY_FIELDS | NEW_PUBLIC_FIELDS | {"ai_health", "minutes", "scout_ideas_count", "trend_items_count", "media_items_count", "cubes", "marketing_kits_count", "agent_budgets", "loop_events", "activity_events", "schedules", "receipts", "workspaces", "cloud_heartbeat", "changelog", "agent_connection", "daily_report", "sunday_letter"}
         self.assertEqual(set(status), expected)
         self.assertEqual(set(status["minutes"]), {"used_this_month", "limit"})
         self.assertEqual({row["provider"] for row in status["ai_health"]}, {name for name, _ in llm_router._PROVIDERS})
@@ -99,7 +99,7 @@ class PublicExportTests(unittest.TestCase):
             extended = self.read_export()
         self.assertEqual(legacy, before)
         self.assertEqual({key: extended[key] for key in LEGACY_FIELDS}, before)
-        self.assertEqual(set(extended) - set(legacy), NEW_PUBLIC_FIELDS | {"ai_health", "minutes", "scout_ideas_count", "trend_items_count", "media_items_count", "cubes", "marketing_kits_count", "agent_budgets", "loop_events", "activity_events", "schedules", "receipts", "workspaces", "cloud_heartbeat", "changelog", "agent_connection"})
+        self.assertEqual(set(extended) - set(legacy), NEW_PUBLIC_FIELDS | {"ai_health", "minutes", "scout_ideas_count", "trend_items_count", "media_items_count", "cubes", "marketing_kits_count", "agent_budgets", "loop_events", "activity_events", "schedules", "receipts", "workspaces", "cloud_heartbeat", "changelog", "agent_connection", "daily_report", "sunday_letter"})
         # Existing consumers can still use the agent list, counts and approval queue.
         self.assertEqual([agent["name"] for agent in extended["agents"]],
                          [agent["name"] for agent in legacy["agents"]])

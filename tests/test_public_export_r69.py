@@ -34,6 +34,47 @@ class OfficeExportTests(unittest.TestCase):
         return json.loads(path.read_text())
 
 
+
+    def test_daily_report_uses_ist_date_capped_generic_labels_and_no_private_prose(self):
+        private = "PRIVATE_IDEA prompt key=fixture-report-value $123"
+        with sqlite3.connect(self.db) as conn:
+            # 18:30 UTC is the start of the following IST day.
+            for i in range(12):
+                conn.execute("INSERT INTO tasks(ts,finished_ts,kind,status,payload,result) VALUES (?,?,?,'done',?,?)",
+                             ("2026-10-31T18:30:00Z", "2026-10-31T18:30:00Z", private if i == 0 else "draft", private, private))
+            for stamp in ("2026-10-31T18:29:59Z", "2026-11-01T01:00:00Z"):
+                conn.execute("INSERT INTO tasks(ts,finished_ts,kind,status) VALUES (?,?,'draft','done')", (stamp, stamp))
+        report = public_export.get_public_office_reports(self.db, "2026-10-31T18:30:01Z")
+        self.assertEqual(report["daily_report"]["date_ist"], "2026-11-01")
+        self.assertEqual(report["daily_report"]["summary"], "12 tasks completed; 0 approvals reviewed; 0 products built.")
+        self.assertEqual(len(report["daily_report"]["items_done"]), 10)
+        self.assertTrue(all(label in ("Draft completed", "Task completed") for label in report["daily_report"]["items_done"]))
+        self.assertEqual(report["sunday_letter"]["date_ist"], "2026-11-01")
+        self.assertNotIn(private, json.dumps(report))
+        self.assertNotIn("fixture-report-value", json.dumps(report))
+        self.assertNotIn("$", json.dumps(report))
+        self.assertEqual(public_export.get_public_office_reports(self.db, NOW)["daily_report"]["items_done"], [])
+        self.assertIsNone(public_export.get_public_office_reports(self.db, NOW)["sunday_letter"])
+
+    def test_reports_count_reviews_and_builds_and_sunday_week_read_only(self):
+        with sqlite3.connect(self.db) as conn:
+            conn.execute("INSERT INTO approvals(ts,kind,title,payload,status,decided_ts) "
+                         "VALUES ('2026-10-31','public_draft','private idea','private prompt','approved','2026-11-01T00:00:00Z')")
+            conn.execute("CREATE TABLE product_builds(id INTEGER PRIMARY KEY, status, ts, folder)")
+            conn.execute("INSERT INTO product_builds VALUES (1,'built','2026-11-01T00:00:00Z','private folder')")
+            conn.execute("INSERT INTO tasks(ts,finished_ts,kind,status) VALUES ('2026-10-29','2026-10-29','research','done')")
+        before = Path(self.db).read_bytes()
+        reports = public_export.get_public_office_reports(self.db, "2026-11-01T12:00:00Z")
+        self.assertEqual(Path(self.db).read_bytes(), before)
+        self.assertEqual(reports["daily_report"]["items_done"], ["Approval reviewed", "Product built"])
+        self.assertEqual(reports["sunday_letter"]["summary"], "1 tasks completed; 1 approvals reviewed; 1 products built.")
+        with mock.patch.object(export_status, "build_status", return_value={"generated_at": "2026-11-01T12:00:00Z"}):
+            document = self.status()
+        self.assertEqual({key: document[key] for key in reports}, reports)
+        missing = str(self.root / "missing.db")
+        self.assertEqual(public_export.get_public_office_reports(missing, NOW)["daily_report"]["items_done"], [])
+        self.assertFalse(Path(missing).exists())
+
     def test_connection_names_survive_final_scrub_without_credential_values(self):
         secrets = {name: "private-connection-value-" + str(i)
                    for i, name in enumerate(public_export.PUBLIC_CONNECTION_KEYS)}
