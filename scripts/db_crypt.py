@@ -182,6 +182,19 @@ def compare_product_trees(left, right):
     return contents(left) == contents(right)
 
 
+def _delivery_receipt(encrypted):
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # Migration helpers also copy this script into standalone temporary repos.
+    if not os.path.isfile(os.path.join(project_root, "product_pipeline.py")):
+        return
+    sys.path.insert(0, project_root)
+    import product_pipeline
+    if encrypted:
+        product_pipeline.mark_encrypted(archive=PRODUCTS_ENCRYPTED)
+    else:
+        product_pipeline.encryption_failed()
+
+
 def main(argv):
     if len(argv) < 2 or argv[1] not in ("encrypt", "decrypt", "pack-products", "unpack-products") or len(argv) > 4:
         print("usage: db_crypt.py encrypt|decrypt|pack-products|unpack-products [path] [destination]", file=sys.stderr)
@@ -193,9 +206,16 @@ def main(argv):
             decrypt()
         elif argv[1] == "pack-products":
             pack_products(*(argv[2:]))
+            if len(argv) == 2:
+                # The scheduled builder and encryption run in separate processes.
+                # Confirm encryption before Save state, then Telegram can deliver
+                # the persisted readiness receipt on its next owner inbox cycle.
+                _delivery_receipt(encrypted=True)
         else:
             unpack_products(*(argv[2:]))
     except CryptError as error:
+        if argv[1] == "pack-products" and len(argv) == 2:
+            _delivery_receipt(encrypted=False)
         print(f"db_crypt: {error}", file=sys.stderr)
         return 1
     print(f"db_crypt: {argv[1]} done")

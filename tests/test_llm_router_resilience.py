@@ -13,6 +13,7 @@ from contextlib import redirect_stderr
 from unittest.mock import patch
 
 import llm_router as router
+from tests.router_test_support import RouterTestCase
 
 
 class Response(io.BytesIO):
@@ -34,11 +35,9 @@ def http_error(status, code=None, message="private request text"):
                                   {"retry-after": "0"}, io.BytesIO(json.dumps(data).encode()))
 
 
-class RouterResilienceTests(unittest.TestCase):
+class RouterResilienceTests(RouterTestCase):
     def setUp(self):
-        tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(tmp.cleanup)
-        self.db = os.path.join(tmp.name, "router.db")
+        super().setUp()
         self.enterContext(patch.dict(os.environ, {}, clear=True))
         self.enterContext(patch.object(router.guardrails, "_TESTING", True, create=True))
         self.enterContext(patch.object(router.guardrails, "can_call_llm", return_value=True))

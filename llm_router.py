@@ -41,6 +41,7 @@ import urllib.error
 import urllib.request
 import contextvars
 import functools
+from contextlib import nullcontext
 
 import guardrails
 import injection_guard
@@ -89,32 +90,40 @@ _TASK = contextvars.ContextVar("llm_router_task", default="general")
 _RETRY_AFTER = contextvars.ContextVar("llm_retry_after", default=5.0)
 _ATTEMPTS = contextvars.ContextVar("llm_provider_attempts", default=0)
 _LAST_FAILURE_KIND = contextvars.ContextVar("llm_last_failure_kind", default="")
-_MEMORY_STATE = sqlite3.connect(":memory:", check_same_thread=False)
+_MEMORY_STATE = provider_state._memory
 
 
 def _state_path(db_path=None):
     path = db_path or _ROUTER_DB.get()
     budget = getattr(guardrails, "_BUDGET_DB", None)
     budget_path = budget.get() if budget is not None else None
-    # budget_scoped fills in DB_PATH even when a test supplied no database.
-    # That implicit default must never turn test observations into real state.
-    if (not path and getattr(guardrails, "_TESTING", False)
-            and budget_path == getattr(guardrails, "DB_PATH", None)):
+    testing = provider_state.running_tests() or getattr(guardrails, "_TESTING", False)
+    # A budget decorator's implicit DB_PATH is not an explicit fixture database.
+    if not path and testing and budget_path == getattr(guardrails, "DB_PATH", None):
         return _MEMORY_STATE
     path = path or budget_path
     if path == ":memory:":
         return _MEMORY_STATE
     if path:
-        return path
-    if getattr(guardrails, "_TESTING", False):
+        return provider_state.safe_path(path)
+    if testing:
         return _MEMORY_STATE
     return getattr(guardrails, "DB_PATH", None) or _MEMORY_STATE
+
+
+def _budget_context(path):
+    context = getattr(guardrails, "budget_context", None)
+    path = ":memory:" if isinstance(path, sqlite3.Connection) else path
+    return context(path) if context else nullcontext()
 
 
 def _router_scoped(function):
     @functools.wraps(function)
     def wrapped(*args, **kwargs):
-        db_token = _ROUTER_DB.set(kwargs.get("db_path"))
+        path = _state_path(kwargs.get("db_path"))
+        if kwargs.get("db_path") is not None and isinstance(path, sqlite3.Connection):
+            kwargs = dict(kwargs, db_path=":memory:")
+        db_token = _ROUTER_DB.set(path)
         task = kwargs.get("task_kind") or {
             "chat_vision": "vision", "chat_audio": "audio", "health": "health"
         }.get(function.__name__)
@@ -123,7 +132,8 @@ def _router_scoped(function):
         task_token = _TASK.set(task if task in _TASK_KINDS else "general")
         attempts_token = _ATTEMPTS.set(0)
         try:
-            return function(*args, **kwargs)
+            with _budget_context(path):
+                return function(*args, **kwargs)
         finally:
             _TASK.reset(task_token)
             _ATTEMPTS.reset(attempts_token)
@@ -188,7 +198,8 @@ def _request_json(req, provider, model, timeout, parse):
             provider, model, _model_cap(provider, model), _state_path()):
         return None, None
     try:
-        guardrails.record_call()
+        with _budget_context(_state_path()):
+            guardrails.record_call()
     except Exception:
         # A global budget rejection is not a provider failure.
         return None, None
@@ -607,8 +618,8 @@ def pick_size(prompt: str, size: str | None = None) -> str:
     return LARGE if len(prompt or "") > _LARGE_PROMPT_CHARS else SMALL
 
 
-@guardrails.budget_scoped
 @_router_scoped
+@guardrails.budget_scoped
 def chat(prompt: str, *, db_path=None, size: str | None = None, task_kind: str | None = None) -> str | None:
     """Try each provider in order; return first non-None result.
 
@@ -672,10 +683,11 @@ def chat(prompt: str, *, db_path=None, size: str | None = None, task_kind: str |
 
 def log_provider(name: str, ok: bool, db_path=None) -> None:
     """Count answers and failures per provider per day (for the daily Telegram report). Never raises."""
-    if getattr(guardrails, "_TESTING", False) and db_path is None:
-        return  # tests must not write into the real database
+    path = _state_path(db_path)
+    if isinstance(path, sqlite3.Connection):
+        return  # implicit test logs must not write into the live database
     try:
-        conn = sqlite3.connect(db_path or guardrails.DB_PATH)
+        conn = sqlite3.connect(path)
         conn.execute("CREATE TABLE IF NOT EXISTS provider_log (day TEXT, provider TEXT, ok INTEGER DEFAULT 0, "
                      "fail INTEGER DEFAULT 0, PRIMARY KEY (day, provider))")
         col = "ok" if ok else "fail"
@@ -688,8 +700,8 @@ def log_provider(name: str, ok: bool, db_path=None) -> None:
         pass
 
 
-@guardrails.budget_scoped
 @_router_scoped
+@guardrails.budget_scoped
 def chat_vision(image_bytes: bytes, mime_type: str, prompt: str = "Describe and analyze this image in detail.", *, db_path=None) -> str | None:
     """Analyze an image using Gemini vision capability via GEMINI_API_KEY or GEMINI_API_KEY_2.
 
@@ -771,8 +783,8 @@ def chat_vision(image_bytes: bytes, mime_type: str, prompt: str = "Describe and 
     return None
 
 
-@guardrails.budget_scoped
 @_router_scoped
+@guardrails.budget_scoped
 def chat_audio(audio_bytes: bytes, mime_type: str, prompt: str = "Transcribe and analyze this audio.", *, db_path=None) -> str | None:
     """Analyze/transcribe audio using Gemini audio capability via GEMINI_API_KEY or GEMINI_API_KEY_2.
 
@@ -964,8 +976,8 @@ def _targets():
     return [target for target in out if _public_model(target[1]) == target[1]]
 
 
-@guardrails.budget_scoped
 @_router_scoped
+@guardrails.budget_scoped
 def health(probe=_probe, long_timeout=90, *, db_path=None):
     """Run one tiny test per provider/model, then one long-answer test on the first large model that works.
 

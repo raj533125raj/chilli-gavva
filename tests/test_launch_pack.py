@@ -14,10 +14,23 @@ import os
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 
 import guardrails
 import launch_pack
 import product_council
+
+
+def fake_spec(prompt, size=None):
+    return json.dumps({
+        "name": "Approved Fixture", "short_name": "approved-fixture",
+        "listing": {"title": "Approved Fixture Planner",
+                    "description": "A printable planner for personal use. Includes structured writing sections with room for notes. Print the supplied pages and write by hand.",
+                    "tags": ["planner", "printable", "notes", "personal", "template"],
+                    "buyer": "adults"},
+        "instructions": ["Print the supplied PDF pages.", "Write in the sections."],
+        "pages": [{"title": "Notes", "sections": [{"heading": "Notes", "type": "lines", "count": 8}]}]
+    })
 
 
 class TestLaunchPack(unittest.TestCase):
@@ -27,6 +40,9 @@ class TestLaunchPack(unittest.TestCase):
         self.db_path = os.path.join(self.tmp_dir, "test_agent.db")
         self.out_dir = os.path.join(self.tmp_dir, "products")
         os.makedirs(self.out_dir, exist_ok=True)
+        patch = mock.patch("workforce.default_llm", return_value=fake_spec)
+        patch.start()
+        self.addCleanup(patch.stop)
 
     def tearDown(self):
         shutil.rmtree(self.tmp_dir)
@@ -138,13 +154,15 @@ class TestLaunchPack(unittest.TestCase):
     def test_encryption_handoff(self):
         aid = self._create_approved_draft()
 
-        # Set fake DB_KEY for testing encryption handoff
-        os.environ["DB_KEY"] = "test_secret_key_123"
-        try:
+        from scripts import db_crypt
+        with mock.patch.dict(os.environ, {"DB_KEY": "fixture-encryption-key"}):
             res = launch_pack.build_launch_pack(aid, db_path=self.db_path, out_dir=self.out_dir)
             self.assertEqual(res["approval_id"], aid)
-        finally:
-            os.environ.pop("DB_KEY", None)
+            archive = launch_pack.encrypt_handoff(self.out_dir)
+            self.assertEqual(archive, os.path.join(self.tmp_dir, "products.tar.gz.enc"))
+            restored = os.path.join(self.tmp_dir, "restored")
+            db_crypt.unpack_products(archive, restored)
+            self.assertTrue(db_crypt.compare_product_trees(self.out_dir, restored))
 
 
 if __name__ == "__main__":
