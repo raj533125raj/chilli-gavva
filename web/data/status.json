@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-01T04:17:22Z",
+ "generated_at": "2026-11-01T05:33:42Z",
  "kill_switch": false,
  "llm": {
   "calls_today": 7,
@@ -294,35 +294,35 @@
    "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-01T04:17:22Z"
+   "checked_at": "2026-11-01T05:33:42Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-01T04:17:22Z"
+   "checked_at": "2026-11-01T05:33:42Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-01T04:17:22Z"
+   "checked_at": "2026-11-01T05:33:42Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-01T04:17:22Z"
+   "checked_at": "2026-11-01T05:33:42Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-01T04:17:22Z"
+   "checked_at": "2026-11-01T05:33:42Z"
   }
  ],
  "minutes": {
@@ -1866,12 +1866,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-01T04:17:22Z",
-  "last_run_end": "2026-11-01T04:17:22Z",
+  "last_run_start": "2026-11-01T05:33:42Z",
+  "last_run_end": "2026-11-01T05:33:42Z",
   "runner": "github-actions",
-  "run_id": "41272341389"
+  "run_id": "41277237720"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
@@ -1890,8 +1891,7 @@
   "chore: upgrade cache restore and save actions to v5",
   "fix: export real office receipts schedules and stuck-task events",
   "fix: retain configured workspace floor ids in office exports",
-  "feat: export private-safe daily office reports and Sunday letters",
-  "fix: export model ids from recorded provider health"
+  "feat: export private-safe daily office reports and Sunday letters"
  ],
  "daily_report": {
   "date_ist": "2026-11-01",
