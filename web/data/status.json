@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-31T19:22:23Z",
+ "generated_at": "2026-11-01T00:03:44Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 7,
+  "calls_today": 1,
   "cap": 500
  },
  "agents": [
@@ -257,67 +257,72 @@
    "ts": "2026-10-31T00:12:47.455833",
    "kind": "scout_idea",
    "title": "Draft #63"
+  },
+  {
+   "id": 64,
+   "ts": "2026-11-01T00:03:42.514260",
+   "kind": "scout_idea",
+   "title": "Draft #64"
+  },
+  {
+   "id": 65,
+   "ts": "2026-11-01T00:03:42.516183",
+   "kind": "scout_idea",
+   "title": "Draft #65"
+  },
+  {
+   "id": 66,
+   "ts": "2026-11-01T00:03:42.518108",
+   "kind": "scout_idea",
+   "title": "Draft #66"
+  },
+  {
+   "id": 67,
+   "ts": "2026-11-01T00:03:42.519854",
+   "kind": "scout_idea",
+   "title": "Draft #67"
   }
  ],
  "worker": {
   "running": false,
   "age_seconds": null
  },
- "handoffs": [
-  {
-   "from_agent": "Draft Worker",
-   "to_agent": "Content Manager",
-   "item": "draft #58",
-   "at": "2026-10-30T22:26:43Z"
-  },
-  {
-   "from_agent": "Draft Worker",
-   "to_agent": "Content Manager",
-   "item": "draft #57",
-   "at": "2026-10-30T22:26:40Z"
-  },
-  {
-   "from_agent": "Draft Worker",
-   "to_agent": "Content Manager",
-   "item": "draft #56",
-   "at": "2026-10-30T22:26:38Z"
-  }
- ],
+ "handoffs": [],
  "ai_health": [
   {
    "provider": "Groq",
-   "model": "openai/gpt-oss-120b",
+   "model": "openai/gpt-oss-20b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-10-31T19:22:23Z"
+   "checked_at": "2026-11-01T00:03:44Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-10-31T19:22:23Z"
+   "checked_at": "2026-11-01T00:03:44Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-10-31T19:22:23Z"
+   "checked_at": "2026-11-01T00:03:44Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-10-31T19:22:23Z"
+   "checked_at": "2026-11-01T00:03:44Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-10-31T19:22:23Z"
+   "checked_at": "2026-11-01T00:03:44Z"
   }
  ],
  "minutes": {
@@ -641,8 +646,8 @@
   }
  ],
  "report": {
-  "drafts_made": 5,
-  "drafts_waiting": 9,
+  "drafts_made": 4,
+  "drafts_waiting": 13,
   "drafts_approved": 0,
   "products_built": 0,
   "errors": 0
@@ -753,63 +758,63 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   }
@@ -1849,12 +1854,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-10-31T19:22:23Z",
-  "last_run_end": "2026-10-31T19:22:23Z",
+  "last_run_start": "2026-11-01T00:03:40Z",
+  "last_run_end": "2026-11-01T00:03:44Z",
   "runner": "github-actions",
-  "run_id": "41233681096"
+  "run_id": "41254800236"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "Telegram /status tests ignore the live GitHub run environment (CI-only failure)",
   "Scout and Trend learn from reject reasons and history (Jules R72-JC)",
   "Telegram that feels clean: one reply per burst (per-update ack kept), short hint, /status, daily report once (Jules R66-JA)",
@@ -1873,8 +1879,7 @@
   "CI: install poppler + URW fonts before full test runs (R65 launch-pack tests need real image tools; minutes saver had dropped them)",
   "agent: owner inbox state [skip ci]",
   "Merge remote-tracking branch 'l/r65' into push65",
-  "agent: state + content update [skip ci]",
-  "Merge isolated router tests into robot-r65"
+  "agent: state + content update [skip ci]"
  ],
  "daily_report": {
   "date_ist": "2026-11-01",
@@ -2127,12 +2132,12 @@
   }
  ],
  "scout_ideas_count": {
-  "total": 15,
-  "pending": 6,
+  "total": 19,
+  "pending": 10,
   "approved": 9
  },
  "trend_items_count": {
-  "total": 30,
+  "total": 40,
   "proposed": 0,
   "approved": 0
  },
