@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-01T02:33:21Z",
+ "generated_at": "2026-11-01T03:03:25Z",
  "kill_switch": false,
  "llm": {
   "calls_today": 7,
@@ -294,35 +294,35 @@
    "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-01T02:33:21Z"
+   "checked_at": "2026-11-01T03:03:25Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-01T02:33:21Z"
+   "checked_at": "2026-11-01T03:03:25Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-01T02:33:21Z"
+   "checked_at": "2026-11-01T03:03:25Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-01T02:33:21Z"
+   "checked_at": "2026-11-01T03:03:25Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-01T02:33:21Z"
+   "checked_at": "2026-11-01T03:03:25Z"
   }
  ],
  "minutes": {
@@ -1866,12 +1866,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-01T02:33:21Z",
-  "last_run_end": "2026-11-01T02:33:21Z",
+  "last_run_start": "2026-11-01T03:03:25Z",
+  "last_run_end": "2026-11-01T03:03:25Z",
   "runner": "github-actions",
-  "run_id": "41265448611"
+  "run_id": "41267383091"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
@@ -1890,8 +1891,7 @@
   "fix: retain configured workspace floor ids in office exports",
   "feat: export private-safe daily office reports and Sunday letters",
   "fix: export model ids from recorded provider health",
-  "fix: export recorded agent and shared guardrails budgets",
-  "fix: preserve public office connection protocol through status scrubbing"
+  "fix: export recorded agent and shared guardrails budgets"
  ],
  "daily_report": {
   "date_ist": "2026-11-01",
