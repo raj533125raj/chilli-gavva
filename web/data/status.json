@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-11-01T22:55:28Z",
+ "generated_at": "2026-11-02T00:12:36Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 7,
+  "calls_today": 1,
   "cap": 500
  },
  "agents": [
@@ -281,6 +281,24 @@
    "ts": "2026-11-01T00:03:42.519854",
    "kind": "scout_idea",
    "title": "Draft #67"
+  },
+  {
+   "id": 68,
+   "ts": "2026-11-02T00:12:34.660709",
+   "kind": "scout_idea",
+   "title": "Draft #68"
+  },
+  {
+   "id": 69,
+   "ts": "2026-11-02T00:12:34.662676",
+   "kind": "scout_idea",
+   "title": "Draft #69"
+  },
+  {
+   "id": 70,
+   "ts": "2026-11-02T00:12:34.664695",
+   "kind": "scout_idea",
+   "title": "Draft #70"
   }
  ],
  "worker": {
@@ -291,38 +309,38 @@
  "ai_health": [
   {
    "provider": "Groq",
-   "model": "openai/gpt-oss-120b",
+   "model": "openai/gpt-oss-20b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-01T22:55:28Z"
+   "checked_at": "2026-11-02T00:12:36Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-01T22:55:28Z"
+   "checked_at": "2026-11-02T00:12:36Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-01T22:55:28Z"
+   "checked_at": "2026-11-02T00:12:36Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-01T22:55:28Z"
+   "checked_at": "2026-11-02T00:12:36Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-01T22:55:28Z"
+   "checked_at": "2026-11-02T00:12:36Z"
   }
  ],
  "minutes": {
@@ -646,8 +664,8 @@
   }
  ],
  "report": {
-  "drafts_made": 4,
-  "drafts_waiting": 13,
+  "drafts_made": 3,
+  "drafts_waiting": 16,
   "drafts_approved": 0,
   "products_built": 0,
   "errors": 0
@@ -758,63 +776,63 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   }
@@ -1866,10 +1884,10 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-01T22:55:28Z",
-  "last_run_end": "2026-11-01T22:55:28Z",
+  "last_run_start": "2026-11-02T00:12:32Z",
+  "last_run_end": "2026-11-02T00:12:36Z",
   "runner": "github-actions",
-  "run_id": "41359339469"
+  "run_id": "41365586922"
  },
  "changelog": [
   "agent: state + content update [skip ci]",
@@ -2141,12 +2159,12 @@
   }
  ],
  "scout_ideas_count": {
-  "total": 19,
-  "pending": 10,
+  "total": 22,
+  "pending": 13,
   "approved": 9
  },
  "trend_items_count": {
-  "total": 40,
+  "total": 50,
   "proposed": 0,
   "approved": 0
  },
