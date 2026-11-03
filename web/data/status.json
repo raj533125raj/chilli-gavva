@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-11-02T23:54:40Z",
+ "generated_at": "2026-11-03T01:11:22Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 7,
+  "calls_today": 1,
   "cap": 500
  },
  "agents": [
@@ -299,6 +299,30 @@
    "ts": "2026-11-02T00:12:34.664695",
    "kind": "scout_idea",
    "title": "Draft #70"
+  },
+  {
+   "id": 71,
+   "ts": "2026-11-03T01:11:21.062758",
+   "kind": "scout_idea",
+   "title": "Draft #71"
+  },
+  {
+   "id": 72,
+   "ts": "2026-11-03T01:11:21.064826",
+   "kind": "scout_idea",
+   "title": "Draft #72"
+  },
+  {
+   "id": 73,
+   "ts": "2026-11-03T01:11:21.066493",
+   "kind": "scout_idea",
+   "title": "Draft #73"
+  },
+  {
+   "id": 74,
+   "ts": "2026-11-03T01:11:21.068876",
+   "kind": "scout_idea",
+   "title": "Draft #74"
   }
  ],
  "worker": {
@@ -309,38 +333,38 @@
  "ai_health": [
   {
    "provider": "Groq",
-   "model": "openai/gpt-oss-120b",
+   "model": "openai/gpt-oss-20b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-02T23:54:40Z"
+   "checked_at": "2026-11-03T01:11:22Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-02T23:54:40Z"
+   "checked_at": "2026-11-03T01:11:22Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-02T23:54:40Z"
+   "checked_at": "2026-11-03T01:11:22Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-02T23:54:40Z"
+   "checked_at": "2026-11-03T01:11:22Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-02T23:54:40Z"
+   "checked_at": "2026-11-03T01:11:22Z"
   }
  ],
  "minutes": {
@@ -664,8 +688,8 @@
   }
  ],
  "report": {
-  "drafts_made": 3,
-  "drafts_waiting": 16,
+  "drafts_made": 4,
+  "drafts_waiting": 20,
   "drafts_approved": 0,
   "products_built": 0,
   "errors": 0
@@ -776,63 +800,63 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   }
@@ -1896,10 +1920,10 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-02T23:54:40Z",
-  "last_run_end": "2026-11-02T23:54:40Z",
+  "last_run_start": "2026-11-03T01:11:18Z",
+  "last_run_end": "2026-11-03T01:11:22Z",
   "runner": "github-actions",
-  "run_id": "41548646247"
+  "run_id": "41557688688"
  },
  "changelog": [
   "agent: state + content update [skip ci]",
@@ -2171,12 +2195,12 @@
   }
  ],
  "scout_ideas_count": {
-  "total": 22,
-  "pending": 13,
+  "total": 26,
+  "pending": 17,
   "approved": 9
  },
  "trend_items_count": {
-  "total": 50,
+  "total": 60,
   "proposed": 0,
   "approved": 0
  },
