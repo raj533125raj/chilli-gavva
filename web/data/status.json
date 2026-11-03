@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-11-03T01:11:22Z",
+ "generated_at": "2026-11-03T02:53:37Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 1,
+  "calls_today": 8,
   "cap": 500
  },
  "agents": [
@@ -333,38 +333,38 @@
  "ai_health": [
   {
    "provider": "Groq",
-   "model": "openai/gpt-oss-20b",
+   "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-03T01:11:22Z"
+   "checked_at": "2026-11-03T02:53:37Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-03T01:11:22Z"
+   "checked_at": "2026-11-03T02:53:37Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-03T01:11:22Z"
+   "checked_at": "2026-11-03T02:53:37Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-03T01:11:22Z"
+   "checked_at": "2026-11-03T02:53:37Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-03T01:11:22Z"
+   "checked_at": "2026-11-03T02:53:37Z"
   }
  ],
  "minutes": {
@@ -668,7 +668,7 @@
  "reject_reasons": [
   {
    "reason": "Formatting or rubric issue",
-   "count": 80
+   "count": 84
   },
   {
    "reason": "Unclear value over free template",
@@ -676,15 +676,15 @@
   },
   {
    "reason": "Risky or prohibited claim",
-   "count": 21
+   "count": 25
   },
   {
    "reason": "Product structure incomplete",
-   "count": 18
+   "count": 21
   },
   {
    "reason": "Target audience unclear",
-   "count": 18
+   "count": 19
   }
  ],
  "report": {
@@ -800,68 +800,80 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   }
  ],
  "loop_events": [
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-03T01:11:42Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-03T01:11:32Z"
+  },
   {
    "agent": "Unknown agent",
    "kind": "error",
@@ -1920,10 +1932,10 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-03T01:11:18Z",
-  "last_run_end": "2026-11-03T01:11:22Z",
+  "last_run_start": "2026-11-03T02:53:37Z",
+  "last_run_end": "2026-11-03T02:53:37Z",
   "runner": "github-actions",
-  "run_id": "41557688688"
+  "run_id": "41568520164"
  },
  "changelog": [
   "agent: state + content update [skip ci]",
