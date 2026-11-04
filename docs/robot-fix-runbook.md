@@ -1,5 +1,82 @@
 # Robot fix runbook
 
+## Second Gemini key is empty
+
+`GEMINI_API_KEY_2: EMPTY` means the optional backup Gemini credential was empty
+in that run's environment. It does **not** mean the primary Gemini credential
+is empty, and it does not by itself stop the robot. This checkout maps
+`${{ secrets.GEMINI_API_KEY_2 }}` into the workflow environment; GitHub returns
+an empty string when a referenced secret is unset. An old run cannot establish
+the secret's current value or whether a later run can access it.
+See [GitHub's secret setup and availability rules](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets).
+
+### Exact owner steps
+
+1. Open the [chilli-gavva repository](https://github.com/raj533125raj/chilli-gavva)
+   using the owner's GitHub account. If GitHub requests a password, passkey,
+   two-factor code, token, or login, the owner completes that privately; an
+   assistant stops at that step. No secret value belongs in this runbook or chat.
+2. Open **Settings → Secrets and variables → Actions → Secrets**. The direct
+   [Actions secrets page](https://github.com/raj533125raj/chilli-gavva/settings/secrets/actions)
+   opens the same repository settings. Use a repository **secret**, not an
+   Actions variable, and use this repository rather than a fork.
+3. Find the exact name **`GEMINI_API_KEY_2`**. If it is absent, choose
+   **New repository secret**, enter `GEMINI_API_KEY_2` in **Name**, paste the
+   owner's valid second Gemini key into **Secret**, then choose **Add secret**.
+   If it exists, open its edit control, replace its value privately, and choose
+   **Update secret**. GitHub does not display the stored value for comparison.
+4. Paste only the key value: no quotes, spaces, `GEMINI_API_KEY_2=` prefix, or
+   `YOUR_...` placeholder. Leave `GEMINI_API_KEY` and `GEMINI_AUTOFIX_KEY` alone.
+   If the owner does not have a valid second key, leaving this optional secret
+   absent is supported; adding a placeholder does not create working failover.
+5. If a newly started run still reports EMPTY, verify the name and repository,
+   that it is under **Secrets**, and that any organization-level secret grants
+   this repository access. Environment secrets require the job to select that
+   environment; a repository secret avoids that mismatch here. Fork-triggered
+   and Dependabot workflows do not normally receive these secrets. These are
+   checks to make, not a claim about the cause of the observed run.
+6. Let the next scheduled `agent-cycle` run start, or, when the owner wants a
+   manual run, open **Actions → agent-cycle → Run workflow**, select **main**,
+   leave `force` at **no**, and choose **Run workflow**. The optional `health`
+   input can be **yes** for a general provider check. Inspect the **new run**;
+   changing a secret does not alter the environment or logs of an existing run.
+
+Only check that the value is present/masked rather than EMPTY; never print,
+echo, or copy it to prove configuration. A green run or a successful Gemini
+health line is not proof that the second key was exercised. The health target
+builder currently probes only `GEMINI_API_KEY`; it does not independently test
+`GEMINI_API_KEY_2`. Normal text routing uses the backup only after the primary
+path fails. No live run or secret change was performed for this documentation.
+
+### Confirmed fallback behavior
+
+The following describes the code in S1 commit `c4b6927`, not a live provider test.
+
+| Code | Behavior with an empty second key |
+| --- | --- |
+| [Workflow environment](../.github/workflows/agent.yml#L114) | Passes the two secrets separately. An empty second value does not replace the primary value. |
+| [`_gemini`](../llm_router.py#L455) | Builds `keys_to_try` from primary, then secondary, filtering out empty values and `YOUR_` placeholders. With a valid primary and empty secondary, only the primary is attempted. If neither is configured, it returns `None` before any Gemini request. |
+| [`_gemini` model loop](../llm_router.py#L463) | Tries configured Gemini models for each available key. Missing/retired models, rate limits, server errors and timeouts can advance to another model; an authentication failure moves to the next available key. An empty backup is skipped, never sent as a credential. If all attempts fail, it returns `None`. |
+| [`chat`](../llm_router.py#L623) | A Gemini `None` result or provider exception continues to another provider in the router's task-health order. The default list is Groq, Gemini, Cloudflare, OpenRouter, FreeLLMAPI; recent task results can reorder it. Missing credentials skip that provider. If all providers fail or the global guard blocks calls, the result is `None`, not fabricated AI text. |
+| [`_request_json`](../llm_router.py#L192) | Actual attempts still reserve model capacity and check the global call budget. Key rotation does not bypass these controls. The backup increases available routes; it does not guarantee provider availability or additional quota. |
+| [`chat_vision`](../llm_router.py#L705) and [`chat_audio`](../llm_router.py#L788) | Also filter empty keys and keep using an available primary. They are Gemini-only: without a working Gemini route they return `None`, rather than switching to a text-only provider for media. |
+| [`provider_status`](../llm_router.py#L852) | Reports Gemini configured if either usable-looking key is present. It does not validate a key or prove the second one works. |
+| [`_targets`](../llm_router.py#L951) and [`gemini_model_names`](../llm_router.py#L1032) | General health probes and model discovery currently select only the primary key, even though runtime chat can use the second key. |
+
+The robot therefore falls back safely with this optional secret empty, provided
+another configured route is available. If no AI route answers, research/draft
+steps raise `AIUnavailable`; [the worker](../workforce.py#L814) follows its normal
+retry policy and stops further AI work in that cycle. Tasks can eventually be
+marked failed after the retry limit, so safe fallback is not a promise that all
+work will finish. The empty second key alone does not explain Telegram delivery
+failures; investigate those using the separate section below.
+
+Verification for this section is offline: fake credentials and blocked network
+access confirm primary-only success, no Gemini request when both keys are empty,
+text-provider fallback after primary failure, and `None` when all routes fail.
+Existing router, resilience, and health tests are also run. No real key was read,
+requested, entered, or tested.
+
 ## Telegram silence investigation — 4 November 2026
 
 The exact live cause of the owner's silence is **not yet verified**. This checkout
