@@ -1,0 +1,52 @@
+{
+  "id": "pinterest-team",
+  "name": "Pinterest Creative Team",
+  "colour": "#e60023",
+  "status": "planned",
+  "role": "Researches trending aesthetic visual styles, drafts pin boards and pin copy drafts for review",
+  "captain": "Pinterest Captain",
+  "sub_rooms": [
+    {
+      "name": "Pin Visual Concepts",
+      "main_agent": "Pin Designer",
+      "sub_agents": ["Board Curator"]
+    },
+    {
+      "name": "Pin Copy Studio",
+      "main_agent": "Pin Copywriter",
+      "sub_agents": ["Hashtag Scout"]
+    }
+  ],
+  "agents_info": {
+    "Pinterest Captain": {
+      "who": "Directs Pinterest department visual direction and board ideas",
+      "does": "Coordinates pin draft specs and quality checks",
+      "never": "Never posts online, never connects to live APIs without human approval, never spends money"
+    },
+    "Pin Designer": {
+      "who": "Researches visual styles and canvas layouts for pin drafts",
+      "does": "Creates draft graphic layouts and design templates",
+      "never": "Never posts to Pinterest, never purchases stock assets, drafts only"
+    },
+    "Board Curator": {
+      "who": "Organizes seasonal and thematic visual themes",
+      "does": "Structures board concepts and category lists",
+      "never": "Never publishes boards, never creates paid campaigns"
+    },
+    "Pin Copywriter": {
+      "who": "Drafts clear, descriptive titles and descriptions for pins",
+      "does": "Writes product listing pin copy drafts for human review",
+      "never": "Never makes false income claims, never posts directly"
+    },
+    "Hashtag Scout": {
+      "who": "Researches topic search terms and relevant tags",
+      "does": "Suggests organic search tags for review",
+      "never": "Never buys keywords or ads, never posts online"
+    }
+  },
+  "tools_allowed": ["design_layout_helper", "pin_copy_spec"],
+  "schedule_hints": {
+    "frequency": "weekly",
+    "suggested_slot": "afternoon"
+  }
+}
