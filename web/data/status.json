@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-11-04T01:45:47Z",
+ "generated_at": "2026-11-04T02:15:45Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 1,
+  "calls_today": 7,
   "cap": 500
  },
  "agents": [
@@ -351,38 +351,38 @@
  "ai_health": [
   {
    "provider": "Groq",
-   "model": "openai/gpt-oss-20b",
+   "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-04T01:45:47Z"
+   "checked_at": "2026-11-04T02:15:45Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-04T01:45:47Z"
+   "checked_at": "2026-11-04T02:15:45Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-04T01:45:47Z"
+   "checked_at": "2026-11-04T02:15:45Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-04T01:45:47Z"
+   "checked_at": "2026-11-04T02:15:45Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-04T01:45:47Z"
+   "checked_at": "2026-11-04T02:15:45Z"
   }
  ],
  "minutes": {
@@ -690,19 +690,19 @@
   },
   {
    "reason": "Unclear value over free template",
-   "count": 48
+   "count": 49
   },
   {
    "reason": "Risky or prohibited claim",
-   "count": 25
+   "count": 30
   },
   {
    "reason": "Product structure incomplete",
-   "count": 21
+   "count": 24
   },
   {
    "reason": "Target audience unclear",
-   "count": 19
+   "count": 22
   }
  ],
  "report": {
@@ -818,68 +818,80 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   }
  ],
  "loop_events": [
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-04T01:45:59Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-04T01:45:56Z"
+  },
   {
    "agent": "Unknown agent",
    "kind": "error",
@@ -1950,10 +1962,10 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-04T01:45:42Z",
-  "last_run_end": "2026-11-04T01:45:47Z",
+  "last_run_start": "2026-11-04T02:15:45Z",
+  "last_run_end": "2026-11-04T02:15:45Z",
   "runner": "github-actions",
-  "run_id": "41755833700"
+  "run_id": "41759159231"
  },
  "changelog": [
   "agent: state + content update [skip ci]",
