@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-04T18:52:51Z",
+ "generated_at": "2026-11-04T21:41:42Z",
  "kill_switch": false,
  "llm": {
   "calls_today": 7,
@@ -354,35 +354,35 @@
    "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-04T18:52:51Z"
+   "checked_at": "2026-11-04T21:41:42Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-04T18:52:51Z"
+   "checked_at": "2026-11-04T21:41:42Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-04T18:52:51Z"
+   "checked_at": "2026-11-04T21:41:42Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-04T18:52:51Z"
+   "checked_at": "2026-11-04T21:41:42Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-04T18:52:51Z"
+   "checked_at": "2026-11-04T21:41:42Z"
   }
  ],
  "minutes": {
@@ -2019,20 +2019,30 @@
    "id": "marketing",
    "name": "Marketing Department",
    "floor": null
+  },
+  {
+   "id": "instagram-team",
+   "name": "Instagram Story & Carousel Team",
+   "floor": null
+  },
+  {
+   "id": "pinterest-team",
+   "name": "Pinterest Creative Team",
+   "floor": null
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-04T18:52:51Z",
-  "last_run_end": "2026-11-04T18:52:51Z",
+  "last_run_start": "2026-11-04T21:41:42Z",
+  "last_run_end": "2026-11-04T21:41:42Z",
   "runner": "github-actions",
-  "run_id": "41890842906"
+  "run_id": "41917603003"
  },
  "changelog": [
+  "Document empty second Gemini key setup and safe fallback",
+  "Load cube packs without changing legacy cube execution state",
+  "agent: state + content update [skip ci]",
   "Office projection for Binny Mills (Jules JG) + doctor heals stuck work (Jules JD)",
   "Fix silent Telegram delivery failures and expose safe inbox diagnostics",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
@@ -2294,6 +2304,114 @@
      ]
     }
    ]
+  },
+  {
+   "id": "instagram-team",
+   "name": "Instagram Story & Carousel Team",
+   "role": "Develops carousel slides and educational story sequences drafts for review",
+   "status": "planned",
+   "enabled": false,
+   "planned": true,
+   "counts": {
+    "sub_rooms": 2,
+    "agents": 2,
+    "sub_agents": 2,
+    "kinds": 0
+   },
+   "captain": {
+    "name": "Instagram Captain",
+    "role": "",
+    "planned": true
+   },
+   "sub_rooms": [
+    {
+     "name": "Carousel Storyboard Lab"
+    },
+    {
+     "name": "Caption & Hook Studio"
+    }
+   ],
+   "agents": [
+    {
+     "name": "Carousel Planner",
+     "role": "",
+     "planned": true,
+     "sub_agents": [
+      {
+       "name": "Slide Formatter",
+       "role": "",
+       "planned": true
+      }
+     ]
+    },
+    {
+     "name": "Caption Writer",
+     "role": "",
+     "planned": true,
+     "sub_agents": [
+      {
+       "name": "Engagement Assistant",
+       "role": "",
+       "planned": true
+      }
+     ]
+    }
+   ],
+   "colour": "#e1306c"
+  },
+  {
+   "id": "pinterest-team",
+   "name": "Pinterest Creative Team",
+   "role": "Researches trending aesthetic visual styles, drafts pin boards and pin copy drafts for review",
+   "status": "planned",
+   "enabled": false,
+   "planned": true,
+   "counts": {
+    "sub_rooms": 2,
+    "agents": 2,
+    "sub_agents": 2,
+    "kinds": 0
+   },
+   "captain": {
+    "name": "Pinterest Captain",
+    "role": "",
+    "planned": true
+   },
+   "sub_rooms": [
+    {
+     "name": "Pin Visual Concepts"
+    },
+    {
+     "name": "Pin Copy Studio"
+    }
+   ],
+   "agents": [
+    {
+     "name": "Pin Designer",
+     "role": "",
+     "planned": true,
+     "sub_agents": [
+      {
+       "name": "Board Curator",
+       "role": "",
+       "planned": true
+      }
+     ]
+    },
+    {
+     "name": "Pin Copywriter",
+     "role": "",
+     "planned": true,
+     "sub_agents": [
+      {
+       "name": "Hashtag Scout",
+       "role": "",
+       "planned": true
+      }
+     ]
+    }
+   ],
+   "colour": "#e60023"
   }
  ],
  "scout_ideas_count": {
