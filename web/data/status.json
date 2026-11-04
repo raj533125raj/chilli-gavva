@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-04T17:18:23Z",
+ "generated_at": "2026-11-04T18:52:51Z",
  "kill_switch": false,
  "llm": {
   "calls_today": 7,
@@ -354,35 +354,35 @@
    "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-04T17:18:23Z"
+   "checked_at": "2026-11-04T18:52:51Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-04T17:18:23Z"
+   "checked_at": "2026-11-04T18:52:51Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-04T17:18:23Z"
+   "checked_at": "2026-11-04T18:52:51Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-04T17:18:23Z"
+   "checked_at": "2026-11-04T18:52:51Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-04T17:18:23Z"
+   "checked_at": "2026-11-04T18:52:51Z"
   }
  ],
  "minutes": {
@@ -880,6 +880,66 @@
   }
  ],
  "loop_events": [
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-04T18:52:51Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-04T18:52:51Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-04T18:52:51Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-04T18:52:51Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-04T18:52:51Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-04T18:52:51Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-04T18:52:51Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-04T18:52:51Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-04T18:52:51Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-04T18:52:51Z"
+  },
   {
    "agent": "Unknown agent",
    "kind": "error",
@@ -1962,14 +2022,14 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-04T17:18:23Z",
-  "last_run_end": "2026-11-04T17:18:23Z",
+  "last_run_start": "2026-11-04T18:52:51Z",
+  "last_run_end": "2026-11-04T18:52:51Z",
   "runner": "github-actions",
-  "run_id": "41876181288"
+  "run_id": "41890842906"
  },
  "changelog": [
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
+  "Office projection for Binny Mills (Jules JG) + doctor heals stuck work (Jules JD)",
+  "Fix silent Telegram delivery failures and expose safe inbox diagnostics",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
@@ -1990,7 +2050,7 @@
   "agent: state + content update [skip ci]"
  ],
  "daily_report": {
-  "date_ist": "2026-11-04",
+  "date_ist": "2026-11-05",
   "summary": "No completed work recorded.",
   "items_done": []
  },
