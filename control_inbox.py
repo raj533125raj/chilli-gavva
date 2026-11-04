@@ -30,7 +30,10 @@ _not_configured_logged = False
 
 def _config(env=None):
     env = os.environ if env is None else env
-    values = [env.get(name) for name in ("CF_ACCOUNT_ID", "CF_KV_NAMESPACE_ID", "CF_API_TOKEN", "CONTROL_SIGNING_KEY")]
+    names = ("CF_ACCOUNT_ID", "CF_KV_NAMESPACE_ID", "CF_API_TOKEN", "CONTROL_SIGNING_KEY")
+    values = [env.get(name) for name in names]
+    values = [value.strip() if isinstance(value, str) and name != "CONTROL_SIGNING_KEY" else value
+              for name, value in zip(names, values)]
     return values if all(isinstance(value, str) and value for value in values) else None
 
 
@@ -40,15 +43,23 @@ def _url(account, namespace, suffix):
 
 
 def _http(url, token, method="GET", data=None, http_request=None):
-    if http_request:
-        return http_request(url, token, method, data)
-    request = urllib.request.Request(url, data=data.encode() if isinstance(data, str) else data, method=method,
-                                     headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
-    with urllib.request.urlopen(request, timeout=10) as response:
-        return response.read(256 * 1024 + 1).decode()
+    try:
+        if http_request:
+            return http_request(url, token, method, data)
+        request = urllib.request.Request(url, data=data.encode() if isinstance(data, str) else data, method=method,
+                                         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+        with urllib.request.urlopen(request, timeout=10) as response:
+            return response.read(256 * 1024 + 1).decode()
+    except urllib.error.HTTPError as error:
+        # Describe the route, never the URL, credentials, key name or API body.
+        path = urllib.parse.unquote(urllib.parse.urlsplit(url).path)
+        error.kv_request = ("list_keys" if path.endswith("/keys") else
+                            "write_receipt" if method == "PUT" else
+                            "read_receipt" if "/values/" + RECEIPT_PREFIX in path else "read_request")
+        raise
 
 
-def _logger():
+def _logger(env=None):
     logged = False
     def log(operation, error):
         nonlocal logged
@@ -61,6 +72,15 @@ def _logger():
             if error.code == 403:
                 reason += " - check API token has Workers KV Storage Edit"
         print(f"Control inbox: KV {operation} failed ({reason})")
+        if isinstance(error, urllib.error.HTTPError) and error.code == 400:
+            config = _config(env)
+            shape = lambda value: "valid" if re.fullmatch(r"[0-9a-fA-F]{32}", value) else "invalid"
+            account, namespace = config[:2] if config else ("", "")
+            request = getattr(error, "kv_request", "unknown")
+            if request not in ("list_keys", "write_receipt", "read_receipt", "read_request"):
+                request = "unknown"
+            print(f"Control inbox diagnostic: request={request} HTTP=400 "
+                  f"account_id={shape(account)} namespace_id={shape(namespace)}")
     return log
 
 
@@ -74,13 +94,14 @@ def fetch(env=None, http_request=None, log=None, completed=None, skipped=None):
             _not_configured_logged = True
         return []
     account, namespace, token, _ = config
-    log = log or _logger()
+    log = log or _logger(env)
     result, cursor, seen = [], "", set()
     try:
         for _ in range(10):
-            query = "keys?prefix=" + PREFIX + "&limit=1000"
+            params = {"prefix": PREFIX, "limit": 1000}
             if cursor:
-                query += "&cursor=" + urllib.parse.quote(cursor, safe="")
+                params["cursor"] = cursor
+            query = "keys?" + urllib.parse.urlencode(params)
             page = json.loads(_http(_url(account, namespace, query), token, http_request=http_request))
             if page.get("success") is False or not isinstance(page.get("result"), list):
                 raise ValueError("invalid KV response")
@@ -294,7 +315,7 @@ def run(db_path=None, env=None, http_request=None, now=None, send=None):
         fetch(env, http_request)
         return {"applied": 0, "refused": 0}
     now = time.time() if now is None else now
-    log = _logger()
+    log = _logger(env)
     applied = refused = 0
     # Retry failed receipt writes before new work. Completed history must not occupy the
     # bounded request batch forever and starve newer office controls.

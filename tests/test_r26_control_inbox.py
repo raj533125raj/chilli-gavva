@@ -99,7 +99,7 @@ class ControlInboxTests(unittest.TestCase):
         expected=[None,None,None,None,"expired","bad signature"]
         self.assertEqual([control_inbox._reason(item,"test-key",now) for item in vectors],expected)
     def test_control_inbox_error_never_stops_cycle(self):
-        with mock.patch("notify._telegram_configured",return_value=(True,"fake","1")), mock.patch("telegram_inbox.process_updates",return_value=0), mock.patch("control_inbox.run",side_effect=RuntimeError()), mock.patch("telegram_inbox.alert_new_drafts",return_value=0), mock.patch("telegram_inbox.remind_waiting_drafts",return_value=False), mock.patch("telegram_inbox.send_text",return_value=True), mock.patch("telegram_inbox.subscription_note",return_value=""):
+        with mock.patch("notify._telegram_configured",return_value=(True,"fake","1")), mock.patch("telegram_inbox._call",return_value={"ok":True}), mock.patch("telegram_inbox.process_updates",return_value=0), mock.patch("control_inbox.run",side_effect=RuntimeError()), mock.patch("telegram_inbox.alert_new_drafts",return_value=0), mock.patch("telegram_inbox.remind_waiting_drafts",return_value=False), mock.patch("telegram_inbox.send_text",return_value=True), mock.patch("telegram_inbox.subscription_note",return_value=""):
             self.assertTrue(telegram_inbox.run(self.db)["configured"])
 
 if __name__ == "__main__": unittest.main()

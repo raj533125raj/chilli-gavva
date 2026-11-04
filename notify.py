@@ -22,6 +22,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+import telegram_diagnostics as diagnostics
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
@@ -65,14 +66,33 @@ def send(message: str) -> bool:
     if not configured:
         return False
     message = _scrub_outgoing(message)
+    if not message:
+        diagnostics.record("sendMessage", kind="empty_text")
+        return False
     url = TELEGRAM_API.format(token=token)
     body = json.dumps({"chat_id": chat_id, "text": message, "parse_mode": "HTML"}).encode()
     try:
         req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=10) as resp:
+            status = getattr(resp, "status", 200)
+            status = status if type(status) is int else 200
             result = json.loads(resp.read())
-        return bool(result.get("ok"))
+        ok = isinstance(result, dict) and result.get("ok") is True
+        code = result.get("error_code") if isinstance(result, dict) else None
+        code = code if type(code) is int else status
+        diagnostics.record("sendMessage", status, None if ok else diagnostics.error_kind(code), ok)
+        return ok
+    except urllib.error.HTTPError as exc:
+        diagnostics.record("sendMessage", exc.code, diagnostics.error_kind(exc.code))
+        return False
+    except (UnicodeError, ValueError):
+        diagnostics.record("sendMessage", kind="invalid_response")
+        return False
+    except (urllib.error.URLError, OSError) as exc:
+        diagnostics.record("sendMessage", kind="timeout" if isinstance(exc, TimeoutError) else "network")
+        return False
     except Exception:
+        diagnostics.record("sendMessage", kind="unexpected")
         return False
 
 

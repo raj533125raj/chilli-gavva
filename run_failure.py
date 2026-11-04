@@ -12,6 +12,7 @@ import time
 
 import notify
 import secret_guard
+import telegram_diagnostics
 
 ROOT = Path(__file__).resolve().parent
 STEPS = {
@@ -171,6 +172,11 @@ def run_step(step, command, summary_path):
         output = result.stdout or ""
         # Keep the existing safe inbox diagnostic visible even on a successful command.
         for line in output.splitlines():
+            if telegram_diagnostics.safe_line(line):
+                print(line)
+            if re.fullmatch(r"Control inbox diagnostic: request=(?:list_keys|write_receipt|read_receipt|read_request|unknown) "
+                            r"HTTP=400 account_id=(?:valid|invalid) namespace_id=(?:valid|invalid)", line):
+                print(line)
             match = re.fullmatch(r"Control inbox: KV (?:read|write) failed \(([^()]+)\)", line)
             if match and (match.group(1) in ERRORS or match.group(1) == "URLError"
                           or re.fullmatch(r"HTTP [1-5][0-9]{2}", match.group(1))
@@ -187,6 +193,8 @@ def run_step(step, command, summary_path):
         # Keep the fixed-wording summary for alerts, but expose the real command failure in CI.
         # Prefix each line so untrusted output cannot inject GitHub workflow commands.
         for line in secret_guard.scrub_text(output).splitlines():
+            if telegram_diagnostics.safe_line(line):
+                continue  # Already printed once above, including failed inbox runs.
             print("Step output: " + line)
         print(read_summary(summary_path))
     else:

@@ -111,6 +111,7 @@ class AllTypeSafetyTests(OfficeBase):
         def poll(*args,**kwargs):
             events.append('telegram'); raise RuntimeError('fixture outage')
         with mock.patch('notify._telegram_configured',return_value=(True,'fixture','42')), \
+                mock.patch.object(telegram_inbox,'_call',return_value={'ok':True}), \
                 mock.patch.object(ci,'run',side_effect=lambda *a:events.append('office')), \
                 mock.patch.object(telegram_inbox,'process_updates',side_effect=poll):
             with self.assertRaises(RuntimeError): telegram_inbox.run(self.db)

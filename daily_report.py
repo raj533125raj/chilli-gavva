@@ -10,11 +10,13 @@ Nothing here is sent to an AI model.
 """
 import datetime
 import sqlite3
+from zoneinfo import ZoneInfo
 
 import guardrails
 import daily_receipts
 
 SEND_AFTER = datetime.time(3, 30)   # UTC
+IST = ZoneInfo("Asia/Kolkata")
 
 
 def _now():
@@ -143,7 +145,19 @@ def run_weekly_improver(send, get_state, set_state, db_path=None, now=None):
 
 def due(last_sent_day, now=None):
     now = now or _now()
-    return now.time() >= SEND_AFTER and last_sent_day != now.date().isoformat()
+    utc = now.replace(tzinfo=datetime.timezone.utc) if now.tzinfo is None else now.astimezone(datetime.timezone.utc)
+    local = utc.astimezone(IST)
+    # Keep the 09:00 IST schedule when the IST date changes before UTC midnight.
+    scheduled = datetime.datetime.combine(local.date(), SEND_AFTER, datetime.timezone.utc).astimezone(IST)
+    return local.time() >= scheduled.time() and last_sent_day != local.date().isoformat()
+
+
+def delivery_day(now=None):
+    """One date key for the database and independent receipt, always an IST day."""
+    now = now or _now()
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=datetime.timezone.utc)
+    return now.astimezone(IST).date().isoformat()
 
 
 def maybe_send(send, get_state, set_state, db_path=None, now=None, status_fn=None, claim=None):
@@ -152,7 +166,7 @@ def maybe_send(send, get_state, set_state, db_path=None, now=None, status_fn=Non
     if not due(get_state("daily_report_day", None, db_path), now):
         return False
     text = report_text(db_path, now, status_fn)
-    day = now.date().isoformat()
+    day = delivery_day(now)
     if not (claim or daily_receipts.claim)(day, db_path):
         print("Daily report skipped: date already reserved or reservation unavailable.")
         return False

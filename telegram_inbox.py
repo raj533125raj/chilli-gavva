@@ -32,6 +32,7 @@ CLI:
   python3 telegram_inbox.py status   # show config state (no network calls)
 """
 import json
+import os
 import base64
 import binascii
 import datetime
@@ -43,6 +44,7 @@ import urllib.request
 
 import guardrails
 import notify
+import telegram_diagnostics as diagnostics
 
 API = "https://api.telegram.org/bot{token}/{method}"
 MAX_MESSAGE = 3500          # Enforced maximum outgoing message limit
@@ -114,9 +116,17 @@ def _call(token, method, params, opener=None, sleep_fn=None):
     while True:
         try:
             with open_request(req, timeout=_TIMEOUT) as resp:
-                return json.loads(resp.read().decode("utf-8"))
+                status = getattr(resp, "status", 200)
+                status = status if type(status) is int else 200
+                result = json.loads(resp.read().decode("utf-8"))
+            ok = isinstance(result, dict) and result.get("ok") is True
+            code = result.get("error_code") if isinstance(result, dict) else None
+            code = code if type(code) is int else status
+            diagnostics.record(method, status, None if ok else diagnostics.error_kind(code), ok)
+            return result
         except urllib.error.HTTPError as exc:
             if exc.code == 429 and attempt == 0:
+                diagnostics.record(method, exc.code, "rate_limit", terminal=False)
                 retry_after = None
                 try:
                     retry_after = float((exc.headers or {}).get("Retry-After"))
@@ -132,16 +142,20 @@ def _call(token, method, params, opener=None, sleep_fn=None):
             # An outbound message may have been delivered before a 5xx response.
             # Retrying that non-idempotent request can send a duplicate.
             if 500 <= exc.code <= 599 and attempt == 0 and method != "sendMessage":
+                diagnostics.record(method, exc.code, "server", terminal=False)
                 sleep(2)
                 attempt += 1
                 continue
             safe_error("HTTP error", str(exc.code))
+            diagnostics.record(method, exc.code, diagnostics.error_kind(exc.code))
             return None
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             safe_error("network error", type(exc).__name__)
+            diagnostics.record(method, kind="timeout" if isinstance(exc, TimeoutError) else "network")
             return None
         except (UnicodeDecodeError, json.JSONDecodeError):
             safe_error("response error", "invalid JSON")
+            diagnostics.record(method, kind="invalid_response")
             return None
 
 
@@ -163,13 +177,18 @@ def send_text(token, chat_id, text, buttons=None):
     buttons: optional rows of (label, callback_data) shown as inline buttons under the message.
     """
     text = _scrub_outgoing(text)
+    if not text:
+        diagnostics.record("sendMessage", kind="empty_text")
+        return False
     params = {"chat_id": chat_id, "text": text}
     if buttons:
         params["reply_markup"] = {"inline_keyboard": [[{"text": label, "callback_data": data} for label, data in row]
                                                       for row in buttons]}
     try:
-        return bool(_call(token, "sendMessage", params).get("ok"))
+        result = _call(token, "sendMessage", params)
+        return isinstance(result, dict) and result.get("ok") is True
     except Exception:
+        diagnostics.record("sendMessage", kind="unexpected")
         return False
 
 
@@ -212,7 +231,8 @@ def fetch_updates(token, offset):
         LAST_FETCH_ERROR = "API unavailable"
         return []
     if not data.get("ok"):
-        LAST_FETCH_ERROR = str(data.get("error_code") or "not ok")
+        code = data.get("error_code")
+        LAST_FETCH_ERROR = str(code) if type(code) is int and 100 <= code <= 599 else "not ok"
         return []
     return data.get("result", [])
 
@@ -717,7 +737,7 @@ def log_button(db_path=None):
 
 
 def new_stats():
-    return {"text": 0, "button": 0, "other": 0, "handled": 0,
+    return {"text": 0, "button": 0, "other": 0, "handled": 0, "received": 0, "commands": 0,
             "skipped": {"not owner chat": 0, "not a command": 0, "unknown button": 0}}
 
 
@@ -731,6 +751,7 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
     offset = get_state("update_offset", None, db_path)
     LAST_FETCH_ERROR = None
     updates = fetch_updates(token, offset)
+    stats["received"] = len(updates)
     if LAST_FETCH_ERROR:
         raise RuntimeError("Telegram updates could not be read; inbox stopped before replies.")
     handled = 0
@@ -870,6 +891,7 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
             handled += 1
             continue
 
+        stats["commands"] += 1
         if not is_duplicate:
             if cmd == "rules":
                 import improver_loop
@@ -910,18 +932,24 @@ def alert_new_drafts(token, owner_chat_id, db_path=None):
     if last_seen == 0 and items:
         _ensure_checked(items, db_path)
         # First run: do not flood the phone with the whole backlog, just one summary.
+        if not send_text(token, owner_chat_id, list_text(db_path)):
+            return 0
         set_state("last_alerted_id", max(it["id"] for it in items), db_path)
-        send_text(token, owner_chat_id, list_text(db_path))
         return len(items)
     new = [it for it in items if it["id"] > last_seen]
     if not new:
         return 0
     _ensure_checked(new, db_path)
-    send_text(token, owner_chat_id,
+    if not send_text(token, owner_chat_id,
               f"\U0001f336️ {len(new)} new draft(s) ready. Waiting in total: {len(items)}."
-              + (f" Buttons for the first 10; use /list for the rest." if len(new) > 10 else ""))
+              + (f" Buttons for the first 10; use /list for the rest." if len(new) > 10 else "")):
+        return 0
+    delivered = 0
     for it in new[:10]:
-        send_text(token, owner_chat_id, draft_card(it, db_path=db_path), draft_buttons(it["id"]))
+        if not send_text(token, owner_chat_id, draft_card(it, db_path=db_path), draft_buttons(it["id"])):
+            return delivered
+        delivered += 1
+        set_state("last_alerted_id", it["id"], db_path)
     set_state("last_alerted_id", max(it["id"] for it in new), db_path)
     return len(new)
 
@@ -973,7 +1001,20 @@ def daily_waiting_line(db_path=None, now=None):
 
 
 def run(db_path=None, recovery=False):
+    stats = new_stats()
+    with diagnostics.session() as state:
+        try:
+            result = _run(db_path, recovery, stats)
+            if state["send_failed"]:
+                raise RuntimeError("Telegram message delivery failed; see safe diagnostics.")
+            return result
+        finally:
+            diagnostics.print_summary(state, stats)
+
+
+def _run(db_path=None, recovery=False, stats=None):
     configured, token, chat_id = notify._telegram_configured()
+    diagnostics.configuration(configured)
     # The office is an independent signed inbox. Telegram setup/outages must not block it.
     if not recovery:
         try:
@@ -984,7 +1025,18 @@ def run(db_path=None, recovery=False):
     if not configured:
         print("Telegram not configured: skipping inbox.")
         return {"configured": False, "commands": 0, "alerts": 0}
-    stats = new_stats()
+    # Verify credentials before consuming an update. A wrong destination previously
+    # discarded owner commands and silently failed every outgoing reply.
+    for method, params in (("getMe", {}), ("getChat", {"chat_id": chat_id})):
+        result = _call(token, method, params)
+        if not isinstance(result, dict) or result.get("ok") is not True:
+            raise RuntimeError("Telegram setup check failed; see safe diagnostics.")
+    webhook_result = _call(token, "getWebhookInfo", {})
+    info = webhook_result.get("result") if isinstance(webhook_result, dict) else None
+    diagnostics.webhook(info)
+    if isinstance(info, dict) and info.get("url"):
+        raise RuntimeError("Telegram webhook blocks polling; see the robot-fix-runbook.")
+    stats = stats if stats is not None else new_stats()
     commands = process_updates(token, chat_id, db_path, stats)
     if recovery:
         print(stats_line(stats))
@@ -995,14 +1047,12 @@ def run(db_path=None, recovery=False):
     import autofix
     autofix.poll(get_state, set_state,
                  lambda text, buttons: send_text(token, chat_id, text, buttons), db_path)
-    print(stats_line(stats, subscription_note(token)))
+    print(stats_line(stats))
     alerts = alert_new_drafts(token, chat_id, db_path)
     waiting_reminder = remind_waiting_drafts(token, chat_id, db_path)
     try:  # one short health report a day (first run after 03:30 UTC), weekly letter on Sundays
         import daily_report
-        from zoneinfo import ZoneInfo
-        ist_now = datetime.datetime.now(ZoneInfo("Asia/Kolkata"))
-        ist_day_str = ist_now.date().isoformat()
+        ist_day_str = daily_report.delivery_day()
         last_ist_day = get_state("daily_report_ist_day", None, db_path)
 
         if last_ist_day == ist_day_str:
@@ -1031,7 +1081,9 @@ def main(argv):
         configured, _, _ = notify._telegram_configured()
         print(f"Telegram configured: {'yes' if configured else 'no'}")
         return
-    run(recovery="--recovery" in argv)
+    result = run(recovery="--recovery" in argv)
+    if not result["configured"] and os.environ.get("GITHUB_ACTIONS") == "true":
+        raise SystemExit("Telegram is not configured in this workflow job.")
 
 
 if __name__ == "__main__":

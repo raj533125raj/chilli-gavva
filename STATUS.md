@@ -1,6 +1,20 @@
 # STATUS (read this first)
 
-Last updated: 2026-10-31.
+Last updated: 2026-11-04.
+
+Telegram outage repair (robot-tg): safe per-method HTTP outcomes, update/button/command
+and delivery counts now remain visible in successful inbox workflow logs. Token/chat
+preflight and webhook detection happen before update acknowledgement; failed sends
+no longer leave the inbox green or mark failed draft announcements delivered. Daily
+report gates and durable receipts share one IST date. A private terminal probe checks
+the expected bot identity without exposing credentials or consuming pending updates.
+The exact live cause is still unverified because production credentials/state are
+unavailable here. The runbook records evidence, reviewed changes and exact Telegram/KV
+owner checks. KV list parameters are valid; standard query encoding, whitespace
+normalization and fixed route/ID-shape diagnostics improve HTTP 400 diagnosis.
+Validation: full CI/local parity suites each passed 1,204 tests (2 skipped),
+including 15 new transport/diagnostic/date/KV regressions. Secret guard is clean;
+encrypted state/products, scheduler locks and dashboard status are unchanged.
 
 Office export repairs (robot-r69): the final public scrub rebuilds the connection
 protocol from fixed addresses, required environment names and supported engine modes.

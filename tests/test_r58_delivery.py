@@ -102,7 +102,8 @@ class UpdateDeliveryTests(unittest.TestCase):
 
     def test_failed_poll_stops_scheduled_sends(self):
         with mock.patch.object(inbox.notify, "_telegram_configured", return_value=(True, "fixture", "42")), \
-                mock.patch.object(inbox, "_call", return_value=None), \
+                mock.patch.object(inbox, "_call", side_effect=lambda token, method, params:
+                                  {"ok": True} if method in ("getMe", "getChat") else None), \
                 mock.patch.object(inbox, "alert_new_drafts") as alerts, \
                 mock.patch.object(daily_report, "maybe_send") as report:
             with self.assertRaisesRegex(RuntimeError, "could not be read"):
@@ -209,6 +210,7 @@ class DailyDeliveryTests(unittest.TestCase):
 class SingleInboxJobTests(unittest.TestCase):
     def test_recovery_only_processes_updates_and_never_sends_automatic_reports(self):
         with mock.patch.object(inbox.notify, "_telegram_configured", return_value=(True, "fixture", "42")), \
+                mock.patch.object(inbox, "_call", return_value={"ok": True}), \
                 mock.patch.object(inbox, "process_updates", return_value=1), \
                 mock.patch.object(inbox, "alert_new_drafts") as alerts, \
                 mock.patch.object(inbox, "remind_waiting_drafts") as reminder, \
