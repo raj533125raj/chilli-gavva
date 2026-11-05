@@ -169,7 +169,7 @@ EXAMPLES = {
                "tracker": _SHEET_EXAMPLE},
 }
 KIND_RULES = {
-    "sheets": "Give 2-4 data sheets. Column types: text, number, money, date. Use 'overdue' only when the sheet "
+    "sheets": "Give 2-4 data sheets, up to 40 columns per sheet (a habit plus 31 days fits). Column types: text, number, money, date. Use 'overdue' only when the sheet "
               "has a due-date and a status column, and 'balance' only for a money in/out ledger "
               "(use \"\" when a side is missing). 3-6 sample rows per sheet, dates as YYYY-MM-DD.",
     "planner": "Give 3-6 printable pages. Section types: checklist (items), lines (count 1-12), "
@@ -462,7 +462,7 @@ def _norm_sheet(raw):
     if not isinstance(raw, dict):
         return None
     cols = []
-    for c in (raw.get("columns") or [])[:12]:
+    for c in (raw.get("columns") or [])[:40]:
         c = c if isinstance(c, dict) else {"name": c}
         name = _clean(c.get("name"), 40)
         if name and name not in [x["name"] for x in cols]:

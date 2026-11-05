@@ -76,5 +76,16 @@ class SanitizerCountTests(unittest.TestCase):
         self.assertEqual(pb._sanitize_text('Two sheets and Seven pages', planner), 'Two sheets and Seven pages')
 
 
+class SheetNormalizationTests(unittest.TestCase):
+    def test_month_grid_keeps_32_columns_and_cap_is_40(self):
+        raw = {'name':'Month Grid','columns':['Habit']+[f'Day {n}' for n in range(1,32)],'rows':[['Read']+['x']*31]}
+        result = pb._norm_sheet(raw)
+        self.assertEqual(len(result['columns']),32)
+        self.assertEqual(result['columns'][-1]['name'],'Day 31')
+        self.assertEqual(len(result['rows'][0]),32)
+        raw['columns'] += [f'Extra {n}' for n in range(10)]
+        self.assertEqual(len(pb._norm_sheet(raw)['columns']),40)
+
+
 if __name__ == '__main__':
     unittest.main()
