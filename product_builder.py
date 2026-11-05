@@ -306,7 +306,7 @@ def _get_spec_names(spec):
             if isinstance(d, dict) and d.get("name"):
                 names.append(d["name"])
     elif kind == "resume":
-        names += ["Resume", "Cover Letter", "Job Applications", "Instructions", "Dashboard"]
+        names += ["Resume", "Cover Letter", "Job Applications", "Instructions"] + (["Dashboard"] if spec.get("dashboard") is True else [])
         for s in (spec.get("resume") or []):
             if isinstance(s, dict) and s.get("heading"):
                 names.append(s["heading"])
@@ -590,6 +590,7 @@ def _norm_notion(data, spec):
 
 
 def _norm_resume(data, spec):
+    spec["dashboard"] = data.get("dashboard") is True
     resume = data.get("resume") if isinstance(data.get("resume"), dict) else {}
     sections = [{"heading": _clean(s.get("heading"), 60),
                  "bullets": [_clean(b, 300) for b in (s.get("bullets") or []) if _clean(b)][:10]}

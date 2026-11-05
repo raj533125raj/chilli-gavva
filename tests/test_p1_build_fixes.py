@@ -140,6 +140,15 @@ class WorkbookInstructionTests(unittest.TestCase):
 
 
 class WorkbookSummaryTests(unittest.TestCase):
+    def test_resume_tracker_preserves_explicit_dashboard_preference(self):
+        data={'resume':{'sections':[{'heading':'Summary','bullets':['Your summary']}]},
+              'cover_letter':{'paragraphs':['Dear Hiring Manager']}}
+        for flag in (False,True):
+            spec={}
+            self.assertIsNone(pb._norm_resume(dict(data,dashboard=flag),spec))
+            self.assertEqual(spec['dashboard'],flag)
+
+
     def test_dashboard_is_opt_in_and_in_out_totals_never_mix(self):
         sheet = pb._norm_sheet({'name':'Month','columns':[{'name':'Date','type':'date'},{'name':'Category'},
                    {'name':'Amount','type':'money'},{'name':'Type','options':['In','Out']}],
