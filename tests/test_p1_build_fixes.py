@@ -173,3 +173,131 @@ class WorkbookSummaryTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class DatedListingPagesTests(unittest.TestCase):
+    def spec(self, **overrides):
+        return {'name':'Dated focus', 'kind':'planner', 'year':2028, 'short_name':'dated-focus',
+                'listing':{'title':'Dated focus', 'description':'Dated daily pages and dated weekly pages. A year overview. A4 and US Letter.', 'buyer':'adults'},
+                'instructions':['Print the pages you need.'], 'pages':[], **overrides}
+
+    def test_listing_promises_normalize_into_real_dated_options(self):
+        spec=self.spec()
+        self.assertIsNone(pb._norm_pages({'year':2028,'dated_pages':{'start':'2028-02-28','end':'2028-03-01'}},spec))
+        self.assertTrue(all(spec['dated_pages'][key] for key in ('daily','weekly','year_overview')))
+        self.assertFalse(spec['daily_page'])
+        text=spec['listing']['description']
+        self.assertEqual(pb._sanitize_text(text,spec),text)
+        with tempfile.TemporaryDirectory() as d:
+            for size in ('A4','Letter'):
+                pd.build_planner_pdf(os.path.join(d,f'focus-{size}.pdf'),spec,size)
+            Path(d,'listing.md').write_text(text)
+            result=tc.check(d,with_images=False)
+            self.assertEqual(result['verdict'],'ready',result)
+            self.assertEqual(result['pages'],7)  # cover, instructions, overview, week, three days
+            self.assertIn('dated daily pages',result['proven'])
+            self.assertIn('dated weekly pages',result['proven'])
+
+    def test_dates_weekdays_and_layout_in_both_styles_and_sizes(self):
+        for style in ('A','B'):
+            for size in ('A4','Letter'):
+                with self.subTest(style=style,size=size), tempfile.TemporaryDirectory() as d:
+                    spec=self.spec(style=style,calendar='uk-academic',dated_pages={
+                        'daily':True,'weekly':True,'year_overview':True,'start':'2028-12-30','end':'2029-01-02'})
+                    count=pd.build_planner_pdf(os.path.join(d,f'focus-{size}.pdf'),spec,size)
+                    f=tc.facts(d)
+                    self.assertEqual(count,9)
+                    self.assertEqual(tc._dated_evidence(f),(
+                        ['2028-12-30','2028-12-31','2029-01-01','2029-01-02'],['2028-12-25','2029-01-01']))
+                    self.assertEqual(tc.file_quality(f),[])
+                    for page in f['page_items']:
+                        for _,font_size,x,y,text in page['items']:
+                            self.assertGreaterEqual(x,pd.MARGIN-.1)
+                            self.assertLessEqual(x+pd.text_width(text,font_size),pd.PAGE_SIZES[size][0]-pd.MARGIN+.2)
+                            self.assertGreaterEqual(y,pd.FOOTER_Y-.1)
+
+    def test_full_leap_year_cover_groups_dates_and_counts_actual_pages(self):
+        spec=self.spec(dated_pages={'daily':True,'weekly':True,'year_overview':True})
+        with tempfile.TemporaryDirectory() as d:
+            count=pd.build_planner_pdf(os.path.join(d,'focus-A4.pdf'),spec,'A4')
+            f=tc.facts(d)
+            daily,weekly=tc._dated_evidence(f)
+            self.assertEqual(len(daily),366)
+            self.assertEqual(len(weekly),54)
+            self.assertEqual(count,423)
+            self.assertEqual(len(daily),len(set(daily)))
+            cover=' '.join(t for *_,t in f['page_items'][0]['items'])
+            self.assertIn('Pages 4-57',cover)
+            self.assertIn('Pages 58-423',cover)
+            self.assertEqual(tc.file_quality(f),[])
+
+    def test_ranges_and_flags_are_validated_and_undated_products_stay_small(self):
+        for options in ({'daily':'yes'}, {'daily':True,'start':'20280228'}, {'daily':True,'start':'2028-02-30'},
+                        {'weekly':True,'start':'2028-02-01','end':'2028-01-01'},
+                        {'daily':True,'start':'2027-12-31'}, {'daily':True,'end':'2029-01-01'}):
+            with self.subTest(options=options):
+                spec=self.spec()
+                self.assertIsNotNone(pb._norm_pages({'year':2028,'dated_pages':options},spec))
+        for text in ('A daily page and weekly pages.', 'An undated weekly spread. No dated daily pages.'):
+            spec=self.spec(listing={'title':'Focus','description':text})
+            data={'pages':[{'title':'Notes','sections':[{'type':'lines','count':3}]}]}
+            self.assertIsNone(pb._norm_pages(data,spec))
+            self.assertNotIn('dated_pages',spec)
+            with tempfile.TemporaryDirectory() as d:
+                self.assertEqual(pd.build_planner_pdf(os.path.join(d,'focus-A4.pdf'),spec,'A4'),3)
+
+    def test_monthly_planner_keeps_one_overview_and_adds_requested_dates(self):
+        spec=self.spec(kind='dated_planner')
+        self.assertIsNone(pb._norm_dated({'dated_pages':{'daily':True,'weekly':True,
+                           'start':'2027-01-01','end':'2027-01-02'}},spec))
+        with tempfile.TemporaryDirectory() as d:
+            count=pd.build_dated_planner_pdf(os.path.join(d,'focus-A4.pdf'),spec,'A4')
+            f=tc.facts(d)
+            self.assertEqual(count,18)
+            self.assertEqual(sum('at a glance' in title for title in f['titles']),1)
+            self.assertEqual(tc._dated_evidence(f),(['2027-01-01','2027-01-02'],['2026-12-27']))
+
+    def test_one_page_kind_does_not_prove_the_other_or_fake_week_labels(self):
+        for daily,weekly,missing in ((True,False,'dated weekly pages'),(False,True,'dated daily pages')):
+            with tempfile.TemporaryDirectory() as d:
+                spec=self.spec(dated_pages={'daily':daily,'weekly':weekly,'start':'2028-02-28','end':'2028-03-01'})
+                pd.build_planner_pdf(os.path.join(d,'focus-A4.pdf'),spec,'A4')
+                Path(d,'listing.md').write_text('Includes dated daily pages and dated weekly pages.')
+                result=tc.check(d,with_images=False)
+                self.assertTrue(any(missing in p for p in result['problems']),result)
+        with tempfile.TemporaryDirectory() as d:
+            spec=self.spec(pages=[{'title':'Week 1','sections':[{'type':'lines','count':12}]}])
+            pd.build_planner_pdf(os.path.join(d,'focus-A4.pdf'),spec,'A4')
+            self.assertFalse(tc._proven('weekly or daily dated pages',tc.facts(d))[0])
+
+    def test_parse_and_product_build_preserve_the_promises_and_real_page_count(self):
+        import json
+        raw=self.spec()
+        raw['listing']['description'] += ' Seven pages.'
+        raw['dated_pages']={'start':'2028-02-28','end':'2028-03-01'}
+        spec,reason=pb.parse_spec(json.dumps(raw),'ADHD Planners Agent')
+        self.assertIsNone(reason)
+        with tempfile.TemporaryDirectory() as d:
+            folder=pb.build_product(spec,'dates',out_dir=d)
+            result=tc.check(os.path.join(d,folder),with_images=False)
+            self.assertEqual(result['verdict'],'ready',result)
+            self.assertEqual(result['pages'],7)
+            self.assertIn('dated daily pages',result['proven'])
+            self.assertIn('dated weekly pages',result['proven'])
+            self.assertIn('count: 7 pages',result['proven'])
+
+    def test_invalid_dates_and_wrong_weekdays_do_not_prove_dated_pages(self):
+        for title,weekday in (('29 February 2027','Monday'),('29 February 2028','Monday')):
+            with self.subTest(title=title), tempfile.TemporaryDirectory() as d:
+                spec=self.spec(pages=[{'title':title,'subtitle':weekday,
+                                      'sections':[{'type':'lines','count':12}]}])
+                pd.build_planner_pdf(os.path.join(d,'focus-A4.pdf'),spec,'A4')
+                self.assertFalse(tc._proven('dated daily pages',tc.facts(d))[0])
+        with tempfile.TemporaryDirectory() as d:
+            spec=self.spec(dated_pages={'weekly':True,'start':'2028-02-28','end':'2028-03-01'})
+            path=Path(d,'focus-A4.pdf')
+            pd.build_planner_pdf(path,spec,'A4')
+            self.assertTrue(tc._proven('dated weekly pages',tc.facts(d))[0])
+            data=path.read_bytes().replace(b'TUESDAY 29 FEBRUARY 2028',b'MONDAY 29 FEBRUARY 2028 ')
+            path.write_bytes(data)  # same byte length, so PDF offsets stay valid
+            self.assertFalse(tc._proven('dated weekly pages',tc.facts(d))[0])

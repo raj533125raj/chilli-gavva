@@ -134,6 +134,39 @@ def _names(f):
     return [n.lower() for n in out if n]
 
 
+def _dated_evidence(f):
+    """Read actual page titles and weekday labels, not 'Week 1' or blank date placeholders."""
+    from datetime import datetime, timedelta
+    daily, weekly = [], []
+    def parsed(text):
+        try:
+            return datetime.strptime(text, "%d %B %Y").date()
+        except ValueError:
+            return None
+    for page in f.get("page_items", []):
+        if page.get("drawn", 0) < 8:
+            continue
+        title = " ".join(t for font, size, _, _, t in page["items"] if font == "F2" and size >= 18)
+        text = " ".join(t for _, _, _, _, t in page["items"])
+        day = parsed(title)
+        if day and re.search(r"\b" + day.strftime("%A") + r"\b", text, re.I):
+            daily.append(day.isoformat())
+        elif title.lower().startswith("week of "):
+            start = parsed(title[8:])
+            if not start:
+                continue
+            labels = re.findall(r"\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday) "
+                                r"(\d{1,2} [A-Za-z]+ \d{4})\b", text, re.I)
+            dates = set()
+            for weekday, label in labels:
+                day = parsed(label)
+                if day and day.strftime("%A").lower() == weekday.lower():
+                    dates.add(day)
+            if all(start + timedelta(days=n) in dates for n in range(7)):
+                weekly.append(start.isoformat())
+    return daily, weekly
+
+
 def _proven(claim, f):
     """Return (True, evidence) or (False, reason) for one claim, using only the files."""
     names = _names(f)
@@ -168,9 +201,11 @@ def _proven(claim, f):
         if f["validations"]:
             return True, "the workbook has drop-down lists"
         return False, "no drop-down lists in the files"
-    if claim == "weekly or daily dated pages":
-        dated = [t for t in f["titles"] if re.search(r"\bweek\b|\b\d{1,2} \w+ 20\d\d\b", t.lower())]
-        return (True, "dated weekly/daily pages exist") if dated else (False, "no weekly or daily dated pages")
+    if claim in ("weekly or daily dated pages", "dated daily pages", "dated weekly pages"):
+        daily, weekly = _dated_evidence(f)
+        ok = bool(daily if claim == "dated daily pages" else weekly if claim == "dated weekly pages" else daily or weekly)
+        return (True, f"{len(daily)} daily and {len(weekly)} weekly pages have verified calendar dates") if ok else (
+            False, "no corresponding daily/weekly pages with valid calendar dates and weekdays")
     if claim == "year overview page":
         ok = any(re.search(r"\bat a glance\b|\byear overview\b", t.lower()) for t in f["titles"])
         return (True, "a year overview page exists") if ok else (False, "no year overview page in the files")
@@ -222,7 +257,9 @@ def promises(folder):
                 continue
             n = _NUMBERS.get(m.group(1), m.group(1))
             found.append((f"count: {n} {m.group(2)}", where))
-        if "at a glance" in low or "year overview" in low:
+        from pdf_design import dated_requests
+        dated = dated_requests(body)
+        if dated["year_overview"]:
             found.append(("year overview page", where))
         if re.search(r"\b(?:12|twelve) monthly\b", low):
             found.append(("12 monthly calendar pages", where))
@@ -236,7 +273,10 @@ def promises(folder):
         for claim, rx in CLAIMS:
             matches = list(re.finditer(rx, low))
             if claim == "weekly or daily dated pages":
-                matches = [m for m in matches if not re.search(r"\bundated\s+$", low[:m.start()])]
+                matches = matches if dated["daily"] or dated["weekly"] else []
+                for key in ("daily", "weekly"):
+                    if dated[key]:
+                        found.append((f"dated {key} pages", where))
             if matches and (claim, where) not in found:
                 found.append((claim, where))
         count_spans = [m.span() for m in _COUNT.finditer(low)]

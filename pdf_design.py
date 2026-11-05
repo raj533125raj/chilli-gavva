@@ -12,6 +12,7 @@ Every planner starts with a simple cover and a "How to use" page. Calendar dates
 calendar module, never from the AI.
 """
 import calendar
+from datetime import date, timedelta
 import re
 import unicodedata
 
@@ -732,7 +733,12 @@ def _inside(titles, offset):
     for i, t in enumerate(titles):
         number = offset + i + 1
         base = t.replace(" (cont.)", "")
-        key = "months" if _is_month(base) else base
+        if re.fullmatch(r"\d{1,2} \w+ \d{4}", base):
+            key = "daily"
+        elif re.fullmatch(r"Week of \d{1,2} \w+ \d{4}", base):
+            key = "weekly"
+        else:
+            key = "months" if _is_month(base) else base
         if groups and groups[-1][0] == key:
             groups[-1][2] = number
             groups[-1][4] = base
@@ -744,6 +750,8 @@ def _inside(titles, offset):
             (m1, y1), (m2, y2) = first.split(), last.split()
             span = f"{m1} to {m2} {y1}" if y1 == y2 else f"{first} to {last}"
             label = f"{span} (one page per month)"
+        elif key in ("daily", "weekly"):
+            label = f"Dated {key} pages: {first.removeprefix('Week of ')} to {last.removeprefix('Week of ')}"
         else:
             label = first
         out.append((label, f"Page {a}" if a == b else f"Pages {a}-{b}"))
@@ -779,6 +787,12 @@ def _content_pages(spec):
 def build_planner_pdf(path, spec, size):
     def body(pdf):
         titles = []
+        options = dated_page_options(spec)
+        if options["year_overview"]:
+            months, first_weekday = planner_months(spec)
+            _year_page(pdf, months, first_weekday)
+            titles.append(f"{year_label(months)} at a glance")
+        titles += _dated_pages(pdf, options)
         for page in _content_pages(spec):
             before = len(pdf.pages)
             render_page(pdf, page, page.get("header_right"))
@@ -813,6 +827,84 @@ def planner_months(spec, year=PLANNER_YEAR):
         out.append((y, m))
         y, m = (y + 1, 1) if m == 12 else (y, m + 1)
     return out, kind["first_weekday"]
+
+
+def dated_requests(text):
+    """Which dated pages a listing positively promises; plain daily/weekly templates stay undated."""
+    patterns = {
+        "daily": r"\b(?:daily dated pages?|dated daily pages?)\b",
+        "weekly": r"\b(?:weekly dated pages?|dated weekly pages?|weekly spreads?|week of)\b",
+        "year_overview": r"\b(?:year[- ](?:at[- ]a[- ]glance|overview)|at a glance)\b",
+    }
+    def asserted(match):
+        prefix = text[max(0, match.start() - 80):match.start()]
+        return not re.search(r"\b(?:no|not|without|undated)\s+(?:[\w-]+\s+){0,3}$", prefix, re.I)
+    return {key: any(asserted(m) for m in re.finditer(rx, text, re.I)) for key, rx in patterns.items()}
+
+
+def dated_page_options(spec):
+    """Validate an explicit dated_pages request. Ranges are inclusive and inside one planner year.
+
+    daily/weekly/year_overview default to false; start/end default to the calendar bounds.
+    Only normalization infers requests from listing text, so direct renders remain explicit.
+    """
+    raw = spec.get("dated_pages", {})
+    if not isinstance(raw, dict):
+        raise ValueError("dated_pages must be an object")
+    flags = {key: raw.get(key) is True for key in ("daily", "weekly", "year_overview")}
+    if any(key in raw and not isinstance(raw[key], bool) for key in flags):
+        raise ValueError("dated_pages flags must be booleans")
+    year = spec.get("year", PLANNER_YEAR)
+    if not isinstance(year, int) or isinstance(year, bool) or not 2000 <= year <= 2099:
+        raise ValueError("planner year must be between 2000 and 2099")
+    months, first_weekday = planner_months(spec)
+    first = date(*months[0], 1)
+    last = date(*months[-1], calendar.monthrange(*months[-1])[1])
+    if any(key in raw and (not isinstance(raw[key], str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw[key]))
+           for key in ("start", "end")):
+        raise ValueError("dated_pages start/end must be ISO dates (YYYY-MM-DD)")
+    try:
+        start = date.fromisoformat(raw.get("start", first.isoformat()))
+        end = date.fromisoformat(raw.get("end", last.isoformat()))
+    except (TypeError, ValueError):
+        raise ValueError("dated_pages start/end must be ISO dates (YYYY-MM-DD)") from None
+    if not first <= start <= end <= last:
+        raise ValueError("dated_pages range must be ordered and inside the planner calendar")
+    return {**flags, "start": start.isoformat(), "end": end.isoformat(), "first_weekday": first_weekday}
+
+
+def _date_label(day):
+    return f"{day.day} {calendar.month_name[day.month]} {day.year}"
+
+
+def _dated_pages(pdf, options):
+    """Draw real calendar dates with existing section styles; no dates supplied by the model."""
+    start, end = date.fromisoformat(options["start"]), date.fromisoformat(options["end"])
+    pages = []
+    if options["weekly"]:
+        week = start - timedelta(days=(start.weekday() - options["first_weekday"]) % 7)
+        while week <= end:
+            days = [week + timedelta(days=n) for n in range(7)]
+            sections = [{"heading": f"{calendar.day_name[d.weekday()]} {_date_label(d)}",
+                         "type": "lines", "count": 3, "column": 1 if n < 4 else 2}
+                        for n, d in enumerate(days)]
+            sections.append({"heading": "Weekly focus / notes", "type": "lines", "count": 3, "column": 2})
+            pages.append({"title": f"Week of {_date_label(week)}", "columns": 2, "sections": sections,
+                          "subtitle": f"{_date_label(days[0])} to {_date_label(days[-1])}. "
+                                      "Boundary days outside your selected range are included."})
+            week += timedelta(days=7)
+    if options["daily"]:
+        day = start
+        while day <= end:
+            pages.append({**TODAY_PAGE, "title": _date_label(day), "header_right": None,
+                          "subtitle": f"{calendar.day_name[day.weekday()]} | Plan by anchors, not by the clock"})
+            day += timedelta(days=1)
+    titles = []
+    for page in pages:
+        before = len(pdf.pages)
+        render_page(pdf, page)
+        titles += [page["title"]] + [page["title"] + " (cont.)"] * (len(pdf.pages) - before - 1)
+    return titles
 
 
 def year_label(months):
@@ -957,6 +1049,7 @@ def build_dated_planner_pdf(path, spec, size, year=PLANNER_YEAR):
         for y, m in months:
             _month_page(pdf, y, m, first_weekday)
             titles.append(f"{calendar.month_name[m]} {y}")
+        titles += _dated_pages(pdf, dated_page_options(spec))
         for page in spec.get("pages") or []:
             before = len(pdf.pages)
             render_page(pdf, page)
