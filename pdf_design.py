@@ -365,7 +365,11 @@ class _Block:
                 lines = wrap_text(item, 10, iw - 14)
                 rows.append(("bullet", lines, 6 + 12.5 * len(lines)))
         elif stype == "table":
-            rows = [("thead", sec.get("columns") or [], 18)] + [("trow", None, ROW + 1)] * count
+            labels = sec.get("columns") or []
+            cell_width = iw / max(1, len(labels))
+            header_h = max(18, 6 + 12 * max((len(wrap_text(label, 10, cell_width - 6, True))
+                                            for label in labels), default=1))
+            rows = [("thead", labels, header_h)] + [("trow", labels, ROW + 1)] * count
         elif stype == "nnl":
             rows = [("nnl_head", None, 16)] + [("nnl", None, ROW)] * count
         elif stype == "blocks":
@@ -446,9 +450,10 @@ class _Block:
                 for i, line in enumerate(data):
                     pdf.text(ix + 12, y - 13 - 12.5 * i, line, 10, color=ink)
             elif kind == "thead":
-                xs = [ix, ix + self.inner * 0.30, ix + self.inner * 0.64]
-                for cx, label in zip(xs, data):
-                    pdf.text(cx + 3, y - 12, label, 9, True, ink)
+                cell_width = self.inner / max(1, len(data))
+                for c, label in enumerate(data):
+                    for line_no, line in enumerate(wrap_text(label, 10, cell_width - 6, True)):
+                        pdf.text(ix + c * cell_width + 3, y - 12 - line_no * 12, line, 10, True, ink)
                 pdf.line(ix, bottom + 2, right, bottom + 2, color=ink, width=0.9)
             elif kind == "nnl_head":
                 third = (self.inner - 20) / 3
@@ -471,7 +476,13 @@ class _Block:
                 pdf.text(ix, y - 15, "NOTES", 8.5, True, accent, 0.8)
             elif kind == "caption":
                 pdf.text(ix, y - 9, data, 7.5, color=st["muted"])
-            else:   # "line" and "trow"
+            elif kind == "trow":
+                cell_width = self.inner / max(1, len(data))
+                pdf.rect(ix, bottom, self.inner, h, color=line_c)
+                for c in range(1, len(data)):
+                    cx = ix + c * cell_width
+                    pdf.line(cx, bottom, cx, y, color=line_c)
+            else:   # writing line
                 pdf.line(ix, bottom + 2, right, bottom + 2, color=line_c)
             y = bottom
 
