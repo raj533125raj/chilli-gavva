@@ -17,6 +17,7 @@ Handles:
 """
 
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -86,8 +87,9 @@ def derive_agent_status(
 
     # Doctor cases needing human attention or stuck
     if doctor_case:
-        category = doctor_case["category"]
-        if category in ("needs_owner", "stuck", "stuck_task"):
+        doc_status = doctor_case["status"] if "status" in doctor_case.keys() else ""
+        category = doctor_case["category"] if "category" in doctor_case.keys() else ""
+        if doc_status == "needs_owner" or category in ("needs_owner", "stuck", "stuck_task"):
             return "needs you", "Needs owner assistance", None
         return "warning", "Recovery in progress", None
 
@@ -198,7 +200,8 @@ def get_approvals_queue(conn: Optional[sqlite3.Connection], now_utc: datetime.da
         due_iso = due_dt.isoformat().replace("+00:00", "Z")
 
         score = guardrails._parse_score(review or "")
-        clean_title = public_export._clean_product_title(title or f"Pending approval {app_id}")
+        # Pending drafts must be anonymised exactly like export_status.py (~137-139)
+        clean_title = f"Draft #{app_id}"
 
         items.append(office_protocol.validate_approval({
             "id": app_id,
@@ -419,10 +422,54 @@ def project_office_snapshot(
         except Exception:
             pass
 
+    # Compute revision number: increases when content changes, stable when nothing changes.
+    content_payload = json.dumps({
+        "teams": teams,
+        "counters": counters,
+        "approvals": approvals,
+    }, sort_keys=True, separators=(",", ":"))
+    content_hash = hashlib.sha256(content_payload.encode("utf-8")).hexdigest()
+
+    revision = 1
+    if db_file and os.path.exists(db_file):
+        try:
+            rw_conn = sqlite3.connect(db_file, timeout=5.0)
+            rw_conn.execute("""
+                CREATE TABLE IF NOT EXISTS office_projection_meta (
+                    key TEXT PRIMARY KEY,
+                    value TEXT
+                )
+            """)
+            row_rev = rw_conn.execute("SELECT value FROM office_projection_meta WHERE key = 'current_revision'").fetchone()
+            row_hash = rw_conn.execute("SELECT value FROM office_projection_meta WHERE key = 'last_content_hash'").fetchone()
+
+            last_rev = int(row_rev[0]) if row_rev and row_rev[0] else 1
+            last_hash = row_hash[0] if row_hash and row_hash[0] else ""
+
+            if not row_hash:
+                revision = last_rev
+                rw_conn.execute("INSERT OR REPLACE INTO office_projection_meta (key, value) VALUES ('current_revision', ?)", (str(revision),))
+                rw_conn.execute("INSERT OR REPLACE INTO office_projection_meta (key, value) VALUES ('last_content_hash', ?)", (content_hash,))
+                rw_conn.commit()
+            elif last_hash != content_hash:
+                revision = last_rev + 1
+                rw_conn.execute("INSERT OR REPLACE INTO office_projection_meta (key, value) VALUES ('current_revision', ?)", (str(revision),))
+                rw_conn.execute("INSERT OR REPLACE INTO office_projection_meta (key, value) VALUES ('last_content_hash', ?)", (content_hash,))
+                rw_conn.commit()
+            else:
+                revision = last_rev
+            rw_conn.close()
+        except Exception:
+            # Fallback if DB is read-only or locked: deterministic 1-based revision from hash
+            revision = int(content_hash[:8], 16) + 1
+    else:
+        # DB not present: deterministic 1-based revision from content hash
+        revision = int(content_hash[:8], 16) + 1
+
     raw_snapshot = {
         "version": office_protocol.PROTOCOL_VERSION,
         "office_id": office_id,
-        "revision": 1,
+        "revision": revision,
         "generated_at": now_utc.isoformat().replace("+00:00", "Z"),
         "teams": teams,
         "counters": counters,
