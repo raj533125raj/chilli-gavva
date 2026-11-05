@@ -7,7 +7,7 @@ the niche came round (budget sheets runs on Monday AND Saturday). Now, when a ni
   3. a topic is never used twice: anything already used (pool "used" rows and every past research or
      draft task of that agent) blocks the same or a very similar topic,
   4. the 3 picked topics are marked used and queued, keeping the recipe's own wording
-     ("[Agent] <idea>, priced ..., sold on Gumroad ...").
+     ("[Agent] <idea>, sold on Gumroad ...").
 If no fresh topic is left and the AI is down, nothing is queued that night (no repeats).
 """
 import datetime
@@ -20,7 +20,18 @@ PICK = 3
 ASK_FOR = 8
 _STOP = {"the", "and", "for", "with", "a", "an", "of", "to", "in", "on", "who", "your", "you", "that", "their",
          "google", "sheets", "sheet", "template", "printable", "notion", "pdf", "simple", "tracker", "planner"}
-_TOPIC = re.compile(r"^\[(?P<agent>[^\]]+)\]\s*(?P<idea>.+?)(?P<suffix>,\s*priced\b.*)$", re.S)
+# Topic identity excludes historical price instructions. Keep years, quantities and product details.
+_PRICE_PHRASE = re.compile(
+    r"(?:,\s*)?\bpriced\s+(?:(?:at|between|from)\s+)?"
+    r"(?:(?:USD|US\$|EUR|GBP|INR|[$£€₹])\s*)?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?"
+    r"(?:\s*(?:[-–—]|to|and)\s*(?:(?:USD|US\$|EUR|GBP|INR|[$£€₹])\s*)?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)?"
+    r"(?:\s*(?:USD|US\$|EUR|GBP|INR|dollars?))?", re.I)
+_TOPIC = re.compile(r"^\[(?P<agent>[^\]]+)\]\s*(?P<idea>.+?)(?P<suffix>,\s*sold\s+on\b.*)$", re.S | re.I)
+
+
+def normalize_topic(topic):
+    """Price wording is metadata, never the identity of an idea in old tasks or pool rows."""
+    return re.sub(r"\s+", " ", _PRICE_PHRASE.sub("", topic)).strip() if isinstance(topic, str) else ""
 
 
 def connect(db_path=None):
@@ -32,19 +43,21 @@ def connect(db_path=None):
 
 
 def split_topic(topic):
-    """'[Agent] idea, priced ..., ...' -> (agent, idea, suffix) or None."""
-    m = _TOPIC.match((topic or "").strip())
+    """Read both legacy price-bearing and current price-free topic briefs."""
+    m = _TOPIC.match(normalize_topic(topic))
     return (m.group("agent").strip(), m.group("idea").strip(), m.group("suffix")) if m else None
 
 
 def _words(text):
-    return {w for w in re.findall(r"[a-z0-9]+", text.lower()) if len(w) > 2 and w not in _STOP}
+    parts = split_topic(text)
+    identity = parts[1] if parts else normalize_topic(text)
+    return {w for w in re.findall(r"[a-z0-9]+", identity.lower()) if len(w) > 2 and w not in _STOP}
 
 
 def similar(a, b):
     wa, wb = _words(a), _words(b)
     if not wa or not wb:
-        return a.strip().lower() == b.strip().lower()
+        return normalize_topic(a).lower() == normalize_topic(b).lower()
     return len(wa & wb) / len(wa | wb) >= 0.6 or wa <= wb or wb <= wa
 
 
@@ -70,12 +83,12 @@ def done_topics(niche, db_path=None, agent=None):
     used = [r[0] for r in conn.execute("SELECT idea FROM niche_topics WHERE niche = ? AND status = 'used'", (niche,))]
     hist = _history(conn, agent) if agent else []
     conn.close()
-    return list(dict.fromkeys(used + hist))
+    return list(dict.fromkeys(normalize_topic(idea) for idea in used + hist))
 
 
 def _clean_line(line):
     line = re.sub(r"^\s*(?:[-*•]|\d+[.)])\s*", "", line or "").strip().strip('"').strip()
-    line = re.sub(r"\s+", " ", line)
+    line = normalize_topic(line)
     return line if 15 <= len(line) <= 200 and not line.endswith(":") else ""
 
 
@@ -151,7 +164,7 @@ def fresh_tasks(recipe, db_path=None, llm=None, now=None):
     conn.close()
     agent_field = tasks[0].get("payload", {}).get("agent", agent)
     return [{"kind": "research", "priority": tasks[0].get("priority", 5),
-             "payload": {"agent": agent_field, "topic": f"[{agent}] {idea}{own_suffix.get(idea, strictest)}"}}
+             "payload": {"agent": agent_field, "topic": normalize_topic(f"[{agent}] {idea}{own_suffix.get(idea, strictest)}")}}
             for idea in picked]
 
 
