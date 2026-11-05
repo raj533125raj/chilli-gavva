@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-05T17:42:21Z",
+ "generated_at": "2026-11-05T22:15:53Z",
  "llm": {
   "calls_today": 8,
   "cap": 500
@@ -383,35 +383,35 @@
    "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-05T17:42:21Z"
+   "checked_at": "2026-11-05T22:15:53Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-05T17:42:21Z"
+   "checked_at": "2026-11-05T22:15:53Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-05T17:42:21Z"
+   "checked_at": "2026-11-05T22:15:53Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-05T17:42:21Z"
+   "checked_at": "2026-11-05T22:15:53Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-05T17:42:21Z"
+   "checked_at": "2026-11-05T22:15:53Z"
   }
  ],
  "minutes": {
@@ -2145,35 +2145,35 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-05T17:42:21Z",
-  "last_run_end": "2026-11-05T17:42:21Z",
+  "last_run_start": "2026-11-05T22:15:52Z",
+  "last_run_end": "2026-11-05T22:15:53Z",
   "runner": "github-actions",
-  "run_id": "42076210047"
+  "run_id": "42119124888"
  },
  "changelog": [
-  "Route work to enabled cube packs by kind; planned packs get none (Jules JL)",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "Synthetic office fixtures (small, medium, full 40 teams / 3500+ agents) validated against the office protocol (Jules JI)",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "Update public-card tests: kill_switch is no longer public",
-  "Keep kill switch private: drop it from the public status card and banner (Jules JK)",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "Document empty second Gemini key setup and safe fallback",
-  "Load cube packs without changing legacy cube execution state",
-  "agent: state + content update [skip ci]",
-  "Office projection for Binny Mills (Jules JG) + doctor heals stuck work (Jules JD)",
-  "Fix silent Telegram delivery failures and expose safe inbox diagnostics",
-  "agent: state + content update [skip ci]"
+  "fix(topics): remove recipe prices without repeating historical topics",
+  "fix(pdf): match split habit-grid subtitles to each page's days",
+  "fix(checker): bound published scores while preserving Scout ranking",
+  "Office projection and doctor tell the truth: hide draft titles, real needs-you, moving revision, safe JSON, never re-queue running work (Jules JN)",
+  "feat(planner): generate dated pages promised by listings and verify calendar evidence",
+  "fix(launch): describe actual file formats and make Dashboard fixtures explicit",
+  "fix(truth): distinguish cover-letter filenames from paper sizes",
+  "fix(builder): retain explicit Dashboard choices in resume trackers",
+  "fix(truth): avoid treating spelled page counts as named content",
+  "fix(truth): distinguish printable sheets from Excel worksheet promises",
+  "fix(builder): preserve subset page counts and Notion import totals",
+  "fix(truth): require actual PDF and Excel files for format promises",
+  "fix(truth): distinguish ordinary daily pages from dated planner promises",
+  "fix(sheets): make dashboards optional and separate incoming outgoing totals",
+  "fix(sheets): fill formula cells grey and remove unverified app claims",
+  "fix(builder): retain supported planner section types and metadata",
+  "fix(builder): preserve up to forty workbook columns",
+  "fix(builder): scope page counts to PDFs and preserve count grammar",
+  "feat(pdf): render printable habit grids with complete day columns",
+  "fix(pdf): draw every table header and matching row cells"
  ],
  "daily_report": {
-  "date_ist": "2026-11-05",
+  "date_ist": "2026-11-06",
   "summary": "No completed work recorded.",
   "items_done": []
  },
