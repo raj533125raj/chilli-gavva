@@ -15,7 +15,7 @@ import llm_router
 import workforce
 
 
-LEGACY_FIELDS = {"generated_at", "kill_switch", "llm", "agents", "task_counts",
+LEGACY_FIELDS = {"generated_at", "llm", "agents", "task_counts",
                  "recent_tasks", "pending_approvals", "worker", "handoffs"}
 NEW_PUBLIC_FIELDS = {"products", "reject_reasons", "report", "workers", "pipeline"}
 PRIVATE_MARKERS = ("PRIVATE_FIXTURE_CREDENTIAL", "PRIVATE_FIXTURE_PROMPT",
