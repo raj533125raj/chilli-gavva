@@ -23,6 +23,7 @@ LISTING = {"title": "Freelancer Irregular-Income Budget", "description": "A calm
 SPECS = {
     "Budget Sheets Agent": {
         "name": "Freelancer Budget", "short_name": "freelancer-budget", "listing": LISTING,
+        "dashboard": True,
         "instructions": ["Make a copy.", "Log every payment."], "cover_image_idea": "Laptop with a green sheet",
         "sheets": [
             {"name": "Income Log", "columns": [{"name": "Date", "type": "date"}, {"name": "Client", "type": "text"},
@@ -51,6 +52,7 @@ SPECS = {
         "databases": [{"name": "Clients", "columns": ["Name", "Status", "Next Follow-up"],
                        "rows": [["Client A", "Lead", "2026-01-10"]]}]},
     "Resume Bundle Agent": {
+        "dashboard": True,
         "name": "ATS Resume Bundle", "short_name": "ats-resume", "listing": dict(LISTING, title="ATS Resume Bundle"),
         "resume": {"sections": [{"heading": "Professional Summary", "bullets": ["[Two lines about you]"]},
                                 {"heading": "Experience", "bullets": ["[Job Title], [Company]"]}]},

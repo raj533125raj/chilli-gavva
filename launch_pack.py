@@ -178,8 +178,20 @@ def _format_launch_listing(spec: Dict[str, Any], file_list: List[str], facts: Op
         ""
     ])
     for item in DEFAULT_FAQ:
+        answer = item["a"]
+        if item["q"] == "What software do I need to use these files?":
+            if kind in ("planner", "dated_planner"):
+                answer = "Use a standard PDF reader to print these pages."
+            elif kind in ("sheets", "resume"):
+                answer = "Open the .xlsx workbook in Microsoft Excel."
+                if kind == "resume":
+                    answer += " Open the .docx documents in Microsoft Word."
+            else:
+                answer = "Follow HOW_TO_IMPORT.md to import the supplied Markdown and CSV files."
+        elif item["q"] == "Can I print these pages multiple times?" and kind not in ("planner", "dated_planner"):
+            continue
         lines.append(f"**Q: {item['q']}**")
-        lines.append(f"A: {item['a']}")
+        lines.append(f"A: {answer}")
         lines.append("")
 
     lines.extend([
@@ -197,7 +209,8 @@ def _format_launch_listing(spec: Dict[str, Any], file_list: List[str], facts: Op
         "## How to Upload to Gumroad / Etsy",
         ""
     ])
-    lines.extend([f"{i}. {step}" for i, step in enumerate(UPLOAD_CHECKLIST, 1)])
+    checklist = [step.replace("(A4 and US Letter PDFs or templates)", "listed above") for step in UPLOAD_CHECKLIST]
+    lines.extend([f"{i}. {step}" for i, step in enumerate(checklist, 1)])
     lines.append("")
 
     return "\n".join(lines)
