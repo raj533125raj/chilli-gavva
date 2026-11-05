@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-11-04T23:44:02Z",
+ "generated_at": "2026-11-05T01:29:39Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 7,
+  "calls_today": 1,
   "cap": 500
  },
  "agents": [
@@ -341,6 +341,36 @@
    "ts": "2026-11-04T01:45:45.499015",
    "kind": "scout_idea",
    "title": "Draft #77"
+  },
+  {
+   "id": 78,
+   "ts": "2026-11-05T01:29:36.996067",
+   "kind": "scout_idea",
+   "title": "Draft #78"
+  },
+  {
+   "id": 79,
+   "ts": "2026-11-05T01:29:36.997808",
+   "kind": "scout_idea",
+   "title": "Draft #79"
+  },
+  {
+   "id": 80,
+   "ts": "2026-11-05T01:29:36.999129",
+   "kind": "scout_idea",
+   "title": "Draft #80"
+  },
+  {
+   "id": 81,
+   "ts": "2026-11-05T01:29:37.000578",
+   "kind": "scout_idea",
+   "title": "Draft #81"
+  },
+  {
+   "id": 82,
+   "ts": "2026-11-05T01:29:37.001966",
+   "kind": "scout_idea",
+   "title": "Draft #82"
   }
  ],
  "worker": {
@@ -351,38 +381,38 @@
  "ai_health": [
   {
    "provider": "Groq",
-   "model": "openai/gpt-oss-120b",
+   "model": "openai/gpt-oss-20b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-04T23:44:02Z"
+   "checked_at": "2026-11-05T01:29:39Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-04T23:44:02Z"
+   "checked_at": "2026-11-05T01:29:39Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-04T23:44:02Z"
+   "checked_at": "2026-11-05T01:29:39Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-04T23:44:02Z"
+   "checked_at": "2026-11-05T01:29:39Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-04T23:44:02Z"
+   "checked_at": "2026-11-05T01:29:39Z"
   }
  ],
  "minutes": {
@@ -706,8 +736,8 @@
   }
  ],
  "report": {
-  "drafts_made": 3,
-  "drafts_waiting": 23,
+  "drafts_made": 5,
+  "drafts_waiting": 28,
   "drafts_approved": 0,
   "products_built": 0,
   "errors": 0
@@ -818,68 +848,128 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   }
  ],
  "loop_events": [
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-05T01:29:34Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-05T01:29:34Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-05T01:29:34Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-05T01:29:34Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-05T01:29:34Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-05T01:29:34Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-05T01:29:34Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-05T01:29:34Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-05T01:29:34Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-05T01:29:34Z"
+  },
   {
    "agent": "Unknown agent",
    "kind": "error",
@@ -2032,19 +2122,19 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-04T23:44:01Z",
-  "last_run_end": "2026-11-04T23:44:02Z",
+  "last_run_start": "2026-11-05T01:29:34Z",
+  "last_run_end": "2026-11-05T01:29:39Z",
   "runner": "github-actions",
-  "run_id": "41935878816"
+  "run_id": "41948374888"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "Document empty second Gemini key setup and safe fallback",
   "Load cube packs without changing legacy cube execution state",
   "agent: state + content update [skip ci]",
   "Office projection for Binny Mills (Jules JG) + doctor heals stuck work (Jules JD)",
   "Fix silent Telegram delivery failures and expose safe inbox diagnostics",
-  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
@@ -2415,12 +2505,12 @@
   }
  ],
  "scout_ideas_count": {
-  "total": 29,
-  "pending": 20,
+  "total": 34,
+  "pending": 25,
   "approved": 9
  },
  "trend_items_count": {
-  "total": 70,
+  "total": 80,
   "proposed": 0,
   "approved": 0
  },
