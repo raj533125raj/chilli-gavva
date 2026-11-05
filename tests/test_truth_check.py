@@ -343,6 +343,11 @@ class P1FormatClaimTests(unittest.TestCase):
             result = tc.check(folder,with_images=False)
             self.assertEqual(result['verdict'],'ready',result['problems'])
 
+    def test_printable_sheets_are_pages_but_tabs_require_a_workbook(self):
+        with tempfile.TemporaryDirectory() as d:
+            result = tc.check(planner_folder(d,'Four printable sheets in A4 and US Letter.',PAGES),with_images=False)
+            self.assertEqual(result['verdict'],'ready',result['problems'])
+
     def test_mixed_pdf_workbook_folder_proves_both_formats(self):
         with tempfile.TemporaryDirectory() as d:
             folder = planner_folder(d,'Four pages in A4 and US Letter with an Excel (.xlsx) file.',PAGES)
