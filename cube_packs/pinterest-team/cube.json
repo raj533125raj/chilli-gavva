@@ -44,6 +44,7 @@
       "never": "Never buys keywords or ads, never posts online"
     }
   },
+  "kinds": ["pinterest_draft"],
   "tools_allowed": ["design_layout_helper", "pin_copy_spec"],
   "schedule_hints": {
     "frequency": "weekly",

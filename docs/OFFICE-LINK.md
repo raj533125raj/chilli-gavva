@@ -1,5 +1,7 @@
 # Office Projection & Link (Binny Mills)
 
+Status: built and tested, NOT connected to the live robot yet.
+
 ## Overview
 
 The Office Link protocol (`office_protocol.py`) and projection engine (`office_projection.py`) generate a safe, read-only snapshot of the Chilli Gavva robot operations for consumption by the Binny Mills / Binny-JG office viewer.

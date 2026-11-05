@@ -126,9 +126,9 @@ class TestDoctorHeal(unittest.TestCase):
             "INSERT INTO office_missions VALUES ('m1', 'Mission 1', 'agent_a', '1d', 'active', ?, 0, ?)",
             (old_time, old_time)
         )
-        # 5. Stuck task with attempts >= 2
+        # 5. Stuck task with attempts >= 2 (queued, ready to be retried/reset)
         conn.execute(
-            "INSERT INTO tasks (id, kind, status, attempts, agent) VALUES (999, 'office_task', 'running', 2, 'Research Worker')"
+            "INSERT INTO tasks (id, kind, status, attempts, agent) VALUES (999, 'office_task', 'queued', 2, 'Research Worker')"
         )
         conn.commit()
         conn.close()

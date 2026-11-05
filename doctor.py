@@ -639,7 +639,25 @@ def detect_all_stuck_items(db_path=None, now_ts=None) -> list[dict]:
                 if st == "active" and next_run < (now_ts - 3600):
                     # Check if there is an active queued or running task for this mission
                     t_rows = conn.execute("SELECT payload FROM tasks WHERE kind='office_task' AND status IN ('queued', 'running')").fetchall()
-                    has_active_task = any(json.loads(tr[0]).get("mission_id") == m_id for tr in t_rows if tr[0])
+                    has_active_task = False
+                    for tr in t_rows:
+                        if not tr[0]:
+                            continue
+                        try:
+                            payload_data = json.loads(tr[0])
+                            if isinstance(payload_data, dict) and payload_data.get("mission_id") == m_id:
+                                has_active_task = True
+                                break
+                        except Exception as e:
+                            # Bad JSON -> skip that item and record a short reason, never crash
+                            items.append({
+                                "category_type": "scheduled_mission",
+                                "item_key": f"bad_payload_mission:{m_id}",
+                                "ident": m_id,
+                                "kind": "skip",
+                                "reason": f"Corrupt task payload JSON: {type(e).__name__}",
+                                "raw": dict(r)
+                            })
                     if not has_active_task:
                         items.append({
                             "category_type": "scheduled_mission",
@@ -790,10 +808,17 @@ def heal_stuck_items(db_path=None, now_ts=None) -> dict:
                 heal_status = "retry_scheduled"
             elif cat_type == "scheduled_mission":
                 if isinstance(ident, int) or str(ident).isdigit():
-                    conn.execute("UPDATE tasks SET status='queued', attempts=0, error='Doctor: retry scheduled' WHERE id=?", (int(ident),))
-                    conn.commit()
-                    remedy_desc = f"Re-queued stuck task #{ident}"
-                    heal_status = "retry_scheduled"
+                    task_row = conn.execute("SELECT status FROM tasks WHERE id=?", (int(ident),)).fetchone()
+                    curr_st = task_row[0] if task_row else None
+                    if curr_st == "running":
+                        # Never re-queue a task that is currently running
+                        remedy_desc = f"Task #{ident} is currently running; skipped re-queue"
+                        heal_status = "skipped_running"
+                    else:
+                        conn.execute("UPDATE tasks SET status='queued', attempts=0, error='Doctor: retry scheduled' WHERE id=?", (int(ident),))
+                        conn.commit()
+                        remedy_desc = f"Re-queued stuck task #{ident}"
+                        heal_status = "retry_scheduled"
                 else:
                     conn.execute("UPDATE office_missions SET next_run=? WHERE id=?", (now_ts, str(ident)))
                     conn.commit()

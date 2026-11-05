@@ -6,6 +6,15 @@ Every pack defines its own captain, sub-rooms, agents, allowed tools, schedule h
 
 ---
 
+## How to add a new team and turn it on
+1. Create a new folder under `cube_packs/<team-id>` matching your team ID.
+2. Add a `cube.json` file defining id, name, captain, sub_rooms, and kinds.
+3. Keep `"status": "planned"` initially so the team starts safely inactive.
+4. When ready, switch `"status": "on"` in `cube.json` or turn it on via cubes controls.
+5. The workforce router will now claim tasks matching your team's kinds.
+
+---
+
 ## How to Add a New Cube in 3 Steps
 
 ### Step 1: Create a Folder
@@ -23,6 +32,7 @@ Inside your folder, create a `cube.json` configuration file:
   "colour": "#3b82f6",
   "status": "planned",
   "captain": "Department Lead",
+  "kinds": ["my_task"],
   "sub_rooms": [
     {
       "name": "Planning Studio",

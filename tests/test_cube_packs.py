@@ -274,12 +274,14 @@ class TestCubePacks(unittest.TestCase):
         self.assertTrue(pin["planned"])
         self.assertEqual(len(pin["sub_rooms"]), 2)
         self.assertEqual(pin["captain"], "Pinterest Captain")
+        self.assertEqual(pin["kinds"], ["pinterest_draft"])
 
         insta = cube_map["instagram-team"]
         self.assertEqual(insta["status"], "planned")
         self.assertTrue(insta["planned"])
         self.assertEqual(len(insta["sub_rooms"]), 2)
         self.assertEqual(insta["captain"], "Instagram Captain")
+        self.assertEqual(insta["kinds"], ["instagram_draft"])
 
         # Verify public export contains them as planned
         export = cubes.get_public_cubes_export(self.db_path)
