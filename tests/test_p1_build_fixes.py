@@ -62,5 +62,19 @@ class HabitGridTests(unittest.TestCase):
         self.assertEqual('\n'.join(pdf.pages[0]).count(' 9 9 re S'), 42)
 
 
+class SanitizerCountTests(unittest.TestCase):
+    def test_page_counts_only_follow_real_pdf_output_and_keep_grammar(self):
+        text = 'Seven pages in A4 and US Letter. Seven A4 and US Letter pages.'
+        sheet = {'kind':'sheets','sheets':[{'name':'Ledger'}]}
+        self.assertEqual(pb._sanitize_text(text, sheet), text)
+        self.assertEqual(pb._sanitize_text(text, sheet, facts={'kind':'sheets','pages':0,'sheets':['Instructions','Ledger'],'md':{},'csv':{},'titles':[],'headings':[]}), text)
+        planner = {'kind':'planner','pages':[{'title':'Notes'}]*5}
+        self.assertEqual(pb._sanitize_text('Seven pages', planner), 'Seven pages')
+        self.assertEqual(pb._sanitize_text('Six A4 and US Letter pages', planner), 'Seven A4 and US Letter pages')
+        self.assertEqual(pb._sanitize_text('8 pages', planner), '7 pages')
+        self.assertEqual(pb._sanitize_text('One page', planner), 'Seven pages')
+        self.assertEqual(pb._sanitize_text('Two sheets and Seven pages', planner), 'Two sheets and Seven pages')
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -403,20 +403,35 @@ def _sanitize_text(text, spec, facts=None):
                  "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
                  "fifteen": 15, "sixteen": 16}
 
-    def repl_count(m):
-        raw_num = m.group(1).lower()
-        unit = m.group(2)
-        n = num_words.get(raw_num, int(raw_num) if raw_num.isdigit() else None)
-        if n is not None and n > actual_count:
-            return f"{actual_count} {unit}"
-        return m.group(0)
+    is_pdf = bool(facts.get("pdf_sizes")) if facts is not None else kind in ("planner", "dated_planner")
 
-    count_rx = re.compile(r"\b(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen)\s+((?:[a-z-]+,?\s){0,4}?(?:pages|sheets|tabs|worksheets|databases))\b", re.I)
+    def repl_count(m):
+        raw_num, unit = m.group(1), m.group(2)
+        n = num_words.get(raw_num.lower(), int(raw_num) if raw_num.isdigit() else None)
+        if not unit.lower().endswith(("page", "pages")) or not is_pdf or n == actual_count:
+            return m.group(0)
+        replacement = str(actual_count)
+        if not raw_num.isdigit() and actual_count in num_words.values():
+            replacement = next(word for word, value in num_words.items() if value == actual_count)
+            if raw_num.isupper():
+                replacement = replacement.upper()
+            elif raw_num[0].isupper():
+                replacement = replacement.capitalize()
+        if actual_count == 1:
+            unit = re.sub(r"pages$", "page", unit, flags=re.I)
+        elif unit.lower().endswith("page"):
+            unit += "s"
+        return f"{replacement} {unit}"
+
+    count_rx = re.compile(r"\b(\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen)\s+((?:[a-z0-9-]+,?\s){0,5}?(?:pages?|sheets|tabs|worksheets|databases))\b", re.I)
     text = count_rx.sub(repl_count, text)
+    count_spans = [m.span() for m in count_rx.finditer(text)]
 
     # 3. Named parts
     def repl_named(m):
         full = m.group(0)
+        if any(start <= m.start() and m.end() <= end for start, end in count_spans):
+            return full
         prefix = m.group(1)
         suffix = m.group(2)
         words = prefix.split()
