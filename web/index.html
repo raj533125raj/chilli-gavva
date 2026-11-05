@@ -172,10 +172,10 @@ function render(s) {
   w.title = ws.info || "";
   w.style.color = ws.running ? "var(--good)" : "var(--bad)"; w.style.borderColor = ws.running ? "var(--good)" : "var(--bad)";
   document.getElementById("updated").textContent = "updated " + s.generated_at.replace("T", " ");
-  document.getElementById("banner").style.display = s.kill_switch ? "block" : "none";
+  document.getElementById("banner").style.display = (live && s.kill_switch) ? "block" : "none";
   var kb = document.getElementById("killbtn");
-  kb.disabled = !live; kb.textContent = s.kill_switch ? "Resume agents" : "Kill switch";
-  kb.className = s.kill_switch ? "ok" : "danger";
+  kb.disabled = !live; kb.textContent = (live && s.kill_switch) ? "Resume agents" : "Kill switch";
+  kb.className = (live && s.kill_switch) ? "ok" : "danger";
   renderOffice(s.agents);
   // LLM Providers
   renderList("providers", s.llm_providers || [], function (p) {

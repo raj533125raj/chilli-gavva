@@ -4,16 +4,27 @@ import os
 import sqlite3
 import tempfile
 import unittest
+from unittest import mock
 
 import export_status
 import guardrails
 import workforce
 
-ALLOWED_TOP = {"generated_at", "kill_switch", "llm", "agents", "task_counts", "recent_tasks", "pending_approvals", "worker", "handoffs"}
+ALLOWED_TOP = {"generated_at", "llm", "agents", "task_counts", "recent_tasks", "pending_approvals", "worker", "handoffs"}
 
 
 class PublicStatusTests(unittest.TestCase):
     def setUp(self):
+        self.env_patcher = mock.patch.dict(
+            os.environ,
+            {
+                "GITHUB_ACTIONS": "",
+                "RUNNER_ENVIRONMENT": "",
+                "GITHUB_RUN_ID": "",
+            },
+            clear=False,
+        )
+        self.env_patcher.start()
         self.tmp = tempfile.TemporaryDirectory()
         self.db = os.path.join(self.tmp.name, "t.db")
         self._kill = guardrails.KILL_FILE
@@ -31,12 +42,23 @@ class PublicStatusTests(unittest.TestCase):
         conn.close()
 
     def tearDown(self):
+        self.env_patcher.stop()
         guardrails.KILL_FILE = self._kill
         workforce.CONFIG_PATH = self._wf
         self.tmp.cleanup()
 
     def test_only_the_safe_top_level_fields(self):
-        self.assertEqual(set(export_status.build_status(self.db)), ALLOWED_TOP)
+        status = export_status.build_status(self.db)
+        self.assertEqual(set(status), ALLOWED_TOP)
+        self.assertNotIn("kill_switch", status)
+        for k in status:
+            self.assertNotIn("kill", k.lower())
+
+    def test_kill_switch_never_in_public_card(self):
+        status = export_status.build_status(self.db)
+        self.assertNotIn("kill_switch", status)
+        for k in status:
+            self.assertNotIn("kill", k.lower())
 
     def test_generated_at_is_utc_with_z(self):
         stamp = export_status.build_status(self.db)["generated_at"]
