@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-05T09:32:56Z",
+ "generated_at": "2026-11-05T11:40:27Z",
  "llm": {
   "calls_today": 8,
   "cap": 500
@@ -383,35 +383,35 @@
    "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-05T09:32:56Z"
+   "checked_at": "2026-11-05T11:40:27Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-05T09:32:56Z"
+   "checked_at": "2026-11-05T11:40:27Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-05T09:32:56Z"
+   "checked_at": "2026-11-05T11:40:27Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-05T09:32:56Z"
+   "checked_at": "2026-11-05T11:40:27Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-05T09:32:56Z"
+   "checked_at": "2026-11-05T11:40:27Z"
   }
  ],
  "minutes": {
@@ -2145,12 +2145,14 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-05T09:32:56Z",
-  "last_run_end": "2026-11-05T09:32:56Z",
+  "last_run_start": "2026-11-05T11:40:26Z",
+  "last_run_end": "2026-11-05T11:40:27Z",
   "runner": "github-actions",
-  "run_id": "42002603271"
+  "run_id": "42020140480"
  },
  "changelog": [
+  "Synthetic office fixtures (small, medium, full 40 teams / 3500+ agents) validated against the office protocol (Jules JI)",
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "Update public-card tests: kill_switch is no longer public",
   "Keep kill switch private: drop it from the public status card and banner (Jules JK)",
@@ -2164,8 +2166,6 @@
   "agent: state + content update [skip ci]",
   "Office projection for Binny Mills (Jules JG) + doctor heals stuck work (Jules JD)",
   "Fix silent Telegram delivery failures and expose safe inbox diagnostics",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
