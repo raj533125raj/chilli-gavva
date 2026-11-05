@@ -168,6 +168,18 @@ def validate_cube_pack(pack_data, pack_dir_name=None):
     if schedule is not None and not isinstance(schedule, (dict, list, str)):
         raise ValueError(f"Pack '{cid}' schedule hints must be a dict, list, or string")
 
+    # kinds: list of task kinds handled by this pack
+    kinds = pack_data.get("kinds", [])
+    if kinds is not None:
+        if not isinstance(kinds, list):
+            raise ValueError(f"Pack '{cid}' kinds must be a list")
+        for k in kinds:
+            if not isinstance(k, str) or not k.strip():
+                raise ValueError(f"Pack '{cid}' kinds entries must be non-empty strings")
+        kinds = [k.strip() for k in kinds]
+    else:
+        kinds = []
+
     # Check for secrets
     _check_no_secrets(pack_data, cid)
 
@@ -191,7 +203,7 @@ def validate_cube_pack(pack_data, pack_dir_name=None):
         "sub_agents": all_sub_agents,
         "right_hand": all_agents[0] if all_agents else captain.strip(),
         "left_hand": all_agents[1] if len(all_agents) > 1 else None,
-        "kinds": pack_data.get("kinds", []),
+        "kinds": kinds,
         "planned": is_planned,
         "status": status,
         "pack_status": status,

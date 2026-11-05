@@ -129,6 +129,25 @@ def enqueue(kind, payload=None, priority=5, db_path=None):
     return task_id
 
 
+def get_routing_agent(kind, payload=None, db_path=None, conn=None):
+    """Resolve the agent responsible for handling a task kind.
+
+    Checks core workforce routing, then enabled cube packs (assigning to the pack's
+    right hand / main agent or captain), falling back to 'CEO'.
+    """
+    if kind == "office_task":
+        import office_tasks
+        if payload and "agent_id" in payload:
+            return office_tasks.agent(payload["agent_id"], db_path, conn)["name"]
+    if kind in KIND_TO_AGENT:
+        return KIND_TO_AGENT[kind]
+    import cubes
+    c = cubes.get_cube_for_kind(kind)
+    if c:
+        return c.get("right_hand") or c.get("captain") or (c.get("agents") and c["agents"][0]) or "CEO"
+    return "CEO"
+
+
 def claim_next(db_path=None):
     import cubes
     if not guardrails.automation_allowed(db_path):
@@ -144,6 +163,10 @@ def claim_next(db_path=None):
             import office_tasks
             if not office_tasks.task_enabled(json.loads(r[2]), db_path, conn):
                 continue
+        cube_match = cubes.get_cube_for_kind(r_kind)
+        # An unknown kind that belongs to no registered cube or step is ignored safely
+        if not cube_match and r_kind not in KIND_TO_AGENT and r_kind not in STEPS:
+            continue
         if cubes.is_kind_enabled(r_kind, db_path=db_path, conn=conn):
             row = r
             break
@@ -152,15 +175,13 @@ def claim_next(db_path=None):
         conn.close()
         return None
     task_id, kind, payload, attempts = row
-    agent = KIND_TO_AGENT.get(kind, "CEO")
-    if kind == "office_task":
-        import office_tasks
-        agent = office_tasks.agent(json.loads(payload)["agent_id"], db_path, conn)["name"]
+    parsed_payload = json.loads(payload or "{}")
+    agent = get_routing_agent(kind, parsed_payload, db_path, conn)
     conn.execute("UPDATE tasks SET status = 'running', attempts = attempts + 1, agent = ?, started_ts = ?, machine_id = ? "
                  "WHERE id = ?", (agent, datetime.datetime.now().isoformat(), MACHINE_ID, task_id))
     conn.commit()
     conn.close()
-    return {"id": task_id, "kind": kind, "payload": json.loads(payload or "{}"),
+    return {"id": task_id, "kind": kind, "payload": parsed_payload,
             "attempts": attempts + 1, "agent": agent}
 
 
@@ -586,6 +607,13 @@ def step_office_task(task, ctx):
     return office_tasks.execute(task, ctx)
 
 
+def step_pack_task(task, ctx):
+    """Execute a task handled by an active cube pack."""
+    kind = task["kind"]
+    payload = task.get("payload", {})
+    return {"status": "ok", "kind": kind, "summary": f"Completed {kind} task", "payload": payload}
+
+
 STEPS = {"plan": step_plan, "research": step_research, "draft": step_draft, "review": step_review,
          "rewrite": step_rewrite, "code_proposal": step_code_proposal, "office_task": step_office_task}
 
@@ -806,7 +834,8 @@ def run_once(max_tasks=5, db_path=None, llm=None, rng=None, max_time_seconds=MAX
             break
         ctx["agent"] = task["agent"]
         try:
-            result = STEPS[task["kind"]](task, ctx)
+            step_fn = STEPS.get(task["kind"], step_pack_task)
+            result = step_fn(task, ctx)
             for follow in result.pop("next", []):
                 enqueue(follow["kind"], follow["payload"], db_path=db_path)
             complete(task["id"], result, db_path)

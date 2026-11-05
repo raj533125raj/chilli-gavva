@@ -44,6 +44,7 @@
       "never": "Never accesses live accounts, never spends money"
     }
   },
+  "kinds": ["instagram_draft"],
   "tools_allowed": ["carousel_text_spec", "hook_generator"],
   "schedule_hints": {
     "frequency": "weekly",
