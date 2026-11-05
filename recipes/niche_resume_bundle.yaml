@@ -7,12 +7,12 @@ tasks:
   - kind: research
     payload:
       agent: Resume Bundle Agent
-      topic: "[Resume Bundle Agent] ATS-friendly one-page resume template in Google Docs and Word with simple single-column layout for job seekers, priced 6-12 USD, sold on Gumroad to global buyers. Give the product contents and section structure, a listing title, a listing description, and 5 search tags. No promises of interviews or jobs"
+      topic: "[Resume Bundle Agent] ATS-friendly one-page resume template in Google Docs and Word with simple single-column layout for job seekers, sold on Gumroad to global buyers. Give the product contents and section structure, a listing title, a listing description, and 5 search tags. No promises of interviews or jobs"
   - kind: research
     payload:
       agent: Resume Bundle Agent
-      topic: "[Resume Bundle Agent] matching cover letter and follow-up email template set for job seekers who use an ATS resume, priced 6-12 USD, sold on Gumroad to global buyers. Give the product contents and structure, a listing title, a listing description, and 5 search tags. No promises of interviews or jobs"
+      topic: "[Resume Bundle Agent] matching cover letter and follow-up email template set for job seekers who use an ATS resume, sold on Gumroad to global buyers. Give the product contents and structure, a listing title, a listing description, and 5 search tags. No promises of interviews or jobs"
   - kind: research
     payload:
       agent: Resume Bundle Agent
-      topic: "[Resume Bundle Agent] job-search bundle of ATS resume template plus a Google Sheets job application tracker (status, follow-up dates, interview notes), priced 12-19 USD, sold on Gumroad to global buyers. Give the bundle contents and structure, a listing title, a listing description, and 5 search tags. No promises of interviews or jobs"
+      topic: "[Resume Bundle Agent] job-search bundle of ATS resume template plus a Google Sheets job application tracker (status, follow-up dates, interview notes), sold on Gumroad to global buyers. Give the bundle contents and structure, a listing title, a listing description, and 5 search tags. No promises of interviews or jobs"
