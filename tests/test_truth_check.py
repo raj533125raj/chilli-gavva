@@ -355,6 +355,13 @@ class P1FormatClaimTests(unittest.TestCase):
             result = tc.check(planner_folder(d,'Four printable sheets in A4 and US Letter.',PAGES),with_images=False)
             self.assertEqual(result['verdict'],'ready',result['problems'])
 
+    def test_cover_letter_file_name_does_not_promise_letter_paper(self):
+        with tempfile.TemporaryDirectory() as d:
+            wb=pb.Workbook();wb.add_sheet('Instructions');wb.save(os.path.join(d,'tracker.xlsx'))
+            (Path(d)/'listing.md').write_text('Includes an ats-resume-cover-letter.docx file and an Excel tracker.')
+            found,_=tc.promises(d)
+            self.assertNotIn('size: Letter',[claim for claim,_ in found])
+
     def test_mixed_pdf_workbook_folder_proves_both_formats(self):
         with tempfile.TemporaryDirectory() as d:
             folder = planner_folder(d,'Four pages in A4 and US Letter with an Excel (.xlsx) file.',PAGES)

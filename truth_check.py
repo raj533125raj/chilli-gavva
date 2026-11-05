@@ -229,7 +229,7 @@ def promises(folder):
         if where in ("listing.md", "README.md"):
             if any(_asserted(m, low) for m in re.finditer(r"\ba4\b", low)):
                 found.append(("size: A4", where))
-            if any(_asserted(m, low) for m in re.finditer(r"\bus\s+letter\b|(?<!cover )\bletter\b(?!\s+to\b)", low)):
+            if any(_asserted(m, low) for m in re.finditer(r"\bus\s+letter\b|(?<!cover )(?<!cover-)\bletter\b(?!\s+to\b)", low)):
                 found.append(("size: Letter", where))
             if any(_asserted(m, low) for m in re.finditer(r"\bexcel\b|\.xlsx\b", low)):
                 found.append(("format: Excel (.xlsx)", where))
