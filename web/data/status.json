@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-05T13:30:28Z",
+ "generated_at": "2026-11-05T16:18:55Z",
  "llm": {
   "calls_today": 8,
   "cap": 500
@@ -383,35 +383,35 @@
    "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-05T13:30:28Z"
+   "checked_at": "2026-11-05T16:18:55Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-05T13:30:28Z"
+   "checked_at": "2026-11-05T16:18:55Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-05T13:30:28Z"
+   "checked_at": "2026-11-05T16:18:55Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-05T13:30:28Z"
+   "checked_at": "2026-11-05T16:18:55Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-05T13:30:28Z"
+   "checked_at": "2026-11-05T16:18:55Z"
   }
  ],
  "minutes": {
@@ -2145,12 +2145,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-05T13:30:28Z",
-  "last_run_end": "2026-11-05T13:30:28Z",
+  "last_run_start": "2026-11-05T16:18:55Z",
+  "last_run_end": "2026-11-05T16:18:55Z",
   "runner": "github-actions",
-  "run_id": "42035712776"
+  "run_id": "42062429285"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "Synthetic office fixtures (small, medium, full 40 teams / 3500+ agents) validated against the office protocol (Jules JI)",
   "agent: state + content update [skip ci]",
@@ -2167,7 +2168,6 @@
   "agent: state + content update [skip ci]",
   "Office projection for Binny Mills (Jules JG) + doctor heals stuck work (Jules JD)",
   "Fix silent Telegram delivery failures and expose safe inbox diagnostics",
-  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]"
