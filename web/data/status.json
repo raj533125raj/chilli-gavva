@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-11-05T01:29:39Z",
+ "generated_at": "2026-11-05T03:08:29Z",
  "kill_switch": false,
  "llm": {
-  "calls_today": 1,
+  "calls_today": 8,
   "cap": 500
  },
  "agents": [
@@ -381,38 +381,38 @@
  "ai_health": [
   {
    "provider": "Groq",
-   "model": "openai/gpt-oss-20b",
+   "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-05T01:29:39Z"
+   "checked_at": "2026-11-05T03:08:29Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-05T01:29:39Z"
+   "checked_at": "2026-11-05T03:08:29Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-05T01:29:39Z"
+   "checked_at": "2026-11-05T03:08:29Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-05T01:29:39Z"
+   "checked_at": "2026-11-05T03:08:29Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-05T01:29:39Z"
+   "checked_at": "2026-11-05T03:08:29Z"
   }
  ],
  "minutes": {
@@ -716,19 +716,19 @@
  "reject_reasons": [
   {
    "reason": "Formatting or rubric issue",
-   "count": 84
+   "count": 88
   },
   {
    "reason": "Unclear value over free template",
-   "count": 49
+   "count": 50
   },
   {
    "reason": "Risky or prohibited claim",
-   "count": 30
+   "count": 34
   },
   {
    "reason": "Product structure incomplete",
-   "count": 24
+   "count": 27
   },
   {
    "reason": "Target audience unclear",
@@ -848,68 +848,92 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   }
  ],
  "loop_events": [
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-05T03:08:29Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-05T03:08:29Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-05T01:30:03Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-05T01:29:51Z"
+  },
   {
    "agent": "Unknown agent",
    "kind": "error",
@@ -2122,12 +2146,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-05T01:29:34Z",
-  "last_run_end": "2026-11-05T01:29:39Z",
+  "last_run_start": "2026-11-05T03:08:29Z",
+  "last_run_end": "2026-11-05T03:08:29Z",
   "runner": "github-actions",
-  "run_id": "41948374888"
+  "run_id": "41959326449"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "Document empty second Gemini key setup and safe fallback",
@@ -2135,7 +2160,6 @@
   "agent: state + content update [skip ci]",
   "Office projection for Binny Mills (Jules JG) + doctor heals stuck work (Jules JD)",
   "Fix silent Telegram delivery failures and expose safe inbox diagnostics",
-  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
