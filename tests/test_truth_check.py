@@ -303,5 +303,21 @@ class EndToEndTruthTests(unittest.TestCase):
         self.assertEqual(results[0]["status"], "built")
 
 
+
+class P1DatedClaimTests(unittest.TestCase):
+    def test_undated_daily_page_is_not_a_dated_page_promise(self):
+        for text in ('A daily page.', 'Daily pages for your notes.', 'An undated weekly spread.'):
+            with self.subTest(text=text), tempfile.TemporaryDirectory() as d:
+                folder = planner_folder(d, text, PAGES)
+                found, _ = tc.promises(folder)
+                self.assertNotIn('weekly or daily dated pages', [claim for claim, _ in found])
+
+    def test_dated_phrases_still_require_real_dates(self):
+        for text in ('daily dated page','dated daily pages','weekly dated pages','dated weekly page','weekly spread','week of'):
+            with self.subTest(text=text), tempfile.TemporaryDirectory() as d:
+                result = tc.check(planner_folder(d,'Includes '+text+'.',PAGES),with_images=False)
+                self.assertEqual(result['verdict'],'needs fix')
+                self.assertIn('weekly or daily dated pages',' '.join(result['problems']))
+
 if __name__ == "__main__":
     unittest.main()

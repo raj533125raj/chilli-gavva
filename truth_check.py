@@ -35,7 +35,7 @@ CLAIMS = [
     ("fillable / editable PDF", r"\b(?:fillable|editable pdf|type (?:on|into) the pdf|hyperlinked|hyperlinks?|clickable)\b"),
     ("charts / progress bars", r"\b(?:charts?|graphs?|progress bars?)\b"),
     ("drop-down menus", r"\b(?:drop-?downs?|select (?:field|option|menu)s?)\b"),
-    ("weekly or daily dated pages", r"\b(?:weekly (?:spreads?|pages?)|daily (?:dated )?pages?|dated weekly|dated daily)\b"),
+    ("weekly or daily dated pages", r"\b(?:daily dated pages?|dated daily pages?|weekly dated pages?|dated weekly pages?|weekly spreads?|week of)\b"),
     ("stickers / digital tablet version", r"\b(?:stickers?|goodnotes|notability|digital planner|tablet version)\b"),
 ]
 APOSTROPHE_WORDS = re.compile(r"\b(?:dont|doesnt|didnt|cant|wont|isnt|arent|wasnt|youre|youll|youve|theyre|"
@@ -224,7 +224,10 @@ def promises(folder):
             if re.search(r"\b(?:us )?letter\b(?! to\b)", low) and "cover letter" not in low:
                 found.append(("size: Letter", where))
         for claim, rx in CLAIMS:
-            if re.search(rx, low) and (claim, where) not in found:
+            matches = list(re.finditer(rx, low))
+            if claim == "weekly or daily dated pages":
+                matches = [m for m in matches if not re.search(r"\bundated\s+$", low[:m.start()])]
+            if matches and (claim, where) not in found:
                 found.append((claim, where))
         for m in _NAMED.finditer(body):
             words = m.group(1).split()
