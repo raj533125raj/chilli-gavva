@@ -173,7 +173,9 @@ KIND_RULES = {
               "has a due-date and a status column, and 'balance' only for a money in/out ledger "
               "(use \"\" when a side is missing). 3-6 sample rows per sheet, dates as YYYY-MM-DD.",
     "planner": "Give 3-6 printable pages. Section types: checklist (items), lines (count 1-12), "
-               "schedule (slots), notes (count of lines). Set daily_page to true for a daily or time-blindness "
+               "schedule (slots), notes (count of lines), table (columns/count), checkboxes (count), "
+               "grid (columns or days 7/31, count of habits), blocks (note), numbered/bullets (items), "
+               "index (items as [label, page] pairs), nnl (count). Set daily_page to true for a daily or time-blindness "
                "planner: code then adds a fixed 'Today' page (time anchors, top 3, now/next/later, waiting for, "
                "wins, guess vs real time, 15-minute focus blocks, tomorrow's first step, brain dump). Code also "
                "adds a cover and a 'How to use' page to every planner.",
@@ -509,16 +511,36 @@ def _norm_pages(data, spec):
         for s in (p.get("sections") or [])[:8]:
             if not isinstance(s, dict):
                 continue
-            stype = s.get("type") if s.get("type") in ("checklist", "lines", "schedule", "notes") else "lines"
-            items = [_clean(i, 90) for i in (s.get("items") or s.get("slots") or []) if _clean(i, 90)][:14]
+            stype = s.get("type") if s.get("type") in ("checklist", "lines", "schedule", "notes", "table", "checkboxes",
+                                                       "grid", "blocks", "numbered", "index", "bullets", "nnl") else "lines"
+            raw_items = s.get("items") or s.get("slots") or []
+            if stype == "index":
+                items = [[_clean(i[0], 90), _clean(i[1], 24)] for i in raw_items
+                         if isinstance(i, (list, tuple)) and len(i) == 2][:14]
+            else:
+                items = [_clean(i, 90) for i in raw_items if _clean(i, 90)][:14]
             try:
                 count = max(1, min(12, int(s.get("count") or 3)))
             except (TypeError, ValueError):
                 count = 3
-            sections.append({"heading": _clean(s.get("heading"), 80), "type": stype, "items": items, "count": count})
+            section = {"heading": _clean(s.get("heading"), 80), "type": stype, "items": items, "count": count}
+            if stype in ("table", "grid"):
+                section["columns"] = [_clean(c.get("name") if isinstance(c, dict) else c, 60)
+                                      for c in (s.get("columns") or [])[:40]]
+                section["columns"] = [c for c in section["columns"] if c]
+            if stype == "grid":
+                try:
+                    section["days"] = max(1, min(31, int(s.get("days") or 7)))
+                except (TypeError, ValueError):
+                    section["days"] = 7
+            if s.get("column") in (1, 2):
+                section["column"] = s["column"]
+            if s.get("note"):
+                section["note"] = _clean(s["note"], 300)
+            sections.append(section)
         if sections:
             pages.append({"title": _clean(p["title"], 80), "subtitle": _clean(p.get("subtitle"), 120),
-                          "sections": sections})
+                          "sections": sections, "columns": 2 if p.get("columns") == 2 else 1})
     if not pages:
         return "spec has no usable planner pages"
     spec["pages"] = pages

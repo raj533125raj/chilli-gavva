@@ -87,5 +87,23 @@ class SheetNormalizationTests(unittest.TestCase):
         self.assertEqual(len(pb._norm_sheet(raw)['columns']),40)
 
 
+class PageNormalizationTests(unittest.TestCase):
+    def test_supported_section_types_and_their_metadata_survive_and_render(self):
+        for kind in ['table','checkboxes','grid','blocks','numbered','index','bullets','nnl']:
+            section = {'heading':kind,'type':kind,'count':2,'columns':['Name','One','Two','Three','Four'],
+                       'days':31,'note':'Colour one block','items':[['Notes','7']] if kind=='index' else ['Read','Walk']}
+            spec = {'kind':'planner','listing':{'title':'Tracker'}}
+            reason = pb._norm_pages({'pages':[{'title':'Tracker','sections':[section]}]},spec)
+            self.assertIsNone(reason)
+            kept = spec['pages'][0]['sections'][0]
+            self.assertEqual(kept['type'],kind)
+            if kind in ('table','grid'): self.assertEqual(kept['columns'],section['columns'])
+            if kind=='grid': self.assertEqual(kept['days'],31)
+            if kind=='index': self.assertEqual(kept['items'],[['Notes','7']])
+            self.assertEqual(kept['note'],'Colour one block')
+            pdf = pd.Pdf('Letter',style='A');pd.render_page(pdf,spec['pages'][0])
+            self.assertGreater(len(pdf.pages[0]),0)
+
+
 if __name__ == '__main__':
     unittest.main()
