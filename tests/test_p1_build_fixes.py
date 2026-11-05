@@ -138,5 +138,28 @@ class WorkbookInstructionTests(unittest.TestCase):
         self.assertNotIn('Apple Numbers',instructions)
 
 
+class WorkbookSummaryTests(unittest.TestCase):
+    def test_dashboard_is_opt_in_and_in_out_totals_never_mix(self):
+        sheet = pb._norm_sheet({'name':'Month','columns':[{'name':'Date','type':'date'},{'name':'Category'},
+                   {'name':'Amount','type':'money'},{'name':'Type','options':['In','Out']}],
+                   'rows':[['2027-01-01','Pay',20000,'In'],['2027-01-02','Rent',8000,'Out']]})
+        for dashboard in (False,True):
+            spec = {'listing':{'title':'Month'},'instructions':[],'dashboard':dashboard}
+            with tempfile.TemporaryDirectory() as d:
+                path = os.path.join(d,'month.xlsx');pb.build_workbook(path,spec,[sheet]);parts=workbook_parts(path)
+            names = [node.get('name') for node in parts['xl/workbook.xml'].findall('.//m:sheet',NS)]
+            self.assertEqual(names,['Instructions']+(['Dashboard'] if dashboard else [])+['Month'])
+            root = parts[f'xl/worksheets/sheet{3 if dashboard else 2}.xml']
+            formulas = [node.text for node in root.findall('.//m:f',NS)]
+            self.assertIn('SUMIF($D$2:$D$3,"In",C2:C3)',formulas)
+            self.assertIn('SUMIF($D$2:$D$3,"Out",C2:C3)',formulas)
+            self.assertNotIn('SUM(C2:C3)',formulas)
+            text = [node.text for node in root.findall('.//m:t',NS)]
+            self.assertIn('TOTAL IN',text);self.assertIn('TOTAL OUT',text)
+            normalized = {}
+            self.assertIsNone(pb._norm_sheets({'sheets':[sheet],'dashboard':dashboard},normalized))
+            self.assertEqual(normalized['dashboard'],dashboard)
+
+
 if __name__ == '__main__':
     unittest.main()

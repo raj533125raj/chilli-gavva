@@ -172,7 +172,7 @@ EXAMPLES = {
 KIND_RULES = {
     "sheets": "Give 2-4 data sheets, up to 40 columns per sheet (a habit plus 31 days fits). Column types: text, number, money, date. Use 'overdue' only when the sheet "
               "has a due-date and a status column, and 'balance' only for a money in/out ledger "
-              "(use \"\" when a side is missing). 3-6 sample rows per sheet, dates as YYYY-MM-DD.",
+              "(use \"\" when a side is missing). 3-6 sample rows per sheet, dates as YYYY-MM-DD. Set dashboard to true only when the requested product includes a Dashboard tab.",
     "planner": "Give 3-6 printable pages. Section types: checklist (items), lines (count 1-12), "
                "schedule (slots), notes (count of lines), table (columns/count), checkboxes (count), "
                "grid (columns or days 7/31, count of habits), blocks (note), numbered/bullets (items), "
@@ -289,7 +289,7 @@ def _get_spec_names(spec):
                     if isinstance(s, dict) and s.get("heading"):
                         names.append(s["heading"])
     elif kind == "sheets":
-        names += ["Instructions", "Dashboard"]
+        names += ["Instructions"] + (["Dashboard"] if spec.get("dashboard") is True else [])
         for s in spec.get("sheets") or []:
             if isinstance(s, dict) and s.get("name"):
                 names.append(s["name"])
@@ -336,7 +336,7 @@ def _sanitize_text(text, spec, facts=None):
         elif kind == "planner":
             actual_count = len(spec.get("pages") or []) + 2 + (1 if spec.get("daily_page") else 0)
         elif kind == "sheets":
-            actual_count = len(spec.get("sheets") or []) + 2
+            actual_count = len(spec.get("sheets") or []) + 1 + (1 if spec.get("dashboard") is True else 0)
         elif kind == "notion":
             actual_count = len(spec.get("pages") or []) + len(spec.get("databases") or [])
         else:
@@ -492,10 +492,11 @@ def _norm_sheets(data, spec):
     sheets = [s for s in (_norm_sheet(r) for r in (data.get("sheets") or [])[:5]) if s]
     if not sheets:
         return "spec has no usable sheets"
+    spec["dashboard"] = data.get("dashboard") is True
     seen = set()
     for s in sheets:  # sheet names must be unique in a workbook
         base, n = s["name"], 2
-        while s["name"].lower() in seen | {"instructions", "dashboard"}:
+        while s["name"].lower() in seen | {"instructions"} | ({"dashboard"} if spec["dashboard"] else set()):
             s["name"] = _sheet_name(f"{base[:27]} {n}")
             n += 1
         seen.add(s["name"].lower())
@@ -838,35 +839,48 @@ def _data_sheet(wb, sheet_spec):
         if col["options"]:
             sheet["validations"].append((f"{_col(c)}{first}:{_col(c)}{last + 200}", col["options"]))
     total_row, totals = last + 2, {}
-    Workbook.put(sheet, total_row, 0, "TOTAL", S_BOLD)
+    direction = next((c for c, col in enumerate(cols)
+                      if {str(option).strip().lower() for option in col["options"]} >= {"in", "out"}), None)
+    Workbook.put(sheet, total_row, 0, "TOTAL IN" if direction is not None else "TOTAL", S_BOLD)
+    if direction is not None:
+        Workbook.put(sheet, total_row + 1, 0, "TOTAL OUT", S_BOLD)
     for c, col in enumerate(cols):
         if col["type"] in ("money", "number") and c > 0:
-            Workbook.put(sheet, total_row, c, None, S_TOTAL_MONEY if col["type"] == "money" else S_TOTAL_NUM,
-                         f"SUM({_col(c)}{first}:{_col(c)}{last})")
-            totals[col["name"]] = (f"{_quote_sheet(sheet['name'])}!{_col(c)}{total_row}", col["type"])
+            style = S_TOTAL_MONEY if col["type"] == "money" else S_TOTAL_NUM
+            if direction is None:
+                Workbook.put(sheet, total_row, c, None, style, f"SUM({_col(c)}{first}:{_col(c)}{last})")
+                totals[col["name"]] = (f"{_quote_sheet(sheet['name'])}!{_col(c)}{total_row}", col["type"])
+            else:
+                selector = f"${_col(direction)}${first}:${_col(direction)}${last}"
+                for offset, label in enumerate(("In", "Out")):
+                    Workbook.put(sheet, total_row + offset, c, None, style,
+                                 f'SUMIF({selector},"{label}",{_col(c)}{first}:{_col(c)}{last})')
+                    totals[f"{col['name']} {label}"] = (f"{_quote_sheet(sheet['name'])}!{_col(c)}{total_row + offset}", col["type"])
+    summary_end = total_row + (1 if direction is not None else 0)
     if sheet_spec.get("overdue"):
         oc = len(cols) + (1 if sheet_spec.get("balance") else 0)
-        Workbook.put(sheet, total_row + 1, 0, "Overdue rows", S_BOLD)
-        Workbook.put(sheet, total_row + 1, 1, None, S_BOLD, f'COUNTIF({_col(oc)}{first}:{_col(oc)}{last},"OVERDUE")')
-        totals["Overdue rows"] = (f"{_quote_sheet(sheet['name'])}!B{total_row + 1}", "number")
+        Workbook.put(sheet, summary_end + 1, 0, "Overdue rows", S_BOLD)
+        Workbook.put(sheet, summary_end + 1, 1, None, S_BOLD, f'COUNTIF({_col(oc)}{first}:{_col(oc)}{last},"OVERDUE")')
+        totals["Overdue rows"] = (f"{_quote_sheet(sheet['name'])}!B{summary_end + 1}", "number")
     return totals
 
 
 def build_workbook(path, spec, sheet_specs, extra_instructions=()):
     wb = Workbook()
     _instructions_sheet(wb, spec, extra_instructions)
-    dashboard = wb.add_sheet("Dashboard", widths=[34, 18, 18])
+    dashboard = wb.add_sheet("Dashboard", widths=[34, 18, 18]) if spec.get("dashboard") is True else None
     all_totals = [(s["name"], _data_sheet(wb, s)) for s in sheet_specs]
-    Workbook.put(dashboard, 1, 0, "Summary", S_HEADER)
-    Workbook.put(dashboard, 1, 1, "Value", S_HEADER)
-    r = 2
-    for name, totals in all_totals:
-        for label, (ref, ctype) in totals.items():
-            Workbook.put(dashboard, r, 0, f"{name}: {label}")
-            Workbook.put(dashboard, r, 1, None, S_MONEY if ctype == "money" else 0, ref)
-            r += 1
-    if r == 2:
-        Workbook.put(dashboard, 2, 0, "Add number or money columns to see totals here.")
+    if dashboard is not None:
+        Workbook.put(dashboard, 1, 0, "Summary", S_HEADER)
+        Workbook.put(dashboard, 1, 1, "Value", S_HEADER)
+        r = 2
+        for name, totals in all_totals:
+            for label, (ref, ctype) in totals.items():
+                Workbook.put(dashboard, r, 0, f"{name}: {label}")
+                Workbook.put(dashboard, r, 1, None, S_MONEY if ctype == "money" else 0, ref)
+                r += 1
+        if r == 2:
+            Workbook.put(dashboard, 2, 0, "Add number or money columns to see totals here.")
     wb.save(path)
 
 
