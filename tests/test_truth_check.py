@@ -343,6 +343,13 @@ class P1FormatClaimTests(unittest.TestCase):
             result = tc.check(folder,with_images=False)
             self.assertEqual(result['verdict'],'ready',result['problems'])
 
+    def test_spelled_counts_and_paper_sizes_are_not_phantom_named_pages(self):
+        for text in ('Four pages in A4 and US Letter.', 'Four A4 and US Letter pages.', 'Four printable A4 and US Letter pages.'):
+            with self.subTest(text=text), tempfile.TemporaryDirectory() as d:
+                result = tc.check(planner_folder(d,text,PAGES),with_images=False)
+                self.assertEqual(result['verdict'],'ready',result['problems'])
+                self.assertFalse(any(p.startswith('named part:') for p in result['proven']))
+
     def test_printable_sheets_are_pages_but_tabs_require_a_workbook(self):
         with tempfile.TemporaryDirectory() as d:
             result = tc.check(planner_folder(d,'Four printable sheets in A4 and US Letter.',PAGES),with_images=False)

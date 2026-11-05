@@ -186,7 +186,7 @@ def _proven(claim, f):
 _NUMBERS = {w: str(i) for i, w in enumerate("zero one two three four five six seven eight nine ten eleven twelve "
                                              "thirteen fourteen fifteen sixteen".split())}
 _COUNT = re.compile(r"\b(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen"
-                    r"|fifteen|sixteen)\s+(?:[a-z-]+,?\s){0,4}?(pages|sheets|tabs|worksheets)\b")
+                    r"|fifteen|sixteen)\s+(?:[a-z0-9-]+,?\s){0,5}?(pages|sheets|tabs|worksheets)\b")
 _NOT_NAMES = {"the", "this", "each", "a", "an", "your", "one", "every", "new", "all", "any", "both", "extra",
               "blank", "printable", "simple", "single", "notion", "pdf", "letter", "a4", "gumroad", "start",
               "home", "first", "last", "next", "main", "two", "three", "four", "five", "six"}
@@ -239,7 +239,10 @@ def promises(folder):
                 matches = [m for m in matches if not re.search(r"\bundated\s+$", low[:m.start()])]
             if matches and (claim, where) not in found:
                 found.append((claim, where))
+        count_spans = [m.span() for m in _COUNT.finditer(low)]
         for m in _NAMED.finditer(body):
+            if any(start <= m.start() and m.end() <= end for start, end in count_spans):
+                continue
             words = m.group(1).split()
             while words and words[0].lower() in _NOT_NAMES:     # "A Resources database" -> "Resources"
                 words = words[1:]
