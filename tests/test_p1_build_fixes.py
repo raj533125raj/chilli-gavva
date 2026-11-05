@@ -35,5 +35,32 @@ class TableHeaderTests(unittest.TestCase):
                     self.assertGreaterEqual(sum(x1==x2 and y1!=y2 for x1,y1,x2,y2 in verticals), 3*(len(labels)-1))
 
 
+class HabitGridTests(unittest.TestCase):
+    def test_seven_and_31_day_grids_have_every_label_and_empty_tick_box(self):
+        for days in (7, 31):
+            for size in ("A4", "Letter"):
+                for style in ("A", "B"):
+                    with self.subTest(days=days, size=size, style=style), tempfile.TemporaryDirectory() as d:
+                        pdf = pd.Pdf(size, style=style)
+                        section = {"type": "grid", "heading": "Habits", "days": days, "count": 6,
+                                   "items": [f"Habit {n}" for n in range(1, 7)]}
+                        original = copy.deepcopy(section)
+                        pd.render_page(pdf, {"title": "Habit grid", "sections": [section]})
+                        path = os.path.join(d, 'habit.pdf');pdf.save(path)
+                        pages = tc._pdf_pages(path)
+                        self.assertEqual(len(pages), 1 if days == 7 else 2)
+                        labels = [item for page in pages for item in page['items'] if item[4].isdigit()]
+                        self.assertCountEqual([item[4] for item in labels], [str(n) for n in range(1, days + 1)])
+                        self.assertTrue(all(pd.MARGIN <= item[2] and item[2]+pd.text_width(item[4],item[1]) <= pdf.w-pd.MARGIN+.1 for item in labels))
+                        stream = '\n'.join('\n'.join(p) for p in pdf.pages)
+                        self.assertEqual(len(re.findall(r' 9 9 re S', stream)), 6*days)
+                        self.assertEqual(section, original)
+
+    def test_existing_habit_table_specs_become_tick_grids(self):
+        pdf = pd.Pdf('A4', style='A')
+        pd.render_page(pdf, {'title': 'Habits', 'sections': [{'type':'table','columns':['Habit','Mon','Tue','Wed','Thu','Fri','Sat','Sun'],'count':6}]})
+        self.assertEqual('\n'.join(pdf.pages[0]).count(' 9 9 re S'), 42)
+
+
 if __name__ == '__main__':
     unittest.main()

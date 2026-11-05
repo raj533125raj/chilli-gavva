@@ -320,6 +320,26 @@ ROW = 20
 GAP = 14
 
 
+def _grid_section(sec):
+    """Accept explicit grids and the existing habit-table specs without changing their files."""
+    columns = sec.get("columns") or []
+    habit_table = (sec.get("type") == "table" and len(columns) > 1
+                   and str(columns[0]).lower().startswith("habit")
+                   and all(re.fullmatch(r"(?:[1-9]|[12][0-9]|3[01]|mon|tue|wed|thu|fri|sat|sun)",
+                                        str(label), re.I) for label in columns[1:]))
+    if sec.get("type") == "grid" or habit_table:
+        if not columns:
+            days = max(1, min(31, int(sec.get("days") or 7)))
+            columns = ["Habit"] + [str(day) for day in range(1, days + 1)]
+        return {**sec, "type": "grid", "columns": columns}
+    return sec
+
+
+def _grid_widths(width, labels):
+    name_width = max(90, width * .25)
+    return [name_width] + [(width - name_width) / max(1, len(labels) - 1)] * (len(labels) - 1)
+
+
 class _Block:
     def __init__(self, sec, index, style, colw):
         self.sec, self.index, self.st = sec, index, style
@@ -364,6 +384,14 @@ class _Block:
             for item in items:
                 lines = wrap_text(item, 10, iw - 14)
                 rows.append(("bullet", lines, 6 + 12.5 * len(lines)))
+        elif stype == "grid":
+            labels = sec.get("columns") or ["Habit"]
+            name_width = _grid_widths(iw, labels)[0]
+            rows = [("grid_head", labels, 22)]
+            for i in range(count):
+                text = str(items[i]) if i < len(items) else ""
+                lines = wrap_text(text, 10, name_width - 8)
+                rows.append(("grid_row", lines, max(24, 6 + 12 * len(lines))))
         elif stype == "table":
             labels = sec.get("columns") or []
             cell_width = iw / max(1, len(labels))
@@ -455,6 +483,20 @@ class _Block:
                     for line_no, line in enumerate(wrap_text(label, 10, cell_width - 6, True)):
                         pdf.text(ix + c * cell_width + 3, y - 12 - line_no * 12, line, 10, True, ink)
                 pdf.line(ix, bottom + 2, right, bottom + 2, color=ink, width=0.9)
+            elif kind in ("grid_head", "grid_row"):
+                labels = self.sec["columns"]
+                widths = _grid_widths(self.inner, labels)
+                cx = ix
+                for c, width in enumerate(widths):
+                    pdf.rect(cx, bottom, width, h, color=line_c)
+                    if kind == "grid_head":
+                        pdf.text_center(cx + width / 2, y - 15, str(labels[c]), 10, True, ink)
+                    elif c:
+                        pdf.box(cx + (width - 9) / 2, bottom + (h - 9) / 2, 9, ink, .7)
+                    else:
+                        for line_no, line in enumerate(data):
+                            pdf.text(cx + 4, y - 15 - line_no * 12, line, 10, color=ink)
+                    cx += width
             elif kind == "nnl_head":
                 third = (self.inner - 20) / 3
                 for i, label in enumerate(("NOW", "NEXT", "LATER")):
@@ -482,6 +524,9 @@ class _Block:
                 for c in range(1, len(data)):
                     cx = ix + c * cell_width
                     pdf.line(cx, bottom, cx, y, color=line_c)
+                for c, label in enumerate(data):
+                    if str(label).strip().lower() in ("paid", "paid tick", "paid?", "done"):
+                        pdf.box(ix + (c + .5) * cell_width - 4.5, bottom + (h - 9) / 2, 9, ink, .7)
             else:   # writing line
                 pdf.line(ix, bottom + 2, right, bottom + 2, color=line_c)
             y = bottom
@@ -554,8 +599,18 @@ def render_page(pdf, page, header_right=None):
     lines down to the footer, so no page ends with a big empty area."""
     st = pdf.style
     width = pdf.w - 2 * MARGIN
-    sections = page["sections"]
-    ncols = 2 if len(sections) >= 4 or page.get("columns") == 2 else 1
+    sections = [_grid_section(sec) for sec in page["sections"]]
+    for index, section in enumerate(sections):
+        if section.get("type") == "grid" and len(section["columns"]) > 17:
+            days = section["columns"][1:]
+            for offset in range(0, len(days), 16):
+                part = days[offset:offset + 16]
+                split = {**section, "columns": [section["columns"][0]] + part}
+                split_sections = [*sections[:index], split, *sections[index + 1:]] if offset == 0 else [split]
+                render_page(pdf, {**page, "title": page["title"] + f" (days {part[0]}-{part[-1]})",
+                                  "sections": split_sections, "columns": 1}, header_right)
+            return False
+    ncols = 1 if any(sec.get("type") == "grid" for sec in sections) else (2 if len(sections) >= 4 or page.get("columns") == 2 else 1)
     colw = (width - 18) / 2 if ncols == 2 else width
     blocks = [_Block(sec, i, st, colw) for i, sec in enumerate(sections)]
     first = True
