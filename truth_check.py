@@ -193,6 +193,12 @@ _NOT_NAMES = {"the", "this", "each", "a", "an", "your", "one", "every", "new", "
 _NAMED = re.compile(r"\b((?:[A-Z][\w'’&-]*\s){0,3}[A-Z][\w'’&-]*)\s+(database|page|sheet|tab|tracker|section)s?\b")
 
 
+def _asserted(match, text):
+    """Explicit exclusions such as 'No Excel file' are not positive promises."""
+    prefix = text[max(0, match.start() - 80):match.start()]
+    return not re.search(r"\b(?:no|not|without)\s+(?:[\w-]+\s+){0,3}$", prefix, re.I)
+
+
 def promises(folder):
     """(claim, where) pairs from the listing, README and the product's own pages."""
     texts = {}
@@ -212,6 +218,8 @@ def promises(folder):
     for where, body in texts.items():
         low = body.lower()
         for m in _COUNT.finditer(low):
+            if not _asserted(m, low):
+                continue
             n = _NUMBERS.get(m.group(1), m.group(1))
             found.append((f"count: {n} {m.group(2)}", where))
         if "at a glance" in low or "year overview" in low:
@@ -219,10 +227,12 @@ def promises(folder):
         if re.search(r"\b(?:12|twelve) monthly\b", low):
             found.append(("12 monthly calendar pages", where))
         if where in ("listing.md", "README.md"):
-            if re.search(r"\ba4\b", low):
+            if any(_asserted(m, low) for m in re.finditer(r"\ba4\b", low)):
                 found.append(("size: A4", where))
-            if re.search(r"\b(?:us )?letter\b(?! to\b)", low) and "cover letter" not in low:
+            if any(_asserted(m, low) for m in re.finditer(r"\bus\s+letter\b|(?<!cover )\bletter\b(?!\s+to\b)", low)):
                 found.append(("size: Letter", where))
+            if any(_asserted(m, low) for m in re.finditer(r"\bexcel\b|\.xlsx\b", low)):
+                found.append(("format: Excel (.xlsx)", where))
         for claim, rx in CLAIMS:
             matches = list(re.finditer(rx, low))
             if claim == "weekly or daily dated pages":
@@ -353,15 +363,24 @@ def check(folder, with_images=True):
     for claim, where in found:
         if claim.startswith("count: "):
             n, what = claim[len("count: "):].split(" ", 1)
-            have = f["pages"] if f["kind"] == "pdf" else len(f["sheets"]) or len(f["md"]) + len(f["csv"])
-            ok = int(n) <= have
+            if what == "pages":
+                have = f["pages"] if f["pdf_sizes"] else len(f["md"])
+                format_ok = bool(f["pdf_sizes"] or f["md"])
+            else:
+                have = len(f["sheets"])
+                format_ok = bool(f["sheets"])
+            ok = format_ok and int(n) <= have
             (met if ok else unmet).append((claim, where, f"the files have {have}" if ok
                                            else f"promises {n} {what}, the files have only {have}"))
             continue
         if claim.startswith("size: "):
             size = claim[len("size: "):]
-            ok = size in f["pdf_sizes"] or f["kind"] != "pdf"
+            ok = size in f["pdf_sizes"]
             (met if ok else unmet).append((claim, where, f"{size} file present" if ok else f"no {size} file"))
+            continue
+        if claim == "format: Excel (.xlsx)":
+            ok = any(name.lower().endswith(".xlsx") for name in f["files"])
+            (met if ok else unmet).append((claim, where, "Excel workbook present" if ok else "no .xlsx workbook in the files"))
             continue
         if claim.startswith("named part: "):
             part = claim[len("named part: "):].lower()

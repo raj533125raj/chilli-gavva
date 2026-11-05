@@ -319,5 +319,36 @@ class P1DatedClaimTests(unittest.TestCase):
                 self.assertEqual(result['verdict'],'needs fix')
                 self.assertIn('weekly or daily dated pages',' '.join(result['problems']))
 
+
+class P1FormatClaimTests(unittest.TestCase):
+    def test_sheets_cannot_prove_pdf_sizes_or_page_counts(self):
+        for claim in ('A4', 'US Letter', 'Seven pages'):
+            with self.subTest(claim=claim), tempfile.TemporaryDirectory() as d:
+                wb = pb.Workbook();wb.add_sheet('Instructions');wb.add_sheet('Ledger');wb.add_sheet('Bills')
+                wb.save(os.path.join(d,'ledger.xlsx'))
+                Path = __import__('pathlib').Path
+                (Path(d)/'listing.md').write_text('Includes '+claim+'.')
+                result = tc.check(d,with_images=False)
+                self.assertEqual(result['verdict'],'needs fix')
+                self.assertTrue(any('Promises' in p for p in result['problems']), result)
+
+    def test_pdf_cannot_prove_excel_or_xlsx_and_exclusions_are_not_promises(self):
+        for claim in ('Excel workbook','.xlsx file','2 tabs'):
+            with self.subTest(claim=claim), tempfile.TemporaryDirectory() as d:
+                result = tc.check(planner_folder(d,'Includes '+claim+'.',PAGES),with_images=False)
+                self.assertEqual(result['verdict'],'needs fix')
+                self.assertTrue(any('no .xlsx' in p or 'only 0' in p for p in result['problems']), result)
+        with tempfile.TemporaryDirectory() as d:
+            folder = planner_folder(d,'Four pages in A4 and US Letter. No Excel file in this set.',PAGES)
+            result = tc.check(folder,with_images=False)
+            self.assertEqual(result['verdict'],'ready',result['problems'])
+
+    def test_mixed_pdf_workbook_folder_proves_both_formats(self):
+        with tempfile.TemporaryDirectory() as d:
+            folder = planner_folder(d,'Four pages in A4 and US Letter with an Excel (.xlsx) file.',PAGES)
+            wb=pb.Workbook();wb.add_sheet('Ledger');wb.save(os.path.join(folder,'ledger.xlsx'))
+            result=tc.check(folder,with_images=False)
+            self.assertEqual(result['verdict'],'ready',result['problems'])
+
 if __name__ == "__main__":
     unittest.main()
