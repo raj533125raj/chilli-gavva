@@ -411,7 +411,10 @@ def _sanitize_text(text, spec, facts=None):
     def repl_count(m):
         raw_num, unit = m.group(1), m.group(2)
         n = num_words.get(raw_num.lower(), int(raw_num) if raw_num.isdigit() else None)
-        if not unit.lower().endswith(("page", "pages")) or not is_pdf or n == actual_count:
+        modifiers = re.findall(r"[a-z0-9-]+", unit.lower())[:-1]
+        total_modifiers = {"printable", "pdf", "a4", "us", "letter", "and", "or", "in", "total"}
+        if (not unit.lower().endswith(("page", "pages")) or not is_pdf or n == actual_count
+                or any(word not in total_modifiers for word in modifiers)):
             return m.group(0)
         replacement = str(actual_count)
         if not raw_num.isdigit() and actual_count in num_words.values():

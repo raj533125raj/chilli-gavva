@@ -3,6 +3,7 @@ import csv
 import io
 import json
 import os
+from pathlib import Path
 import sys
 import tempfile
 import unittest
@@ -326,7 +327,6 @@ class P1FormatClaimTests(unittest.TestCase):
             with self.subTest(claim=claim), tempfile.TemporaryDirectory() as d:
                 wb = pb.Workbook();wb.add_sheet('Instructions');wb.add_sheet('Ledger');wb.add_sheet('Bills')
                 wb.save(os.path.join(d,'ledger.xlsx'))
-                Path = __import__('pathlib').Path
                 (Path(d)/'listing.md').write_text('Includes '+claim+'.')
                 result = tc.check(d,with_images=False)
                 self.assertEqual(result['verdict'],'needs fix')

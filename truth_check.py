@@ -364,7 +364,7 @@ def check(folder, with_images=True):
         if claim.startswith("count: "):
             n, what = claim[len("count: "):].split(" ", 1)
             if what == "pages":
-                have = f["pages"] if f["pdf_sizes"] else len(f["md"])
+                have = f["pages"] if f["pdf_sizes"] else len(f["md"]) + len(f["csv"])
                 format_ok = bool(f["pdf_sizes"] or f["md"])
             else:
                 have = len(f["sheets"])

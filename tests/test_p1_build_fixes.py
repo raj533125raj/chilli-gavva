@@ -74,6 +74,7 @@ class SanitizerCountTests(unittest.TestCase):
         self.assertEqual(pb._sanitize_text('8 pages', planner), '7 pages')
         self.assertEqual(pb._sanitize_text('One page', planner), 'Seven pages')
         self.assertEqual(pb._sanitize_text('Two sheets and Seven pages', planner), 'Two sheets and Seven pages')
+        self.assertEqual(pb._sanitize_text('12 monthly calendar pages and Two extra pages', dict(planner,kind='dated_planner')), '12 monthly calendar pages and Two extra pages')
 
 
 class SheetNormalizationTests(unittest.TestCase):
