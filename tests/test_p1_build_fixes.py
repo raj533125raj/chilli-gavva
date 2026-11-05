@@ -105,5 +105,38 @@ class PageNormalizationTests(unittest.TestCase):
             self.assertGreater(len(pdf.pages[0]),0)
 
 
+NS = {'m':'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+
+def workbook_parts(path):
+    with zipfile.ZipFile(path) as archive:
+        return {name:ET.fromstring(archive.read(name)) for name in archive.namelist() if name.endswith('.xml')}
+
+
+class WorkbookInstructionTests(unittest.TestCase):
+    def test_every_formula_cell_is_grey_and_money_formats_survive(self):
+        sheet = pb._norm_sheet({'name':'Ledger','columns':[{'name':'Income','type':'money'},{'name':'Spent','type':'money'}],
+                               'rows':[[10,3],[7,2]],'balance':{'in':'Income','out':'Spent'}})
+        spec = {'listing':{'title':'Ledger'},'instructions':[]}
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d,'ledger.xlsx');pb.build_workbook(path,spec,[sheet])
+            parts = workbook_parts(path)
+        styles = parts['xl/styles.xml'].find('m:cellXfs',NS)
+        fills = parts['xl/styles.xml'].find('m:fills',NS)
+        formula_count = 0
+        for name,root in parts.items():
+            if not name.startswith('xl/worksheets/'): continue
+            for cell in root.findall('.//m:c',NS):
+                if cell.find('m:f',NS) is not None:
+                    formula_count += 1
+                    style = styles[int(cell.get('s','0'))]
+                    self.assertEqual(fills[int(style.get('fillId'))].find('m:patternFill/m:fgColor',NS).get('rgb'),'FFD9D9D9')
+                    if cell.get('r') in ('C2','C3'): self.assertEqual(style.get('numFmtId'),'164')
+        self.assertGreater(formula_count,0)
+        instructions = ' '.join(node.text or '' for node in parts['xl/worksheets/sheet1.xml'].findall('.//m:t',NS))
+        self.assertIn('Grey cells contain formulas',instructions)
+        self.assertNotIn('Google Sheets',instructions)
+        self.assertNotIn('Apple Numbers',instructions)
+
+
 if __name__ == '__main__':
     unittest.main()

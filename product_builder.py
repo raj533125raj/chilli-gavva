@@ -32,6 +32,7 @@ import re
 import sys
 import zipfile
 from xml.sax.saxutils import escape
+import xml.etree.ElementTree as ET
 
 import guardrails
 
@@ -621,7 +622,7 @@ _XLSX_STYLES = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
 <numFmts count="2"><numFmt numFmtId="164" formatCode="&quot;$&quot;#,##0.00"/><numFmt numFmtId="165" formatCode="yyyy-mm-dd"/></numFmts>
 <fonts count="4"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="14"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>
-<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF2F5597"/><bgColor indexed="64"/></patternFill></fill></fills>
+<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF2F5597"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9D9D9"/><bgColor indexed="64"/></patternFill></fill></fills>
 <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
 <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
 <cellXfs count="9">
@@ -638,6 +639,19 @@ _XLSX_STYLES = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>"""
 S_HEADER, S_MONEY, S_DATE, S_WRAP, S_TITLE, S_BOLD, S_TOTAL_MONEY, S_TOTAL_NUM = 1, 2, 3, 4, 5, 6, 7, 8
+
+
+def _xlsx_styles():
+    """A grey-filled twin for each base style, retaining money/date/font formats."""
+    root = ET.fromstring(_XLSX_STYLES)
+    xfs = root.find("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}cellXfs")
+    for base in list(xfs):
+        formula = ET.fromstring(ET.tostring(base))
+        formula.set("fillId", "3")
+        formula.set("applyFill", "1")
+        xfs.append(formula)
+    xfs.set("count", str(len(xfs)))
+    return ET.tostring(root, encoding="unicode")
 
 
 def _col(n):
@@ -676,7 +690,7 @@ class Workbook:
 
     @staticmethod
     def put(sheet, row, col, value, style=0, formula=None):
-        sheet["cells"][(row, col)] = (value, style, formula)
+        sheet["cells"][(row, col)] = (value, style + 9 if formula and style < 9 else style, formula)
 
     def _sheet_xml(self, sheet):
         rows = {}
@@ -747,7 +761,7 @@ class Workbook:
                       f'2006/relationships/worksheet" Target="worksheets/sheet{i + 1}.xml"/>' for i in range(n))
             + f'<Relationship Id="rId{n + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/'
             'relationships/styles" Target="styles.xml"/></Relationships>',
-            "xl/styles.xml": _XLSX_STYLES,
+            "xl/styles.xml": _xlsx_styles(),
         }
         for i, s in enumerate(self.sheets):
             files[f"xl/worksheets/sheet{i + 1}.xml"] = self._sheet_xml(s)
@@ -764,11 +778,12 @@ def _instructions_sheet(wb, spec, extra=()):
     sheet = wb.add_sheet("Instructions", widths=[100], freeze=False)
     lines = [(spec["listing"]["title"], S_TITLE), ("", 0)]
     lines += [(f"{i}. {step}", S_WRAP) for i, step in enumerate(spec["instructions"] or
-              ["Make a copy of this file (Google Sheets: File > Make a copy; Excel: Save As).",
+              ["Make a copy of this Excel file with Save As.",
                "Delete the sample rows and type your own.",
                "Cells with formulas update by themselves, so you do not need to edit them."], 1)]
     lines += [("", 0)] + [(e, S_WRAP) for e in extra]
-    lines += [("", 0), ("Blue header rows stay visible while you scroll. Totals sit under each table.", S_WRAP),
+    lines += [("", 0), ("Grey cells contain formulas. Do not type over them; formula cells are not locked.", S_WRAP),
+              ("Blue header rows stay visible while you scroll. Totals sit under each table.", S_WRAP),
               ("This template helps you organise your own numbers. It is not financial, tax or legal advice.", S_WRAP)]
     for r, (text, style) in enumerate(lines, 1):
         Workbook.put(sheet, r, 0, text, style)
@@ -947,9 +962,8 @@ def _readme_md(spec, files, how_to):
 
 def _build_sheets(folder, spec):
     name = f"{spec['short_name']}.xlsx"
-    build_workbook(os.path.join(folder, name), spec, spec["sheets"],
-                   ["Works in Microsoft Excel, Google Sheets (File > Import) and Apple Numbers."])
-    return [name], ["Open the .xlsx in Excel, or upload it to Google Drive and open it with Google Sheets.",
+    build_workbook(os.path.join(folder, name), spec, spec["sheets"])
+    return [name], ["Open the .xlsx file in Excel.",
                     "Read the Instructions tab, then replace the sample rows with your own."]
 
 
