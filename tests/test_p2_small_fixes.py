@@ -1,10 +1,13 @@
 """P2 regressions use only synthetic input and isolated temporary databases/files."""
+import copy
 import os
 import tempfile
 import unittest
 from unittest import mock
 
 import checker
+import pdf_design
+import truth_check
 import guardrails
 import scout
 import telegram_inbox
@@ -57,3 +60,41 @@ class CheckerScoreBoundsTests(unittest.TestCase):
                 self.assertIn('/100',approval['review'])
                 self.assertEqual(checker.parse_review(approval['review'])[0],100)
                 self.assertIn('Total: 100/100',guardrails.get_approval(approval['id'],db)['payload'])
+
+
+class SplitGridSubtitleTests(unittest.TestCase):
+    def test_rendered_subtitle_matches_each_half_and_preserves_other_instructions(self):
+        for style in ('A','B'):
+            for size in ('A4','Letter'):
+                with self.subTest(style=style,size=size), tempfile.TemporaryDirectory() as folder:
+                    page = {'title':'Month grid','subtitle':'Days 1 to 31 · Record one tick each day.',
+                            'sections':[{'type':'grid','heading':'Habits','days':31,'count':6}]}
+                    original = copy.deepcopy(page)
+                    pdf = pdf_design.Pdf(size,style=style)
+                    pdf_design.render_page(pdf,page)
+                    path = os.path.join(folder,'month.pdf');pdf.save(path)
+                    pages = truth_check._pdf_pages(path)
+                    self.assertEqual(len(pages),2)
+                    for part,(start,end) in zip(pages,((1,16),(17,31))):
+                        texts = [item[4] for item in part['items']]
+                        self.assertIn(f'Month grid (days {start}-{end})',texts)
+                        self.assertIn(f'Days {start} to {end} · Record one tick each day.',texts)
+                        self.assertNotIn(page['subtitle'],texts)
+                    self.assertEqual(page,original)
+
+    def test_split_without_range_adds_it_and_unsplit_keeps_original_subtitle(self):
+        for subtitle in ('Build small habits',''):
+            pdf = pdf_design.Pdf('A4',style='A')
+            pdf_design.render_page(pdf,{'title':'Month','subtitle':subtitle,'sections':[{'type':'grid','days':31}]})
+            with tempfile.TemporaryDirectory() as folder:
+                path = os.path.join(folder,'month.pdf');pdf.save(path)
+                for part,span in zip(truth_check._pdf_pages(path),('Days 1 to 16','Days 17 to 31')):
+                    texts = [item[4] for item in part['items']]
+                    self.assertIn(f'{subtitle} · {span}' if subtitle else span,texts)
+        pdf = pdf_design.Pdf('Letter',style='B')
+        pdf_design.render_page(pdf,{'title':'Week','subtitle':'Days 1 to 7','sections':[{'type':'grid','days':7}]})
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder,'week.pdf');pdf.save(path)
+            pages = truth_check._pdf_pages(path)
+            self.assertEqual(len(pages),1)
+            self.assertIn('Days 1 to 7',[item[4] for item in pages[0]['items']])
