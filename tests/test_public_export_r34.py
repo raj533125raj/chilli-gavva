@@ -16,7 +16,7 @@ import workforce
 
 
 LEGACY_FIELDS = {"generated_at", "llm", "agents", "task_counts",
-                 "recent_tasks", "pending_approvals", "worker", "handoffs"}
+                 "recent_tasks", "pending_approvals", "worker", "handoffs", "office"}
 NEW_PUBLIC_FIELDS = {"products", "reject_reasons", "report", "workers", "pipeline"}
 PRIVATE_MARKERS = ("PRIVATE_FIXTURE_CREDENTIAL", "PRIVATE_FIXTURE_PROMPT",
                    "PRIVATE_FIXTURE_ERROR", "PRIVATE_FIXTURE_MODEL", "PRIVATE_FIXTURE_TITLE")

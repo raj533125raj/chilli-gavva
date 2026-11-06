@@ -9,6 +9,7 @@ Sent by the Telegram step of the cloud run (telegram_inbox.run) to the owner cha
 Nothing here is sent to an AI model.
 """
 import datetime
+import pathlib
 import sqlite3
 from zoneinfo import ZoneInfo
 
@@ -72,7 +73,40 @@ def _minutes(status_fn=None, reply=None):
     return f"GitHub minutes this month: {reply['month_minutes']} of 2000 free ({reply.get('month_runs', '?')} runs)"
 
 
-def daily_text(db_path=None, now=None, status_fn=None):
+def _count_ready_upload_packs(products_dir=None):
+    """Count folders under products_dir/upload/ containing product.zip and listing.txt."""
+    if products_dir is None:
+        try:
+            import product_builder
+            products_dir = product_builder.PRODUCTS_DIR
+        except Exception:
+            products_dir = "exported_content/products"
+    upload_dir = pathlib.Path(products_dir) / "upload"
+    if not upload_dir.is_dir():
+        return 0
+    count = 0
+    try:
+        entries = sorted(upload_dir.iterdir())
+    except OSError:
+        return 0
+    for entry in entries:
+        try:
+            if entry.is_dir() and (entry / "product.zip").is_file() and (entry / "listing.txt").is_file():
+                count += 1
+        except OSError:
+            continue
+    return count
+
+
+def upload_packs_line(products_dir=None):
+    """One safe status line showing count of ready upload packs."""
+    n = _count_ready_upload_packs(products_dir)
+    if n > 0:
+        return f"Upload packs ready: {n} (send /packs to see them)"
+    return "Upload packs ready: 0"
+
+
+def daily_text(db_path=None, now=None, status_fn=None, products_dir=None):
     now = now or _now()
     since = (now - datetime.timedelta(days=1)).isoformat()
     conn = guardrails.connect(db_path)
@@ -124,6 +158,7 @@ def daily_text(db_path=None, now=None, status_fn=None):
              f"Auto-decided (last 24h): {auto_approved} approved, {auto_rejected} rejected",
              f"Products built: {built}",
              built_line,
+             upload_packs_line(products_dir=products_dir),
              _minutes(reply=clock),
              door_bell_line(clock),
              f"Button presses received in the last 24h: {buttons}",
@@ -158,9 +193,9 @@ def weekly_text(db_path=None, now=None):
         f"Real money: ${week:.2f} this week, ${total:.2f} in total (only payouts recorded with proof)"])
 
 
-def report_text(db_path=None, now=None, status_fn=None):
+def report_text(db_path=None, now=None, status_fn=None, products_dir=None):
     now = now or _now()
-    text = daily_text(db_path, now, status_fn)
+    text = daily_text(db_path, now, status_fn, products_dir=products_dir)
     if now.weekday() == 6:
         text += "\n\n" + weekly_text(db_path, now)
     return text

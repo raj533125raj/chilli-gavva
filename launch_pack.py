@@ -292,6 +292,17 @@ def evaluate_pack_quality(folder_path: str, spec: Dict[str, Any]) -> Tuple[int, 
         score -= 15
         reasons.append("Listing description is too short")
 
+    # 5. Deep QA check
+    try:
+        import product_qa_deep
+        deep = product_qa_deep.check_folder(folder_path)
+        if deep["verdict"] != "ready":
+            score -= 25
+            for p in deep.get("problems", [])[:3]:
+                reasons.append(f"Deep QA issue: {p.get('kind')} - {p.get('detail')}")
+    except Exception as e:
+        reasons.append(f"deep QA skipped: {type(e).__name__}")
+
     final_score = max(0, min(100, score))
     if missing_imgs or invalid_imgs or missing_docs or not deliverables:
         final_score = min(final_score, QUALITY_BAR - 1)

@@ -10,7 +10,7 @@ import export_status
 import guardrails
 import workforce
 
-ALLOWED_TOP = {"generated_at", "llm", "agents", "task_counts", "recent_tasks", "pending_approvals", "worker", "handoffs"}
+ALLOWED_TOP = {"generated_at", "llm", "agents", "task_counts", "recent_tasks", "pending_approvals", "worker", "handoffs", "office"}
 
 
 class PublicStatusTests(unittest.TestCase):
