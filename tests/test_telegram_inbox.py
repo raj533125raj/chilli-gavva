@@ -181,10 +181,10 @@ class ButtonTests(InboxBase):
         self.assertEqual(guardrails.get_approval(a, self.db)["status"], "rejected")
         self.assertIn("Why?", self.sent[-1][1])
         labels = [label for row in self.buttons[-1] for label, _ in row]
-        self.assertEqual(labels, ["Price", "Too generic", "Bad niche", "Poor quality", "Other"])
+        self.assertEqual(labels, ["Too generic", "Duplicate", "Weak niche", "Promises too much", "Other"])
         self.run_updates([_cb(2, f"y:{a}:too generic")])
         conn = guardrails.connect(self.db)
-        self.assertEqual(conn.execute("SELECT reason FROM approvals WHERE id = ?", (a,)).fetchone()[0], "too generic")
+        self.assertEqual(conn.execute("SELECT reason FROM approvals WHERE id = ?", (a,)).fetchone()[0], "Too generic")
         conn.close()
 
     def test_unknown_reason_or_pending_draft_not_saved(self):
