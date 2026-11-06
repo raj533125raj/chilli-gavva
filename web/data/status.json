@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-06T03:20:19Z",
+ "generated_at": "2026-11-06T04:15:48Z",
  "llm": {
-  "calls_today": 1,
+  "calls_today": 8,
   "cap": 500
  },
  "agents": [
@@ -410,38 +410,38 @@
  "ai_health": [
   {
    "provider": "Groq",
-   "model": "openai/gpt-oss-20b",
+   "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-06T03:20:19Z"
+   "checked_at": "2026-11-06T04:15:48Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-06T03:20:19Z"
+   "checked_at": "2026-11-06T04:15:48Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-06T03:20:19Z"
+   "checked_at": "2026-11-06T04:15:48Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-06T03:20:19Z"
+   "checked_at": "2026-11-06T04:15:48Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-06T03:20:19Z"
+   "checked_at": "2026-11-06T04:15:48Z"
   }
  ],
  "minutes": {
@@ -745,23 +745,23 @@
  "reject_reasons": [
   {
    "reason": "Formatting or rubric issue",
-   "count": 88
+   "count": 90
   },
   {
    "reason": "Unclear value over free template",
-   "count": 50
+   "count": 51
   },
   {
    "reason": "Risky or prohibited claim",
-   "count": 34
+   "count": 38
   },
   {
    "reason": "Product structure incomplete",
-   "count": 27
+   "count": 28
   },
   {
    "reason": "Target audience unclear",
-   "count": 22
+   "count": 27
   }
  ],
  "report": {
@@ -877,68 +877,92 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   }
  ],
  "loop_events": [
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-06T04:15:47Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-06T04:15:47Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-06T03:20:37Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-06T03:20:31Z"
+  },
   {
    "agent": "Unknown agent",
    "kind": "error",
@@ -2187,12 +2211,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-06T03:20:15Z",
-  "last_run_end": "2026-11-06T03:20:19Z",
+  "last_run_start": "2026-11-06T04:15:47Z",
+  "last_run_end": "2026-11-06T04:15:48Z",
   "runner": "github-actions",
-  "run_id": "42155373496"
+  "run_id": "42160970750"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "fix(topics): remove recipe prices without repeating historical topics",
@@ -2211,8 +2236,7 @@
   "fix(sheets): make dashboards optional and separate incoming outgoing totals",
   "fix(sheets): fill formula cells grey and remove unverified app claims",
   "fix(builder): retain supported planner section types and metadata",
-  "fix(builder): preserve up to forty workbook columns",
-  "fix(builder): scope page counts to PDFs and preserve count grammar"
+  "fix(builder): preserve up to forty workbook columns"
  ],
  "daily_report": {
   "date_ist": "2026-11-06",
