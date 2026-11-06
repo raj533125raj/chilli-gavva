@@ -243,7 +243,12 @@ def decide(approval_id, approved, db_path=None, reason=None):
     return bool(changed)
 
 
-REJECT_REASONS = ("price", "too generic", "bad niche", "poor quality", "other")
+REJECT_REASONS = ("price", "too generic", "bad niche", "poor quality", "other",
+                  # owner-facing labels from the Telegram one-tap reject buttons
+                  "Too generic", "Duplicate", "Weak niche", "Promises too much", "Other",
+                  "duplicate", "weak niche", "promises too much",
+                  # 24h auto-decision
+                  "Low score (auto)", "low score (auto)")
 
 
 def set_reason(approval_id, reason, db_path=None):

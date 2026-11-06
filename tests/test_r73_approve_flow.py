@@ -103,7 +103,7 @@ class ApproveFlowTests(unittest.TestCase):
         chat, msg_id, text, btns = self.edited[0]
         self.assertEqual(chat, OWNER)
         self.assertEqual(msg_id, 42)
-        self.assertEqual(text, "Approved ✓")
+        self.assertTrue(text.startswith("Approved ✓"))
         self.assertIsNone(btns)
 
         # Second tap does nothing

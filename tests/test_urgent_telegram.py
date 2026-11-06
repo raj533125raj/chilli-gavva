@@ -94,7 +94,7 @@ class TelegramIntegrationTests(unittest.TestCase):
         self.assertEqual(self.run_server(server)["commands"], 1)
         self.assertEqual(guardrails.get_approval(approval, self.db)["status"], "approved")
         self.assertEqual(len(server.sent), 1)
-        self.assertIn(f"Approved: #{approval}", server.sent[0]["text"])
+        self.assertIn(f"Approved ✓ #{approval}", server.sent[0]["text"])
         self.assertEqual(server.sent[0]["chat_id"], "42")
         self.assertEqual(self.run_server(server)["commands"], 0)
         self.assertEqual(len(server.sent), 1)

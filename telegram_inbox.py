@@ -82,14 +82,7 @@ REASON_LABELS = {
     "other": "Other",
 }
 
-# Extend guardrails.REJECT_REASONS to support both new and legacy reasons
-_KNOWN_REASONS = tuple(dict.fromkeys(
-    list(getattr(guardrails, "REJECT_REASONS", ())) +
-    list(REASON_LABELS.keys()) +
-    list(REASON_LABELS.values()) +
-    ["Low score (auto)", "low score (auto)"]
-))
-guardrails.REJECT_REASONS = _KNOWN_REASONS
+# The one-tap reject labels live in guardrails.REJECT_REASONS (no runtime patching).
 
 
 # ---- small state store (kept in agent_data.db so it survives cloud runs) ----
@@ -739,7 +732,7 @@ def handle_callback(token, owner_chat_id, data, db_path=None, message_id=None):
                 return "Approved ✓"
             changed = guardrails.decide(approval_id, True, db_path)
             if changed:
-                reply = "Approved ✓"
+                reply = f"Approved ✓ #{approval_id}"
                 if message_id:
                     edit_text(token, owner_chat_id, message_id, reply)
                 else:
