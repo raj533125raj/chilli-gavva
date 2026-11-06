@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-06T05:14:50Z",
+ "generated_at": "2026-11-06T06:56:38Z",
  "llm": {
   "calls_today": 8,
   "cap": 500
@@ -413,35 +413,35 @@
    "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-06T05:14:50Z"
+   "checked_at": "2026-11-06T06:56:38Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-06T05:14:50Z"
+   "checked_at": "2026-11-06T06:56:38Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-06T05:14:50Z"
+   "checked_at": "2026-11-06T06:56:38Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-06T05:14:50Z"
+   "checked_at": "2026-11-06T06:56:38Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-06T05:14:50Z"
+   "checked_at": "2026-11-06T06:56:38Z"
   }
  ],
  "minutes": {
@@ -2211,12 +2211,16 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-06T05:14:49Z",
-  "last_run_end": "2026-11-06T05:14:50Z",
+  "last_run_start": "2026-11-06T06:56:37Z",
+  "last_run_end": "2026-11-06T06:56:38Z",
   "runner": "github-actions",
-  "run_id": "42166878480"
+  "run_id": "42177177680"
  },
  "changelog": [
+  "Keep reject reasons in guardrails (no runtime patch) and show the draft number on Approve",
+  "One-tap draft approval in Telegram + 24h auto-decision (>=70 approve, <70 reject, owner first wins) (Jules JE2)",
+  "Cloud approval ledger: Cloudflare Worker + SQLite Durable Object, code only, not deployed (Jules JQ)",
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
@@ -2232,11 +2236,7 @@
   "fix(truth): avoid treating spelled page counts as named content",
   "fix(truth): distinguish printable sheets from Excel worksheet promises",
   "fix(builder): preserve subset page counts and Notion import totals",
-  "fix(truth): require actual PDF and Excel files for format promises",
-  "fix(truth): distinguish ordinary daily pages from dated planner promises",
-  "fix(sheets): make dashboards optional and separate incoming outgoing totals",
-  "fix(sheets): fill formula cells grey and remove unverified app claims",
-  "fix(builder): retain supported planner section types and metadata"
+  "fix(truth): require actual PDF and Excel files for format promises"
  ],
  "daily_report": {
   "date_ist": "2026-11-06",
