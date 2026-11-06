@@ -122,6 +122,7 @@ def _scan(path):
 def _checklist(has_cover):
     cover = "Use cover.png for the cover." if has_cover else "Choose a cover image; this pack has no cover."
     return ("nothing was uploaded\n\n"
+            "Price: set by owner\n\n"
             "Gumroad\n"
             "Create a digital product by hand in your own account.\n"
             "Fill the title, description and tags from listing.txt.\n"

@@ -115,7 +115,8 @@ class Base(unittest.TestCase):
             self.assertEqual(f.read().strip(), "Personal use only. Do not resell or share the files.")
         with open(os.path.join(folder, "listing.md"), encoding="utf-8") as f:
             listing = f.read()
-        self.assertIn("USD", listing)
+        self.assertNotIn("**Price:**", listing)
+        self.assertNotIn("USD", listing)
         self.assertIn("**Buyer:**", listing)
         self.assertIn("**Platform:**", listing)
         tags = listing.split("## Tags (5)")[1].split("##")[0]

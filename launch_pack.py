@@ -132,12 +132,11 @@ def _format_launch_listing(spec: Dict[str, Any], file_list: List[str], facts: Op
 
     # Ensure description explicitly states deliverable facts for truth checker
     kind = spec.get("kind", "")
-    if kind in ("planner", "dated_planner"):
-        num_pages = facts["pages"] if facts and "pages" in facts else (len(spec.get("pages", [])) + 2 + (1 if spec.get("daily_page") else 0))
-        description += f"\n\nIncludes {num_pages} printable pages in A4 and US Letter sizes."
-    elif kind in ("sheets", "resume"):
-        num_sheets = len(facts["sheets"]) if facts and "sheets" in facts else len(spec.get("sheets", []))
-        description += f"\n\nIncludes {num_sheets} worksheets."
+    if facts and facts.get("pdf_sizes"):
+        sizes = ["US Letter" if size == "Letter" else size for size in facts["pdf_sizes"]]
+        description += f"\n\nIncludes {facts['pages']} printable pages in {' and '.join(sizes)} sizes."
+    if facts and facts.get("sheets"):
+        description += f"\n\nIncludes {len(facts['sheets'])} worksheets."
     elif kind == "notion" and facts:
         description += f"\n\nIncludes {len(facts['md']) + len(facts['csv'])} import pages and tables."
     if facts:
@@ -182,6 +181,8 @@ def _format_launch_listing(spec: Dict[str, Any], file_list: List[str], facts: Op
         if item["q"] == "What software do I need to use these files?":
             if kind in ("planner", "dated_planner"):
                 answer = "Use a standard PDF reader to print these pages."
+                if facts and facts.get("sheets"):
+                    answer += " Open the .xlsx workbook in Microsoft Excel."
             elif kind in ("sheets", "resume"):
                 answer = "Open the .xlsx workbook in Microsoft Excel."
                 if kind == "resume":
@@ -195,6 +196,12 @@ def _format_launch_listing(spec: Dict[str, Any], file_list: List[str], facts: Op
         lines.append("")
 
     lines.extend([
+        "## What you get",
+        ""
+    ])
+    lines.extend([f"- {item}" for item in product_builder._contents_lines(facts, file_list)])
+    lines.extend([
+        "",
         "## Included Files",
         ""
     ])
@@ -213,7 +220,10 @@ def _format_launch_listing(spec: Dict[str, Any], file_list: List[str], facts: Op
     lines.extend([f"{i}. {step}" for i, step in enumerate(checklist, 1)])
     lines.append("")
 
-    return "\n".join(lines)
+    body = "\n".join(lines)
+    from upload_pack import _check_money
+    _check_money(body, "generated listing.md")
+    return body
 
 
 def evaluate_pack_quality(folder_path: str, spec: Dict[str, Any]) -> Tuple[int, List[str]]:
@@ -370,7 +380,7 @@ def build_launch_pack(approval_id: int, db_path=None, out_dir=None, llm=None,
         with open(os.path.join(folder_path, "FILE_LIST.txt"), "w", encoding="utf-8") as f:
             f.write("Included Launch Pack Files:\n" + "\n".join([f"- {name}" for name in files_built]) + "\n")
 
-        facts = truth_check.facts(folder_path)
+        facts = product_builder._delivery_facts(folder_path)
         listing_content = _format_launch_listing(spec, files_built, facts=facts)
         with open(os.path.join(folder_path, "listing.md"), "w", encoding="utf-8") as f:
             f.write(listing_content)

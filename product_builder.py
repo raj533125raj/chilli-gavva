@@ -8,7 +8,7 @@ yet, the large model writes a JSON product spec, and this module builds the real
   Notion Templates                    -> Notion import .zip (Markdown + CSV databases) + import guide
   Resume Bundle                       -> resume .docx + cover letter .docx + job tracker .xlsx
 
-Every product also gets listing.md (title, description, 5 tags, USD price, buyer, platform),
+Every product also gets listing.md (title, description, 5 tags, real files, buyer, platform),
 README.md (instructions), cover_image_idea.txt, LICENSE.txt (personal use only) and listing images
 (cover.png, preview-1..3.png, pinterest.png, made by mockups.py). Output: exported_content/products/<id>-<name>/.
 
@@ -23,6 +23,7 @@ Usage:
 """
 import secret_guard
 import argparse
+import copy
 import csv
 import datetime
 import io
@@ -257,6 +258,10 @@ def parse_spec(text, niche):
     checker = {"sheets": _norm_sheets, "planner": _norm_pages, "notion": _norm_notion, "resume": _norm_resume,
                "dated_planner": _norm_dated}[kind]
     reason = checker(data, spec)
+    if not reason and kind in ("planner", "dated_planner") and data.get("sheets"):
+        reason = _norm_sheets(data, spec)
+    if not reason and kind == "sheets" and data.get("pages"):
+        reason = _norm_pages(data, spec)
     if reason:
         return None, reason
     # Sanitize listing text and instructions to only promise features present in built files
@@ -327,7 +332,7 @@ def _sanitize_text(text, spec, facts=None):
     if facts:
         import truth_check
         fact_names = truth_check._names(facts)
-        all_names = list(set(spec_names + fact_names))
+        all_names = fact_names
     else:
         all_names = spec_names
 
@@ -423,10 +428,16 @@ def _sanitize_text(text, spec, facts=None):
                  "fifteen": 15, "sixteen": 16}
 
     is_pdf = bool(facts.get("pdf_sizes")) if facts is not None else kind in ("planner", "dated_planner")
+    if facts is not None:
+        for label, pattern in (("A4", r"\bA4\b"), ("Letter", r"(?<!cover )(?<!cover-)\b(?:US\s+)?Letter\b(?!\s+to\b)")):
+            if label not in facts.get("pdf_sizes", []):
+                text = re.sub(pattern, "the supplied format", text, flags=re.I)
 
     def repl_count(m):
         raw_num, unit = m.group(1), m.group(2)
         n = num_words.get(raw_num.lower(), int(raw_num) if raw_num.isdigit() else None)
+        if facts is not None and unit.lower().endswith(("page", "pages")) and not is_pdf and kind != "notion":
+            return "the included files"
         modifiers = re.findall(r"[a-z0-9-]+", unit.lower())[:-1]
         total_modifiers = {"printable", "pdf", "a4", "us", "letter", "and", "or", "in", "total"}
         if (not unit.lower().endswith(("page", "pages")) or not is_pdf or n == actual_count
@@ -445,7 +456,7 @@ def _sanitize_text(text, spec, facts=None):
             unit += "s"
         return f"{replacement} {unit}"
 
-    count_rx = re.compile(r"\b(\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen)\s+((?:[a-z0-9-]+,?\s){0,5}?(?:pages?|sheets|tabs|worksheets|databases))\b", re.I)
+    count_rx = re.compile(r"\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen)\s+((?:[a-z0-9-]+,?\s){0,5}?(?:pages?|sheets|tabs|worksheets|databases))\b", re.I)
     text = count_rx.sub(repl_count, text)
     count_spans = [m.span() for m in count_rx.finditer(text)]
 
@@ -1003,17 +1014,76 @@ from pdf_design import (BOTTOM, PAGE_SIZES, PLANNER_YEAR, STYLES, TODAY_PAGE, WE
 
 
 # ---- product folders -------------------------------------------------------------------
-def _listing_md(spec):
+def _delivery_facts(folder):
+    """Inspect robot-built deliverables; filenames and spec promises are not PDF evidence."""
+    import truth_check
+    facts = truth_check.facts(folder)
+    contents, sizes, counts = [], set(), []
+    for name in sorted(os.listdir(folder)):
+        path = os.path.join(folder, name)
+        ext = os.path.splitext(name)[1].lower()
+        if not os.path.isfile(path):
+            continue
+        if ext == ".pdf":
+            with open(path, "rb") as stream:
+                data = stream.read()
+            count = len(re.findall(rb"/Type\s*/Page\b", data))
+            boxes = re.findall(rb"/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]", data)
+            paper, known_boxes = set(), 0
+            for w, h in boxes:
+                dimensions = sorted((float(w), float(h)))
+                label = next((label for label, dims in PAGE_SIZES.items()
+                              if all(abs(a - b) < 1 for a, b in zip(dimensions, sorted(dims)))), None)
+                if label:
+                    paper.add(label)
+                    known_boxes += 1
+            # The robot writes a MediaBox on each page. Do not infer missing boxes.
+            verified = paper if count and known_boxes == len(boxes) == count and len(paper) == 1 else set()
+            sizes.update(verified)
+            counts.append(count)
+            label = "US Letter" if verified == {"Letter"} else next(iter(verified), "paper size unspecified")
+            contents.append(f"`{name}` — PDF, {count} pages, {label}")
+        elif ext == ".xlsx":
+            with zipfile.ZipFile(path) as workbook:
+                root = ET.fromstring(workbook.read("xl/workbook.xml"))
+                tabs = [element.get("name", "") for element in root.findall("{*}sheets/{*}sheet")]
+            contents.append(f"`{name}` — Excel (.xlsx); tabs: " + ", ".join(tabs))
+        elif ext in (".docx", ".zip") or name in {"README.md", "README.txt", "README", "LICENSE.txt", "HOW_TO_IMPORT.md"}:
+            label = {".docx": "Word document", ".zip": "ZIP archive", ".md": "Markdown", ".txt": "plain text"}.get(ext, "plain text")
+            contents.append(f"`{name}` — {label}")
+    facts["contents"] = contents
+    facts["pdf_sizes"] = sorted(sizes)
+    if counts:
+        facts["pages"] = min(counts)
+    return facts
+
+
+def _contents_lines(facts=None, file_list=()):
+    """Detailed buyer contents when inspected; no invented counts before a build."""
+    if facts and "contents" in facts:
+        return facts["contents"]
+    return [f"`{name}`" for name in file_list
+            if os.path.splitext(name)[1].lower() in (".pdf", ".xlsx", ".docx", ".zip")
+            or name in ("README.md", "README.txt", "LICENSE.txt", "HOW_TO_IMPORT.md")]
+
+
+def _listing_md(spec, facts=None):
     l = spec["listing"]
-    return "\n".join([
+    body = "\n".join([
         f"# {l['title']}", "",
-        f"**Price:** {l['price_usd']:.2f} USD  ", f"**Buyer:** {l['buyer']}  ", f"**Platform:** {l['platform']}", "",
+        f"**Buyer:** {l['buyer']}  ", f"**Platform:** {l['platform']}", "",
         "## Description", "", l["description"], "",
+        "## What you get", "", *[f"- {item}" for item in _contents_lines(facts)], "",
         f"## Tags ({len(l['tags'])})", "", *[f"- {t}" for t in l["tags"]], "",
         "## Cover image idea", "", spec["cover_image_idea"] or "A clean flat-lay of the product on a laptop screen.",
         "", "---", (spec.get("source_note") or f"Built by the Product Builder from approved draft #{spec['approval_id']}.")
         + " "
         "Check the files, then upload them to the store yourself.", ""])
+    # Narrative, tags and file names can contain money too. Refuse rather than
+    # silently changing the owner's text or emitting a priced listing.
+    from upload_pack import _check_money
+    _check_money(body, "generated listing.md")
+    return body
 
 
 def _readme_md(spec, files, how_to):
@@ -1117,21 +1187,27 @@ BUILDERS = {"sheets": _build_sheets, "planner": _build_planner, "notion": _build
 def build_product(spec, approval_id, out_dir=None, folder_name=None):
     """Write all files for one spec. Returns the folder name."""
     out_dir = out_dir or PRODUCTS_DIR
-    spec = dict(spec, approval_id=approval_id)
+    spec = dict(copy.deepcopy(spec), approval_id=approval_id)
     folder_name = folder_name or f"{approval_id}-{spec['short_name']}"
     folder = os.path.join(out_dir, folder_name)
     os.makedirs(folder, exist_ok=True)
     files, how_to = BUILDERS[spec["kind"]](folder, spec)
+    if spec["kind"] in ("planner", "dated_planner") and spec.get("sheets"):
+        sheet_files, sheet_how_to = _build_sheets(folder, spec)
+        files += sheet_files
+        how_to += sheet_how_to
+    elif spec["kind"] == "sheets" and spec.get("pages"):
+        pdf_files, pdf_how_to = _build_planner(folder, spec)
+        files += pdf_files
+        how_to += pdf_how_to
 
     # Extract actual facts from built files and sanitize listing text and instructions
-    import truth_check
-    facts = truth_check.facts(folder)
+    facts = _delivery_facts(folder)
     spec["listing"]["title"] = _sanitize_text(spec["listing"]["title"], spec, facts=facts)
     spec["listing"]["description"] = _sanitize_text(spec["listing"]["description"], spec, facts=facts)
     spec["instructions"] = [_sanitize_text(inst, spec, facts=facts) for inst in spec["instructions"]]
 
-    with open(os.path.join(folder, "listing.md"), "w", encoding="utf-8") as f:
-        f.write(_listing_md(spec))
+    _listing_md(spec, facts=facts)  # validate before writing listing media
     with open(os.path.join(folder, "cover_image_idea.txt"), "w", encoding="utf-8") as f:
         f.write((spec["cover_image_idea"] or "A clean flat-lay of the product on a laptop screen.") + "\n")
     with open(os.path.join(folder, "LICENSE.txt"), "w", encoding="utf-8") as f:
@@ -1145,6 +1221,8 @@ def build_product(spec, approval_id, out_dir=None, folder_name=None):
         print(f"Product Builder: listing images skipped for #{approval_id}: {type(exc).__name__}", file=sys.stderr)
     with open(os.path.join(folder, "README.md"), "w", encoding="utf-8") as f:
         f.write(_readme_md(spec, files + extra, how_to))
+    with open(os.path.join(folder, "listing.md"), "w", encoding="utf-8") as f:
+        f.write(_listing_md(spec, facts=_delivery_facts(folder)))
     return folder_name
 
 
