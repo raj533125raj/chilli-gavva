@@ -1,0 +1,114 @@
+{
+  "approval_id": 8,
+  "kind": "sheets",
+  "niche": "Freelancer Trackers Agent",
+  "name": "Pricing Calculator",
+  "short_name": "pricing-calculator",
+  "listing": {
+    "title": "Pricing Calculator - Product and Service Cost Calculator Spreadsheet",
+    "description": "A spreadsheet with Calculator and Materials tabs to estimate costs and set profitable pricing.\n\nIncludes an Instructions tab, a Calculator tab, and a Materials tab.\n\nOpen in Excel or your preferred spreadsheet program.",
+    "tags": [
+      "pricing calculator",
+      "profit calculator",
+      "product pricing",
+      "small business sheet",
+      "cost calculator"
+    ],
+    "price_usd": 14.0,
+    "buyer": "freelancers, makers, and small business owners",
+    "platform": "Gumroad"
+  },
+  "instructions": [
+    "Open the workbook in Excel.",
+    "Enter raw material details and unit costs in the Materials tab.",
+    "Calculate item totals, labor, and final prices in the Calculator tab."
+  ],
+  "cover_image_idea": "The Pricing Calculator sheet open on a computer screen.",
+  "sheets": [
+    {
+      "name": "Calculator",
+      "columns": [
+        {
+          "name": "Product or Service",
+          "type": "text",
+          "options": []
+        },
+        {
+          "name": "Material Cost",
+          "type": "money",
+          "options": []
+        },
+        {
+          "name": "Labor Cost",
+          "type": "money",
+          "options": []
+        },
+        {
+          "name": "Overhead Cost",
+          "type": "money",
+          "options": []
+        },
+        {
+          "name": "Target Price",
+          "type": "money",
+          "options": []
+        }
+      ],
+      "rows": [
+        [
+          "Brand Identity Package",
+          0,
+          300,
+          50,
+          600
+        ],
+        [
+          "Handmade Tote Bag",
+          12,
+          25,
+          5,
+          65
+        ]
+      ]
+    },
+    {
+      "name": "Materials",
+      "columns": [
+        {
+          "name": "Item Description",
+          "type": "text",
+          "options": []
+        },
+        {
+          "name": "Supplier",
+          "type": "text",
+          "options": []
+        },
+        {
+          "name": "Unit Cost",
+          "type": "money",
+          "options": []
+        },
+        {
+          "name": "Notes",
+          "type": "text",
+          "options": []
+        }
+      ],
+      "rows": [
+        [
+          "Organic Cotton Fabric",
+          "Eco Textiles",
+          7.5,
+          "Per meter"
+        ],
+        [
+          "Heavy Duty Thread",
+          "Craft Supply Co",
+          2.0,
+          "Per spool"
+        ]
+      ]
+    }
+  ]
+}

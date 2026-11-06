@@ -1,0 +1,176 @@
+{
+  "approval_id": 2,
+  "kind": "planner",
+  "niche": "Budget Sheets Agent",
+  "style": "A",
+  "name": "Bills and Debt Tracker",
+  "short_name": "bills-debt-tracker",
+  "daily_page": false,
+  "listing": {
+    "title": "Bills and Debt Tracker - Printable Debt List and Payment Log",
+    "description": "A printable debt payoff and bills tracking planner with an Excel spreadsheet.\n\nInside the printable PDF: a cover, a How to use page, the Debt List page with name, type, balance, rate, and minimum payment, the Payment Log page, and the Monthly Bills page.\n\nAlso includes an Excel (.xlsx) file with a Debt Tracker tab with running balances and a Bills tab.\n\nPrint on A4 or US Letter paper for personal use.",
+    "tags": [
+      "debt tracker",
+      "bills tracker",
+      "debt payoff",
+      "printable planner",
+      "payment log"
+    ],
+    "price_usd": 8.0,
+    "buyer": "adults who want an organized debt payoff and bills tracking system",
+    "platform": "Gumroad"
+  },
+  "instructions": [
+    "Print the A4 or US Letter file at 100% scale.",
+    "List your debts on the Debt List page with balance, rate, and minimum payment.",
+    "Record payments on the Payment Log page and bills on the Monthly Bills page.",
+    "Open the .xlsx file in Excel to track running balances on the Debt Tracker tab."
+  ],
+  "cover_image_idea": "The Debt List page printed on paper next to a computer screen.",
+  "pages": [
+    {
+      "title": "Debt List",
+      "subtitle": "Overview of debt accounts and terms",
+      "sections": [
+        {
+          "heading": "Debt overview",
+          "type": "table",
+          "columns": [
+            "Name",
+            "Type",
+            "Balance",
+            "Rate",
+            "Minimum payment"
+          ],
+          "count": 8
+        }
+      ]
+    },
+    {
+      "title": "Payment Log",
+      "subtitle": "Track debt payments over time",
+      "sections": [
+        {
+          "heading": "Payments",
+          "type": "table",
+          "columns": [
+            "Date",
+            "Account",
+            "Amount",
+            "Remaining balance"
+          ],
+          "count": 10
+        }
+      ]
+    },
+    {
+      "title": "Monthly Bills",
+      "subtitle": "Checklist for recurring monthly bills",
+      "sections": [
+        {
+          "heading": "Bills",
+          "type": "table",
+          "columns": [
+            "Bill",
+            "Due Date",
+            "Amount",
+            "Paid"
+          ],
+          "count": 10
+        }
+      ]
+    }
+  ],
+  "sheets": [
+    {
+      "name": "Debt Tracker",
+      "columns": [
+        {
+          "name": "Date",
+          "type": "date",
+          "options": []
+        },
+        {
+          "name": "Account",
+          "type": "text",
+          "options": []
+        },
+        {
+          "name": "Starting Balance",
+          "type": "money",
+          "options": []
+        },
+        {
+          "name": "Payment Made",
+          "type": "money",
+          "options": []
+        }
+      ],
+      "rows": [
+        [
+          "2026-01-01",
+          "Credit Card A",
+          1500,
+          ""
+        ],
+        [
+          "2026-01-15",
+          "Credit Card A",
+          "",
+          150
+        ]
+      ],
+      "balance": {
+        "in": "Starting Balance",
+        "out": "Payment Made"
+      }
+    },
+    {
+      "name": "Bills",
+      "columns": [
+        {
+          "name": "Bill Name",
+          "type": "text",
+          "options": []
+        },
+        {
+          "name": "Due Date",
+          "type": "date",
+          "options": []
+        },
+        {
+          "name": "Amount Due",
+          "type": "money",
+          "options": []
+        },
+        {
+          "name": "Status",
+          "type": "text",
+          "options": [
+            "Paid",
+            "Unpaid"
+          ]
+        }
+      ],
+      "rows": [
+        [
+          "Internet",
+          "2026-01-10",
+          60,
+          "Paid"
+        ],
+        [
+          "Water Bill",
+          "2026-01-22",
+          45,
+          "Unpaid"
+        ]
+      ],
+      "overdue": {
+        "due": "Due Date",
+        "status": "Status",
+        "done": "Paid"
+      }
+    }
+  ]
+}

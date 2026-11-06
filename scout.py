@@ -489,6 +489,8 @@ def run_scout(db_path=None, llm=None):
     stored_ideas = []
 
     for item in top_5:
+        # Keep the preference-weighted ranking above, but never publish/store a score over 100.
+        item = dict(item, total_score=max(0, min(100, item["total_score"])))
         payload_text = (f"Category: {item['category']}\n"
                         f"Niche: {item['niche']}\n"
                         f"Scores: Demand={item['demand_score']}/25, Competition={item['competition_score']}/25, "

@@ -1,0 +1,107 @@
+{
+  "approval_id": 9,
+  "kind": "sheets",
+  "niche": "Budget Sheets Agent",
+  "name": "Monthly Money Summary",
+  "short_name": "monthly-money-summary",
+  "listing": {
+    "title": "Monthly Money Summary - Monthly Budget and Cash Flow Spreadsheet",
+    "description": "A spreadsheet with Monthly Summary and Category Breakdown tabs to track income, expenses, and savings.\n\nIncludes an Instructions tab, a Monthly Summary tab, and a Category Breakdown tab.\n\nOpen in Excel or your preferred spreadsheet program.",
+    "tags": [
+      "monthly money summary",
+      "budget spreadsheet",
+      "money tracker",
+      "monthly budget",
+      "cash flow sheet"
+    ],
+    "price_usd": 7.0,
+    "buyer": "adults who want a clear monthly money overview",
+    "platform": "Gumroad"
+  },
+  "instructions": [
+    "Open the workbook in Excel.",
+    "Record monthly income, expenses, and net savings in the Monthly Summary tab.",
+    "Review planned versus actual spending in the Category Breakdown tab."
+  ],
+  "cover_image_idea": "The Monthly Summary sheet open on a computer screen.",
+  "sheets": [
+    {
+      "name": "Monthly Summary",
+      "columns": [
+        {
+          "name": "Month",
+          "type": "text",
+          "options": []
+        },
+        {
+          "name": "Total Income",
+          "type": "money",
+          "options": []
+        },
+        {
+          "name": "Total Expenses",
+          "type": "money",
+          "options": []
+        },
+        {
+          "name": "Net Savings",
+          "type": "money",
+          "options": []
+        }
+      ],
+      "rows": [
+        [
+          "January 2026",
+          3200,
+          2100,
+          1100
+        ],
+        [
+          "February 2026",
+          3300,
+          2050,
+          1250
+        ]
+      ]
+    },
+    {
+      "name": "Category Breakdown",
+      "columns": [
+        {
+          "name": "Category",
+          "type": "text",
+          "options": []
+        },
+        {
+          "name": "Planned Budget",
+          "type": "money",
+          "options": []
+        },
+        {
+          "name": "Actual Spending",
+          "type": "money",
+          "options": []
+        },
+        {
+          "name": "Notes",
+          "type": "text",
+          "options": []
+        }
+      ],
+      "rows": [
+        [
+          "Housing",
+          1100,
+          1100,
+          "Rent"
+        ],
+        [
+          "Groceries",
+          450,
+          420,
+          "Food and supplies"
+        ]
+      ]
+    }
+  ]
+}

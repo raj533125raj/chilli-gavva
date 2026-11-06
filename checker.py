@@ -200,6 +200,7 @@ def check_draft(draft_text: str, topic: str = "", ctx: Optional[Dict[str, Any]] 
 
 def format_review(score: int, reasons: List[str], verdict: str = "pass", fallback: bool = False) -> str:
     """Format review summary string for storage and display."""
+    score = max(0, min(100, score))
     top_reasons = "; ".join(reasons[:2]) if reasons else "Looks good"
     v_str = verdict.upper() if not fallback else "unavailable (checklist only)"
     res = f"score {score}/100 | Checker: {score}/100 | CHECKER: {v_str}"
@@ -211,17 +212,27 @@ def format_review(score: int, reasons: List[str], verdict: str = "pass", fallbac
     return res
 
 
+def _raw_review_score(review_text: Optional[str]) -> Optional[int]:
+    """Prefer the Checker score; retain the raw value for approval eligibility checks."""
+    if not isinstance(review_text, str):
+        return None
+    m = re.search(r"Checker:\s*([+-]?\d+)\s*/\s*100\b", review_text, re.IGNORECASE)
+    if not m:
+        m = re.search(r"(?<![\d.])([+-]?\d+)\s*/\s*100\b", review_text, re.IGNORECASE)
+    try:
+        return int(m.group(1)) if m else None
+    except ValueError:
+        return None
+
+
 def parse_review(review_text: Optional[str]) -> Tuple[Optional[int], List[str]]:
     """Extract score and top reasons from review text string."""
     if not review_text or not isinstance(review_text, str):
         return None, []
 
-    # Look for 'Checker: 82/100' or 'score 82/100' or '82/100'
-    # The checklist and the checker can have different scores. Prefer the checker.
-    m = re.search(r"Checker:\s*(\d{1,3})\s*/\s*100", review_text, re.IGNORECASE)
-    if not m:
-        m = re.search(r"(?:score\s*)?(\d{1,3})\s*/\s*100", review_text, re.IGNORECASE)
-    score = int(m.group(1)) if m else None
+    # Old stored Scout reviews may contain a preference bonus above 100.
+    raw_score = _raw_review_score(review_text)
+    score = max(0, min(100, raw_score)) if raw_score is not None else None
 
     # Look for top reasons after '| top:' or '| issues:'
     reasons = []
@@ -235,7 +246,7 @@ def parse_review(review_text: Optional[str]) -> Tuple[Optional[int], List[str]]:
 
 def review_passes(review_text: Optional[str]) -> bool:
     """A high checklist score never overrides a rejected or unavailable checker."""
-    score, _ = parse_review(review_text)
+    score = _raw_review_score(review_text)
     verdict = re.search(r"CHECKER:\s*(PASS|APPROVE|REVISE|REJECT|UNAVAILABLE)\b",
                         review_text or "", re.IGNORECASE)
     return bool(score is not None and 70 <= score <= 100 and verdict

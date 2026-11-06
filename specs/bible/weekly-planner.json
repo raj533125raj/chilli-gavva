@@ -1,0 +1,95 @@
+{
+  "approval_id": 10,
+  "kind": "planner",
+  "niche": "ADHD Planners Agent",
+  "style": "A",
+  "name": "Weekly Planner",
+  "short_name": "weekly-planner",
+  "daily_page": false,
+  "listing": {
+    "title": "Weekly Planner - Printable Weekly Schedule, Habits and Budget",
+    "description": "A printable weekly planner for scheduling and tracking routines.\n\nInside: a cover, a How to use page, the Weekly Schedule page, the Habit Tracker page, and the Weekly Budget page.\n\nPrint on A4 or US Letter paper, as often as you need, for personal use.",
+    "tags": [
+      "weekly planner",
+      "printable planner",
+      "habit tracker",
+      "budget planner",
+      "routine planner"
+    ],
+    "price_usd": 8.0,
+    "buyer": "adults seeking an organized weekly planning system",
+    "platform": "Gumroad"
+  },
+  "instructions": [
+    "Print the A4 or US Letter file at 100% scale.",
+    "Organize your weekly priorities and daily commitments on the Weekly Schedule page.",
+    "Record daily habits on the Habit Tracker page and manage spending on the Weekly Budget page."
+  ],
+  "cover_image_idea": "The Weekly Schedule page printed on clean paper.",
+  "pages": [
+    {
+      "title": "Weekly Schedule",
+      "subtitle": "Plan tasks across Monday through Sunday",
+      "sections": [
+        {
+          "heading": "Weekly priorities",
+          "type": "lines",
+          "items": [],
+          "count": 2
+        },
+        {
+          "heading": "Schedule",
+          "type": "schedule",
+          "items": [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Weekend"
+          ],
+          "count": 6
+        }
+      ]
+    },
+    {
+      "title": "Habit Tracker",
+      "subtitle": "7-day habit tracking grid",
+      "sections": [
+        {
+          "heading": "Weekly habits",
+          "type": "grid",
+          "columns": [
+            "Habit",
+            "Mon",
+            "Tue",
+            "Wed",
+            "Thu",
+            "Fri",
+            "Sat",
+            "Sun"
+          ],
+          "count": 8
+        }
+      ]
+    },
+    {
+      "title": "Weekly Budget",
+      "subtitle": "Track weekly income allocation and expenses",
+      "sections": [
+        {
+          "heading": "Income & allocation",
+          "type": "lines",
+          "items": [],
+          "count": 4
+        },
+        {
+          "heading": "Expenses",
+          "type": "lines",
+          "items": [],
+          "count": 6
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,121 @@
+{
+  "approval_id": 7,
+  "kind": "sheets",
+  "niche": "Freelancer Trackers Agent",
+  "name": "Sales Inventory Sheet",
+  "short_name": "sales-inventory-sheet",
+  "listing": {
+    "title": "Sales Inventory Sheet - Stock and Sales Tracker Spreadsheet",
+    "description": "A spreadsheet with Inventory and Sales tabs to track product inventory, unit costs, and sales log.\n\nIncludes an Instructions tab, an Inventory tab, and a Sales tab.\n\nOpen in Excel or your preferred spreadsheet program.",
+    "tags": [
+      "inventory sheet",
+      "sales tracker",
+      "small business sheet",
+      "stock tracker",
+      "sales inventory"
+    ],
+    "price_usd": 14.0,
+    "buyer": "small shop owners and online sellers",
+    "platform": "Gumroad"
+  },
+  "instructions": [
+    "Open the workbook in Excel.",
+    "Enter product items, unit costs, and quantities in the Inventory tab.",
+    "Record completed sales transactions in the Sales tab."
+  ],
+  "cover_image_idea": "The Inventory sheet open on a computer screen.",
+  "sheets": [
+    {
+      "name": "Inventory",
+      "columns": [
+        {
+          "name": "SKU",
+          "type": "text",
+          "options": []
+        },
+        {
+          "name": "Item Name",
+          "type": "text",
+          "options": []
+        },
+        {
+          "name": "Unit Cost",
+          "type": "money",
+          "options": []
+        },
+        {
+          "name": "Selling Price",
+          "type": "money",
+          "options": []
+        },
+        {
+          "name": "Quantity in Stock",
+          "type": "number",
+          "options": []
+        }
+      ],
+      "rows": [
+        [
+          "SKU-101",
+          "Handmade Notebook",
+          4.5,
+          14.0,
+          40
+        ],
+        [
+          "SKU-102",
+          "Linen Pencil Case",
+          5.0,
+          16.0,
+          25
+        ]
+      ]
+    },
+    {
+      "name": "Sales",
+      "columns": [
+        {
+          "name": "Date",
+          "type": "date",
+          "options": []
+        },
+        {
+          "name": "SKU",
+          "type": "text",
+          "options": []
+        },
+        {
+          "name": "Item Name",
+          "type": "text",
+          "options": []
+        },
+        {
+          "name": "Quantity Sold",
+          "type": "number",
+          "options": []
+        },
+        {
+          "name": "Total Sale",
+          "type": "money",
+          "options": []
+        }
+      ],
+      "rows": [
+        [
+          "2026-01-10",
+          "SKU-101",
+          "Handmade Notebook",
+          3,
+          42.0
+        ],
+        [
+          "2026-01-12",
+          "SKU-102",
+          "Linen Pencil Case",
+          2,
+          32.0
+        ]
+      ]
+    }
+  ]
+}

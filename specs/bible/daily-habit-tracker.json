@@ -1,0 +1,64 @@
+{
+  "approval_id": 4,
+  "kind": "planner",
+  "niche": "ADHD Planners Agent",
+  "style": "A",
+  "name": "Daily Habit Tracker",
+  "short_name": "daily-habit-tracker",
+  "daily_page": false,
+  "listing": {
+    "title": "Daily Habit Tracker - 7-Day Printable Habit Grid",
+    "description": "A printable habit planner featuring a 7-day habit grid with tick boxes for daily routine tracking.\n\nInside: a cover, a How to use page, the Daily Habit Tracker page, and the Weekly Habit Review page.\n\nPrint on A4 or US Letter paper, as often as you need, for personal use.",
+    "tags": [
+      "habit tracker",
+      "daily habit tracker",
+      "7 day habit",
+      "printable habit tracker",
+      "routine tracker"
+    ],
+    "price_usd": 5.0,
+    "buyer": "adults who want a simple printable 7-day habit tracker",
+    "platform": "Gumroad"
+  },
+  "instructions": [
+    "Print the A4 or US Letter file at 100% scale.",
+    "Write your recurring habits in the first column.",
+    "Tick the box corresponding to each day of the week as you complete your habit."
+  ],
+  "cover_image_idea": "The Daily Habit Tracker page printed on clean paper.",
+  "pages": [
+    {
+      "title": "Daily Habit Tracker",
+      "subtitle": "7-day habit grid with daily tick boxes",
+      "sections": [
+        {
+          "heading": "Weekly habits",
+          "type": "grid",
+          "columns": [
+            "Habit",
+            "Mon",
+            "Tue",
+            "Wed",
+            "Thu",
+            "Fri",
+            "Sat",
+            "Sun"
+          ],
+          "count": 10
+        }
+      ]
+    },
+    {
+      "title": "Weekly Habit Review",
+      "subtitle": "Reflect on habit consistency and wins",
+      "sections": [
+        {
+          "heading": "Wins and reflections",
+          "type": "lines",
+          "items": [],
+          "count": 8
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "approval_id": 6,
+  "kind": "sheets",
+  "niche": "Freelancer Trackers Agent",
+  "name": "Small Business Income Log",
+  "short_name": "small-business-income-log",
+  "listing": {
+    "title": "Small Business Income Log - Income and Expense Tracker Spreadsheet",
+    "description": "A spreadsheet with an Income Log tab to record business transactions with separate in and out totals.\n\nIncludes an Instructions tab and an Income Log tab.\n\nOpen in Excel or your preferred spreadsheet program.",
+    "tags": [
+      "income log",
+      "expense tracker",
+      "small business sheet",
+      "income tracker",
+      "money tracker"
+    ],
+    "price_usd": 14.0,
+    "buyer": "freelancers and small online shop owners",
+    "platform": "Gumroad"
+  },
+  "instructions": [
+    "Open the workbook in Excel.",
+    "Choose In or Out in the Direction column.",
+    "Enter the transaction amount in the Amount column to calculate separate In and Out totals."
+  ],
+  "cover_image_idea": "The Income Log sheet open on a computer screen.",
+  "sheets": [
+    {
+      "name": "Income Log",
+      "columns": [
+        {
+          "name": "Date",
+          "type": "date",
+          "options": []
+        },
+        {
+          "name": "Client or Vendor",
+          "type": "text",
+          "options": []
+        },
+        {
+          "name": "Direction",
+          "type": "text",
+          "options": [
+            "In",
+            "Out"
+          ]
+        },
+        {
+          "name": "Amount",
+          "type": "money",
+          "options": []
+        },
+        {
+          "name": "Notes",
+          "type": "text",
+          "options": []
+        }
+      ],
+      "rows": [
+        [
+          "2026-01-05",
+          "Design Client",
+          "In",
+          500,
+          "Project deposit"
+        ],
+        [
+          "2026-01-08",
+          "Software Subscription",
+          "Out",
+          30,
+          "Monthly tool"
+        ],
+        [
+          "2026-01-12",
+          "Consulting Client",
+          "In",
+          750,
+          "Advisory session"
+        ]
+      ]
+    }
+  ]
+}

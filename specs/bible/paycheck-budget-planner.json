@@ -1,0 +1,203 @@
+{
+  "approval_id": 1,
+  "kind": "planner",
+  "niche": "Budget Sheets Agent",
+  "style": "A",
+  "name": "Paycheck Budget Planner",
+  "short_name": "paycheck-budget-planner",
+  "daily_page": false,
+  "listing": {
+    "title": "Paycheck Budget Planner - Printable Monthly Budget, Bills and Savings",
+    "description": "A printable planner and spreadsheet for managing paycheck budgeting.\n\nInside the printable PDF: a cover, a How to use page, the Monthly Budget page, the Bills Table page with Paid column, the Savings page, and the Notes page.\n\nAlso includes an Excel (.xlsx) file with a Ledger tab and a Bills tab.\n\nPrint on A4 or US Letter paper for personal use.",
+    "tags": [
+      "budget planner",
+      "paycheck budget",
+      "printable planner",
+      "monthly budget",
+      "bills tracker"
+    ],
+    "price_usd": 8.0,
+    "buyer": "adults who want an organized personal budget planner",
+    "platform": "Gumroad"
+  },
+  "instructions": [
+    "Print the A4 or US Letter file at 100% scale.",
+    "Plan your monthly income and expenses on the Monthly Budget page.",
+    "Track due dates and tick the Paid column on the Bills Table page.",
+    "Open the .xlsx file in Excel to use the Ledger tab and Bills tab."
+  ],
+  "cover_image_idea": "The Monthly Budget page printed on paper next to a computer screen.",
+  "pages": [
+    {
+      "title": "Monthly Budget",
+      "subtitle": "Track income and expenses across the month",
+      "sections": [
+        {
+          "heading": "Income sources",
+          "type": "lines",
+          "items": [],
+          "count": 4
+        },
+        {
+          "heading": "Fixed expenses",
+          "type": "lines",
+          "items": [],
+          "count": 6
+        }
+      ]
+    },
+    {
+      "title": "Bills Table",
+      "subtitle": "Track due dates and check off payments",
+      "sections": [
+        {
+          "heading": "Bills",
+          "type": "table",
+          "columns": [
+            "Bill",
+            "Due Date",
+            "Amount",
+            "Paid"
+          ],
+          "count": 8
+        }
+      ]
+    },
+    {
+      "title": "Savings",
+      "subtitle": "Set targets and track deposits",
+      "sections": [
+        {
+          "heading": "Target goals",
+          "type": "lines",
+          "items": [],
+          "count": 4
+        },
+        {
+          "heading": "Deposit log",
+          "type": "lines",
+          "items": [],
+          "count": 6
+        }
+      ]
+    },
+    {
+      "title": "Notes",
+      "subtitle": "Reflections and budget reminders",
+      "sections": [
+        {
+          "heading": "Budget notes",
+          "type": "lines",
+          "items": [],
+          "count": 10
+        }
+      ]
+    }
+  ],
+  "sheets": [
+    {
+      "name": "Ledger",
+      "columns": [
+        {
+          "name": "Date",
+          "type": "date",
+          "options": []
+        },
+        {
+          "name": "Description",
+          "type": "text",
+          "options": []
+        },
+        {
+          "name": "Category",
+          "type": "text",
+          "options": []
+        },
+        {
+          "name": "Amount In",
+          "type": "money",
+          "options": []
+        },
+        {
+          "name": "Amount Out",
+          "type": "money",
+          "options": []
+        }
+      ],
+      "rows": [
+        [
+          "2026-01-05",
+          "Salary Paycheck",
+          "Income",
+          1200,
+          ""
+        ],
+        [
+          "2026-01-08",
+          "Supermarket",
+          "Groceries",
+          "",
+          140
+        ]
+      ],
+      "balance": {
+        "in": "Amount In",
+        "out": "Amount Out"
+      }
+    },
+    {
+      "name": "Bills",
+      "columns": [
+        {
+          "name": "Bill Name",
+          "type": "text",
+          "options": []
+        },
+        {
+          "name": "Due Date",
+          "type": "date",
+          "options": []
+        },
+        {
+          "name": "Amount Due",
+          "type": "money",
+          "options": []
+        },
+        {
+          "name": "Status",
+          "type": "text",
+          "options": [
+            "Paid",
+            "Unpaid"
+          ]
+        },
+        {
+          "name": "Paid Date",
+          "type": "date",
+          "options": []
+        }
+      ],
+      "rows": [
+        [
+          "Electricity",
+          "2026-01-15",
+          85,
+          "Paid",
+          "2026-01-14"
+        ],
+        [
+          "Internet",
+          "2026-01-20",
+          60,
+          "Unpaid",
+          ""
+        ]
+      ],
+      "overdue": {
+        "due": "Due Date",
+        "status": "Status",
+        "done": "Paid"
+      }
+    }
+  ]
+}
