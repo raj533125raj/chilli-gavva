@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-06T16:55:00Z",
+ "generated_at": "2026-11-06T17:56:07Z",
  "llm": {
   "calls_today": 8,
   "cap": 500
@@ -245,35 +245,35 @@
    "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-06T16:55:00Z"
+   "checked_at": "2026-11-06T17:56:07Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-06T16:55:00Z"
+   "checked_at": "2026-11-06T17:56:07Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-06T16:55:00Z"
+   "checked_at": "2026-11-06T17:56:07Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-06T16:55:00Z"
+   "checked_at": "2026-11-06T17:56:07Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-06T16:55:00Z"
+   "checked_at": "2026-11-06T17:56:07Z"
   }
  ],
  "minutes": {
@@ -2039,12 +2039,14 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-06T16:54:59Z",
-  "last_run_end": "2026-11-06T16:55:00Z",
+  "last_run_start": "2026-11-06T17:56:07Z",
+  "last_run_end": "2026-11-06T17:56:07Z",
   "runner": "github-actions",
-  "run_id": "42255738925"
+  "run_id": "42265375214"
  },
  "changelog": [
+  "agent: owner inbox state [skip ci]",
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "Fix JX test env cleanup under GitHub runner variables",
   "Robot makes upload packs after a ready build + /packs and /pack in Telegram (Jules JX); office life events: activity, meetings, letters (Jules KA); owner voice/",
@@ -2062,8 +2064,6 @@
   "Keep reject reasons in guardrails (no runtime patch) and show the draft number on Approve",
   "One-tap draft approval in Telegram + 24h auto-decision (>=70 approve, <70 reject, owner first wins) (Jules JE2)",
   "Cloud approval ledger: Cloudflare Worker + SQLite Durable Object, code only, not deployed (Jules JQ)",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]"
  ],
  "daily_report": {
