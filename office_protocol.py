@@ -41,6 +41,15 @@ HONEST_STATUSES = (
     "not built yet",
 )
 
+AGENT_ACTIVITIES = (
+    "working",
+    "idle",
+    "waiting",
+    "needs_you",
+    "error",
+    "off_duty",
+)
+
 AGENT_LEVELS = ("captain", "main", "sub")
 
 # Maximum string lengths and collection sizes for validation
@@ -48,10 +57,13 @@ MAX_TITLE_LEN = 120
 MAX_ACTION_LEN = 100
 MAX_NAME_LEN = 80
 MAX_ID_LEN = 80
+MAX_KIND_LEN = 60
 MAX_TEAMS_COUNT = 50
 MAX_AGENTS_COUNT = 100
 MAX_APPROVALS_COUNT = 100
 MAX_SUB_ROOMS_COUNT = 50
+MAX_MEETINGS_COUNT = 50
+MAX_LETTERS_COUNT = 20
 
 
 class ProtocolValidationError(ValueError):
@@ -91,6 +103,12 @@ def validate_agent(agent: Dict[str, Any], allow_money: bool = False) -> Dict[str
     if status not in HONEST_STATUSES:
         raise ProtocolValidationError(f"Invalid agent status: {status}. Expected one of {HONEST_STATUSES}")
 
+    activity = agent.get("activity")
+    if activity is not None:
+        activity = str(activity).lower()
+        if activity not in AGENT_ACTIVITIES:
+            raise ProtocolValidationError(f"Invalid agent activity: {activity}. Expected one of {AGENT_ACTIVITIES}")
+
     action = scrub_safe(str(agent.get("current_action", "") or "")[:MAX_ACTION_LEN], allow_money=allow_money)
 
     progress = agent.get("progress")
@@ -108,7 +126,7 @@ def validate_agent(agent: Dict[str, Any], allow_money: bool = False) -> Dict[str
     if last_seen is not None:
         last_seen = public_export._iso(last_seen)
 
-    return {
+    record = {
         "id": agent_id,
         "name": name,
         "level": level,
@@ -118,6 +136,9 @@ def validate_agent(agent: Dict[str, Any], allow_money: bool = False) -> Dict[str
         "model": model,
         "last_seen": last_seen,
     }
+    if activity is not None:
+        record["activity"] = activity
+    return record
 
 
 def validate_sub_room(sub_room: Dict[str, Any], allow_money: bool = False) -> Dict[str, Any]:
@@ -208,6 +229,60 @@ def validate_counters(counters: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def validate_meeting(meeting: Dict[str, Any], allow_money: bool = False) -> Dict[str, Any]:
+    """Validate a meeting item (draft_number and list of agent names)."""
+    if not isinstance(meeting, dict):
+        raise ProtocolValidationError("Meeting must be a dictionary")
+
+    for field in ("draft_number", "agents"):
+        if field not in meeting:
+            raise ProtocolValidationError(f"Meeting missing field: {field}")
+
+    draft_num = meeting["draft_number"]
+    if type(draft_num) is not int:
+        try:
+            draft_num = int(draft_num)
+        except (ValueError, TypeError):
+            raise ProtocolValidationError("Meeting draft_number must be an integer")
+
+    agents_raw = meeting["agents"]
+    if not isinstance(agents_raw, list):
+        raise ProtocolValidationError("Meeting agents must be a list")
+
+    cleaned_agents = []
+    for a in agents_raw[:MAX_AGENTS_COUNT]:
+        scrubbed = scrub_safe(str(a)[:MAX_NAME_LEN], allow_money=allow_money)
+        if scrubbed:
+            cleaned_agents.append(scrubbed)
+
+    return {
+        "draft_number": draft_num,
+        "agents": cleaned_agents,
+    }
+
+
+def validate_letter(letter: Dict[str, Any], allow_money: bool = False) -> Dict[str, Any]:
+    """Validate a hand-off letter (from_team, to_team, kind, at). No text, titles, or money."""
+    if not isinstance(letter, dict):
+        raise ProtocolValidationError("Letter must be a dictionary")
+
+    for field in ("from_team", "to_team", "kind", "at"):
+        if field not in letter:
+            raise ProtocolValidationError(f"Letter missing field: {field}")
+
+    from_team = scrub_safe(str(letter["from_team"])[:MAX_NAME_LEN], allow_money=allow_money)
+    to_team = scrub_safe(str(letter["to_team"])[:MAX_NAME_LEN], allow_money=allow_money)
+    kind = scrub_safe(str(letter["kind"])[:MAX_KIND_LEN], allow_money=allow_money)
+    at_val = public_export._iso(letter.get("at")) or ""
+
+    return {
+        "from_team": from_team,
+        "to_team": to_team,
+        "kind": kind,
+        "at": at_val,
+    }
+
+
 def validate_approval(approval: Dict[str, Any], allow_money: bool = False) -> Dict[str, Any]:
     """Validate an item in the approvals queue."""
     if not isinstance(approval, dict):
@@ -286,7 +361,23 @@ def validate_snapshot(snapshot: Dict[str, Any], allow_money: bool = False) -> Di
         raise ProtocolValidationError("Snapshot approvals must be a list")
     approvals = [validate_approval(a, allow_money=allow_money) for a in approvals_raw[:MAX_APPROVALS_COUNT]]
 
-    return {
+    # Meetings (optional)
+    meetings_raw = snapshot.get("meetings")
+    meetings = None
+    if meetings_raw is not None:
+        if not isinstance(meetings_raw, list):
+            raise ProtocolValidationError("Snapshot meetings must be a list")
+        meetings = [validate_meeting(m, allow_money=allow_money) for m in meetings_raw[:MAX_MEETINGS_COUNT]]
+
+    # Letters (optional)
+    letters_raw = snapshot.get("letters")
+    letters = None
+    if letters_raw is not None:
+        if not isinstance(letters_raw, list):
+            raise ProtocolValidationError("Snapshot letters must be a list")
+        letters = [validate_letter(l, allow_money=allow_money) for l in letters_raw[:MAX_LETTERS_COUNT]]
+
+    result = {
         "version": version,
         "office_id": office_id,
         "revision": revision,
@@ -295,3 +386,9 @@ def validate_snapshot(snapshot: Dict[str, Any], allow_money: bool = False) -> Di
         "counters": counters,
         "approvals": approvals,
     }
+    if meetings is not None:
+        result["meetings"] = meetings
+    if letters is not None:
+        result["letters"] = letters
+
+    return result
