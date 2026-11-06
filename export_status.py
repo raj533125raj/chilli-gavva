@@ -215,11 +215,102 @@ def _handoffs(db_path=None, now_utc=None):
     return handoffs[:20]
 
 
+def _public_office(db_path=None):
+    """Safe public office life data for Binny Mills app (lounge, meetings, letters).
+
+    Only returns {agents, meetings, letters} with capped lists and strict sanitization.
+    Omits and returns None on any failure so build_status never crashes or breaks the card.
+    """
+    try:
+        import office_projection
+        snapshot = office_projection.project_office_snapshot(db_path=db_path)
+        if not snapshot or not isinstance(snapshot, dict):
+            return None
+
+        # 1. Agents: {name, team, activity} capped at 500
+        # Extracted from teams -> captain & agents
+        agents = []
+        seen = set()
+        for t in snapshot.get("teams", []):
+            if not isinstance(t, dict):
+                continue
+            t_name = t.get("name") or t.get("id", "")
+            team_candidates = []
+            if t.get("captain") and isinstance(t.get("captain"), dict):
+                team_candidates.append(t["captain"])
+            if isinstance(t.get("agents"), list):
+                team_candidates.extend([a for a in t["agents"] if isinstance(a, dict)])
+
+            for cand in team_candidates:
+                c_name = cand.get("name")
+                if not c_name or c_name in seen:
+                    continue
+                seen.add(c_name)
+                activity = cand.get("activity") or "idle"
+                agents.append({
+                    "name": public_export.scrub_text(str(c_name)),
+                    "team": public_export.scrub_text(str(t_name)),
+                    "activity": public_export.scrub_text(str(activity)),
+                })
+                if len(agents) >= 500:
+                    break
+            if len(agents) >= 500:
+                break
+
+        # 2. Meetings: {draft_number, agents (job names)} capped at 20
+        raw_meetings = snapshot.get("meetings", [])
+        meetings = []
+        if isinstance(raw_meetings, list):
+            for m in raw_meetings[:20]:
+                if not isinstance(m, dict):
+                    continue
+                d_num = m.get("draft_number")
+                m_agents = m.get("agents", [])
+                if d_num is not None and isinstance(m_agents, list):
+                    clean_agents = [public_export.scrub_text(str(a)) for a in m_agents if a]
+                    meetings.append({
+                        "draft_number": int(d_num),
+                        "agents": clean_agents,
+                    })
+
+        # 3. Letters: {from_team, to_team, kind, at} capped at 20
+        raw_letters = snapshot.get("letters", [])
+        letters = []
+        if isinstance(raw_letters, list):
+            for ltr in raw_letters[:20]:
+                if not isinstance(ltr, dict):
+                    continue
+                from_t = ltr.get("from_team")
+                to_t = ltr.get("to_team")
+                kind = ltr.get("kind")
+                at_ts = ltr.get("at")
+                if from_t and to_t:
+                    letters.append({
+                        "from_team": public_export.scrub_text(str(from_t)),
+                        "to_team": public_export.scrub_text(str(to_t)),
+                        "kind": public_export.scrub_text(str(kind or "task")),
+                        "at": str(at_ts or "")[:20],
+                    })
+
+        # Scrub each item to enforce no secrets, tokens, or currency, preserving up to 500 agents
+        clean_agents = [public_export.scrub_public_data(a) for a in agents[:500]]
+        clean_meetings = [public_export.scrub_public_data(m) for m in meetings[:20]]
+        clean_letters = [public_export.scrub_public_data(ltr) for ltr in letters[:20]]
+
+        return {
+            "agents": clean_agents,
+            "meetings": clean_meetings,
+            "letters": clean_letters,
+        }
+    except Exception:
+        return None
+
+
 def build_status(db_path=None):
     """The snapshot written to web/data/status.json (safe for a public repo)."""
     full = build_status_private(db_path)
     metadata = public_export.get_public_agent_metadata(db_path)
-    return {
+    status_card = {
         "generated_at": full["generated_at"],
         "llm": {"calls_today": full["llm"]["calls_today"], "cap": full["llm"]["cap"]},
         "agents": [{**{k: a.get(k) for k in PUBLIC_AGENT_KEYS}, **metadata.get(a["name"], {})}
@@ -230,6 +321,10 @@ def build_status(db_path=None):
         "worker": {"running": full["worker"].get("running"), "age_seconds": full["worker"].get("age_seconds")},
         "handoffs": _handoffs(db_path),
     }
+    office_data = _public_office(db_path)
+    if office_data is not None:
+        status_card["office"] = office_data
+    return status_card
 
 
 # Names are public constants from llm_router._PROVIDERS, never configuration values.
