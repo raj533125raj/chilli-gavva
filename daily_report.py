@@ -84,22 +84,51 @@ def daily_text(db_path=None, now=None, status_fn=None):
     retries = _count(conn, "SELECT COUNT(*) FROM tasks WHERE status = 'queued' AND error IS NOT NULL")
     providers = _providers(conn, (now - datetime.timedelta(days=1)).date().isoformat())
     buttons = _count(conn, "SELECT COUNT(*) FROM button_log WHERE ts >= ?", (since,))
+    auto_rejected = _count(conn, "SELECT COUNT(*) FROM approvals WHERE status = 'rejected' AND decided_ts >= ? "
+                                 "AND reason = 'Low score (auto)'", (since,))
+    auto_approved = _count(conn, "SELECT COUNT(*) FROM approvals WHERE status = 'approved' AND decided_ts >= ? "
+                                 "AND (reason = 'auto-approved' OR reason IS NULL)", (since,))
+    built_rows = _q(conn, "SELECT pb.approval_id, pb.folder, a.title, a.status "
+                          "FROM product_builds pb LEFT JOIN approvals a ON a.id = pb.approval_id "
+                          "WHERE pb.status = 'built' AND pb.ts >= ? "
+                          "ORDER BY pb.ts DESC, pb.approval_id DESC LIMIT 5", (since,))
     paused = guardrails.is_paused(db_path)
     conn.close()
+
+    built_titles = []
+    for aid, folder, title, status in built_rows:
+        if status == "pending":
+            label = f"Draft #{aid}" if aid is not None else "Draft"
+        else:
+            label = (title or folder or (f"Draft #{aid}" if aid is not None else "Product")).strip()
+        built_titles.append(label[:40])
+    built_line = "Built products (last 24h): " + (", ".join(built_titles) if built_titles else "none")
+
+    if waiting > 0:
+        next_step = "Next step for owner: approve or reject drafts in /list"
+    elif built > 0:
+        next_step = "Next step for owner: check upload packs"
+    else:
+        next_step = "Next step for owner: nothing needed"
+
     clock = _clock_status(status_fn)
     errors = []
     if failed:
         errors.append(f"{failed} task(s) failed for good")
     if retries:
         errors.append(f"{retries} task(s) waiting to retry")
+
     lines = [f"Chilli Gavva daily report ({now:%Y-%m-%d})",
              providers,
              f"Drafts: {made} made, {waiting} waiting, {approved} approved (last 24h)",
+             f"Auto-decided (last 24h): {auto_approved} approved, {auto_rejected} rejected",
              f"Products built: {built}",
+             built_line,
              _minutes(reply=clock),
              door_bell_line(clock),
              f"Button presses received in the last 24h: {buttons}",
-             "Errors: " + ("; ".join(errors) if errors else "none")]
+             "Errors: " + ("; ".join(errors) if errors else "none"),
+             next_step]
     if paused:
         lines.append("Status: PAUSED (send /resume to start again)")
     return "\n".join(lines)
