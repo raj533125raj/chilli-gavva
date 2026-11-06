@@ -124,7 +124,7 @@ class UploadReadyTests(unittest.TestCase):
         self.assertEqual(facts["pdf_sizes"], ["Letter"])
         self.assertIn("US Letter", facts["contents"][0])
         self.assertNotIn(", A4", facts["contents"][0])
-        for writer in (lambda: pb._sanitize_text("A4 and US Letter pages", spec, facts),
+        for writer in (lambda: pb._delivery_text("A4 and US Letter pages", spec, facts),
                        lambda: launch_pack._format_launch_listing(spec, [], facts)):
             self.assertNotIn("A4", writer().replace("claimed-A4.pdf", ""))
 
@@ -138,6 +138,16 @@ class UploadReadyTests(unittest.TestCase):
         facts = pb._delivery_facts(str(folder))
         self.assertEqual(facts["pdf_sizes"], [])
         self.assertIn("paper size unspecified", facts["contents"][0])
+
+    def test_paper_variants_can_have_different_page_counts(self):
+        spec = json.loads((ROOT / "specs/samples/2027-28-teacher-planner-us-test.json").read_text())
+        spec["approval_id"] = 42
+        folder = self.build(spec)
+        facts = pb._delivery_facts(str(folder))
+        body = (folder / "listing.md").read_text()
+        self.assertIn("page count: 17, A4", body)
+        self.assertIn("page count: 18, US Letter", body)
+        self.assertEqual(truth_check.check(str(folder))["verdict"], "ready")
 
     def test_sheet_listing_does_not_repeat_spec_pdf_counts_or_sizes(self):
         spec = bible("pricing-calculator")

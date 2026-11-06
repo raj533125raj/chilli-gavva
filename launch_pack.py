@@ -127,8 +127,9 @@ def _ensure_13_tags(tags: List[str], niche: str) -> List[str]:
 def _format_launch_listing(spec: Dict[str, Any], file_list: List[str], facts: Optional[Dict[str, Any]] = None) -> str:
     """Format listing.md containing title, description, 13 tags, FAQ, file list, license, and checklist."""
     listing = spec.get("listing", {})
-    title = product_builder._sanitize_text(listing.get("title", spec.get("name", "Digital Product")), spec, facts=facts)
-    description = product_builder._sanitize_text(listing.get("description", ""), spec, facts=facts)
+    sanitize = (lambda text: product_builder._delivery_text(text, spec, facts)) if facts is not None else (lambda text: product_builder._sanitize_text(text, spec))
+    title = sanitize(listing.get("title", spec.get("name", "Digital Product")))
+    description = sanitize(listing.get("description", ""))
 
     # Ensure description explicitly states deliverable facts for truth checker
     kind = spec.get("kind", "")

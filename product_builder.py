@@ -332,7 +332,7 @@ def _sanitize_text(text, spec, facts=None):
     if facts:
         import truth_check
         fact_names = truth_check._names(facts)
-        all_names = fact_names
+        all_names = list(set(spec_names + fact_names))
     else:
         all_names = spec_names
 
@@ -428,16 +428,10 @@ def _sanitize_text(text, spec, facts=None):
                  "fifteen": 15, "sixteen": 16}
 
     is_pdf = bool(facts.get("pdf_sizes")) if facts is not None else kind in ("planner", "dated_planner")
-    if facts is not None:
-        for label, pattern in (("A4", r"\bA4\b"), ("Letter", r"(?<!cover )(?<!cover-)\b(?:US\s+)?Letter\b(?!\s+to\b)")):
-            if label not in facts.get("pdf_sizes", []):
-                text = re.sub(pattern, "the supplied format", text, flags=re.I)
 
     def repl_count(m):
         raw_num, unit = m.group(1), m.group(2)
         n = num_words.get(raw_num.lower(), int(raw_num) if raw_num.isdigit() else None)
-        if facts is not None and unit.lower().endswith(("page", "pages")) and not is_pdf and kind != "notion":
-            return "the included files"
         modifiers = re.findall(r"[a-z0-9-]+", unit.lower())[:-1]
         total_modifiers = {"printable", "pdf", "a4", "us", "letter", "and", "or", "in", "total"}
         if (not unit.lower().endswith(("page", "pages")) or not is_pdf or n == actual_count
@@ -1014,6 +1008,19 @@ from pdf_design import (BOTTOM, PAGE_SIZES, PLANNER_YEAR, STYLES, TODAY_PAGE, WE
 
 
 # ---- product folders -------------------------------------------------------------------
+def _delivery_text(text, spec, facts):
+    """Final buyer text uses built evidence; leave the general spec sanitizer compatible."""
+    text = _sanitize_text(text, spec, facts=facts)
+    if not facts.get("pdf_sizes") and spec.get("kind") != "notion":
+        text = re.sub(r"\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen)\s+"
+                      r"(?:(?:printable|pdf|a4|us|letter|and|or|in|total)\s+)*pages?\b",
+                      "the included files", text, flags=re.I)
+    for label, pattern in (("A4", r"\bA4\b"), ("Letter", r"(?<!cover )(?<!cover-)\b(?:US\s+)?Letter\b(?!\s+to\b)")):
+        if label not in facts.get("pdf_sizes", []):
+            text = re.sub(pattern, "the supplied format", text, flags=re.I)
+    return text
+
+
 def _delivery_facts(folder):
     """Inspect robot-built deliverables; filenames and spec promises are not PDF evidence."""
     import truth_check
@@ -1042,12 +1049,18 @@ def _delivery_facts(folder):
             sizes.update(verified)
             counts.append(count)
             label = "US Letter" if verified == {"Letter"} else next(iter(verified), "paper size unspecified")
-            contents.append(f"`{name}` — PDF, {count} pages, {label}")
+            # Counts are per file: A4 and Letter can paginate differently.
+            contents.append(f"`{name}` — PDF, page count: {count}, {label}")
         elif ext == ".xlsx":
             with zipfile.ZipFile(path) as workbook:
                 root = ET.fromstring(workbook.read("xl/workbook.xml"))
                 tabs = [element.get("name", "") for element in root.findall("{*}sheets/{*}sheet")]
-            contents.append(f"`{name}` — Excel (.xlsx); tabs: " + ", ".join(tabs))
+            # The existing truth checker treats a resume as one format and
+            # cannot prove its optional Dashboard capability. As in the launch
+            # listing, advertise a subset of real tabs without that claim.
+            listed = [tab for tab in tabs if facts["kind"] != "resume" or tab.casefold() != "dashboard"]
+            label = "tabs" if listed == tabs else "tabs include"
+            contents.append(f"`{name}` — Excel (.xlsx); {label}: " + ", ".join(listed))
         elif ext in (".docx", ".zip") or name in {"README.md", "README.txt", "README", "LICENSE.txt", "HOW_TO_IMPORT.md"}:
             label = {".docx": "Word document", ".zip": "ZIP archive", ".md": "Markdown", ".txt": "plain text"}.get(ext, "plain text")
             contents.append(f"`{name}` — {label}")
@@ -1203,9 +1216,9 @@ def build_product(spec, approval_id, out_dir=None, folder_name=None):
 
     # Extract actual facts from built files and sanitize listing text and instructions
     facts = _delivery_facts(folder)
-    spec["listing"]["title"] = _sanitize_text(spec["listing"]["title"], spec, facts=facts)
-    spec["listing"]["description"] = _sanitize_text(spec["listing"]["description"], spec, facts=facts)
-    spec["instructions"] = [_sanitize_text(inst, spec, facts=facts) for inst in spec["instructions"]]
+    spec["listing"]["title"] = _delivery_text(spec["listing"]["title"], spec, facts)
+    spec["listing"]["description"] = _delivery_text(spec["listing"]["description"], spec, facts)
+    spec["instructions"] = [_delivery_text(inst, spec, facts) for inst in spec["instructions"]]
 
     _listing_md(spec, facts=facts)  # validate before writing listing media
     with open(os.path.join(folder, "cover_image_idea.txt"), "w", encoding="utf-8") as f:
