@@ -74,8 +74,22 @@ HELP = ("\U0001f336️ Chilli Gavva approvals\n\n"
         "The bot answers buttons and commands on its next run (about every 30 minutes), not instantly.\n\n"
         "Approve only marks a draft as OK. Nothing is published automatically.")
 
-REASON_LABELS = {"price": "Price", "too generic": "Too generic", "bad niche": "Bad niche",
-                 "poor quality": "Poor quality", "other": "Other"}
+REASON_LABELS = {
+    "too generic": "Too generic",
+    "duplicate": "Duplicate",
+    "weak niche": "Weak niche",
+    "promises too much": "Promises too much",
+    "other": "Other",
+}
+
+# Extend guardrails.REJECT_REASONS to support both new and legacy reasons
+_KNOWN_REASONS = tuple(dict.fromkeys(
+    list(getattr(guardrails, "REJECT_REASONS", ())) +
+    list(REASON_LABELS.keys()) +
+    list(REASON_LABELS.values()) +
+    ["Low score (auto)", "low score (auto)"]
+))
+guardrails.REJECT_REASONS = _KNOWN_REASONS
 
 
 # ---- small state store (kept in agent_data.db so it survives cloud runs) ----
@@ -189,6 +203,22 @@ def send_text(token, chat_id, text, buttons=None):
         return isinstance(result, dict) and result.get("ok") is True
     except Exception:
         diagnostics.record("sendMessage", kind="unexpected")
+        return False
+
+
+def edit_text(token, chat_id, message_id, text, buttons=None):
+    """Edit message plain text in place (e.g. 'Approved ✓' / 'Rejected: <reason>')."""
+    text = _scrub_outgoing(text)
+    if not text:
+        return False
+    params = {"chat_id": chat_id, "message_id": message_id, "text": text}
+    if buttons:
+        params["reply_markup"] = {"inline_keyboard": [[{"text": label, "callback_data": data} for label, data in row]
+                                                      for row in buttons]}
+    try:
+        result = _call(token, "editMessageText", params)
+        return isinstance(result, dict) and result.get("ok") is True
+    except Exception:
         return False
 
 
@@ -639,11 +669,11 @@ def handle_command(cmd, ids, db_path=None):
     return HELP
 
 
-_CALLBACK = re.compile(r"^(a|r|v):(\d{1,9})$|^y:(\d{1,9}):([a-z ]{1,20})$|^(t):ping$")
+_CALLBACK = re.compile(r"^(a|r|v):(\d{1,9})$|^y:(\d{1,9}):(.{1,30})$|^(t):ping$")
 BUTTON_TEST_OK = "✅ Button presses reach the bot. Nothing was changed."
 
 
-def handle_callback(token, owner_chat_id, data, db_path=None):
+def handle_callback(token, owner_chat_id, data, db_path=None, message_id=None):
     """Handle one button press. Returns the reply text (already sent), or None if the data is unknown."""
     if data and (data.startswith("cb:cube:") or data.startswith("cube:")):
         import cubes
@@ -704,23 +734,54 @@ def handle_callback(token, owner_chat_id, data, db_path=None):
                       if (guardrails.get_approval(approval_id, db_path) or {}).get("status") == "pending" else None)
             return reply
         if kind == "a":
-            reply = decide_text([approval_id], True, db_path)
-            send_text(token, owner_chat_id, reply)
+            appr = guardrails.get_approval(approval_id, db_path)
+            if appr and appr.get("status") == "approved":
+                return "Approved ✓"
+            changed = guardrails.decide(approval_id, True, db_path)
+            if changed:
+                reply = "Approved ✓"
+                if message_id:
+                    edit_text(token, owner_chat_id, message_id, reply)
+                else:
+                    send_text(token, owner_chat_id, reply)
+            else:
+                reply = f"Not changed (not found or already decided): #{approval_id}"
+                send_text(token, owner_chat_id, reply)
             return reply
+        # Reject button pressed
+        appr = guardrails.get_approval(approval_id, db_path)
+        if appr and appr.get("status") == "rejected":
+            reason = appr.get("reason")
+            return f"Rejected: {reason}" if reason else "Rejected"
         changed = guardrails.decide(approval_id, False, db_path)
         if changed:
             reply = f"Rejected: #{approval_id}. Why? Pick a reason so the agents can learn:"
-            send_text(token, owner_chat_id, reply, reason_buttons(approval_id))
+            if message_id:
+                edit_text(token, owner_chat_id, message_id, reply, reason_buttons(approval_id))
+            else:
+                send_text(token, owner_chat_id, reply, reason_buttons(approval_id))
         else:
             reply = f"Not changed (not found or already decided): #{approval_id}"
             send_text(token, owner_chat_id, reply)
         return reply
-    approval_id, reason = int(m.group(3)), m.group(4)
-    if guardrails.set_reason(approval_id, reason, db_path):
-        reply = f"Saved: #{approval_id} rejected because \"{REASON_LABELS[reason].lower()}\". Thanks!"
+    approval_id, raw_reason = int(m.group(3)), m.group(4).strip()
+    reason_label = REASON_LABELS.get(raw_reason.lower(), raw_reason)
+    # Check if reason is already set in DB
+    conn = guardrails.connect(db_path)
+    cur_reason_row = conn.execute("SELECT reason FROM approvals WHERE id = ?", (approval_id,)).fetchone()
+    conn.close()
+    if cur_reason_row and cur_reason_row[0]:
+        return f"Rejected: {cur_reason_row[0]}"
+
+    if guardrails.set_reason(approval_id, reason_label, db_path) or guardrails.set_reason(approval_id, raw_reason, db_path):
+        reply = f"Rejected: {reason_label}"
+        if message_id:
+            edit_text(token, owner_chat_id, message_id, reply)
+        else:
+            send_text(token, owner_chat_id, reply)
     else:
         reply = f"Could not save that reason for #{approval_id}."
-    send_text(token, owner_chat_id, reply)
+        send_text(token, owner_chat_id, reply)
     return reply
 
 
@@ -811,7 +872,8 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                 _call(token, "answerCallbackQuery", {"callback_query_id": cb.get("id")})
             except Exception:
                 pass  # old button presses can no longer be answered; the reply message still goes out
-            if handle_callback(token, owner_chat_id, cb.get("data", ""), db_path) is not None:
+            msg_id = (cb.get("message") or {}).get("message_id")
+            if handle_callback(token, owner_chat_id, cb.get("data", ""), db_path, message_id=msg_id) is not None:
                 handled += 1
             else:
                 stats["skipped"]["unknown button"] += 1
@@ -1047,6 +1109,11 @@ def _run(db_path=None, recovery=False, stats=None):
     import autofix
     autofix.poll(get_state, set_state,
                  lambda text, buttons: send_text(token, chat_id, text, buttons), db_path)
+    try:
+        import auto_approve
+        auto_approve.run_auto_decisions(db_path=db_path, token=token, owner_chat_id=chat_id)
+    except Exception as exc:
+        print(f"Auto-approve skipped: {type(exc).__name__}")
     print(stats_line(stats))
     alerts = alert_new_drafts(token, chat_id, db_path)
     waiting_reminder = remind_waiting_drafts(token, chat_id, db_path)
