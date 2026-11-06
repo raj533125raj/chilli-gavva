@@ -63,6 +63,45 @@ def get_agent_engine_and_model(agent_rec: Dict[str, Any]) -> Optional[str]:
     return None
 
 
+def derive_agent_activity(status: str, running_task: Optional[sqlite3.Row], now_utc: datetime.datetime) -> str:
+    """Map honest status to one of: working | idle | waiting | needs_you | error | off_duty.
+
+    idle = no running task in the last 30 minutes.
+    """
+    if status in ("off duty with next shift", "paused", "not built yet"):
+        return "off_duty"
+
+    if status == "error":
+        return "error"
+
+    if status == "needs you":
+        return "needs_you"
+
+    if status == "waiting":
+        return "waiting"
+
+    if status in ("working", "thinking"):
+        if running_task:
+            started_ts = running_task["started_ts"] or running_task["ts"]
+            started_dt = _parse_iso_ts(started_ts)
+            if started_dt:
+                age_seconds = (now_utc - started_dt).total_seconds()
+                if age_seconds > 1800:
+                    return "idle"
+            return "working"
+        return "idle"
+
+    # For "just finished", "idle", "warning", or any other status:
+    # If there is a running task started within the last 30 minutes, working, else idle
+    if running_task:
+        started_ts = running_task["started_ts"] or running_task["ts"]
+        started_dt = _parse_iso_ts(started_ts)
+        if started_dt and (now_utc - started_dt).total_seconds() <= 1800:
+            return "working"
+
+    return "idle"
+
+
 def derive_agent_status(
     agent_name: str,
     cube_status: str,
@@ -137,6 +176,7 @@ def get_agent_projection(
     last_tasks_map: Dict[str, sqlite3.Row],
     doctor_cases_map: Dict[str, sqlite3.Row],
     daemon_running: bool,
+    now_utc: Optional[datetime.datetime] = None,
 ) -> Dict[str, Any]:
     """Build single agent dictionary according to protocol."""
     agent_info = wf_agents_map.get(agent_name, {})
@@ -158,6 +198,9 @@ def get_agent_projection(
         doctor_case=doc_case,
     )
 
+    now_dt = now_utc or datetime.datetime.now(datetime.timezone.utc)
+    activity = derive_agent_activity(status, r_task, now_dt)
+
     last_seen = None
     if r_task:
         last_seen = r_task["started_ts"] or r_task["ts"]
@@ -171,11 +214,183 @@ def get_agent_projection(
         "name": agent_name,
         "level": level,
         "status": status,
+        "activity": activity,
         "current_action": action,
         "progress": progress,
         "model": model,
         "last_seen": last_seen,
     })
+
+
+def _extract_approval_id(row: sqlite3.Row) -> Optional[int]:
+    """Extract draft/approval id from payload or result JSON."""
+    for field_name in ("payload", "result"):
+        if field_name not in row.keys():
+            continue
+        val = row[field_name]
+        if not val:
+            continue
+        if isinstance(val, str):
+            try:
+                data = json.loads(val)
+            except Exception:
+                continue
+        elif isinstance(val, dict):
+            data = val
+        else:
+            continue
+
+        if isinstance(data, dict):
+            app_id = data.get("approval_id")
+            if app_id is not None:
+                try:
+                    return int(app_id)
+                except (ValueError, TypeError):
+                    pass
+            # Check nested "next" list if any
+            nxt = data.get("next")
+            if isinstance(nxt, list):
+                for item in nxt:
+                    if isinstance(item, dict):
+                        p = item.get("payload")
+                        if isinstance(p, dict) and p.get("approval_id") is not None:
+                            try:
+                                return int(p.get("approval_id"))
+                            except (ValueError, TypeError):
+                                pass
+    return None
+
+
+def get_meetings(conn: Optional[sqlite3.Connection], now_utc: datetime.datetime) -> List[Dict[str, Any]]:
+    """Detect meetings: list of {draft_number, agents:[job names]} when 2+ agents have tasks for the same draft/approval in the last 2 hours."""
+    if conn is None or not _has_table(conn, "tasks"):
+        return []
+
+    cutoff = (now_utc - datetime.timedelta(hours=2)).isoformat().replace("+00:00", "Z")
+
+    try:
+        rows = conn.execute(
+            "SELECT id, kind, status, agent, payload, result, started_ts, finished_ts, ts FROM tasks "
+            "ORDER BY id DESC LIMIT 200"
+        ).fetchall()
+    except sqlite3.Error:
+        return []
+
+    draft_agents: Dict[int, set] = {}
+
+    for r in rows:
+        agent = r["agent"]
+        if not agent:
+            continue
+
+        task_ts = r["finished_ts"] or r["started_ts"] or r["ts"] or ""
+        ts_iso = task_ts[:19] + "Z" if len(task_ts) >= 19 else task_ts
+        if ts_iso and ts_iso < cutoff:
+            continue
+
+        app_id = _extract_approval_id(r)
+        if app_id is not None:
+            if app_id not in draft_agents:
+                draft_agents[app_id] = set()
+            draft_agents[app_id].add(agent)
+
+    meetings = []
+    for app_id in sorted(draft_agents.keys()):
+        agents_set = draft_agents[app_id]
+        if len(agents_set) >= 2:
+            meetings.append(office_protocol.validate_meeting({
+                "draft_number": app_id,
+                "agents": sorted(list(agents_set)),
+            }))
+
+    meetings.sort(key=lambda m: m["draft_number"])
+    return meetings[:office_protocol.MAX_MEETINGS_COUNT]
+
+
+def get_letters(
+    conn: Optional[sqlite3.Connection],
+    db_file: Optional[str],
+    now_utc: datetime.datetime,
+) -> List[Dict[str, Any]]:
+    """Build recent cross-team handoffs (up to 20): {from_team, to_team, kind, at}.
+
+    No message text, no titles, no money amounts.
+    """
+    if conn is None or not _has_table(conn, "tasks"):
+        return []
+
+    cutoff = (now_utc - datetime.timedelta(hours=24)).isoformat().replace("+00:00", "Z")
+
+    # Load registry to map agents to teams
+    try:
+        registry = cubes.load_registry()
+    except Exception:
+        registry = []
+
+    agent_to_team = {}
+    for c in registry:
+        team_name = c.get("name", c.get("id", ""))
+        for a in [c.get("captain")] + c.get("agents", []) + c.get("sub_agents", []):
+            if a and a not in agent_to_team:
+                agent_to_team[a] = team_name
+
+    letters = []
+    try:
+        rows = conn.execute(
+            "SELECT id, kind, status, agent, result, finished_ts, ts FROM tasks "
+            "ORDER BY id DESC LIMIT 100"
+        ).fetchall()
+        for tid, kind, status, agent, result_str, fin_ts, create_ts in rows:
+            if status != "done" or not agent:
+                continue
+            ts = fin_ts or create_ts or ""
+            ts_iso = ts[:19] + "Z" if len(ts) >= 19 else ts
+            if ts_iso and ts_iso < cutoff:
+                continue
+
+            res = {}
+            if result_str:
+                try:
+                    res = json.loads(result_str)
+                except Exception:
+                    res = {}
+
+            # 1. Draft generated -> waiting for approval (sent to Content Manager)
+            approval_id = res.get("approval_id")
+            if approval_id:
+                from_cube = agent_to_team.get(agent) or (cubes.get_cube_for_agent(agent, db_path=db_file) or {}).get("name", agent)
+                to_agent = "Content Manager"
+                to_cube = agent_to_team.get(to_agent) or (cubes.get_cube_for_agent(to_agent, db_path=db_file) or {}).get("name", to_agent)
+                if from_cube and to_cube and from_cube != to_cube:
+                    letters.append(office_protocol.validate_letter({
+                        "from_team": from_cube,
+                        "to_team": to_cube,
+                        "kind": kind or "draft",
+                        "at": ts_iso,
+                    }))
+
+            # 2. Next tasks created in follow-up
+            next_tasks = res.get("next")
+            if isinstance(next_tasks, list):
+                for nxt in next_tasks:
+                    if isinstance(nxt, dict):
+                        nxt_kind = nxt.get("kind")
+                        to_agent = workforce.KIND_TO_AGENT.get(nxt_kind, "CEO")
+                        from_cube = agent_to_team.get(agent) or (cubes.get_cube_for_agent(agent, db_path=db_file) or {}).get("name", agent)
+                        to_cube = agent_to_team.get(to_agent) or (cubes.get_cube_for_agent(to_agent, db_path=db_file) or {}).get("name", to_agent)
+                        if from_cube and to_cube and from_cube != to_cube:
+                            letters.append(office_protocol.validate_letter({
+                                "from_team": from_cube,
+                                "to_team": to_cube,
+                                "kind": nxt_kind or kind or "task",
+                                "at": ts_iso,
+                            }))
+    except Exception:
+        pass
+
+    # Sort newest first, up to 20
+    letters.sort(key=lambda x: x["at"], reverse=True)
+    return letters[:20]
 
 
 def get_approvals_queue(conn: Optional[sqlite3.Connection], now_utc: datetime.datetime) -> List[Dict[str, Any]]:
@@ -323,6 +538,7 @@ def project_office_snapshot(
                 last_tasks_map=last_tasks_map,
                 doctor_cases_map=doctor_cases_map,
                 daemon_running=daemon_running,
+                now_utc=now_utc,
             )
             all_agent_statuses.append(captain_obj["status"])
 
@@ -348,6 +564,7 @@ def project_office_snapshot(
                 last_tasks_map=last_tasks_map,
                 doctor_cases_map=doctor_cases_map,
                 daemon_running=daemon_running,
+                now_utc=now_utc,
             )
             team_agents.append(m_obj)
             all_agent_statuses.append(m_obj["status"])
@@ -364,6 +581,7 @@ def project_office_snapshot(
                 last_tasks_map=last_tasks_map,
                 doctor_cases_map=doctor_cases_map,
                 daemon_running=daemon_running,
+                now_utc=now_utc,
             )
             team_agents.append(s_obj)
             all_agent_statuses.append(s_obj["status"])
@@ -383,6 +601,10 @@ def project_office_snapshot(
 
     # Approvals Queue
     approvals = get_approvals_queue(conn, now_utc)
+
+    # Meetings & Letters
+    meetings = get_meetings(conn, now_utc)
+    letters = get_letters(conn, db_file, now_utc)
 
     # Products count: READY vs NEEDS FIX
     products = public_export.get_public_products(db_path=db_file)
@@ -427,6 +649,8 @@ def project_office_snapshot(
         "teams": teams,
         "counters": counters,
         "approvals": approvals,
+        "meetings": meetings,
+        "letters": letters,
     }, sort_keys=True, separators=(",", ":"))
     content_hash = hashlib.sha256(content_payload.encode("utf-8")).hexdigest()
 
@@ -474,6 +698,8 @@ def project_office_snapshot(
         "teams": teams,
         "counters": counters,
         "approvals": approvals,
+        "meetings": meetings,
+        "letters": letters,
     }
 
     return office_protocol.validate_snapshot(raw_snapshot, allow_money=allow_money)
