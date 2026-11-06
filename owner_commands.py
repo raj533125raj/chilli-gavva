@@ -258,6 +258,30 @@ def _match_show_pack(text: str, lower: str) -> Optional[Tuple[str, Dict[str, Any
     return None
 
 
+def _match_post_today(text: str, lower: str) -> Optional[Tuple[str, Dict[str, Any], float]]:
+    # today posts / ee roju posts / /today
+    patterns = [
+        r"\b(today\s+posts?|posts?\s+today)\b",
+        r"\b(ee\s+roju\s+posts?|eroju\s+posts?)\b",
+        r"^/today$",
+        r"\bwhat\s+to\s+post\s+today\b",
+    ]
+    for pat in patterns:
+        if re.search(pat, lower):
+            return "post_today", {}, 0.95
+    return None
+
+
+def _match_post_done(text: str, lower: str) -> Optional[Tuple[str, Dict[str, Any], float]]:
+    # posted N / post chesa N
+    if re.search(r"\b(posted|post\s+chesa|post\s+chesanu|post\s+chesam)\b", lower):
+        n = _extract_int(lower)
+        if n is not None:
+            return "post_done", {"n": n}, 0.95
+        return "post_done", {}, 0.75
+    return None
+
+
 def _match_rename_agent(text: str, lower: str) -> Optional[Tuple[str, Dict[str, Any], float]]:
     # rename agent Scout to Finder, agent Scout peru Finder ga marchu, change agent Scout to Finder
     # rename agent <old> as <new>
@@ -506,6 +530,8 @@ def parse(text: str) -> Dict[str, Any]:
         _match_list_drafts,
         _match_show_pack,
         _match_list_packs,
+        _match_post_today,
+        _match_post_done,
         _match_show_money_on_screen,
         _match_hide_money,
         _match_show_money,
