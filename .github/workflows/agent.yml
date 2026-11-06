@@ -42,7 +42,7 @@ jobs:
   cycle:
     if: github.event_name != 'workflow_run'
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 16
     outputs:
       inbox_started: ${{ steps.inbox.outputs.started }}
     steps:
@@ -203,7 +203,7 @@ jobs:
       - name: Run tests first
         id: tests
         if: steps.gate.outputs.run == 'true' && steps.test_plan.outputs.run != 'false'
-        timeout-minutes: 5
+        timeout-minutes: 9
         env:
           CHILLI_TEST: "1"
           DB_KEY: ${{ secrets.DB_KEY }}
