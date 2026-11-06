@@ -59,6 +59,70 @@ def _check_money(text, where):
         raise ValueError(f"Money amount found in {where}; the owner must set the price.")
 
 
+def _clean_tags(raw_tags, title):
+    valid_tags = []
+    seen = set()
+    for tag in raw_tags:
+        cleaned = tag.strip()
+        if not cleaned:
+            continue
+        if len(cleaned) > 20:
+            continue
+        if not re.fullmatch(r"[A-Za-z0-9 ]+", cleaned):
+            continue
+        norm = cleaned.casefold()
+        if norm not in seen:
+            seen.add(norm)
+            valid_tags.append(cleaned)
+
+    if len(valid_tags) < 13 and title:
+        # Build relevant candidate tags from words in title
+        words = re.findall(r"[A-Za-z0-9]+", title)
+        candidates = []
+        for word in words:
+            if word not in candidates:
+                candidates.append(word)
+        for i in range(len(words) - 1):
+            pair = f"{words[i]} {words[i+1]}"
+            if pair not in candidates:
+                candidates.append(pair)
+        for cand in candidates:
+            if len(valid_tags) >= 13:
+                break
+            cand_clean = cand.strip()
+            if not cand_clean or len(cand_clean) > 20:
+                continue
+            if not re.fullmatch(r"[A-Za-z0-9 ]+", cand_clean):
+                continue
+            norm = cand_clean.casefold()
+            if norm not in seen:
+                seen.add(norm)
+                valid_tags.append(cand_clean)
+
+    return valid_tags[:13]
+
+
+def _clean_description(description):
+    # Replace spreadsheet app claims
+    app_patterns = [
+        r"Google Sheets",
+        r"Numbers",
+        r"LibreOffice",
+        r"your preferred spreadsheet program",
+        r"any spreadsheet app",
+    ]
+    cleaned = description
+    for pat in app_patterns:
+        cleaned = re.sub(re.escape(pat), "an Excel (.xlsx) file", cleaned, flags=re.IGNORECASE)
+
+    # If the description does not contain "personal use", append notice
+    if "personal use" not in cleaned.lower():
+        notice = "For personal use only. Do not resell or share the files."
+        cleaned = f"{cleaned}\n\n{notice}" if cleaned else notice
+
+    return cleaned
+
+
 def _listing(body):
     sections, title, current = {}, "", None
     for line in body.splitlines():
@@ -75,18 +139,22 @@ def _listing(body):
             sections[current].append(line)
         elif not title and _plain(line).lower().startswith("title:"):
             title = _plain(line).split(":", 1)[1].strip()
-    description = _plain("\n".join(sections.get("description", [])))
+    raw_description = _plain("\n".join(sections.get("description", [])))
     tags = []
     for line in sections.get("tags", []):
         tags.extend(t.strip() for t in _plain(line).split(",") if t.strip())
     get = next((sections[k] for k in ("what you get", "what's included", "what's inside", "included files")
                 if sections.get(k)), [])
     items = [_plain(line) for line in get if _plain(line)]
-    missing = [name for name, value in (("Title", title), ("Description", description),
+    missing = [name for name, value in (("Title", title), ("Description", raw_description),
                                        ("Tags", tags), ("What you get", items)) if not value]
     if missing:
         raise ValueError("listing.md is missing: " + ", ".join(missing))
-    return (f"Title: {title}\n\nDescription:\n{description}\n\nTags: {', '.join(tags)}"
+
+    cleaned_tags = _clean_tags(tags, title)
+    cleaned_desc = _clean_description(raw_description)
+
+    return (f"Title: {title}\n\nDescription:\n{cleaned_desc}\n\nTags: {', '.join(cleaned_tags)}"
             + "\n\nWhat you get:\n" + "\n".join(items) + "\n")
 
 

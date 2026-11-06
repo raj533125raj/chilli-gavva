@@ -195,6 +195,56 @@ class UploadPackTests(unittest.TestCase):
         listing = upload_pack._listing(LISTING.replace("## What you get", "## Included Files"))
         self.assertIn("What you get:\nA4 PDF\nUS Letter PDF", listing)
 
+    def test_listing_cleaning_in_make(self):
+        listing_content = """# Focus Planner Minimal Daily Goal System Routine
+
+## Description
+Two printable pages: a Brain Dump page and a Daily Focus page.
+Print on A4 or US Letter. Use a pen.
+Works with Google Sheets, Numbers, LibreOffice or your preferred spreadsheet program.
+Also works on any spreadsheet app.
+
+## Tags (5)
+- focus
+- daily routine
+- a tag that is way longer than twenty chars
+- bad@tag
+- FOCUS
+
+## What you get
+- A4 PDF
+- US Letter PDF
+- README and personal use licence
+"""
+        self.listing.write_text(listing_content)
+        out = upload_pack.make(self.folder, self.root / "clean-pack")
+        listing_txt = (out / "listing.txt").read_text(encoding="utf-8")
+
+        # Check description replacements and personal use notice
+        self.assertNotIn("Google Sheets", listing_txt)
+        self.assertNotIn("Numbers", listing_txt)
+        self.assertNotIn("LibreOffice", listing_txt)
+        self.assertNotIn("your preferred spreadsheet program", listing_txt)
+        self.assertNotIn("any spreadsheet app", listing_txt)
+        self.assertIn("an Excel (.xlsx) file", listing_txt)
+        self.assertIn("For personal use only. Do not resell or share the files.", listing_txt)
+
+        # Check tags
+        tags_line = [l for l in listing_txt.splitlines() if l.startswith("Tags:")][0]
+        tags = [t.strip() for t in tags_line[len("Tags:"):].split(",")]
+        self.assertLessEqual(len(tags), 13)
+        self.assertIn("focus", tags)
+        self.assertIn("daily routine", tags)
+        self.assertNotIn("a tag that is way longer than twenty chars", tags)
+        self.assertNotIn("bad@tag", tags)
+        self.assertEqual(len([t for t in tags if t.casefold() == "focus"]), 1)
+        for t in tags:
+            self.assertLessEqual(len(t), 20)
+            self.assertTrue(all(c.isalnum() or c.isspace() for c in t))
+
+        # Check listing.md in product folder was not changed
+        self.assertEqual(self.listing.read_text(), listing_content)
+
     def test_state_files_are_never_opened_by_exporter(self):
         for name in ("private.enc", "private.db", "private.json", "private.sqlite-wal", "private.db-shm"):
             (self.folder / name).write_text("$999")
