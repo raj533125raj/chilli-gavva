@@ -60,7 +60,8 @@ HELP = ("\U0001f336️ Chilli Gavva approvals\n\n"
         "/list - drafts waiting\n"
         "/view ID - read a draft\n"
         "/approve ID - approve (several ids ok)\n"
-        "/pack ID - list encrypted upload pack file names\n"
+        "/packs - list ready upload packs\n"
+        "/pack ID - plain listing text for store\n"
         "/reject ID - reject\n"
         "/pipeline - daily plan vs done per stage, backlog & stuck items\n"
         "/cubes - department cubes status and controls\n"
@@ -292,7 +293,7 @@ def subscription_note(token):
 
 
 # ---- command handling --------------------------------------------------------
-_COMMANDS = "status|list|view|approve|reject|pack|pipeline|pause|resume|buttontest|rules|cubes|doctor|autofix_drill|help|start"
+_COMMANDS = "status|list|view|approve|reject|packs|pack|pipeline|pause|resume|buttontest|rules|cubes|doctor|autofix_drill|help|start"
 # "/approve 4", "/approve" or "/approve@bot 4 5": anything after a real slash command is fine.
 _SLASH_CMD = re.compile(rf"^/({_COMMANDS})(?:@\w+)?(?:\s+(.*))?$", re.IGNORECASE | re.DOTALL)
 # Without a slash only the bare form counts: "approve 4", "approve 4, 5", "list". A normal sentence such as
@@ -617,12 +618,111 @@ def status_text(db_path=None):
     ])
 
 
+def ready_packs_text(products_dir=None):
+    import pathlib
+    import product_builder
+    base = pathlib.Path(products_dir or product_builder.PRODUCTS_DIR)
+    packs = []
+    if base.is_dir():
+        search_dirs = []
+        if (base / "upload").is_dir():
+            search_dirs.append(base / "upload")
+        search_dirs.append(base)
+        seen = set()
+        for sdir in search_dirs:
+            try:
+                entries = sorted(sdir.iterdir())
+            except OSError:
+                continue
+            for p in entries:
+                try:
+                    if not p.is_dir() or p.name == "upload" or p.resolve() in seen:
+                        continue
+                    if (p / "product.zip").is_file() and (p / "listing.txt").is_file() and (p / "checklist.txt").is_file():
+                        seen.add(p.resolve())
+                        m = re.match(r"^(\d+)", p.name)
+                        num = int(m.group(1)) if m else None
+                        title = "Ready Pack"
+                        try:
+                            txt = (p / "listing.txt").read_text(encoding="utf-8", errors="replace")
+                            m_title = re.search(r"^Title:\s*(.+)$", txt, re.MULTILINE)
+                            if m_title:
+                                title = m_title.group(1).strip()
+                            else:
+                                title = p.name
+                        except Exception:
+                            pass
+                        packs.append((num, title, p))
+                except OSError:
+                    continue
+    packs.sort(key=lambda x: (x[0] if x[0] is not None else 999999, str(x[2])))
+    packs = packs[:20]
+    if not packs:
+        return "No ready upload packs found."
+    lines = []
+    for num, title, _ in packs:
+        prefix = f"#{num}" if num is not None else "-"
+        lines.append(f"{prefix} {title}")
+    return "\n".join(lines)
+
+
+def upload_pack_listing_text(aid, db_path=None, products_dir=None):
+    import pathlib
+    import product_builder
+    base = pathlib.Path(products_dir or product_builder.PRODUCTS_DIR)
+    target = None
+    if base.is_dir():
+        search_dirs = []
+        if (base / "upload").is_dir():
+            search_dirs.append(base / "upload")
+        search_dirs.append(base)
+        for sdir in search_dirs:
+            try:
+                entries = sorted(sdir.iterdir())
+            except OSError:
+                continue
+            for p in entries:
+                try:
+                    if not p.is_dir() or p.name == "upload":
+                        continue
+                    if re.match(rf"^{aid}(?:-.*)?$", p.name):
+                        if (p / "product.zip").is_file() and (p / "listing.txt").is_file() and (p / "checklist.txt").is_file():
+                            target = p
+                            break
+                except OSError:
+                    continue
+            if target:
+                break
+    if target:
+        try:
+            raw = (target / "listing.txt").read_text(encoding="utf-8", errors="replace")
+        except Exception as exc:
+            return f"Could not read pack #{aid}: {exc}"
+        try:
+            import upload_pack
+            upload_pack._check_money(raw, f"pack #{aid} listing")
+        except ValueError:
+            return f"Pack #{aid} contains a money amount; owner must set price."
+        clean = []
+        for line in raw.splitlines():
+            if ".zip" in line.lower() or "/" in line or "\\" in line:
+                continue
+            clean.append(line)
+        return _scrub_outgoing("\n".join(clean).strip())
+    try:
+        import product_pipeline
+        return product_pipeline.pack_text(aid, db_path)
+    except Exception:
+        return f"No ready upload pack found for #{aid}."
+
+
 def handle_command(cmd, ids, db_path=None):
     if cmd == "status":
         return status_text(db_path)
+    if cmd == "packs":
+        return ready_packs_text()
     if cmd == "pack":
-        import product_pipeline
-        return product_pipeline.pack_text(ids[0], db_path) if ids else "Send /pack ID to list upload file names."
+        return upload_pack_listing_text(ids[0], db_path) if ids else "Send /pack <number> to view the listing."
     if cmd == "list":
         return list_text(db_path)
     if cmd == "view":

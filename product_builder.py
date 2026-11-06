@@ -1389,6 +1389,12 @@ def truth_check_folder(approval_id, folder_name, db_path=None, out_dir=None, not
                  "score INTEGER, notified TEXT)")
     old = conn.execute("SELECT notified FROM truth_checks WHERE approval_id = ?", (approval_id,)).fetchone()
     status = "built" if result["verdict"] == "ready" else "needs_fix"
+    if result["verdict"] == "ready":
+        try:
+            import upload_pack
+            upload_pack.make(folder, os.path.join(out_dir, "upload"))
+        except Exception as exc:
+            print(f"Upload pack refused: {exc}", file=sys.stderr)
     held = approval_id in OWNER_HOLDS
     if not held:
         conn.execute("UPDATE product_builds SET status = ?, note = ? WHERE approval_id = ?",
