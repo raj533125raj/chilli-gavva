@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-06T22:02:32Z",
+ "generated_at": "2026-11-06T23:13:29Z",
  "llm": {
   "calls_today": 36,
   "cap": 500
@@ -286,7 +286,7 @@
    {
     "name": "Draft Worker",
     "team": "Content Department",
-    "activity": "idle"
+    "activity": "off_duty"
    },
    {
     "name": "CEO",
@@ -366,7 +366,7 @@
    {
     "name": "QA Checker",
     "team": "Quality Assurance Department",
-    "activity": "idle"
+    "activity": "off_duty"
    },
    {
     "name": "Review Worker",
@@ -381,7 +381,7 @@
    {
     "name": "Research Worker",
     "team": "Research Department",
-    "activity": "idle"
+    "activity": "off_duty"
    }
   ],
   "meetings": [
@@ -415,35 +415,35 @@
    "model": "openai/gpt-oss-20b",
    "state": "down",
    "reason": "Provider request rate exceeded",
-   "checked_at": "2026-11-06T22:02:32Z"
+   "checked_at": "2026-11-06T23:13:29Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-06T22:02:32Z"
+   "checked_at": "2026-11-06T23:13:29Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-06T22:02:32Z"
+   "checked_at": "2026-11-06T23:13:29Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-06T22:02:32Z"
+   "checked_at": "2026-11-06T23:13:29Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-06T22:02:32Z"
+   "checked_at": "2026-11-06T23:13:29Z"
   }
  ],
  "minutes": {
@@ -831,23 +831,23 @@
    "done": 0
   },
   "research": {
-   "plan": 2,
+   "plan": 4,
    "done": 3
   },
   "drafts": {
-   "plan": 2,
+   "plan": 3,
    "done": 3
   },
   "review": {
-   "plan": 2,
+   "plan": 3,
    "done": 3
   },
   "product_builds": {
-   "plan": 1,
+   "plan": 2,
    "done": 0
   },
   "promotion": {
-   "plan": 1,
+   "plan": 2,
    "done": 0
   }
  },
@@ -2263,12 +2263,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-06T21:59:42Z",
-  "last_run_end": "2026-11-06T22:02:32Z",
+  "last_run_start": "2026-11-06T23:13:28Z",
+  "last_run_end": "2026-11-06T23:13:29Z",
   "runner": "github-actions",
-  "run_id": "42300329182"
+  "run_id": "42310316858"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "KC office data, KD Tenglish Telegram text, KE packs in report, KF deep QA, KG post planner (Jules, verified by Claude)",
   "F1 listing copy helper",
   "agent: state + content update [skip ci]",
@@ -2287,13 +2288,13 @@
   "Build combined PDF and workbook products with price-free verified listings",
   "Offline upload pack builder for Gumroad/Topmate: buyer zip, plain listing, cover, owner checklist; nothing is uploaded (Codex P3)",
   "Ten ready product specs from the product bible, each built and truth-checked in tests (Jules JR)",
-  "agent: state + content update [skip ci]",
-  "Keep reject reasons in guardrails (no runtime patch) and show the draft number on Approve"
+  "agent: state + content update [skip ci]"
  ],
  "daily_report": {
   "date_ist": "2026-11-07",
-  "summary": "8 tasks completed; 0 approvals reviewed; 0 products built.",
+  "summary": "9 tasks completed; 0 approvals reviewed; 0 products built.",
   "items_done": [
+   "Review completed",
    "Review completed",
    "Review completed",
    "Draft completed",
