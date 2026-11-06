@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-06T06:56:38Z",
+ "generated_at": "2026-11-06T17:56:07Z",
  "llm": {
   "calls_today": 8,
   "cap": 500
@@ -204,174 +204,6 @@
  ],
  "pending_approvals": [
   {
-   "id": 50,
-   "ts": "2026-10-29T10:03:50.038337",
-   "kind": "scout_idea",
-   "title": "Draft #50"
-  },
-  {
-   "id": 56,
-   "ts": "2026-10-30T22:26:38.802641",
-   "kind": "public_draft",
-   "title": "Draft #56"
-  },
-  {
-   "id": 57,
-   "ts": "2026-10-30T22:26:40.791991",
-   "kind": "public_draft",
-   "title": "Draft #57"
-  },
-  {
-   "id": 58,
-   "ts": "2026-10-30T22:26:43.184830",
-   "kind": "public_draft",
-   "title": "Draft #58"
-  },
-  {
-   "id": 59,
-   "ts": "2026-10-31T00:12:47.335754",
-   "kind": "scout_idea",
-   "title": "Draft #59"
-  },
-  {
-   "id": 60,
-   "ts": "2026-10-31T00:12:47.450075",
-   "kind": "scout_idea",
-   "title": "Draft #60"
-  },
-  {
-   "id": 61,
-   "ts": "2026-10-31T00:12:47.452211",
-   "kind": "scout_idea",
-   "title": "Draft #61"
-  },
-  {
-   "id": 62,
-   "ts": "2026-10-31T00:12:47.454000",
-   "kind": "scout_idea",
-   "title": "Draft #62"
-  },
-  {
-   "id": 63,
-   "ts": "2026-10-31T00:12:47.455833",
-   "kind": "scout_idea",
-   "title": "Draft #63"
-  },
-  {
-   "id": 64,
-   "ts": "2026-11-01T00:03:42.514260",
-   "kind": "scout_idea",
-   "title": "Draft #64"
-  },
-  {
-   "id": 65,
-   "ts": "2026-11-01T00:03:42.516183",
-   "kind": "scout_idea",
-   "title": "Draft #65"
-  },
-  {
-   "id": 66,
-   "ts": "2026-11-01T00:03:42.518108",
-   "kind": "scout_idea",
-   "title": "Draft #66"
-  },
-  {
-   "id": 67,
-   "ts": "2026-11-01T00:03:42.519854",
-   "kind": "scout_idea",
-   "title": "Draft #67"
-  },
-  {
-   "id": 68,
-   "ts": "2026-11-02T00:12:34.660709",
-   "kind": "scout_idea",
-   "title": "Draft #68"
-  },
-  {
-   "id": 69,
-   "ts": "2026-11-02T00:12:34.662676",
-   "kind": "scout_idea",
-   "title": "Draft #69"
-  },
-  {
-   "id": 70,
-   "ts": "2026-11-02T00:12:34.664695",
-   "kind": "scout_idea",
-   "title": "Draft #70"
-  },
-  {
-   "id": 71,
-   "ts": "2026-11-03T01:11:21.062758",
-   "kind": "scout_idea",
-   "title": "Draft #71"
-  },
-  {
-   "id": 72,
-   "ts": "2026-11-03T01:11:21.064826",
-   "kind": "scout_idea",
-   "title": "Draft #72"
-  },
-  {
-   "id": 73,
-   "ts": "2026-11-03T01:11:21.066493",
-   "kind": "scout_idea",
-   "title": "Draft #73"
-  },
-  {
-   "id": 74,
-   "ts": "2026-11-03T01:11:21.068876",
-   "kind": "scout_idea",
-   "title": "Draft #74"
-  },
-  {
-   "id": 75,
-   "ts": "2026-11-04T01:45:45.495672",
-   "kind": "scout_idea",
-   "title": "Draft #75"
-  },
-  {
-   "id": 76,
-   "ts": "2026-11-04T01:45:45.497475",
-   "kind": "scout_idea",
-   "title": "Draft #76"
-  },
-  {
-   "id": 77,
-   "ts": "2026-11-04T01:45:45.499015",
-   "kind": "scout_idea",
-   "title": "Draft #77"
-  },
-  {
-   "id": 78,
-   "ts": "2026-11-05T01:29:36.996067",
-   "kind": "scout_idea",
-   "title": "Draft #78"
-  },
-  {
-   "id": 79,
-   "ts": "2026-11-05T01:29:36.997808",
-   "kind": "scout_idea",
-   "title": "Draft #79"
-  },
-  {
-   "id": 80,
-   "ts": "2026-11-05T01:29:36.999129",
-   "kind": "scout_idea",
-   "title": "Draft #80"
-  },
-  {
-   "id": 81,
-   "ts": "2026-11-05T01:29:37.000578",
-   "kind": "scout_idea",
-   "title": "Draft #81"
-  },
-  {
-   "id": 82,
-   "ts": "2026-11-05T01:29:37.001966",
-   "kind": "scout_idea",
-   "title": "Draft #82"
-  },
-  {
    "id": 83,
    "ts": "2026-11-06T03:20:17.829366",
    "kind": "scout_idea",
@@ -413,35 +245,35 @@
    "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-06T06:56:38Z"
+   "checked_at": "2026-11-06T17:56:07Z"
   },
   {
    "provider": "Gemini",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-06T06:56:38Z"
+   "checked_at": "2026-11-06T17:56:07Z"
   },
   {
    "provider": "Cloudflare",
    "model": null,
    "state": "unknown",
    "reason": "Mixed outcomes recorded",
-   "checked_at": "2026-11-06T06:56:38Z"
+   "checked_at": "2026-11-06T17:56:07Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-06T06:56:38Z"
+   "checked_at": "2026-11-06T17:56:07Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-06T06:56:38Z"
+   "checked_at": "2026-11-06T17:56:07Z"
   }
  ],
  "minutes": {
@@ -449,6 +281,42 @@
   "limit": null
  },
  "products": [
+  {
+   "id": 58,
+   "short_title": "Interview Prep Pro\" - provides a set o",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
+   },
+   "store_url": null
+  },
+  {
+   "id": 57,
+   "short_title": "Social Media Optimizer\" - aids job see",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
+   },
+   "store_url": null
+  },
+  {
+   "id": 56,
+   "short_title": "Personal Brand Builder\" - helps freela",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
+   },
+   "store_url": null
+  },
   {
    "id": 45,
    "short_title": "Daily gratitude & habit tracker for ne",
@@ -700,46 +568,6 @@
     ]
    },
    "store_url": null
-  },
-  {
-   "id": 28,
-   "short_title": "Career Confidence\" - helps recent coll",
-   "has_image": true,
-   "listing_status": "ready",
-   "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
-    "reasons": [
-     "Score 95+ without enough proof from the files (red flag)"
-    ]
-   },
-   "store_url": null
-  },
-  {
-   "id": 27,
-   "short_title": "printable 2027 monthly planner for uni",
-   "has_image": true,
-   "listing_status": "ready",
-   "truth_check": {
-    "verdict": "READY",
-    "status": "READY",
-    "reasons": []
-   },
-   "store_url": null
-  },
-  {
-   "id": 26,
-   "short_title": "printable 2027 monthly planner for sma",
-   "has_image": true,
-   "listing_status": "ready",
-   "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
-    "reasons": [
-     "Promises 'Overview page' (README.md): promised but not in the files"
-    ]
-   },
-   "store_url": null
   }
  ],
  "reject_reasons": [
@@ -766,8 +594,8 @@
  ],
  "report": {
   "drafts_made": 5,
-  "drafts_waiting": 33,
-  "drafts_approved": 0,
+  "drafts_waiting": 5,
+  "drafts_approved": 28,
   "products_built": 0,
   "errors": 0
  },
@@ -2211,37 +2039,39 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-06T06:56:37Z",
-  "last_run_end": "2026-11-06T06:56:38Z",
+  "last_run_start": "2026-11-06T17:56:07Z",
+  "last_run_end": "2026-11-06T17:56:07Z",
   "runner": "github-actions",
-  "run_id": "42177177680"
+  "run_id": "42265375214"
  },
  "changelog": [
+  "agent: owner inbox state [skip ci]",
+  "agent: state + content update [skip ci]",
+  "agent: state + content update [skip ci]",
+  "Fix JX test env cleanup under GitHub runner variables",
+  "Robot makes upload packs after a ready build + /packs and /pack in Telegram (Jules JX); office life events: activity, meetings, letters (Jules KA); owner voice/",
+  "Workflow: give the growing test suite 9 minutes (job 16) so runs stop timing out",
+  "Cloud ledger reader module (not wired in yet): owner-first decisions, idempotent (Jules JZ)",
+  "Upload packs: up to 13 clean tags, no untested app claims, personal-use line (Jules JY)",
+  "Upload pack checker script for owner/Claude, runs under unittest (Aider A4)",
+  "Daily report: auto-decisions, built products and the owner's next step (Jules JU)",
+  "Telegram diagnostic: show allowed_updates and flag when button presses would be dropped (Jules JT)",
+  "Preserve legacy format checks and report PDF pagination per file",
+  "Build combined PDF and workbook products with price-free verified listings",
+  "Offline upload pack builder for Gumroad/Topmate: buyer zip, plain listing, cover, owner checklist; nothing is uploaded (Codex P3)",
+  "Ten ready product specs from the product bible, each built and truth-checked in tests (Jules JR)",
+  "agent: state + content update [skip ci]",
   "Keep reject reasons in guardrails (no runtime patch) and show the draft number on Approve",
   "One-tap draft approval in Telegram + 24h auto-decision (>=70 approve, <70 reject, owner first wins) (Jules JE2)",
   "Cloud approval ledger: Cloudflare Worker + SQLite Durable Object, code only, not deployed (Jules JQ)",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "fix(topics): remove recipe prices without repeating historical topics",
-  "fix(pdf): match split habit-grid subtitles to each page's days",
-  "fix(checker): bound published scores while preserving Scout ranking",
-  "Office projection and doctor tell the truth: hide draft titles, real needs-you, moving revision, safe JSON, never re-queue running work (Jules JN)",
-  "feat(planner): generate dated pages promised by listings and verify calendar evidence",
-  "fix(launch): describe actual file formats and make Dashboard fixtures explicit",
-  "fix(truth): distinguish cover-letter filenames from paper sizes",
-  "fix(builder): retain explicit Dashboard choices in resume trackers",
-  "fix(truth): avoid treating spelled page counts as named content",
-  "fix(truth): distinguish printable sheets from Excel worksheet promises",
-  "fix(builder): preserve subset page counts and Notion import totals",
-  "fix(truth): require actual PDF and Excel files for format promises"
+  "agent: state + content update [skip ci]"
  ],
  "daily_report": {
   "date_ist": "2026-11-06",
-  "summary": "No completed work recorded.",
-  "items_done": []
+  "summary": "0 tasks completed; 28 approvals reviewed; 0 products built.",
+  "items_done": [
+   "Approval reviewed"
+  ]
  },
  "sunday_letter": null,
  "cubes": [
@@ -2595,8 +2425,8 @@
  ],
  "scout_ideas_count": {
   "total": 39,
-  "pending": 30,
-  "approved": 9
+  "pending": 5,
+  "approved": 34
  },
  "trend_items_count": {
   "total": 90,

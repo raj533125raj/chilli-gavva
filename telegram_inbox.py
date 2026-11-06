@@ -292,6 +292,197 @@ def subscription_note(token):
     return "; ".join(parts)
 
 
+# ---- Office Requests Queue ---------------------------------------------------
+OFFICE_INTENTS = {
+    "rename_agent",
+    "rename_room",
+    "move_room",
+    "resize_room",
+    "theme",
+    "language",
+    "focus_room",
+    "mute",
+    "unmute",
+    "undo_last_ui_change",
+}
+
+SAFE_OWNER_INTENTS = {
+    "list_drafts",
+    "show_status",
+    "daily_report",
+    "list_packs",
+    "show_pack",
+    "help",
+    "what_happened_today",
+}
+
+RISKY_OWNER_INTENTS = {
+    "approve_draft",
+    "reject_draft",
+    "pause_all",
+    "resume_all",
+    "run_now",
+}
+
+CONFIRM_EXPIRY_SECONDS = 10 * 60  # 10 minutes
+
+
+def _ensure_office_requests_table(conn):
+    cur = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='office_requests'").fetchone()
+    if not cur:
+        conn.execute("""CREATE TABLE IF NOT EXISTS office_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            intent TEXT,
+            args TEXT,
+            ts TEXT
+        )""")
+    else:
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(office_requests)").fetchall()}
+        for col in ("intent", "args", "ts"):
+            if col not in cols:
+                conn.execute(f"ALTER TABLE office_requests ADD COLUMN {col} TEXT")
+
+
+def store_office_request(intent, args, db_path=None):
+    """Store an office UI request in the office_requests queue table."""
+    conn = guardrails.connect(db_path)
+    _ensure_office_requests_table(conn)
+    ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    args_json = json.dumps(args or {})
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(office_requests)").fetchall()}
+    if "nonce" in cols:
+        import uuid
+        req_id = f"req_{uuid.uuid4().hex[:12]}"
+        nonce = uuid.uuid4().hex
+        digest = "local_office_ui"
+        receipt_data = json.dumps({"at": ts, "state": "held", "type": intent, "reason": "Office UI request queued"})
+        conn.execute(
+            "INSERT INTO office_requests (id, nonce, digest, receipt, intent, args, ts) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (req_id, nonce, digest, receipt_data, intent, args_json, ts)
+        )
+    else:
+        conn.execute(
+            "INSERT INTO office_requests (intent, args, ts) VALUES (?, ?, ?)",
+            (intent, args_json, ts)
+        )
+    conn.commit()
+    conn.close()
+
+
+def _format_office_action_desc(intent, args):
+    args = args or {}
+    if intent == "rename_agent":
+        return f"rename agent {args.get('old', '')} to {args.get('new', '')}".strip()
+    if intent == "rename_room":
+        return f"rename room {args.get('old', '')} to {args.get('new', '')}".strip()
+    if intent == "move_room":
+        return f"move room {args.get('name', '')} near {args.get('near', '')}".strip()
+    if intent == "resize_room":
+        return f"{args.get('name', '')} room {args.get('size', '')}".strip()
+    if intent == "theme":
+        return f"theme {args.get('theme', '')}".strip()
+    if intent == "language":
+        return f"language {args.get('language', '')}".strip()
+    if intent == "focus_room":
+        return f"focus room {args.get('name', '')}".strip()
+    if intent == "mute":
+        return "mute"
+    if intent == "unmute":
+        return "unmute"
+    if intent == "undo_last_ui_change":
+        return "undo last UI change"
+    return intent
+
+
+def _format_risky_action_desc(intent, args):
+    args = args or {}
+    if intent == "approve_draft":
+        n = args.get("n")
+        return f"approve draft #{n}" if n is not None else "approve draft"
+    if intent == "reject_draft":
+        n = args.get("n")
+        reason = args.get("reason")
+        base = f"reject draft #{n}" if n is not None else "reject draft"
+        return f"{base} ({reason})" if reason else base
+    if intent == "pause_all":
+        return "pause all"
+    if intent == "resume_all":
+        return "resume all"
+    if intent == "run_now":
+        return "run now"
+    return intent
+
+
+def create_confirmation_prompt(intent, args, db_path=None):
+    """Create confirmation message and inline Yes/No buttons for a risky intent."""
+    import uuid
+    token = uuid.uuid4().hex[:12]
+    now = time.time()
+    record = {"intent": intent, "args": args, "ts": now}
+    set_state(f"kd_confirm:{token}", json.dumps(record), db_path=db_path)
+    action_desc = _format_risky_action_desc(intent, args)
+    prompt_text = f"Confirm: {action_desc}? Yes/No"
+    buttons = [[("Yes", f"kd:y:{token}"), ("No", f"kd:n:{token}")]]
+    return prompt_text, buttons
+
+
+def execute_confirmed_risky_action(intent, args, db_path=None):
+    """Execute confirmed risky intent using the same code paths existing commands/buttons use."""
+    args = args or {}
+    if intent == "approve_draft":
+        n = args.get("n")
+        if n is None:
+            return missing_number_text("approve", db_path)
+        appr = guardrails.get_approval(n, db_path)
+        if appr and appr.get("status") == "approved":
+            return f"Approved ✓ #{n}"
+        changed = guardrails.decide(n, True, db_path)
+        if changed:
+            return f"Approved ✓ #{n}"
+        return f"Not changed (not found or already decided): #{n}"
+
+    if intent == "reject_draft":
+        n = args.get("n")
+        if n is None:
+            return missing_number_text("reject", db_path)
+        reason = args.get("reason", "")
+        reason_label = REASON_LABELS.get(reason.lower(), reason) if reason else ""
+        appr = guardrails.get_approval(n, db_path)
+        if appr and appr.get("status") == "rejected":
+            r_exist = appr.get("reason")
+            return f"Rejected: {r_exist}" if r_exist else f"Rejected: #{n}"
+        changed = guardrails.decide(n, False, db_path)
+        if changed:
+            if reason_label:
+                guardrails.set_reason(n, reason_label, db_path)
+                return f"Rejected: {reason_label}"
+            return f"Rejected: #{n}"
+        return f"Not changed (not found or already decided): #{n}"
+
+    if intent == "pause_all":
+        guardrails.set_paused(True, db_path)
+        import publisher
+        publisher.set_global_stop(True, db_path)
+        return ("⏸ Paused. From the next run, no AI work and no new drafts. "
+                "I will still answer here. Send /resume to start again.")
+
+    if intent == "resume_all":
+        guardrails.set_paused(False, db_path)
+        import publisher
+        publisher.set_global_stop(False, db_path)
+        return "▶️ Resumed. Work starts again on the next run."
+
+    if intent == "run_now":
+        try:
+            import workforce
+            res = workforce.run_once(max_tasks=3, db_path=db_path)
+            return f"🚀 Engine run triggered!\nResult: {res['status']}, ran {res.get('ran', 0)} task(s)."
+        except Exception as exc:
+            return f"🚀 Engine run failed: {type(exc).__name__}"
+
+    return "Unknown action."
+
+
 # ---- command handling --------------------------------------------------------
 _COMMANDS = "status|list|view|approve|reject|packs|pack|pipeline|pause|resume|buttontest|rules|cubes|doctor|autofix_drill|help|start"
 # "/approve 4", "/approve" or "/approve@bot 4 5": anything after a real slash command is fine.
@@ -813,6 +1004,36 @@ def handle_callback(token, owner_chat_id, data, db_path=None, message_id=None):
     if imp_reply is not None:
         send_text(token, owner_chat_id, imp_reply)
         return imp_reply
+    if data and data.startswith("kd:"):
+        parts = data.split(":", 2)
+        if len(parts) == 3:
+            choice, conf_token = parts[1], parts[2]
+            state_key = f"kd_confirm:{conf_token}"
+            raw_rec = get_state(state_key, None, db_path=db_path)
+            if not raw_rec:
+                reply = "Confirmation expired or not found."
+                send_text(token, owner_chat_id, reply)
+                return reply
+            try:
+                rec = json.loads(raw_rec)
+            except Exception:
+                rec = {}
+            # Delete token to make it single-use
+            set_state(state_key, "", db_path=db_path)
+            now = time.time()
+            created_ts = rec.get("ts", 0)
+            if now - created_ts > CONFIRM_EXPIRY_SECONDS:
+                reply = "Confirmation expired (exceeded 10 minutes)."
+                send_text(token, owner_chat_id, reply)
+                return reply
+            if choice == "n":
+                reply = f"Cancelled action '{rec.get('intent', 'action')}'."
+                send_text(token, owner_chat_id, reply)
+                return reply
+            if choice == "y":
+                reply = execute_confirmed_risky_action(rec.get("intent"), rec.get("args"), db_path=db_path)
+                send_text(token, owner_chat_id, reply)
+                return reply
     m = _CALLBACK.match(data or "")
     if not m:
         return None
@@ -922,10 +1143,11 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
             u = re.findall(r"https?://[^\s]+", m_text)
             if u:
                 return ("url", u[0])
-            import chat_brain
-            intent, _ = chat_brain.classify_intent(m_text, db_path=db_path)
-            if intent and intent != "capabilities":
-                return ("chat_brain", m_text)
+            import owner_commands
+            cmd_info = owner_commands.parse(m_text)
+            intent = cmd_info.get("intent", "unknown")
+            if intent != "unknown":
+                return ("owner_cmd", intent, json.dumps(cmd_info.get("args") or {}, sort_keys=True))
             return ("unknown_text",)
         return ("command", c, tuple(c_ids))
 
@@ -1035,14 +1257,59 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                 handled += 1
                 continue
 
-            import chat_brain
-            intent, params = chat_brain.classify_intent(message_text, db_path=db_path)
-            if intent and intent != "capabilities":
+            import owner_commands
+            cmd_info = owner_commands.parse(message_text)
+            c_intent = cmd_info.get("intent", "unknown")
+            c_args = cmd_info.get("args") or {}
+
+            if c_intent in SAFE_OWNER_INTENTS:
                 if not is_duplicate:
-                    chat_brain.process_message(token, owner_chat_id, message_text + burst_note, db_path=db_path)
-            else:
+                    if c_intent == "list_drafts":
+                        reply = handle_command("list", [], db_path) + burst_note
+                        send_text(token, owner_chat_id, reply)
+                        for it in guardrails.pending(db_path)[:10]:
+                            send_text(token, owner_chat_id, draft_card(it, db_path=db_path), draft_buttons(it["id"]))
+                    elif c_intent == "show_status":
+                        reply = status_text(db_path) + burst_note
+                        send_text(token, owner_chat_id, reply)
+                    elif c_intent in ("daily_report", "what_happened_today"):
+                        import daily_report
+                        reply = daily_report.report_text(db_path=db_path) + burst_note
+                        send_text(token, owner_chat_id, reply)
+                    elif c_intent == "list_packs":
+                        reply = ready_packs_text() + burst_note
+                        send_text(token, owner_chat_id, reply)
+                    elif c_intent == "show_pack":
+                        n = c_args.get("n")
+                        reply = (upload_pack_listing_text(n, db_path=db_path) if n is not None
+                                 else "Send /pack <number> to view the listing.") + burst_note
+                        send_text(token, owner_chat_id, reply)
+                    elif c_intent == "help":
+                        hint_msg = cmd_info.get("hint") or HELP
+                        send_text(token, owner_chat_id, hint_msg + burst_note)
+                handled += 1
+                continue
+
+            if c_intent in RISKY_OWNER_INTENTS:
                 if not is_duplicate:
-                    send_text(token, owner_chat_id, UNKNOWN_TEXT_HINT + burst_note)
+                    prompt_text, buttons = create_confirmation_prompt(c_intent, c_args, db_path=db_path)
+                    send_text(token, owner_chat_id, prompt_text + burst_note, buttons)
+                handled += 1
+                continue
+
+            if c_intent in OFFICE_INTENTS:
+                if not is_duplicate:
+                    store_office_request(c_intent, c_args, db_path=db_path)
+                    action_desc = _format_office_action_desc(c_intent, c_args)
+                    reply = f"Office lo marchutha: {action_desc} (Binny Mills app lo apply avutundi)" + burst_note
+                    send_text(token, owner_chat_id, reply)
+                handled += 1
+                continue
+
+            # Fallback for unknown text: reply with parser's Tenglish help hint
+            if not is_duplicate:
+                hint_text = cmd_info.get("hint") or UNKNOWN_TEXT_HINT
+                send_text(token, owner_chat_id, hint_text + burst_note)
             handled += 1
             continue
 
