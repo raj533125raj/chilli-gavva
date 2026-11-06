@@ -608,8 +608,13 @@ def render_page(pdf, page, header_right=None):
                 part = days[offset:offset + 16]
                 split = {**section, "columns": [section["columns"][0]] + part}
                 split_sections = [*sections[:index], split, *sections[index + 1:]] if offset == 0 else [split]
+                day_range = f"Days {part[0]} to {part[-1]}"
+                subtitle, replacements = re.subn(r"\bdays?\s+\d+\s*(?:to|[-–—])\s*\d+\b", day_range,
+                                                  page.get("subtitle") or "", flags=re.I)
+                if not replacements:
+                    subtitle = f"{subtitle} · {day_range}" if subtitle else day_range
                 render_page(pdf, {**page, "title": page["title"] + f" (days {part[0]}-{part[-1]})",
-                                  "sections": split_sections, "columns": 1}, header_right)
+                                  "subtitle": subtitle, "sections": split_sections, "columns": 1}, header_right)
             return False
     ncols = 1 if any(sec.get("type") == "grid" for sec in sections) else (2 if len(sections) >= 4 or page.get("columns") == 2 else 1)
     colw = (width - 18) / 2 if ncols == 2 else width

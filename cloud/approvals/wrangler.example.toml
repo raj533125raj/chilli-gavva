@@ -1,0 +1,20 @@
+name = "binny-approval-ledger"
+main = "worker.js"
+compatibility_date = "2024-04-03"
+
+[durable_objects]
+bindings = [
+  { name = "APPROVAL_LEDGER", class_name = "ApprovalLedger" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ApprovalLedger"]
+
+[vars]
+# Configuration variable placeholders (do not commit actual secret values here)
+# Set secrets via `wrangler secret put <KEY>`:
+# - WEBHOOK_SECRET: Secret token configured in Telegram setWebhook
+# - ROBOT_READ_TOKEN: Secret bearer token used by the robot to read decisions
+# - OWNER_CHAT_ID: Numeric Telegram chat ID of the authorized owner
+OWNER_CHAT_ID = "YOUR_TELEGRAM_OWNER_CHAT_ID"

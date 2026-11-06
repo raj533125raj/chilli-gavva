@@ -102,6 +102,54 @@ class PoolTests(Base):
                                                                    "payload": {"topic": "plain topic"}}]}, self.db))
 
 
+class LegacyPriceIdentityTests(Base):
+    def test_every_niche_counts_old_done_tasks_as_the_same_price_free_topics(self):
+        from pathlib import Path
+        for path in (Path(ROOT) / 'recipes').glob('niche_*.yaml'):
+            with self.subTest(recipe=path.name):
+                recipe = recipe_runner._load_yaml(str(path))
+                db = os.path.join(self.tmp.name, path.stem + '.db')
+                originals = []
+                for index, task in enumerate(recipe['tasks']):
+                    payload = dict(task['payload'])
+                    old_topic = payload['topic'].replace(', sold on', ', priced 5-9 USD, sold on', 1)
+                    self.assertNotEqual(old_topic,payload['topic'])
+                    self.assertEqual(nt.split_topic(old_topic),nt.split_topic(payload['topic']))
+                    payload['topic'] = old_topic
+                    workforce.enqueue('research' if index % 2 == 0 else 'draft',payload,db_path=db)
+                    originals.append(old_topic)
+                conn = workforce.connect(db)
+                conn.execute("UPDATE tasks SET status = 'done'")
+                conn.commit();conn.close()
+                self.assertEqual(nt.fresh_tasks(recipe,db_path=db,llm=None),[])
+                conn = workforce.connect(db)
+                stored = [json.loads(row[0])['topic'] for row in conn.execute('SELECT payload FROM tasks ORDER BY id')]
+                conn.close()
+                self.assertEqual(stored,originals,'Deduplication must not rewrite historical task payloads')
+
+    def test_old_used_pool_rows_block_new_price_free_starters(self):
+        recipe = recipe_runner._load_yaml(RECIPE)
+        conn = nt.connect(self.db)
+        for task in recipe['tasks']:
+            idea = nt.split_topic(task['payload']['topic'])[1]
+            conn.execute("INSERT INTO niche_topics (niche,idea,status) VALUES (?,?,'used')",
+                         (recipe['name'],idea + ', priced 5-9 USD'))
+        conn.commit();conn.close()
+        self.assertEqual(nt.fresh_tasks(recipe,db_path=self.db,llm=None),[])
+        self.assertTrue(all('priced' not in idea for idea in nt.done_topics(recipe['name'],self.db)))
+
+    def test_ai_price_variants_do_not_repeat_used_topics_or_reintroduce_prices(self):
+        self.run_niche()
+        recipe = recipe_runner._load_yaml(RECIPE)
+        old_idea = nt.split_topic(recipe['tasks'][0]['payload']['topic'])[1]
+        reply = old_idea + ', priced 5-9 USD\nSinking funds planner for families saving for school fees, priced 5-9 USD'
+        result = self.run_niche(reply)
+        self.assertEqual(len(result['enqueued']),1)
+        topics = self.queued_topics()
+        self.assertEqual(sum('irregular-income' in topic for topic in topics),1)
+        self.assertTrue(all('priced' not in topic for topic in topics))
+
+
 class HelperTests(unittest.TestCase):
     def test_similar(self):
         self.assertTrue(nt.similar("Debt snowball payoff tracker for adults with several debts",
@@ -110,8 +158,20 @@ class HelperTests(unittest.TestCase):
 
     def test_split_topic(self):
         agent, idea, suffix = nt.split_topic("[A Agent] some idea here, priced 5-9 USD, sold on Gumroad")
-        self.assertEqual((agent, idea, suffix), ("A Agent", "some idea here", ", priced 5-9 USD, sold on Gumroad"))
+        self.assertEqual((agent, idea, suffix), ("A Agent", "some idea here", ", sold on Gumroad"))
         self.assertIsNone(nt.split_topic("no agent label"))
+
+    def test_price_metadata_is_ignored_but_years_and_page_counts_are_retained(self):
+        plain = '[A Agent] 2027 focus planner with 12 monthly pages, sold on Gumroad'
+        for price in ('priced 5-9 USD','priced at $5-$9','priced between 5 and 9 USD',
+                      'priced USD 5 to USD 9','priced $5','priced 5 USD','priced 5–9 USD'):
+            with self.subTest(price=price):
+                old = plain.replace(', sold on',', ' + price + ', sold on')
+                self.assertEqual(nt.normalize_topic(old),plain)
+                self.assertEqual(nt.split_topic(old),nt.split_topic(plain))
+                self.assertTrue(nt.similar(old,plain))
+        self.assertEqual(nt.normalize_topic('2027 planner with 12 monthly pages'),'2027 planner with 12 monthly pages')
+        self.assertEqual(nt.normalize_topic('Couples paying in USD'),'Couples paying in USD')
 
     def test_clean_line(self):
         self.assertEqual(nt._clean_line("3) A planner for night-shift nurses"), "A planner for night-shift nurses")

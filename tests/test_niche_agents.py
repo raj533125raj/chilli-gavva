@@ -1,5 +1,6 @@
 """Tests for the 5 niche agents: recipes, weekday rotation and the approval-queue guard."""
 import datetime
+from pathlib import Path
 import os
 import shutil
 import sys
@@ -163,11 +164,16 @@ class NicheRecipeTests(unittest.TestCase):
                 with self.subTest(topic=topic[:50]):
                     # The draft title shows topic[:60], so the agent name must sit at the start
                     self.assertIn("[" + t["payload"]["agent"] + "]", topic[:60])
-                    self.assertIn("USD", topic)
+                    self.assertNotRegex(topic, r"(?i)(?:[$£€₹]\s*\d|\d+(?:[.,]\d+)?(?:\s*[-–—]\s*\d+)?\s*(?:USD|US\$|EUR|GBP|INR|dollars?))")
                     self.assertTrue("Payhip" in topic or "Gumroad" in topic)
                     for part in ("listing title", "listing description", "5 search tags"):
                         self.assertIn(part, topic)
                     self.assertNotIn("{", topic)  # topics go through str.format()
+
+    def test_all_recipe_files_have_no_currency_amounts(self):
+        for path in (Path(BASE_DIR) / "recipes").glob("*.yaml"):
+            with self.subTest(recipe=path.name):
+                self.assertNotRegex(path.read_text(), r"(?i)(?:[$£€₹]\s*\d|\b(?:USD|EUR|GBP|INR)\s*\d|\d+(?:[.,]\d+)?(?:\s*[-–—]\s*\d+)?\s*(?:USD|US\$|EUR|GBP|INR|dollars?))")
 
     def test_topics_avoid_banned_and_off_limits_words(self):
         try:
