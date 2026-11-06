@@ -1,0 +1,123 @@
+{
+  "approval_id": 3,
+  "kind": "planner",
+  "niche": "Budget Sheets Agent",
+  "style": "A",
+  "name": "Savings Goals Planner",
+  "short_name": "savings-goals-planner",
+  "daily_page": false,
+  "listing": {
+    "title": "Savings Goals Planner - Printable Target Dates and Deposits Log",
+    "description": "A printable savings planner with an Excel spreadsheet to track progress towards financial targets.\n\nInside the printable PDF: a cover, a How to use page, the Goals Table page with target date, the Deposits Log page, and the Savings Notes page.\n\nAlso includes an Excel (.xlsx) file with a Deposits tab.\n\nPrint on A4 or US Letter paper for personal use.",
+    "tags": [
+      "savings goals",
+      "savings tracker",
+      "printable planner",
+      "deposit tracker",
+      "money goals"
+    ],
+    "price_usd": 8.0,
+    "buyer": "adults who want an organized savings goals system",
+    "platform": "Gumroad"
+  },
+  "instructions": [
+    "Print the A4 or US Letter file at 100% scale.",
+    "Set your target amounts and target dates on the Goals Table page.",
+    "Log each deposit on the Deposits Log page.",
+    "Open the .xlsx file in Excel to maintain a digital record in the Deposits tab."
+  ],
+  "cover_image_idea": "The Goals Table page printed on paper next to a computer screen.",
+  "pages": [
+    {
+      "title": "Goals Table",
+      "subtitle": "Set financial goals and target completion dates",
+      "sections": [
+        {
+          "heading": "Savings targets",
+          "type": "table",
+          "columns": [
+            "Goal Name",
+            "Target Amount",
+            "Target Date",
+            "Priority"
+          ],
+          "count": 8
+        }
+      ]
+    },
+    {
+      "title": "Deposits Log",
+      "subtitle": "Track deposits and progress towards each goal",
+      "sections": [
+        {
+          "heading": "Deposits",
+          "type": "table",
+          "columns": [
+            "Date",
+            "Goal",
+            "Deposit Amount",
+            "New Balance"
+          ],
+          "count": 10
+        }
+      ]
+    },
+    {
+      "title": "Savings Notes",
+      "subtitle": "Reminders and savings reflections",
+      "sections": [
+        {
+          "heading": "Notes",
+          "type": "lines",
+          "items": [],
+          "count": 12
+        }
+      ]
+    }
+  ],
+  "sheets": [
+    {
+      "name": "Deposits",
+      "columns": [
+        {
+          "name": "Date",
+          "type": "date",
+          "options": []
+        },
+        {
+          "name": "Goal",
+          "type": "text",
+          "options": []
+        },
+        {
+          "name": "Deposit",
+          "type": "money",
+          "options": []
+        },
+        {
+          "name": "Withdrawal",
+          "type": "money",
+          "options": []
+        }
+      ],
+      "rows": [
+        [
+          "2026-01-05",
+          "Emergency Fund",
+          250,
+          ""
+        ],
+        [
+          "2026-01-15",
+          "Holiday Fund",
+          100,
+          ""
+        ]
+      ],
+      "balance": {
+        "in": "Deposit",
+        "out": "Withdrawal"
+      }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "approval_id": 5,
+  "kind": "planner",
+  "niche": "ADHD Planners Agent",
+  "style": "A",
+  "name": "Monthly Habit Grid",
+  "short_name": "monthly-habit-grid",
+  "daily_page": false,
+  "listing": {
+    "title": "Monthly Habit Grid - 31-Day Printable Habit Tracker",
+    "description": "A printable 31-day habit tracking grid with tick boxes split across pages for comfortable recording.\n\nInside: a cover, a How to use page, and the Monthly Habit Grid pages covering all 31 days.\n\nPrint on A4 or US Letter paper, as often as you need, for personal use.",
+    "tags": [
+      "habit tracker",
+      "monthly habits",
+      "printable habit tracker",
+      "31 day habit",
+      "routine tracker"
+    ],
+    "price_usd": 5.0,
+    "buyer": "adults who want a comprehensive 31-day habit tracking grid",
+    "platform": "Gumroad"
+  },
+  "instructions": [
+    "Print the A4 or US Letter file at 100% scale.",
+    "Write your habits in the first column.",
+    "Tick the box for each day of the month as you complete your routine."
+  ],
+  "cover_image_idea": "The Monthly Habit Grid pages printed on clean paper.",
+  "pages": [
+    {
+      "title": "Monthly Habit Grid",
+      "subtitle": "Track habits across 31 days",
+      "sections": [
+        {
+          "heading": "Habits",
+          "type": "grid",
+          "days": 31,
+          "count": 10
+        }
+      ]
+    }
+  ]
+}
