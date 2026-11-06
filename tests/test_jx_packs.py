@@ -22,9 +22,10 @@ PNG = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
 
 class JxPacksTests(unittest.TestCase):
     def setUp(self):
-        env_clean = {k: None for k in os.environ if k.startswith("GITHUB_") or k in ("RUNNER_ENVIRONMENT",)}
-        self.env_patcher = mock.patch.dict(os.environ, env_clean)
+        self.env_patcher = mock.patch.dict(os.environ, {})
         self.env_patcher.start()
+        for k in [k for k in os.environ if k.startswith("GITHUB_") or k == "RUNNER_ENVIRONMENT"]:
+            del os.environ[k]
 
         self.temp_dir = tempfile.TemporaryDirectory()
         self.root = pathlib.Path(self.temp_dir.name)
