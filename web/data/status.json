@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-06T23:13:29Z",
+ "generated_at": "2026-11-07T02:16:51Z",
  "llm": {
-  "calls_today": 36,
+  "calls_today": 1,
   "cap": 500
  },
  "agents": [
@@ -250,6 +250,24 @@
    "ts": "2026-11-06T21:59:56.743938",
    "kind": "public_draft",
    "title": "Draft #90"
+  },
+  {
+   "id": 91,
+   "ts": "2026-11-07T02:16:49.202861",
+   "kind": "scout_idea",
+   "title": "Draft #91"
+  },
+  {
+   "id": 92,
+   "ts": "2026-11-07T02:16:49.205756",
+   "kind": "scout_idea",
+   "title": "Draft #92"
+  },
+  {
+   "id": 93,
+   "ts": "2026-11-07T02:16:49.208326",
+   "kind": "scout_idea",
+   "title": "Draft #93"
   }
  ],
  "worker": {
@@ -384,66 +402,44 @@
     "activity": "off_duty"
    }
   ],
-  "meetings": [
-   {
-    "draft_number": 88,
-    "agents": [
-     "Draft Worker",
-     "QA Checker"
-    ]
-   },
-   {
-    "draft_number": 89,
-    "agents": [
-     "Draft Worker",
-     "QA Checker"
-    ]
-   },
-   {
-    "draft_number": 90,
-    "agents": [
-     "Draft Worker",
-     "QA Checker"
-    ]
-   }
-  ],
+  "meetings": [],
   "letters": []
  },
  "ai_health": [
   {
    "provider": "Groq",
    "model": "openai/gpt-oss-20b",
-   "state": "down",
-   "reason": "Provider request rate exceeded",
-   "checked_at": "2026-11-06T23:13:29Z"
+   "state": "up",
+   "reason": "Latest request succeeded",
+   "checked_at": "2026-11-07T02:16:51Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-06T23:13:29Z"
+   "checked_at": "2026-11-07T02:16:51Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-06T23:13:29Z"
+   "checked_at": "2026-11-07T02:16:51Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-06T23:13:29Z"
+   "checked_at": "2026-11-07T02:16:51Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-06T23:13:29Z"
+   "checked_at": "2026-11-07T02:16:51Z"
   }
  ],
  "minutes": {
@@ -763,9 +759,9 @@
   }
  ],
  "report": {
-  "drafts_made": 8,
-  "drafts_waiting": 8,
-  "drafts_approved": 28,
+  "drafts_made": 3,
+  "drafts_waiting": 11,
+  "drafts_approved": 0,
   "products_built": 0,
   "errors": 0
  },
@@ -832,15 +828,15 @@
   },
   "research": {
    "plan": 4,
-   "done": 3
+   "done": 0
   },
   "drafts": {
    "plan": 3,
-   "done": 3
+   "done": 0
   },
   "review": {
    "plan": 3,
-   "done": 3
+   "done": 0
   },
   "product_builds": {
    "plan": 2,
@@ -875,68 +871,80 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 36,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 36,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 36,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 36,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 36,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 36,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 36,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 36,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 36,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   }
  ],
  "loop_events": [
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-07T02:16:46Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-07T02:16:46Z"
+  },
   {
    "agent": "Unknown agent",
    "kind": "error",
@@ -2263,12 +2271,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-06T23:13:28Z",
-  "last_run_end": "2026-11-06T23:13:29Z",
+  "last_run_start": "2026-11-07T02:16:46Z",
+  "last_run_end": "2026-11-07T02:16:51Z",
   "runner": "github-actions",
-  "run_id": "42310316858"
+  "run_id": "42328025556"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "KC office data, KD Tenglish Telegram text, KE packs in report, KF deep QA, KG post planner (Jules, verified by Claude)",
   "F1 listing copy helper",
@@ -2287,8 +2296,7 @@
   "Preserve legacy format checks and report PDF pagination per file",
   "Build combined PDF and workbook products with price-free verified listings",
   "Offline upload pack builder for Gumroad/Topmate: buyer zip, plain listing, cover, owner checklist; nothing is uploaded (Codex P3)",
-  "Ten ready product specs from the product bible, each built and truth-checked in tests (Jules JR)",
-  "agent: state + content update [skip ci]"
+  "Ten ready product specs from the product bible, each built and truth-checked in tests (Jules JR)"
  ],
  "daily_report": {
   "date_ist": "2026-11-07",
@@ -2656,12 +2664,12 @@
   }
  ],
  "scout_ideas_count": {
-  "total": 39,
-  "pending": 5,
+  "total": 42,
+  "pending": 8,
   "approved": 34
  },
  "trend_items_count": {
-  "total": 90,
+  "total": 100,
   "proposed": 0,
   "approved": 0
  },
