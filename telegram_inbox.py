@@ -67,6 +67,8 @@ HELP = ("\U0001f336️ Chilli Gavva approvals\n\n"
         "/cubes - department cubes status and controls\n"
         "/rules - list active learned rules\n"
         "/doctor - show last 10 doctor cases\n"
+        "/today - what to post today\n"
+        "/posted N - mark post N of today as done\n"
         "/pause - emergency brake: stop all AI work and drafts\n"
         "/resume - start work again\n"
         "/buttontest - send a test button (checks that button presses reach the bot)\n"
@@ -314,6 +316,8 @@ SAFE_OWNER_INTENTS = {
     "show_pack",
     "help",
     "what_happened_today",
+    "post_today",
+    "post_done",
 }
 
 RISKY_OWNER_INTENTS = {
@@ -484,7 +488,7 @@ def execute_confirmed_risky_action(intent, args, db_path=None):
 
 
 # ---- command handling --------------------------------------------------------
-_COMMANDS = "status|list|view|approve|reject|packs|pack|pipeline|pause|resume|buttontest|rules|cubes|doctor|autofix_drill|help|start"
+_COMMANDS = "status|list|view|approve|reject|packs|pack|pipeline|pause|resume|buttontest|rules|cubes|doctor|autofix_drill|help|start|today|posted"
 # "/approve 4", "/approve" or "/approve@bot 4 5": anything after a real slash command is fine.
 _SLASH_CMD = re.compile(rf"^/({_COMMANDS})(?:@\w+)?(?:\s+(.*))?$", re.IGNORECASE | re.DOTALL)
 # Without a slash only the bare form counts: "approve 4", "approve 4, 5", "list". A normal sentence such as
@@ -857,6 +861,34 @@ def ready_packs_text(products_dir=None):
     return "\n".join(lines)
 
 
+def today_posts_text(plan_path=None, products_dir=None, date=None):
+    """Load or build the post plan and return today's post text <= 1200 chars."""
+    import post_planner
+    plan_file = plan_path or post_planner.PLAN_PATH
+    prod_dir = products_dir or "exported_content/products"
+    plan = post_planner.load_plan(plan_file, products_dir=prod_dir)
+    return post_planner.today_text(plan, date=date)
+
+
+def mark_post_done_text(n, plan_path=None, products_dir=None, date=None):
+    """Mark post N as done, atomically save plan, and return confirmation + week summary."""
+    import post_planner
+    plan_file = plan_path or post_planner.PLAN_PATH
+    prod_dir = products_dir or "exported_content/products"
+    plan = post_planner.load_plan(plan_file, products_dir=prod_dir)
+
+    if n is None or n < 1:
+        return "Please specify a valid post number: /posted <number> (e.g. /posted 1)"
+
+    ok = post_planner.mark_posted(plan, date=date, n=n)
+    if not ok:
+        return f"Could not mark post {n} as done. Check /today for available posts."
+
+    post_planner.save_plan(plan, plan_file)
+    summary = post_planner.week_summary(plan, date=date)
+    return f"Sare, post {n} done ✓\n{summary}"
+
+
 def upload_pack_listing_text(aid, db_path=None, products_dir=None):
     import pathlib
     import product_builder
@@ -950,6 +982,11 @@ def handle_command(cmd, ids, db_path=None):
         import autofix
         res = autofix.run_drill()
         return f"Auto-fix drill: {res['verdict']}\n{res['summary']}"
+    if cmd == "today":
+        return today_posts_text()
+    if cmd == "posted":
+        n = ids[0] if ids else None
+        return mark_post_done_text(n)
     return HELP
 
 
@@ -1284,6 +1321,13 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                         reply = (upload_pack_listing_text(n, db_path=db_path) if n is not None
                                  else "Send /pack <number> to view the listing.") + burst_note
                         send_text(token, owner_chat_id, reply)
+                    elif c_intent == "post_today":
+                        reply = today_posts_text() + burst_note
+                        send_text(token, owner_chat_id, reply)
+                    elif c_intent == "post_done":
+                        n = c_args.get("n")
+                        reply = mark_post_done_text(n) + burst_note
+                        send_text(token, owner_chat_id, reply)
                     elif c_intent == "help":
                         hint_msg = cmd_info.get("hint") or HELP
                         send_text(token, owner_chat_id, hint_msg + burst_note)
@@ -1387,6 +1431,41 @@ def _approval_time(value):
         return None
 
 
+def send_morning_post_plan(token, owner_chat_id, db_path=None, now=None, plan_path=None, products_dir=None):
+    """Once per day, on the first robot run after 08:00 India time, send today_text to owner.
+
+    Never send twice the same day, never at night (22:00-08:00 India time).
+    Remembers last sent date in telegram_state key 'last_morning_post_date'.
+    """
+    from zoneinfo import ZoneInfo
+    ist_zone = ZoneInfo("Asia/Kolkata")
+    if now is None:
+        now_dt = datetime.datetime.now(datetime.timezone.utc)
+    elif isinstance(now, datetime.datetime):
+        now_dt = now if now.tzinfo is not None else now.replace(tzinfo=datetime.timezone.utc)
+    else:
+        now_dt = datetime.datetime.fromtimestamp(now, tz=datetime.timezone.utc)
+
+    ist_dt = now_dt.astimezone(ist_zone)
+    ist_hour = ist_dt.hour
+    ist_date_str = ist_dt.date().isoformat()
+
+    # Never send at night: 22:00 to 08:00 India time (i.e. hour >= 22 or hour < 8)
+    if ist_hour < 8 or ist_hour >= 22:
+        return False
+
+    last_sent_date = get_state("last_morning_post_date", None, db_path)
+    if last_sent_date == ist_date_str:
+        return False
+
+    text = today_posts_text(plan_path=plan_path, products_dir=products_dir, date=ist_date_str)
+    sent = send_text(token, owner_chat_id, text)
+    if sent:
+        set_state("last_morning_post_date", ist_date_str, db_path)
+        return True
+    return False
+
+
 def remind_waiting_drafts(token, owner_chat_id, db_path=None, now=None):
     """Send one owner reminder for a queue containing a draft older than 12 hours.
 
@@ -1477,6 +1556,11 @@ def _run(db_path=None, recovery=False, stats=None):
     print(stats_line(stats))
     alerts = alert_new_drafts(token, chat_id, db_path)
     waiting_reminder = remind_waiting_drafts(token, chat_id, db_path)
+    try:
+        morning_sent = send_morning_post_plan(token, chat_id, db_path=db_path)
+    except Exception as exc:
+        print(f"Morning post plan skipped: {type(exc).__name__}")
+        morning_sent = False
     try:  # one short health report a day (first run after 03:30 UTC), weekly letter on Sundays
         import daily_report
         ist_day_str = daily_report.delivery_day()
@@ -1498,9 +1582,11 @@ def _run(db_path=None, recovery=False, stats=None):
         print(f"Daily report / improver loop skipped: {type(exc).__name__}")
         daily = False
     print(f"Telegram inbox: {commands} command(s) handled, {alerts} new draft(s) announced"
-          + (", daily report sent." if daily else "."))
+          + (", daily report sent." if daily else ".")
+          + (" morning post plan sent." if morning_sent else ""))
     return {"configured": True, "commands": commands, "alerts": alerts,
-            "waiting_reminder": waiting_reminder, "daily_report": daily}
+            "waiting_reminder": waiting_reminder, "daily_report": daily,
+            "morning_post_plan": morning_sent}
 
 
 def main(argv):
