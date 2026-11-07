@@ -296,6 +296,13 @@ def evaluate_pack_quality(folder_path: str, spec: Dict[str, Any]) -> Tuple[int, 
     try:
         import product_qa_deep
         deep = product_qa_deep.check_folder(folder_path)
+        if deep.get("verdict") == "fix":
+            try:
+                import product_qa_fix
+                product_qa_fix.fix_folder(folder_path, deep.get("problems", []))
+                deep = product_qa_deep.check_folder(folder_path)
+            except Exception:
+                pass
         if deep["verdict"] != "ready":
             score -= 25
             for p in deep.get("problems", [])[:3]:
