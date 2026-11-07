@@ -119,6 +119,68 @@ def _cut_150(text: str) -> str:
     return head[:sp].rstrip()
 
 
+def instamojo_block(title: str, description: str, what_you_get: str = "") -> str:
+    """Produce an INSTAMOJO listing block."""
+    title_cut = _cut_title(title, 80)
+    desc_block = description
+    if what_you_get:
+        desc_block = description + "\n\n" + what_you_get
+    desc_cut = desc_block[:5000]
+
+    return (
+        "INSTAMOJO\n"
+        f"Title: {title_cut}\n"
+        f"Description: {desc_cut}\n"
+        "Files to upload: product.zip\n"
+        "Cover: cover.png\n"
+        "Price: SET BY OWNER"
+    )
+
+
+def _section_what_you_get_block(description: str, whole_text: str = "") -> str:
+    """Return just the 'What you get' block, starting with its label."""
+    if not whole_text:
+        whole_text = description
+    m = re.search(r"^What you get:\s*(.*?)$", whole_text, re.MULTILINE | re.DOTALL)
+    if not m:
+        return ""
+    block = m.group(1).rstrip()
+    # Cut before any later section label.
+    after = whole_text[m.end():]
+    next_label_match = re.search(r"^\s*[A-Za-z][A-Za-z /-]*:\s*$", after, re.MULTILINE)
+    if next_label_match:
+        block = block[: block.find(next_label_match.group(0))].rstrip()
+    return block
+
+
+def _cut_title(text: str, max_len: int) -> str:
+    """Truncate text to max_len characters, cutting at a word boundary."""
+    text = text.strip()
+    if len(text) <= max_len:
+        return text
+    head = text[:max_len]
+    sp = head.rfind(" ")
+    if sp == -1:
+        return head
+    return head[:sp].rstrip()
+
+
+def build_blocks(title: str, description: str, tags: str, store: str = "all", whole_text: str = "") -> str:
+    """Return one or more listing blocks, separated by blank lines.
+
+    store: 'gumroad', 'topmate', 'instamojo', or 'all'.
+    """
+    parts = []
+    if store in ("all", "gumroad"):
+        parts.append(gumroad_block(title, description, tags))
+    if store in ("all", "topmate"):
+        parts.append(topmate_block(title, description))
+    if store in ("all", "instamojo"):
+        what_you_get = _section_what_you_get_block(description, whole_text)
+        parts.append(instamojo_block(title, description, what_you_get))
+    return "\n\n".join(parts)
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         print("Usage: python3 listing_fields.py <upload_pack_folder>", file=sys.stderr)
@@ -148,6 +210,9 @@ def main() -> None:
     print(gumroad_block(title, description, tags))
     print()
     print(topmate_block(title, description))
+    print()
+    what_you_get = _section_what_you_get_block(description, text)
+    print(instamojo_block(title, description, what_you_get))
     print()
 
 

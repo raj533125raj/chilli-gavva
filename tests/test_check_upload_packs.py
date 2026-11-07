@@ -20,8 +20,11 @@ def make_pack(
     (pack_dir / "checklist.txt").write_text(checklist_content, encoding="utf-8")
 
 
+SCRIPTS_DIR = pathlib.Path(__file__).resolve().parents[1] / "scripts"
+
+
 def run_checker(target_folder: pathlib.Path):
-    script = pathlib.Path("scripts/check_upload_packs.py").resolve()
+    script = SCRIPTS_DIR / "check_upload_packs.py"
     return subprocess.run(
         [sys.executable, str(script), str(target_folder)],
         capture_output=True,

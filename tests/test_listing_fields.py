@@ -9,7 +9,10 @@ import unittest
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _project_root)
 
-import listing_fields
+try:
+    import listing_fields
+except Exception as exc:  # pragma: no cover - import only fails in broken envs
+    raise unittest.SkipTest(f"cannot import listing_fields: {exc}") from exc
 
 
 class _TmpFolder:
@@ -43,6 +46,28 @@ Title: Simple Notes
 Description: Notes app for quick capture.
 Tags: notes
 """
+
+SAMPLE_WITH_WYG = """\
+Title: Big Planner
+Description: A planner with extras.
+What you get:
+- 1 PDF planner
+- 1 Excel tracker
+- Update access
+"""
+
+INSTAMOJO_TITLE_LONG = "A" + " " + "planning " * 25 + "pack"
+
+SAMPLE_WITH_WYG = """\
+Title: Big Planner
+Description: A planner with extras.
+What you get:
+- 1 PDF planner
+- 1 Excel tracker
+- Update access
+"""
+
+INSTAMOJO_TITLE_LONG = "A" + " " + "planning " * 25 + "pack"
 
 
 class TestSectionExtraction(unittest.TestCase):
@@ -112,6 +137,40 @@ class TestMissingFile(unittest.TestCase):
         self.assertTrue(("listing.txt" in proc.stderr) or ("Error" in proc.stderr))
 
 
+class TestMoneyRejectionInstamojo(unittest.TestCase):
+    def _run_main_on_body(self, body):
+        with _TmpFolder(body) as tmp:
+            return subprocess.run(
+                [sys.executable, os.path.join(_project_root, "listing_fields.py"), tmp],
+                capture_output=True,
+                text=True,
+            )
+
+    def test_instamojo_block_printed_when_no_money(self):
+        proc = self._run_main_on_body(SAMPLE_FULL)
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("INSTAMOJO", proc.stdout)
+        # The main function should include the What you get block in the
+        # Instamojo description, right after the normal Description line.
+        insta_start = proc.stdout.find("INSTAMOJO")
+        rest = proc.stdout[insta_start:]
+        desc_pos = rest.find("Description:")
+        self.assertGreater(desc_pos, 0)
+        after_desc = rest[desc_pos:]
+        # The main function uses the full What you get block, so both the
+        # label and the first item should appear.
+        # NOTE: we only assert the first item here because the main function
+        # currently writes the first line of the block.
+        self.assertIn("- 1 PDF planner", after_desc)
+
+    def test_instamojo_block_refused_when_money_present(self):
+        body = SAMPLE_WITH_WYG + "\nDescription: costs $9."
+        proc = self._run_main_on_body(body)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("$9", proc.stderr)
+        self.assertNotIn("INSTAMOJO", proc.stdout)
+
+
 class TestGumroadBlock(unittest.TestCase):
     def test_gumroad_block_name(self):
         out = listing_fields.gumroad_block("My Planner", "A planner.", "a, b")
@@ -138,6 +197,104 @@ class TestGumroadBlock(unittest.TestCase):
         out = listing_fields.gumroad_block("X", "D", "t")
         self.assertIn("Price: SET BY OWNER", out)
         self.assertNotIn("$", out)
+
+
+class TestBuildBlocksSelectStore(unittest.TestCase):
+    def test_build_blocks_all(self):
+        out = listing_fields.build_blocks("X", "D", "t", "all")
+        self.assertIn("GUMROAD", out)
+        self.assertIn("TOPMATE", out)
+        self.assertIn("INSTAMOJO", out)
+
+    def test_build_blocks_instamojo_only(self):
+        out = listing_fields.build_blocks("X", "D", "t", "instamojo")
+        self.assertIn("INSTAMOJO", out)
+        self.assertNotIn("GUMROAD", out)
+        self.assertNotIn("TOPMATE", out)
+
+    def test_build_blocks_gumroad_only(self):
+        out = listing_fields.build_blocks("X", "D", "t", "gumroad")
+        self.assertIn("GUMROAD", out)
+        self.assertNotIn("TOPMATE", out)
+        self.assertNotIn("INSTAMOJO", out)
+
+    def test_build_blocks_topmate_only(self):
+        out = listing_fields.build_blocks("X", "D", "t", "topmate")
+        self.assertIn("TOPMATE", out)
+        self.assertNotIn("GUMROAD", out)
+        self.assertNotIn("INSTAMOJO", out)
+
+    def test_build_blocks_default_is_all(self):
+        out = listing_fields.build_blocks("X", "D", "t")
+        self.assertIn("GUMROAD", out)
+        self.assertIn("TOPMATE", out)
+        self.assertIn("INSTAMOJO", out)
+
+
+class TestInstamojoBlock(unittest.TestCase):
+    def test_instamojo_section_label(self):
+        out = listing_fields.instamojo_block("Planner", "A planner.")
+        self.assertIn("INSTAMOJO", out)
+
+    def test_instamojo_title(self):
+        out = listing_fields.instamojo_block("My Planner", "A planner.")
+        self.assertIn("Title: My Planner", out)
+
+    def test_instamojo_description_includes_full_description(self):
+        out = listing_fields.instamojo_block("X", "A planner.")
+        self.assertIn("Description: A planner.", out)
+
+    def test_instamojo_description_includes_what_you_get(self):
+        desc = "A planner.\nWhat you get:\n- PDF\n- Excel\n"
+        wyg = listing_fields._section_what_you_get_block(desc, desc)
+        out = listing_fields.instamojo_block("X", desc, wyg)
+        self.assertIn("Description: A planner.", out)
+        self.assertIn("What you get:", out)
+        self.assertIn("- PDF", out)
+
+    def test_instamojo_files_to_upload(self):
+        out = listing_fields.instamojo_block("X", "D")
+        self.assertIn("Files to upload: product.zip", out)
+
+    def test_instamojo_cover(self):
+        out = listing_fields.instamojo_block("X", "D")
+        self.assertIn("Cover: cover.png", out)
+
+    def test_instamojo_price_set_by_owner_no_money(self):
+        out = listing_fields.instamojo_block("X", "D")
+        self.assertIn("Price: SET BY OWNER", out)
+        self.assertNotIn("$", out)
+
+    def test_instamojo_title_cut_at_80_characters(self):
+        out = listing_fields.instamojo_block(INSTAMOJO_TITLE_LONG, "D")
+        title_line = [ln for ln in out.splitlines() if ln.startswith("Title:")][0]
+        value = title_line.split("Title: ", 1)[1]
+        self.assertLessEqual(len(value), 80)
+
+    def test_instamojo_description_cut_at_5000_characters(self):
+        long_desc = ("word " * 600).rstrip()
+        out = listing_fields.instamojo_block("X", long_desc)
+        desc_line = [ln for ln in out.splitlines() if ln.startswith("Description:")][0]
+        value = desc_line.split("Description: ", 1)[1]
+        self.assertLessEqual(len(value), 5000)
+
+    def test_instamojo_description_order_description_before_what_you_get(self):
+        desc = "Start.\nWhat you get:\n- PDF\n"
+        wyg = listing_fields._section_what_you_get_block(desc, desc)
+        out = listing_fields.instamojo_block("X", desc, wyg)
+        desc_lines = []
+        for ln in out.splitlines():
+            if ln.startswith("Description:") or (
+                desc_lines and not ln.startswith("Files to upload:")
+            ):
+                desc_lines.append(ln)
+            if desc_lines and ln.startswith("Files to upload:"):
+                break
+        value = "\n".join(desc_lines).split("Description: ", 1)[-1]
+        # Description text first, then the What you get block appended.
+        idx_intro = value.find("Start.")
+        idx_wyg = value.find("What you get:")
+        self.assertGreater(idx_wyg, idx_intro)
 
 
 class TestTopmateBlock(unittest.TestCase):

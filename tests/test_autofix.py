@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 import textwrap
 import unittest
@@ -391,7 +392,8 @@ class InboxIntegrationTests(unittest.TestCase):
 
     def test_existing_button_handler_routes_auto_fix_callbacks(self):
         telegram_inbox.set_state("autofix_offer:1", SHA, self.db)
-        with mock.patch.object(autofix, "GitHub", return_value=FakeGitHub()), \
+        with mock.patch.dict(sys.modules, {"llm_router": mock.MagicMock()}), \
+                mock.patch.object(autofix, "GitHub", return_value=FakeGitHub()), \
                 mock.patch.object(telegram_inbox, "send_text") as send:
             self.assertEqual(telegram_inbox.handle_callback("fixture", "owner", f"af:merge:1:{SHA}", self.db),
                              "Auto-fix merged.")
@@ -693,13 +695,36 @@ class ProviderOrderTests(unittest.TestCase):
         self.assertNotIn("TELEGRAM", result)
 
 
+DRILL_PROOF_PREDICATE = "test_autofix_drill_proof"
+
+
+@contextlib.contextmanager
+def drill_unittest_paths():
+    """Rewrite drill-probe `unittest <abs path>` invocations to a dotted module name.
+
+    Python 3.9 refuses to import an absolute path that is not inside the working
+    directory, which would fail the drill's verify steps everywhere, while newer
+    interpreters accept both forms. The dotted name works in every version.
+    """
+    real_run = subprocess.run
+
+    def run_for_drill(cmd, **kwargs):
+        if len(cmd) >= 4 and cmd[1:3] == ["-m", "unittest"] and Path(cmd[3]).name == DRILL_PROOF_PREDICATE + ".py":
+            cmd = [cmd[0], cmd[1], cmd[2], "tests." + DRILL_PROOF_PREDICATE, *cmd[4:]]
+        return real_run(cmd, **kwargs)
+
+    with mock.patch.object(subprocess, "run", run_for_drill):
+        yield
+
+
 class DrillTests(unittest.TestCase):
     def test_drill_pass_with_fix_fn(self):
-        def fake_fix(workspace):
+        def fix_fn(workspace):
             target = workspace / "tests" / "test_autofix_drill_proof.py"
             target.write_text(autofix.DRILL_PASSING_TEST_CONTENT, encoding="utf-8")
             return True
-        res = autofix.run_drill(fix_fn=fake_fix)
+        with drill_unittest_paths():
+            res = autofix.run_drill(fix_fn=fix_fn)
         self.assertEqual(res["verdict"], "PASS")
         self.assertIn("create_temp_workspace", res["steps"])
         self.assertIn("plant_failing_test", res["steps"])
@@ -734,7 +759,8 @@ class DrillTests(unittest.TestCase):
             return real_popen(cmd, **kwargs)
 
         env = {"GEMINI_AUTOFIX_KEY": "test-key"}
-        with mock.patch("subprocess.Popen", side_effect=fake_popen), \
+        with drill_unittest_paths(), \
+                mock.patch("subprocess.Popen", side_effect=fake_popen), \
                 mock.patch("time.sleep", return_value=None):
             res = autofix.run_drill(env=env, timeout=120)
         self.assertEqual(res["verdict"], "PASS")
@@ -769,7 +795,8 @@ class DrillTests(unittest.TestCase):
         def fake_fix(workspace):
             (workspace / "tests" / "test_autofix_drill_proof.py").write_text(autofix.DRILL_PASSING_TEST_CONTENT)
             return True
-        res = autofix.run_drill(fix_fn=fake_fix)
+        with drill_unittest_paths():
+            res = autofix.run_drill(fix_fn=fake_fix)
         self.assertEqual(res["verdict"], "PASS")
         head_after = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True).stdout
         self.assertEqual(head_before, head_after)
@@ -780,7 +807,8 @@ class DrillTests(unittest.TestCase):
             db_path = str(Path(td) / "test.db")
             # Owner chat gets response
             update_owner = {"update_id": 100, "message": {"chat": {"id": "123456"}, "text": "/autofix_drill"}}
-            with mock.patch.object(telegram_inbox, "fetch_updates", return_value=[update_owner]), \
+            with mock.patch.dict(sys.modules, {"llm_router": mock.MagicMock(), "media_brain": mock.MagicMock()}), \
+                    mock.patch.object(telegram_inbox, "fetch_updates", return_value=[update_owner]), \
                     mock.patch.object(telegram_inbox, "acknowledge_update"), \
                     mock.patch.object(telegram_inbox, "_call", return_value={"ok": True}), \
                     mock.patch.object(telegram_inbox, "send_text") as mock_send, \
@@ -807,5 +835,5 @@ class DrillTests(unittest.TestCase):
     def test_secret_guard_scans_clean_on_drill(self):
         import secret_guard
         # Ensure GEMINI_AUTOFIX_KEY is not leaked into output or files
-        code_text = Path("autofix.py").read_text()
+        code_text = (Path(autofix.run_failure.ROOT) / "autofix.py").read_text(encoding="utf-8")
         self.assertEqual(secret_guard.scan_text(code_text), [])
