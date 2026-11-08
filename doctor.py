@@ -30,6 +30,7 @@ doctor.py:
 import datetime
 import json
 import os
+import pathlib
 import re
 import sqlite3
 import sys
@@ -936,6 +937,258 @@ def record_weekly_summary_if_sunday(db_path=None, now_dt=None) -> dict | None:
         conn.close()
 
 
+# ---- reliability & ops environment integrity checks ------------------------------
+
+def check_upload_packs_folder(products_dir: str = None) -> dict:
+    """Check that upload packs folder is readable."""
+    base_dir = pathlib.Path(products_dir) if products_dir else pathlib.Path("exported_content") / "products"
+    upload_dir = base_dir / "upload"
+    if not upload_dir.exists():
+        return {
+            "status": "warn",
+            "message": f"Upload packs folder not found: {upload_dir}",
+            "fix": "Upload folder create cheyandi: mkdir -p exported_content/products/upload",
+        }
+    try:
+        # Check readability
+        list(upload_dir.iterdir())
+        return {
+            "status": "ok",
+            "message": f"Upload packs folder readable: {upload_dir}",
+            "fix": "Upload folder perfect ga readable ga undi, fix avasaram ledu",
+        }
+    except Exception as exc:
+        return {
+            "status": "fail",
+            "message": f"Upload packs folder not readable: {exc}",
+            "fix": "Permissions check chesi chmod 755 exported_content/products/upload ivvandi",
+        }
+
+
+def check_marketing_folders_per_ready_pack(products_dir: str = None, marketing_dir: str = None) -> dict:
+    """Check that each ready upload pack has carousel and pins marketing folders."""
+    base_prod = pathlib.Path(products_dir) if products_dir else pathlib.Path("exported_content") / "products"
+    base_mkt = pathlib.Path(marketing_dir) if marketing_dir else pathlib.Path("exported_content") / "marketing"
+    upload_dir = base_prod / "upload"
+
+    if not upload_dir.is_dir():
+        return {
+            "status": "ok",
+            "message": "Upload directory ledu, ready packs levu",
+            "fix": "Ready packs unte marketing assets build avthayi",
+        }
+
+    missing_assets = []
+    ready_packs_count = 0
+    try:
+        entries = sorted(upload_dir.iterdir())
+    except OSError:
+        entries = []
+
+    for entry in entries:
+        try:
+            if entry.is_dir() and (entry / "product.zip").is_file() and (entry / "listing.txt").is_file():
+                ready_packs_count += 1
+                pack_name = entry.name
+                pack_mkt = base_mkt / pack_name
+                car_dir = pack_mkt / "carousel"
+                pins_dir = pack_mkt / "pins"
+                missing_for_pack = []
+                if not car_dir.is_dir() or not any(car_dir.glob("*.png")):
+                    missing_for_pack.append("carousel")
+                if not pins_dir.is_dir() or not any(pins_dir.glob("*.png")):
+                    missing_for_pack.append("pins")
+                if missing_for_pack:
+                    missing_assets.append(f"{pack_name} ({', '.join(missing_for_pack)})")
+        except OSError:
+            continue
+
+    if ready_packs_count == 0:
+        return {
+            "status": "ok",
+            "message": "Ready upload packs levu ippatiki",
+            "fix": "Kotha upload packs build ainappudu marketing assets automatic ga create cheyandi",
+        }
+
+    if missing_assets:
+        return {
+            "status": "warn",
+            "message": f"{len(missing_assets)} pack(s) missing marketing folders: {', '.join(missing_assets[:3])}",
+            "fix": "Run cheyandi: python3 carousel_maker.py && python3 pin_variants.py",
+        }
+
+    return {
+        "status": "ok",
+        "message": f"All {ready_packs_count} ready pack(s) have carousel and pins marketing assets",
+        "fix": "Marketing folders anni ready ga unnay, em cheyalsina avasaram ledu",
+    }
+
+
+def check_post_plan_valid_json(plan_path: str = None) -> dict:
+    """Check post plan file exists and contains valid JSON."""
+    p_path = pathlib.Path(plan_path) if plan_path else pathlib.Path("exported_content") / "post_plan.json"
+    if not p_path.exists():
+        return {
+            "status": "warn",
+            "message": f"Post plan file ledu: {p_path}",
+            "fix": "python3 post_planner.py run chesi post_plan.json generate cheyandi",
+        }
+    try:
+        with open(p_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            return {
+                "status": "fail",
+                "message": "post_plan.json root must be a JSON object",
+                "fix": "post_plan.json corrupt aindi, post_planner.py re-run chesi overwrite cheyandi",
+            }
+        return {
+            "status": "ok",
+            "message": "post_plan.json valid JSON",
+            "fix": "Post plan valid ga undi, fix avasaram ledu",
+        }
+    except Exception as exc:
+        return {
+            "status": "fail",
+            "message": f"post_plan.json parse error: {exc}",
+            "fix": "Corrupt post_plan.json remove chesi python3 post_planner.py toh re-create cheyandi",
+        }
+
+
+def check_keywords_json_valid_if_present(keywords_path: str = None) -> dict:
+    """Check keywords.json is valid JSON if it exists."""
+    k_path = pathlib.Path(keywords_path) if keywords_path else pathlib.Path("exported_content") / "marketing" / "keywords.json"
+    if not k_path.exists():
+        return {
+            "status": "ok",
+            "message": "keywords.json ledu (optional file)",
+            "fix": "Keywords generate cheyalanukunte keyword_bank script run cheyandi",
+        }
+    try:
+        with open(k_path, "r", encoding="utf-8") as f:
+            json.load(f)
+        return {
+            "status": "ok",
+            "message": "keywords.json valid JSON",
+            "fix": "keywords.json clean ga undi, em marchalsina pani ledu",
+        }
+    except Exception as exc:
+        return {
+            "status": "fail",
+            "message": f"keywords.json JSON decode error: {exc}",
+            "fix": "Corrupt keywords.json delete chesi fresh ga generate cheyandi",
+        }
+
+
+def check_exported_content_disk_usage(exported_dir: str = None, limit_bytes: int = 2 * 1024 * 1024 * 1024) -> dict:
+    """Check disk usage of exported_content directory is under limit (warn > 2 GB)."""
+    e_dir = pathlib.Path(exported_dir) if exported_dir else pathlib.Path("exported_content")
+    if not e_dir.exists():
+        return {
+            "status": "ok",
+            "message": "exported_content folder inka create kaledu",
+            "fix": "Disk usage zero, safe",
+        }
+    total_bytes = 0
+    try:
+        for f in e_dir.rglob("*"):
+            if f.is_file():
+                try:
+                    total_bytes += f.stat().st_size
+                except OSError:
+                    pass
+    except OSError as exc:
+        return {
+            "status": "fail",
+            "message": f"exported_content scan error: {exc}",
+            "fix": "Folder permissions sari cheyandi",
+        }
+
+    mb_used = total_bytes / (1024 * 1024)
+    if total_bytes > limit_bytes:
+        gb_used = total_bytes / (1024 * 1024 * 1024)
+        return {
+            "status": "warn",
+            "message": f"exported_content disk usage {gb_used:.2f} GB exceeds 2 GB limit",
+            "fix": "Pani leni old mockups and build cache delete chesi disk space free cheyandi",
+        }
+
+    return {
+        "status": "ok",
+        "message": f"exported_content disk usage safe ga undi ({mb_used:.1f} MB)",
+        "fix": "Disk space under limit undi, em cheyalsina pani ledu",
+    }
+
+
+def check_stale_state_locks(locks_dir: str = None, max_age_seconds: float = 7200.0) -> dict:
+    """Check for stale state lock files older than 2 hours in .scheduler_locks."""
+    l_dir = pathlib.Path(locks_dir) if locks_dir else pathlib.Path(".scheduler_locks")
+    if not l_dir.exists():
+        return {
+            "status": "ok",
+            "message": ".scheduler_locks folder ledu, zero stale locks",
+            "fix": "Lock files levu, anni normal",
+        }
+
+    now_ts = time.time()
+    stale_locks = []
+    try:
+        for f in l_dir.glob("*.lock"):
+            if f.is_file():
+                try:
+                    age = now_ts - f.stat().st_mtime
+                    if age > max_age_seconds:
+                        stale_locks.append(f.name)
+                except OSError:
+                    pass
+    except OSError as exc:
+        return {
+            "status": "fail",
+            "message": f"Locks scan error: {exc}",
+            "fix": "Permissions check chesi locks directory access ivvandi",
+        }
+
+    if stale_locks:
+        return {
+            "status": "warn",
+            "message": f"{len(stale_locks)} stale lock(s) > 2h old: {', '.join(stale_locks[:3])}",
+            "fix": "Stale locks delete cheyandi: rm .scheduler_locks/*.lock",
+        }
+
+    return {
+        "status": "ok",
+        "message": ".scheduler_locks lo stale locks levu",
+        "fix": "Locks anni clean ga unnayi",
+    }
+
+
+def run_environment_checks(
+    products_dir: str = None,
+    marketing_dir: str = None,
+    plan_path: str = None,
+    keywords_path: str = None,
+    exported_dir: str = None,
+    locks_dir: str = None,
+) -> dict:
+    """Run all 6 environment/system reliability checks and aggregate results."""
+    checks = {
+        "upload_packs_folder": check_upload_packs_folder(products_dir),
+        "marketing_folders": check_marketing_folders_per_ready_pack(products_dir, marketing_dir),
+        "post_plan": check_post_plan_valid_json(plan_path),
+        "keywords_json": check_keywords_json_valid_if_present(keywords_path),
+        "disk_usage": check_exported_content_disk_usage(exported_dir),
+        "stale_locks": check_stale_state_locks(locks_dir),
+    }
+    has_fail = any(c["status"] == "fail" for c in checks.values())
+    has_warn = any(c["status"] == "warn" for c in checks.values())
+    overall = "fail" if has_fail else ("warn" if has_warn else "ok")
+
+    return {
+        "overall_status": overall,
+        "checks": checks,
+    }
+
+
 def run_doctor_checks(db_path=None) -> dict:
     """Run routine scan for stuck tasks and repeat loops, and heal stuck work."""
     if is_paused(db_path):
@@ -960,12 +1213,16 @@ def run_doctor_checks(db_path=None) -> dict:
     # 3. Weekly summary if Sunday IST
     record_weekly_summary_if_sunday(db_path=db_path)
 
+    # 4. Environment checks
+    env_checks = run_environment_checks()
+
     return {
         "stuck_found": len(stuck),
         "handled": handled_count,
         "healed": heal_res.get("healed", 0),
         "needs_owner": heal_res.get("needs_owner", 0),
-        "skipped": heal_res.get("skipped", 0)
+        "skipped": heal_res.get("skipped", 0),
+        "environment_checks": env_checks,
     }
 
 
