@@ -39,10 +39,16 @@ IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 PLAN_PATH = os.path.join("exported_content", "post_plan.json")
 
 
+_BRAND_PATTERN = re.compile(
+    r"\b(google\s+sheets?|google\s+docs?|microsoft\s+excel|microsoft\s+word|excel|notion|canva|etsy|gumroad|payhip|goodnotes|apple\s+numbers|ipad|amazon|chatgpt|openai|microsoft|google|linkedin)\b",
+    re.IGNORECASE,
+)
+
+
 def clean_caption(title: str, max_chars: int = 100) -> str:
     """Extract and cut caption from title at a word boundary <= max_chars.
 
-    Also ensures no money patterns leak.
+    Also ensures no money patterns or brand names leak.
     """
     if not title:
         return ""
@@ -55,7 +61,10 @@ def clean_caption(title: str, max_chars: int = 100) -> str:
             break
         line = stripped
     # Remove any money pattern
-    line = _MONEY_PATTERN.sub("", line).strip()
+    line = _MONEY_PATTERN.sub("", line)
+    # Remove brand names
+    line = _BRAND_PATTERN.sub("", line)
+    line = re.sub(r"\s+", " ", line).strip()
 
     if len(line) <= max_chars:
         return line
@@ -110,7 +119,81 @@ def clean_hashtags(raw_tags: List[str], max_tags: int = 8) -> List[str]:
     return cleaned
 
 
-def _read_pack_info(pack_dir: Path) -> Optional[Dict[str, Any]]:
+def _inspect_marketing_assets(
+    pack_id: str,
+    marketing_base: Optional[Path] = None,
+) -> Dict[str, Any]:
+    """Inspect exported_content/marketing/<pack_id>/ for real generated assets:
+
+    - pins: from exported_content/marketing/<pack>/pins/pins.json (rotating layouts A–E, A/B titles)
+    - carousel: from exported_content/marketing/<pack>/carousel/ (slide-*.png, caption.txt)
+    - reel: from exported_content/marketing/<pack>/reel/ (frame-*.png, reel.txt, make_reel.sh)
+    """
+    if marketing_base is None:
+        mkt_pack_dir = Path("exported_content") / "marketing" / pack_id
+    else:
+        mkt_pack_dir = Path(marketing_base) / pack_id
+
+    out: Dict[str, Any] = {
+        "pins": [],          # list of dicts: {"file", "layout", "title", "description", "alt"}
+        "carousel_slides": [],
+        "carousel_caption": "",
+        "reel_frames": [],
+        "reel_caption": "",
+        "has_reel": False,
+        "has_carousel": False,
+        "has_pins": False,
+    }
+
+    if not mkt_pack_dir.is_dir():
+        return out
+
+    # 1. Pins
+    pins_json_path = mkt_pack_dir / "pins" / "pins.json"
+    if pins_json_path.is_file():
+        try:
+            pins_data = json.loads(pins_json_path.read_text(encoding="utf-8"))
+            if isinstance(pins_data, list) and pins_data:
+                out["pins"] = pins_data
+                out["has_pins"] = True
+        except Exception:
+            pass
+
+    # 2. Carousel
+    carousel_dir = mkt_pack_dir / "carousel"
+    if carousel_dir.is_dir():
+        slides = sorted([f.name for f in carousel_dir.glob("slide-*.png")])
+        if slides:
+            out["carousel_slides"] = slides
+            out["has_carousel"] = True
+            cap_file = carousel_dir / "caption.txt"
+            if cap_file.is_file():
+                try:
+                    out["carousel_caption"] = cap_file.read_text(encoding="utf-8").strip()
+                except Exception:
+                    pass
+
+    # 3. Reel
+    reel_dir = mkt_pack_dir / "reel"
+    if reel_dir.is_dir():
+        frames = sorted([f.name for f in reel_dir.glob("frame-*.png")])
+        if frames:
+            out["reel_frames"] = frames
+            out["has_reel"] = True
+            reel_cap_file = reel_dir / "reel.txt"
+            if reel_cap_file.is_file():
+                try:
+                    out["reel_caption"] = reel_cap_file.read_text(encoding="utf-8").strip()
+                except Exception:
+                    pass
+
+    return out
+
+
+def _read_pack_info(
+    pack_dir: Path,
+    marketing_base: Optional[Path] = None,
+) -> Optional[Dict[str, Any]]:
     """Inspect an upload pack directory and extract title, tags, and image assets."""
     if not pack_dir.is_dir():
         return None
@@ -155,16 +238,16 @@ def _read_pack_info(pack_dir: Path) -> Optional[Dict[str, Any]]:
             if f.is_file() and f.suffix.lower() in IMAGE_EXTENSIONS
         ])
 
-    # Prioritize pins and cover
-    # e.g., pin_*.png, then cover.png, then any other images
     pin_candidates = [im for im in top_images if "pin" in im.lower()] + pin_images
     cover_candidates = [im for im in top_images if "cover" in im.lower()]
     other_candidates = [im for im in top_images if im not in pin_candidates and im not in cover_candidates]
 
     ordered_assets = pin_candidates + cover_candidates + other_candidates
-    # If no images found, fallback to "cover.png"
     if not ordered_assets:
         ordered_assets = ["cover.png"]
+
+    # Check marketing assets (pins, carousel, reel)
+    marketing_assets = _inspect_marketing_assets(pack_id, marketing_base)
 
     return {
         "pack_id": pack_id,
@@ -172,10 +255,14 @@ def _read_pack_info(pack_dir: Path) -> Optional[Dict[str, Any]]:
         "caption_short": caption_short,
         "hashtags": hashtags,
         "assets": ordered_assets,
+        "marketing": marketing_assets,
     }
 
 
-def _discover_packs(products_dir: Union[str, Path]) -> List[Dict[str, Any]]:
+def _discover_packs(
+    products_dir: Union[str, Path],
+    marketing_base: Optional[Union[str, Path]] = None,
+) -> List[Dict[str, Any]]:
     """Find ready packs from exported_content/products/upload/<pack>/ or directly under products_dir."""
     base = Path(products_dir).expanduser().resolve()
     upload_dir = base / "upload" if (base / "upload").is_dir() else base
@@ -183,11 +270,24 @@ def _discover_packs(products_dir: Union[str, Path]) -> List[Dict[str, Any]]:
     if not upload_dir.is_dir():
         return []
 
+    # If marketing_base not explicitly given, check sibling exported_content/marketing
+    # If base is /tmp/xyz/exported_content/products or similar, check sibling /tmp/xyz/exported_content/marketing
+    mkt_dir: Optional[Path] = None
+    if marketing_base:
+        mkt_dir = Path(marketing_base).expanduser().resolve()
+    else:
+        # Check if base has parent with marketing/
+        cand = base.parent / "marketing"
+        if cand.is_dir():
+            mkt_dir = cand
+        elif Path("exported_content/marketing").is_dir():
+            mkt_dir = Path("exported_content/marketing").resolve()
+
     pack_dirs = sorted([p for p in upload_dir.iterdir() if p.is_dir() and not p.name.startswith(".")])
 
     packs: List[Dict[str, Any]] = []
     for pdir in pack_dirs:
-        info = _read_pack_info(pdir)
+        info = _read_pack_info(pdir, marketing_base=mkt_dir)
         if info:
             packs.append(info)
     return packs
@@ -197,6 +297,7 @@ def build_plan(
     products_dir: Union[str, Path] = "exported_content/products",
     start_date: Optional[Union[datetime.date, str]] = None,
     days: int = 30,
+    marketing_dir: Optional[Union[str, Path]] = None,
 ) -> List[Dict[str, Any]]:
     """Build a 30-day posting plan.
 
@@ -215,12 +316,18 @@ def build_plan(
     else:
         cur_date = start_date
 
-    packs = _discover_packs(products_dir)
+    packs = _discover_packs(products_dir, marketing_base=marketing_dir)
     if not packs:
         return []
 
     num_packs = len(packs)
     plan: List[Dict[str, Any]] = []
+
+    # Track rotation of pins from marketing pins.json
+    pack_pin_indices = {p["pack_id"]: 0 for p in packs}
+    # Track weekly reel count (max 2 per week across the plan)
+    # Week number: (day_idx - 1) // 7
+    weekly_reel_counts: Dict[int, int] = {}
 
     # Pre-calculate asset cycling per pack so different assets are used when available
     pack_asset_indices = {p["pack_id"]: 0 for p in packs}
@@ -319,29 +426,89 @@ def build_plan(
         cur_day_pack_ids = {p["pack_id"] for p in selected_for_day}
         prev_day_pack_ids = cur_day_pack_ids
 
+        # Week index (0, 1, 2, 3, 4)
+        week_idx = (day_idx - 1) // 7
+        weekly_reels = weekly_reel_counts.get(week_idx, 0)
+
         # Assign packs to the 4 slots:
         # channels = ["pinterest", "pinterest", "pinterest", "instagram"]
-        # Slot assignments:
         for slot_idx, channel in enumerate(channels):
             # Select pack for this slot
             pack = selected_for_day[slot_idx % len(selected_for_day)]
             pid = pack["pack_id"]
             pack_usage_counts[pid] += 1
+            mkt = pack.get("marketing", {})
 
-            # Select asset for this pack
-            assets = pack["assets"]
-            a_idx = pack_asset_indices[pid] % len(assets)
-            asset = assets[a_idx]
-            pack_asset_indices[pid] += 1
+            # Determine asset, caption, and hashtags based on channel and available marketing assets
+            final_channel = channel
+            final_caption = pack["caption_short"]
+            final_hashtags = list(pack["hashtags"])
+
+            if channel == "pinterest":
+                # Check if real marketing pins exist
+                if mkt.get("has_pins") and mkt["pins"]:
+                    pin_list = mkt["pins"]
+                    pin_idx = pack_pin_indices[pid] % len(pin_list)
+                    pin_obj = pin_list[pin_idx]
+                    pack_pin_indices[pid] += 1
+
+                    # Real pin file from marketing/pins/pins.json (e.g. pin_1_a.png)
+                    asset = f"pins/{pin_obj['file']}"
+                    # Use A/B title / pin title as caption
+                    pin_title = pin_obj.get("title", "")
+                    if pin_title:
+                        final_caption = clean_caption(pin_title, 100)
+                else:
+                    # Fallback to pack assets
+                    assets = pack["assets"]
+                    a_idx = pack_asset_indices[pid] % len(assets)
+                    asset = assets[a_idx]
+                    pack_asset_indices[pid] += 1
+
+            elif channel == "instagram":
+                # Real assets check: Reel or Carousel
+                # Max 2 reels per week across the plan
+                # Prefer Reel on specific days (e.g. Wednesday and Sunday: day 3 and 7 of week) if reel exists and weekly_reels < 2
+                can_post_reel = mkt.get("has_reel") and weekly_reels < 2 and ((day_idx % 7 == 3) or (day_idx % 7 == 0) or weekly_reels == 0)
+
+                if can_post_reel and mkt.get("has_reel"):
+                    # Reel post!
+                    final_channel = "reel"
+                    # Asset points to reel (e.g. reel/ or reel/frame-1.png)
+                    frames = mkt.get("reel_frames", [])
+                    asset = f"reel/{frames[0]}" if frames else "reel/"
+                    # Caption from reel.txt if present
+                    if mkt.get("reel_caption"):
+                        reel_first = mkt["reel_caption"].splitlines()[0].strip()
+                        final_caption = clean_caption(reel_first, 100)
+                    weekly_reel_counts[week_idx] = weekly_reels + 1
+                    weekly_reels += 1
+
+                elif mkt.get("has_carousel"):
+                    # Carousel post!
+                    final_channel = "carousel"
+                    # Asset points to carousel folder or slide-1.png
+                    slides = mkt.get("carousel_slides", [])
+                    asset = f"carousel/{slides[0]}" if slides else "carousel/"
+                    # Caption from caption.txt if present
+                    if mkt.get("carousel_caption"):
+                        car_first = mkt["carousel_caption"].splitlines()[0].strip()
+                        final_caption = clean_caption(car_first, 100)
+                else:
+                    # Fallback to pack assets
+                    assets = pack["assets"]
+                    a_idx = pack_asset_indices[pid] % len(assets)
+                    asset = assets[a_idx]
+                    pack_asset_indices[pid] += 1
 
             plan.append({
                 "day": day_idx,
                 "date": day_date_str,
-                "channel": channel,
+                "channel": final_channel,
                 "pack_id": pid,
                 "asset": asset,
-                "caption_short": pack["caption_short"],
-                "hashtags": list(pack["hashtags"]),
+                "caption_short": final_caption,
+                "hashtags": final_hashtags,
                 "status": "todo",
             })
 
@@ -515,6 +682,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     group.add_argument("--week", action="store_true", help="Print this week's progress summary.")
 
     parser.add_argument("--products-dir", default="exported_content/products", help="Products directory.")
+    parser.add_argument("--marketing-dir", default=None, help="Marketing assets directory.")
     parser.add_argument("--plan-path", default=PLAN_PATH, help="Path to post_plan.json.")
     parser.add_argument("--date", default=None, help="Target date YYYY-MM-DD (defaults to today).")
 
@@ -522,10 +690,11 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     plan_file = args.plan_path
     prod_dir = args.products_dir
+    mkt_dir = args.marketing_dir
     target_date = args.date or datetime.date.today().isoformat()
 
     if args.build:
-        plan = build_plan(prod_dir, start_date=target_date)
+        plan = build_plan(prod_dir, start_date=target_date, marketing_dir=mkt_dir)
         if not plan:
             print("No upload packs found to build a plan.")
             return 0

@@ -424,6 +424,308 @@ class TestKGPostPlanner(unittest.TestCase):
             res = owner_commands.parse(text)
             self.assertEqual(res["intent"], exp_intent)
 
+    # 15. Real Marketing Assets Integration (Job C additions: 25+ new tests)
+    def _create_real_marketing_assets(
+        self,
+        pack_id: str,
+        with_pins: bool = True,
+        with_carousel: bool = True,
+        with_reel: bool = True,
+    ) -> Path:
+        mkt_pack = self.root / "exported_content" / "marketing" / pack_id
+        mkt_pack.mkdir(parents=True, exist_ok=True)
+
+        if with_pins:
+            pins_dir = mkt_pack / "pins"
+            pins_dir.mkdir(parents=True, exist_ok=True)
+            pins_meta = [
+                {"file": "pin_1_a.png", "layout": "A", "title": f"Stay Organized With {pack_id}", "description": "desc", "alt": "alt"},
+                {"file": "pin_2_b.png", "layout": "B", "title": f"5 Steps To Master {pack_id}", "description": "desc", "alt": "alt"},
+                {"file": "pin_3_c.png", "layout": "C", "title": f"Need A Better {pack_id}?", "description": "desc", "alt": "alt"},
+                {"file": "pin_4_e.png", "layout": "E", "title": f"How To Use {pack_id}", "description": "desc", "alt": "alt"},
+                {"file": "pin_5_e.png", "layout": "E", "title": f"Simple {pack_id}", "description": "desc", "alt": "alt"},
+            ]
+            (pins_dir / "pins.json").write_text(json.dumps(pins_meta), encoding="utf-8")
+            for p in pins_meta:
+                (pins_dir / p["file"]).write_bytes(PNG_BYTES)
+
+        if with_carousel:
+            car_dir = mkt_pack / "carousel"
+            car_dir.mkdir(parents=True, exist_ok=True)
+            for i in range(1, 7):
+                (car_dir / f"slide-{i}.png").write_bytes(PNG_BYTES)
+            (car_dir / "caption.txt").write_text(f"Swipe through the {pack_id} guide\n\nFull details here.\n\n#planner #focus", encoding="utf-8")
+
+        if with_reel:
+            reel_dir = mkt_pack / "reel"
+            reel_dir.mkdir(parents=True, exist_ok=True)
+            for i in range(1, 9):
+                (reel_dir / f"frame-{i}.png").write_bytes(PNG_BYTES)
+            (reel_dir / "reel.txt").write_text(f"Watch how to plan with {pack_id}\n\nLink in bio.\n\n#reel #organize", encoding="utf-8")
+
+        return mkt_pack
+
+    def test_34_real_pins_detected_and_used(self):
+        self._create_pack("pack-pins", "Pack With Real Pins", ["pins"], ["cover.png"])
+        self._create_real_marketing_assets("pack-pins", with_pins=True, with_carousel=False, with_reel=False)
+        mkt_base = self.root / "exported_content" / "marketing"
+
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=2, marketing_dir=mkt_base)
+        pins = [p for p in plan if p["channel"] == "pinterest"]
+        self.assertGreater(len(pins), 0)
+        # Verify asset starts with pins/pin_
+        for p in pins:
+            self.assertTrue(p["asset"].startswith("pins/pin_"))
+
+    def test_35_real_pins_rotates_layouts_and_ab_titles(self):
+        self._create_pack("pack-rot", "Rotating Layout Pack", ["rotate"], ["cover.png"])
+        self._create_real_marketing_assets("pack-rot", with_pins=True, with_carousel=False, with_reel=False)
+        mkt_base = self.root / "exported_content" / "marketing"
+
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=3, marketing_dir=mkt_base)
+        pins = [p for p in plan if p["channel"] == "pinterest"]
+        assets = [p["asset"] for p in pins]
+        self.assertIn("pins/pin_1_a.png", assets)
+        self.assertIn("pins/pin_2_b.png", assets)
+        self.assertIn("pins/pin_3_c.png", assets)
+
+    def test_36_real_pins_caption_uses_ab_title(self):
+        self._create_pack("pack-title", "Pack Title Test", ["tags"], ["cover.png"])
+        self._create_real_marketing_assets("pack-title", with_pins=True, with_carousel=False, with_reel=False)
+        mkt_base = self.root / "exported_content" / "marketing"
+
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=1, marketing_dir=mkt_base)
+        pins = [p for p in plan if p["channel"] == "pinterest"]
+        self.assertEqual(pins[0]["caption_short"], "Stay Organized With pack-title")
+
+    def test_37_carousel_detected_and_posted_for_instagram(self):
+        self._create_pack("pack-car", "Carousel Pack", ["car"], ["cover.png"])
+        self._create_real_marketing_assets("pack-car", with_pins=False, with_carousel=True, with_reel=False)
+        mkt_base = self.root / "exported_content" / "marketing"
+
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=2, marketing_dir=mkt_base)
+        car_posts = [p for p in plan if p["channel"] == "carousel"]
+        self.assertEqual(len(car_posts), 2)
+        self.assertTrue(car_posts[0]["asset"].startswith("carousel/slide-"))
+
+    def test_38_carousel_caption_from_caption_txt(self):
+        self._create_pack("pack-ccap", "Carousel Caption Pack", ["car"], ["cover.png"])
+        self._create_real_marketing_assets("pack-ccap", with_pins=False, with_carousel=True, with_reel=False)
+        mkt_base = self.root / "exported_content" / "marketing"
+
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=1, marketing_dir=mkt_base)
+        car_posts = [p for p in plan if p["channel"] == "carousel"]
+        self.assertIn("Swipe through the pack-ccap guide", car_posts[0]["caption_short"])
+
+    def test_39_reel_scheduled_max_2_per_week(self):
+        self._create_pack("pack-reel", "Reel Test Pack", ["reel"], ["cover.png"])
+        self._create_real_marketing_assets("pack-reel", with_pins=False, with_carousel=True, with_reel=True)
+        mkt_base = self.root / "exported_content" / "marketing"
+
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=28, marketing_dir=mkt_base)
+
+        for week in range(4):
+            week_days = range(week * 7 + 1, (week + 1) * 7 + 1)
+            week_reels = [p for p in plan if p["day"] in week_days and p["channel"] == "reel"]
+            self.assertLessEqual(len(week_reels), 2, f"Week {week} had {len(week_reels)} reels (> 2)")
+
+    def test_40_reel_asset_points_to_reel_frame(self):
+        self._create_pack("pack-rf", "Reel Frame Pack", ["reel"], ["cover.png"])
+        self._create_real_marketing_assets("pack-rf", with_pins=False, with_carousel=False, with_reel=True)
+        mkt_base = self.root / "exported_content" / "marketing"
+
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=7, marketing_dir=mkt_base)
+        reels = [p for p in plan if p["channel"] == "reel"]
+        self.assertGreater(len(reels), 0)
+        self.assertTrue(reels[0]["asset"].startswith("reel/frame-"))
+
+    def test_41_reel_caption_from_reel_txt(self):
+        self._create_pack("pack-rcap", "Reel Caption Pack", ["reel"], ["cover.png"])
+        self._create_real_marketing_assets("pack-rcap", with_pins=False, with_carousel=False, with_reel=True)
+        mkt_base = self.root / "exported_content" / "marketing"
+
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=3, marketing_dir=mkt_base)
+        reels = [p for p in plan if p["channel"] == "reel"]
+        self.assertGreater(len(reels), 0)
+        self.assertIn("Watch how to plan with pack-rcap", reels[0]["caption_short"])
+
+    def test_42_reels_and_carousels_coexist_in_plan(self):
+        self._create_pack("pack-both", "Both Assets Pack", ["test"], ["cover.png"])
+        self._create_real_marketing_assets("pack-both", with_pins=True, with_carousel=True, with_reel=True)
+        mkt_base = self.root / "exported_content" / "marketing"
+
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=14, marketing_dir=mkt_base)
+        reels = [p for p in plan if p["channel"] == "reel"]
+        carousels = [p for p in plan if p["channel"] == "carousel"]
+        pins = [p for p in plan if p["channel"] == "pinterest"]
+
+        self.assertGreater(len(reels), 0)
+        self.assertGreater(len(carousels), 0)
+        self.assertGreater(len(pins), 0)
+
+    def test_43_fallback_when_pins_missing(self):
+        self._create_pack("pack-nopin", "No Pin Pack", ["test"], ["cover.png", "image1.png"])
+        mkt_base = self.root / "exported_content" / "marketing"
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=2, marketing_dir=mkt_base)
+        pins = [p for p in plan if p["channel"] == "pinterest"]
+        self.assertEqual(len(pins), 6)
+        self.assertTrue(pins[0]["asset"].endswith(".png"))
+
+    def test_44_fallback_when_carousel_missing(self):
+        self._create_pack("pack-nocar", "No Carousel Pack", ["test"], ["cover.png"])
+        mkt_base = self.root / "exported_content" / "marketing"
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=2, marketing_dir=mkt_base)
+        igs = [p for p in plan if p["channel"] == "instagram"]
+        self.assertEqual(len(igs), 2)
+        self.assertEqual(igs[0]["asset"], "cover.png")
+
+    def test_45_empty_pins_json_handled_safely(self):
+        self._create_pack("pack-empty-pins", "Empty Pins Pack", ["test"], ["cover.png"])
+        mkt = self.root / "exported_content" / "marketing" / "pack-empty-pins" / "pins"
+        mkt.mkdir(parents=True, exist_ok=True)
+        (mkt / "pins.json").write_text("[]", encoding="utf-8")
+
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=1, marketing_dir=self.root / "exported_content" / "marketing")
+        pins = [p for p in plan if p["channel"] == "pinterest"]
+        self.assertEqual(len(pins), 3)
+
+    def test_46_corrupt_pins_json_handled_safely(self):
+        self._create_pack("pack-corrupt", "Corrupt Pins Pack", ["test"], ["cover.png"])
+        mkt = self.root / "exported_content" / "marketing" / "pack-corrupt" / "pins"
+        mkt.mkdir(parents=True, exist_ok=True)
+        (mkt / "pins.json").write_text("INVALID JSON", encoding="utf-8")
+
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=1, marketing_dir=self.root / "exported_content" / "marketing")
+        pins = [p for p in plan if p["channel"] == "pinterest"]
+        self.assertEqual(len(pins), 3)
+
+    def test_47_today_text_with_carousel_channel(self):
+        self._create_pack("pack-tcar", "Today Carousel Pack", ["car"], ["cover.png"])
+        self._create_real_marketing_assets("pack-tcar", with_pins=False, with_carousel=True, with_reel=False)
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=1, marketing_dir=self.root / "exported_content" / "marketing")
+
+        text = post_planner.today_text(plan, "2026-11-01")
+        self.assertIn("(carousel)", text)
+        self.assertLessEqual(len(text), 1200)
+
+    def test_48_today_text_with_reel_channel(self):
+        self._create_pack("pack-treel", "Today Reel Pack", ["reel"], ["cover.png"])
+        self._create_real_marketing_assets("pack-treel", with_pins=False, with_carousel=False, with_reel=True)
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=1, marketing_dir=self.root / "exported_content" / "marketing")
+
+        text = post_planner.today_text(plan, "2026-11-01")
+        self.assertIn("(reel)", text)
+        self.assertLessEqual(len(text), 1200)
+
+    def test_49_today_text_strips_marketing_parent_paths(self):
+        self._create_pack("pack-path", "Path Test Pack", ["path"], ["cover.png"])
+        self._create_real_marketing_assets("pack-path", with_pins=True, with_carousel=True, with_reel=True)
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=1, marketing_dir=self.root / "exported_content" / "marketing")
+
+        text = post_planner.today_text(plan, "2026-11-01")
+        # Ensure external filesystem paths never leak into today text
+        self.assertNotIn("/tmp/", text)
+        self.assertNotIn("exported_content", text)
+
+    def test_50_multi_pack_marketing_assets_rotation(self):
+        self._create_pack("pack-a", "Pack A", ["a"], ["cover.png"])
+        self._create_pack("pack-b", "Pack B", ["b"], ["cover.png"])
+        self._create_real_marketing_assets("pack-a", with_pins=True, with_carousel=True, with_reel=True)
+        self._create_real_marketing_assets("pack-b", with_pins=True, with_carousel=True, with_reel=True)
+
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=14, marketing_dir=self.root / "exported_content" / "marketing")
+        # Both packs should have posts
+        packs_used = {p["pack_id"] for p in plan}
+        self.assertIn("pack-a", packs_used)
+        self.assertIn("pack-b", packs_used)
+
+    def test_51_inspect_marketing_assets_non_existent_pack(self):
+        res = post_planner._inspect_marketing_assets("pack-ghost", self.root / "empty_marketing")
+        self.assertFalse(res["has_pins"])
+        self.assertFalse(res["has_carousel"])
+        self.assertFalse(res["has_reel"])
+
+    def test_52_inspect_marketing_assets_no_base_defaults(self):
+        # Default behavior when marketing_base is None
+        res = post_planner._inspect_marketing_assets("sample-pack", None)
+        self.assertIsInstance(res, dict)
+        self.assertIn("pins", res)
+
+    def test_53_cli_with_marketing_dir_flag(self):
+        self._create_pack("pack-climkt", "CLI Marketing Pack", ["cli"], ["cover.png"])
+        self._create_real_marketing_assets("pack-climkt", with_pins=True, with_carousel=True, with_reel=False)
+        mkt_base = self.root / "exported_content" / "marketing"
+
+        code = post_planner.main([
+            "--build",
+            "--products-dir", str(self.products_dir),
+            "--marketing-dir", str(mkt_base),
+            "--plan-path", str(self.plan_path),
+            "--date", "2026-11-01",
+        ])
+        self.assertEqual(code, 0)
+        saved = post_planner.load_plan(self.plan_path)
+        self.assertEqual(len(saved), 120)
+        self.assertEqual(saved[0]["channel"], "pinterest")
+        self.assertTrue(saved[0]["asset"].startswith("pins/pin_"))
+
+    def test_54_mark_posted_works_on_reel_and_carousel(self):
+        self._create_pack("pack-mark", "Mark Pack", ["mark"], ["cover.png"])
+        self._create_real_marketing_assets("pack-mark", with_pins=True, with_carousel=True, with_reel=True)
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=1, marketing_dir=self.root / "exported_content" / "marketing")
+
+        ok = post_planner.mark_posted(plan, "2026-11-01", 4)
+        self.assertTrue(ok)
+        self.assertEqual(plan[3]["status"], "done")
+
+    def test_55_week_summary_counts_reel_and_carousel_posts(self):
+        self._create_pack("pack-wc", "Week Count Pack", ["wc"], ["cover.png"])
+        self._create_real_marketing_assets("pack-wc", with_pins=True, with_carousel=True, with_reel=True)
+        plan = post_planner.build_plan(self.products_dir, "2026-11-02", days=7, marketing_dir=self.root / "exported_content" / "marketing")
+        post_planner.mark_posted(plan, "2026-11-02", 4)  # 4th post is carousel or reel
+
+        summary = post_planner.week_summary(plan, "2026-11-02")
+        self.assertEqual(summary, "This week: 1 of 28 posts done")
+
+    def test_56_reels_maximum_frequency_enforced_across_month(self):
+        # 30-day plan must never exceed 2 reels per 7-day calendar block
+        self._create_pack("pack-freq", "Frequency Pack", ["freq"], ["cover.png"])
+        self._create_real_marketing_assets("pack-freq", with_pins=True, with_carousel=True, with_reel=True)
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=30, marketing_dir=self.root / "exported_content" / "marketing")
+
+        reels = [p for p in plan if p["channel"] == "reel"]
+        # Max 5 weeks in 30 days -> max 10 reels total
+        self.assertLessEqual(len(reels), 10)
+
+    def test_57_post_planner_cleans_money_from_carousel_and_reel_captions(self):
+        self._create_pack("pack-moneyclean", "Money Clean Pack", ["mc"], ["cover.png"])
+        mkt = self.root / "exported_content" / "marketing" / "pack-moneyclean"
+        mkt.mkdir(parents=True, exist_ok=True)
+        car_dir = mkt / "carousel"
+        car_dir.mkdir(parents=True, exist_ok=True)
+        (car_dir / "slide-1.png").write_bytes(PNG_BYTES)
+        (car_dir / "caption.txt").write_text("Special Deal $19 USD only\n\nSave Rs 500 now", encoding="utf-8")
+
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=1, marketing_dir=self.root / "exported_content" / "marketing")
+        car_posts = [p for p in plan if p["channel"] == "carousel"]
+        self.assertNotIn("$19", car_posts[0]["caption_short"])
+        self.assertNotIn("USD", car_posts[0]["caption_short"])
+
+    def test_58_post_planner_cleans_brands_from_carousel_and_reel_captions(self):
+        self._create_pack("pack-brandclean", "Brand Clean Pack", ["bc"], ["cover.png"])
+        mkt = self.root / "exported_content" / "marketing" / "pack-brandclean"
+        mkt.mkdir(parents=True, exist_ok=True)
+        reel_dir = mkt / "reel"
+        reel_dir.mkdir(parents=True, exist_ok=True)
+        (reel_dir / "frame-1.png").write_bytes(PNG_BYTES)
+        (reel_dir / "reel.txt").write_text("Notion Canva Planner Guide\n\nLink in bio", encoding="utf-8")
+
+        plan = post_planner.build_plan(self.products_dir, "2026-11-01", days=1, marketing_dir=self.root / "exported_content" / "marketing")
+        reel_posts = [p for p in plan if p["channel"] == "reel"]
+        cap_lower = reel_posts[0]["caption_short"].lower()
+        self.assertNotIn("notion", cap_lower)
+        self.assertNotIn("canva", cap_lower)
+
 
 if __name__ == "__main__":
     unittest.main()

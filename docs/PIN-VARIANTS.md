@@ -35,7 +35,7 @@ Along with the 5 pin images, two metadata files are generated:
 4. **Layout D: "Free Printable" Badge Style**
    - High-contrast "FREE PRINTABLE" pill badge at top.
    - Prominent headline and download subline.
-   - **Condition:** Rendered **only** when the pack listing explicitly indicates the product is free (e.g. `Free`, `$0`, `freebie`). If the product is not free, Layout D is skipped and Layout E is used instead.
+   - **Condition:** Rendered **only** when the pack listing explicitly indicates the product is free (e.g. `Free`, `freebie`, price zero). If the product is not free, Layout D is skipped and Layout E is used instead.
 
 5. **Layout E: Minimal Photo-Frame**
    - Clean, gallery-style inner photo frame border.

@@ -10,7 +10,7 @@ Buyers get multiple complementary products together in a single download, while 
 ## 1. Bundle Suggestion (`suggest_bundles`)
 
 The suggestion engine analyzes available packs to find natural groupings:
-- **Jaccard Similarity Threshold:** Requires keyword / search tag overlap with Jaccard index $\ge 0.25$ between items.
+- **Jaccard Similarity Threshold:** Requires keyword / search tag overlap with Jaccard index of at least 0.25 between items.
 - **Audience & Niche Matching:** Analyzes audience indicator terms (such as ADHD, Freelancer, Budget, Resume, 2027 Planners). Unrelated product niches are strictly isolated and never mixed together in a bundle.
 - **Bundle Size:** Recommends cohesive sets of 2 to 4 packs.
 - **Suggestion Cap:** Produces at most 5 ranked, deterministic bundle recommendations.
