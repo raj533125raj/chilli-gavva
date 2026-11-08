@@ -488,7 +488,7 @@ def execute_confirmed_risky_action(intent, args, db_path=None):
 
 
 # ---- command handling --------------------------------------------------------
-_COMMANDS = "status|list|view|approve|reject|packs|pack|pipeline|pause|resume|buttontest|rules|cubes|doctor|autofix_drill|help|start|today|posted"
+_COMMANDS = "status|list|view|approve|reject|packs|pack|pipeline|pause|resume|buttontest|rules|cubes|doctor|autofix_drill|help|start|today|posted|ab|week"
 # "/approve 4", "/approve" or "/approve@bot 4 5": anything after a real slash command is fine.
 _SLASH_CMD = re.compile(rf"^/({_COMMANDS})(?:@\w+)?(?:\s+(.*))?$", re.IGNORECASE | re.DOTALL)
 # Without a slash only the bare form counts: "approve 4", "approve 4, 5", "list". A normal sentence such as
@@ -813,7 +813,18 @@ def status_text(db_path=None):
     ])
 
 
-def ready_packs_text(products_dir=None):
+def _format_size(size_bytes: int) -> str:
+    """Format file size into human readable string."""
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    elif size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    else:
+        return f"{size_bytes / (1024 * 1024):.1f} MB"
+
+
+def _find_ready_packs(products_dir=None):
+    """Return all ready upload packs as sorted list of (num, title, path)."""
     import pathlib
     import product_builder
     base = pathlib.Path(products_dir or product_builder.PRODUCTS_DIR)
@@ -851,13 +862,39 @@ def ready_packs_text(products_dir=None):
                 except OSError:
                     continue
     packs.sort(key=lambda x: (x[0] if x[0] is not None else 999999, str(x[2])))
-    packs = packs[:20]
+    return packs
+
+
+def ready_packs_text(page=1, products_dir=None):
+    """Format ready upload packs, 10 per page, with pagination hints."""
+    import math
+    packs = _find_ready_packs(products_dir=products_dir)
     if not packs:
         return "No ready upload packs found."
-    lines = []
-    for num, title, _ in packs:
+
+    total_packs = len(packs)
+    page_size = 10
+    total_pages = max(1, math.ceil(total_packs / page_size))
+
+    try:
+        page_num = int(page) if page is not None else 1
+    except (ValueError, TypeError):
+        page_num = 1
+    if page_num < 1:
+        page_num = 1
+    if page_num > total_pages:
+        page_num = total_pages
+
+    start_idx = (page_num - 1) * page_size
+    page_items = packs[start_idx:start_idx + page_size]
+
+    lines = [f"Ready Upload Packs ({page_num}/{total_pages}):"]
+    for num, title, _ in page_items:
         prefix = f"#{num}" if num is not None else "-"
         lines.append(f"{prefix} {title}")
+
+    if page_num < total_pages:
+        lines.append(f"\nSend /packs {page_num + 1} for next page.")
     return "\n".join(lines)
 
 
@@ -889,33 +926,36 @@ def mark_post_done_text(n, plan_path=None, products_dir=None, date=None):
     return f"Sare, post {n} done ✓\n{summary}"
 
 
-def upload_pack_listing_text(aid, db_path=None, products_dir=None):
+def _find_pack_target(aid, products_dir=None):
+    """Find the directory path of ready pack aid, or None."""
     import pathlib
     import product_builder
     base = pathlib.Path(products_dir or product_builder.PRODUCTS_DIR)
-    target = None
-    if base.is_dir():
-        search_dirs = []
-        if (base / "upload").is_dir():
-            search_dirs.append(base / "upload")
-        search_dirs.append(base)
-        for sdir in search_dirs:
+    if not base.is_dir():
+        return None
+    search_dirs = []
+    if (base / "upload").is_dir():
+        search_dirs.append(base / "upload")
+    search_dirs.append(base)
+    for sdir in search_dirs:
+        try:
+            entries = sorted(sdir.iterdir())
+        except OSError:
+            continue
+        for p in entries:
             try:
-                entries = sorted(sdir.iterdir())
+                if not p.is_dir() or p.name == "upload":
+                    continue
+                if re.match(rf"^{aid}(?:-.*)?$", p.name):
+                    if (p / "product.zip").is_file() and (p / "listing.txt").is_file() and (p / "checklist.txt").is_file():
+                        return p
             except OSError:
                 continue
-            for p in entries:
-                try:
-                    if not p.is_dir() or p.name == "upload":
-                        continue
-                    if re.match(rf"^{aid}(?:-.*)?$", p.name):
-                        if (p / "product.zip").is_file() and (p / "listing.txt").is_file() and (p / "checklist.txt").is_file():
-                            target = p
-                            break
-                except OSError:
-                    continue
-            if target:
-                break
+    return None
+
+
+def upload_pack_listing_text(aid, db_path=None, products_dir=None):
+    target = _find_pack_target(aid, products_dir=products_dir)
     if target:
         try:
             raw = (target / "listing.txt").read_text(encoding="utf-8", errors="replace")
@@ -928,7 +968,7 @@ def upload_pack_listing_text(aid, db_path=None, products_dir=None):
             return f"Pack #{aid} contains a money amount; owner must set price."
         clean = []
         for line in raw.splitlines():
-            if ".zip" in line.lower() or "/" in line or "\\" in line:
+            if ".zip" in line.lower() or "/" in line or os.sep in line:
                 continue
             clean.append(line)
         return _scrub_outgoing("\n".join(clean).strip())
@@ -939,13 +979,198 @@ def upload_pack_listing_text(aid, db_path=None, products_dir=None):
         return f"No ready upload pack found for #{aid}."
 
 
+def pack_detail_text(aid, db_path=None, products_dir=None, marketing_dir=None):
+    """Return detailed pack information: files with sizes, deep QA verdict, marketing assets, and listing lint."""
+    import pathlib
+    target = _find_pack_target(aid, products_dir=products_dir)
+    if not target:
+        try:
+            import product_pipeline
+            pipe_text = product_pipeline.pack_text(aid, db_path)
+            if "No approved upload pack" not in pipe_text and "not ready yet" not in pipe_text:
+                return _scrub_outgoing(pipe_text)
+        except Exception:
+            pass
+        return f"No ready upload pack found for #{aid}."
+
+    # Validate no money amounts in listing.txt
+    listing_path = target / "listing.txt"
+    listing_raw = ""
+    if listing_path.is_file():
+        try:
+            listing_raw = listing_path.read_text(encoding="utf-8", errors="replace")
+            import upload_pack
+            upload_pack._check_money(listing_raw, f"pack #{aid} listing")
+        except ValueError:
+            return f"Pack #{aid} contains a money amount; owner must set price."
+        except Exception as exc:
+            return f"Could not read pack #{aid}: {exc}"
+
+    # Extract title
+    title = f"Pack #{aid}"
+    m_title = re.search(r"^Title:\s*(.+)$", listing_raw, re.MULTILINE)
+    if m_title:
+        title = m_title.group(1).strip()
+    else:
+        title = target.name
+
+    lines = [f"Pack #{aid}: {title}\n"]
+
+    # 1. Files (names + sizes)
+    lines.append("Files:")
+    file_items = []
+    try:
+        for f in sorted(target.iterdir()):
+            if f.is_file():
+                try:
+                    size_str = _format_size(f.stat().st_size)
+                    file_items.append(f"- {f.name} ({size_str})")
+                except OSError:
+                    file_items.append(f"- {f.name}")
+    except OSError:
+        pass
+    if file_items:
+        lines.extend(file_items)
+    else:
+        lines.append("- (no files found)")
+    lines.append("")
+
+    # 2. Deep QA verdict
+    qa_verdict = "unknown"
+    qa_score = None
+    try:
+        import product_qa_deep
+        qa_res = product_qa_deep.check_folder(str(target))
+        if isinstance(qa_res, dict):
+            qa_verdict = qa_res.get("verdict", "unknown")
+            qa_score = qa_res.get("score")
+    except Exception:
+        qa_verdict = "check skipped"
+
+    if qa_score is not None:
+        lines.append(f"Deep QA: {qa_verdict} (score: {qa_score})")
+    else:
+        lines.append(f"Deep QA: {qa_verdict}")
+
+    # 3. Marketing files ready (carousel/pins/reel/blog yes-no)
+    mkt_base = pathlib.Path(marketing_dir or "exported_content/marketing")
+    pack_slug = target.name
+
+    carousel_ready = False
+    pins_ready = False
+    reel_ready = False
+    blog_ready = False
+
+    candidate_mkt_dirs = []
+    if mkt_base.is_dir():
+        p_exact = mkt_base / pack_slug
+        if p_exact.is_dir():
+            candidate_mkt_dirs.append(p_exact)
+        m_id = str(aid)
+        for child in mkt_base.iterdir():
+            if child.is_dir() and (child.name == m_id or child.name.startswith(f"{m_id}-")):
+                if child not in candidate_mkt_dirs:
+                    candidate_mkt_dirs.append(child)
+
+    for cdir in candidate_mkt_dirs:
+        car_dir = cdir / "carousel"
+        if car_dir.is_dir() and any(car_dir.glob("*.png")):
+            carousel_ready = True
+        pins_dir = cdir / "pins"
+        if pins_dir.is_dir() and (any(pins_dir.glob("*.png")) or (pins_dir / "pins.json").is_file()):
+            pins_ready = True
+        reel_dir = cdir / "reel"
+        if reel_dir.is_dir() and (any(reel_dir.glob("*.png")) or (reel_dir / "reel.txt").is_file()):
+            reel_ready = True
+        if (cdir / "blog.md").is_file():
+            blog_ready = True
+
+    lines.append(
+        f"Marketing: carousel={'yes' if carousel_ready else 'no'}, "
+        f"pins={'yes' if pins_ready else 'no'}, "
+        f"reel={'yes' if reel_ready else 'no'}, "
+        f"blog={'yes' if blog_ready else 'no'}"
+    )
+
+    # 4. listing_lint result if listing_lint.py exists (import guarded)
+    try:
+        import listing_lint  # type: ignore
+        lint_fn = getattr(listing_lint, "lint_listing", None) or getattr(listing_lint, "lint_pack", None) or getattr(listing_lint, "check", None)
+        if callable(lint_fn):
+            lint_res = lint_fn(str(target))
+            lines.append(f"Listing lint: {lint_res}")
+        else:
+            lines.append("Listing lint: available")
+    except ImportError:
+        pass
+    except Exception as exc:
+        lines.append(f"Listing lint: error ({type(exc).__name__})")
+
+    full_text = "\n".join(lines).strip()
+    return _scrub_outgoing(full_text[:3500])
+
+
+def week_summary_text(db_path=None, plan_path=None, products_dir=None, date=None):
+    """Format this week's counts in Tenglish style: drafts, packs ready, posts done, A/B leaders."""
+    import datetime
+    import post_planner
+    import ab_results
+
+    if date is None:
+        ref_dt = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    elif isinstance(date, str):
+        ref_dt = datetime.datetime.fromisoformat(date)
+    elif isinstance(date, datetime.date) and not isinstance(date, datetime.datetime):
+        ref_dt = datetime.datetime.combine(date, datetime.time.min)
+    else:
+        ref_dt = date
+
+    start_of_week = (ref_dt - datetime.timedelta(days=ref_dt.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    since_iso = start_of_week.isoformat()
+
+    conn = guardrails.connect(db_path)
+    try:
+        made = conn.execute("SELECT COUNT(*) FROM approvals WHERE ts >= ?", (since_iso,)).fetchone()[0]
+        approved = conn.execute("SELECT COUNT(*) FROM approvals WHERE status = 'approved' AND decided_ts >= ?", (since_iso,)).fetchone()[0]
+        rejected = conn.execute("SELECT COUNT(*) FROM approvals WHERE status = 'rejected' AND decided_ts >= ?", (since_iso,)).fetchone()[0]
+    finally:
+        conn.close()
+
+    packs = _find_ready_packs(products_dir=products_dir)
+    packs_count = len(packs)
+
+    plan_file = plan_path or post_planner.PLAN_PATH
+    prod_dir = products_dir or "exported_content/products"
+    plan = post_planner.load_plan(plan_file, products_dir=prod_dir)
+    posts_str = post_planner.week_summary(plan, date=(ref_dt.date() if isinstance(ref_dt, datetime.datetime) else ref_dt))
+
+    leaders = ab_results.get_all_ab_leaders(db_path=db_path)
+    if leaders:
+        leader_lines = []
+        for lead in leaders:
+            leader_lines.append(f"  • Pack #{lead['pack']}: #{lead['title_num']} ({lead['title']}) — {lead['clicks']} clicks 👑")
+        ab_section = "A/B Title Leaders:\n" + "\n".join(leader_lines)
+    else:
+        ab_section = "A/B Title Leaders: Inka clicks record avaledu."
+
+    lines = [
+        "🗓️ *Ee Vaaram Summary (This Week)*:\n",
+        f"• *Drafts*: {made} made, {approved} approved, {rejected} rejected",
+        f"• *Upload packs ready*: {packs_count} packs",
+        f"• *Posts*: {posts_str}",
+        f"\n{ab_section}\n",
+        "Next steps kosam /packs or /today choodandi!",
+    ]
+    return _scrub_outgoing("\n".join(lines).strip())
+
 def handle_command(cmd, ids, db_path=None):
     if cmd == "status":
         return status_text(db_path)
     if cmd == "packs":
-        return ready_packs_text()
+        page = ids[0] if ids else 1
+        return ready_packs_text(page=page)
     if cmd == "pack":
-        return upload_pack_listing_text(ids[0], db_path) if ids else "Send /pack <number> to view the listing."
+        return pack_detail_text(ids[0], db_path) if ids else "Send /pack <number> to view pack details."
     if cmd == "list":
         return list_text(db_path)
     if cmd == "view":
@@ -987,6 +1212,16 @@ def handle_command(cmd, ids, db_path=None):
     if cmd == "posted":
         n = ids[0] if ids else None
         return mark_post_done_text(n)
+    if cmd == "ab":
+        import ab_results
+        if len(ids) >= 3:
+            return ab_results.parse_and_handle_ab(f"/ab {ids[0]} {ids[1]} {ids[2]}", db_path=db_path)
+        elif len(ids) == 1:
+            return ab_results.format_ab_table(str(ids[0]), db_path=db_path)
+        else:
+            return "A/B Title Tracking:\nUsage: /ab <pack> (to view) or /ab <pack> <title 1-5> <clicks> (to update)."
+    if cmd == "week":
+        return week_summary_text(db_path=db_path)
     return HELP
 
 
@@ -1180,6 +1415,11 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
             u = re.findall(r"https?://[^\s]+", m_text)
             if u:
                 return ("url", u[0])
+            if re.match(r"^\s*(?:ee\s*vaaram|eevaaram|this\s*week)\s*$", m_text or "", re.IGNORECASE):
+                return ("week_cmd",)
+            import ab_results
+            if ab_results.parse_and_handle_ab(m_text, db_path=db_path) is not None:
+                return ("ab_cmd", m_text.strip().lower())
             import owner_commands
             cmd_info = owner_commands.parse(m_text)
             intent = cmd_info.get("intent", "unknown")
@@ -1294,6 +1534,23 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                 handled += 1
                 continue
 
+            # Check for "ee vaaram" / "eevaaram" / "this week" trigger
+            if re.match(r"^\s*(?:ee\s*vaaram|eevaaram|this\s*week)\s*$", message_text or "", re.IGNORECASE):
+                if not is_duplicate:
+                    reply = week_summary_text(db_path=db_path) + burst_note
+                    send_text(token, owner_chat_id, reply)
+                handled += 1
+                continue
+
+            # Check for A/B title tracking command / Tenglish message
+            import ab_results
+            ab_reply = ab_results.parse_and_handle_ab(message_text, db_path=db_path)
+            if ab_reply is not None:
+                if not is_duplicate:
+                    send_text(token, owner_chat_id, ab_reply + burst_note)
+                handled += 1
+                continue
+
             import owner_commands
             cmd_info = owner_commands.parse(message_text)
             c_intent = cmd_info.get("intent", "unknown")
@@ -1314,12 +1571,13 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                         reply = daily_report.report_text(db_path=db_path) + burst_note
                         send_text(token, owner_chat_id, reply)
                     elif c_intent == "list_packs":
-                        reply = ready_packs_text() + burst_note
+                        page = c_args.get("page") or c_args.get("n") or 1
+                        reply = ready_packs_text(page=page) + burst_note
                         send_text(token, owner_chat_id, reply)
                     elif c_intent == "show_pack":
                         n = c_args.get("n")
-                        reply = (upload_pack_listing_text(n, db_path=db_path) if n is not None
-                                 else "Send /pack <number> to view the listing.") + burst_note
+                        reply = (pack_detail_text(n, db_path=db_path) if n is not None
+                                 else "Send /pack <number> to view pack details.") + burst_note
                         send_text(token, owner_chat_id, reply)
                     elif c_intent == "post_today":
                         reply = today_posts_text() + burst_note
