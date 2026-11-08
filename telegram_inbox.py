@@ -62,6 +62,7 @@ HELP = ("\U0001f336️ Chilli Gavva approvals\n\n"
         "/approve ID - approve (several ids ok)\n"
         "/packs - list ready upload packs\n"
         "/pack ID - plain listing text for store\n"
+        "/marketing N - marketing files built for pack N\n"
         "/reject ID - reject\n"
         "/pipeline - daily plan vs done per stage, backlog & stuck items\n"
         "/cubes - department cubes status and controls\n"
@@ -488,7 +489,7 @@ def execute_confirmed_risky_action(intent, args, db_path=None):
 
 
 # ---- command handling --------------------------------------------------------
-_COMMANDS = "status|list|view|approve|reject|packs|pack|pipeline|pause|resume|buttontest|rules|cubes|doctor|autofix_drill|help|start|today|posted|ab|week"
+_COMMANDS = "status|list|view|approve|reject|packs|pack|marketing|pipeline|pause|resume|buttontest|rules|cubes|doctor|autofix_drill|help|start|today|posted|ab|week"
 # "/approve 4", "/approve" or "/approve@bot 4 5": anything after a real slash command is fine.
 _SLASH_CMD = re.compile(rf"^/({_COMMANDS})(?:@\w+)?(?:\s+(.*))?$", re.IGNORECASE | re.DOTALL)
 # Without a slash only the bare form counts: "approve 4", "approve 4, 5", "list". A normal sentence such as
@@ -1172,6 +1173,127 @@ def week_summary_text(db_path=None, plan_path=None, products_dir=None, date=None
     ]
     return _scrub_outgoing("\n".join(lines).strip())
 
+
+# "/marketing 5", "pack 5 marketing" or Tenglish "marketing 5 chupinchu".
+_MARKETING_PHRASE = re.compile(
+    r"^\s*(?:/marketing\s+(\d{1,6})|pack\s+(\d{1,6})\s+marketing|marketing\s+(\d{1,6})\s+chupinchu)\s*[.!]?\s*$",
+    re.IGNORECASE,
+)
+
+
+def parse_marketing_phrase(text):
+    """Return the pack number for a /marketing request, or None if this is not one."""
+    m = _MARKETING_PHRASE.match((text or "").strip())
+    if not m:
+        return None
+    for group in m.groups():
+        if group is not None:
+            return int(group)
+    return None
+
+
+def _find_marketing_pack_dir(n, marketing_dir=None):
+    """Marketing folder for pack n (exact or '<n>-' prefix names), or None."""
+    import pathlib
+    base = pathlib.Path(marketing_dir or "exported_content/marketing")
+    if not base.is_dir():
+        return None
+    for child in sorted(base.iterdir()):
+        try:
+            if child.is_dir() and (child.name == str(n) or child.name.startswith(f"{n}-")):
+                return child
+        except OSError:
+            continue
+    return None
+
+
+def _marketing_pin_titles(pack_dir):
+    """The 5 A/B pin titles: pins.json first, then ab_titles.txt ('#'-lines skipped)."""
+    titles = []
+    pins_json = pack_dir / "pins" / "pins.json"
+    if pins_json.is_file():
+        try:
+            data = json.loads(pins_json.read_text(encoding="utf-8", errors="replace"))
+            if isinstance(data, list):
+                for item in data:
+                    if isinstance(item, dict) and item.get("title"):
+                        t = str(item["title"]).strip()
+                    elif isinstance(item, str) and item.strip():
+                        t = item.strip()
+                    else:
+                        t = ""
+                    if t and t not in titles:
+                        titles.append(t)
+        except (OSError, ValueError):
+            pass
+    if not titles:
+        ab_file = pack_dir / "pins" / "ab_titles.txt"
+        if ab_file.is_file():
+            try:
+                for line in ab_file.read_text(encoding="utf-8", errors="replace").splitlines():
+                    if line.lstrip().startswith("#"):
+                        continue
+                    cleaned = re.sub(r"^\d+[\.\)]\s*", "", line).strip()
+                    if cleaned and cleaned not in titles:
+                        titles.append(cleaned)
+            except OSError:
+                pass
+    return titles[:5]
+
+
+def marketing_text(n=None, marketing_dir=None):
+    """One message on what exists for pack n in exported_content/marketing/<pack>/ (owner only)."""
+    if n is None:
+        return "Send /marketing <pack number> (e.g. /marketing 5)."
+    try:
+        n = int(n)
+    except (TypeError, ValueError):
+        return "Send /marketing <pack number> (e.g. /marketing 5)."
+
+    pack_dir = _find_marketing_pack_dir(n, marketing_dir)
+    if pack_dir is None:
+        return f"Pack #{n} ki marketing files inka ledu. /pack {n} tho pack status chudandi."
+
+    lines = [f"Marketing pack #{n} ({pack_dir.name}):"]
+
+    car_dir = pack_dir / "carousel"
+    slides = list(car_dir.glob("slide-*.png")) if car_dir.is_dir() else []
+    lines.append(f"Carousel: {len(slides)} slides")
+
+    pins_dir = pack_dir / "pins"
+    titles = _marketing_pin_titles(pack_dir)
+    if pins_dir.is_dir() and (titles or list(pins_dir.glob("pin_*.png")) or (pins_dir / "pins.json").is_file()):
+        if titles:
+            count_line = f"Pins: {len(list(pins_dir.glob('pin_*.png'))) or len(titles)} (5 A/B titles):"
+        else:
+            count_line = f"Pins: {len(list(pins_dir.glob('pin_*.png')))}"
+        lines.append(count_line)
+        for i, t in enumerate(titles, 1):
+            lines.append(f"  {i}. {t}")
+    else:
+        lines.append("Pins: 0")
+
+    reel_dir = pack_dir / "reel"
+    frames = list(reel_dir.glob("frame-*.png")) if reel_dir.is_dir() else []
+    lines.append(f"Reel frames: {len(frames)}")
+
+    blog_file = pack_dir / "blog.md"
+    if blog_file.is_file():
+        try:
+            words = len(blog_file.read_text(encoding="utf-8", errors="replace").split())
+        except OSError:
+            words = 0
+        lines.append(f"Blog: {words} words")
+    else:
+        lines.append("Blog: 0 words")
+
+    lines.append(f"LAUNCH.md: {'yes' if (pack_dir / 'LAUNCH.md').is_file() else 'no'}")
+    lines.append(f"seo_meta: {'yes' if (pack_dir / 'seo_meta.json').is_file() else 'no'}")
+    lines.append(f"Mac lo folder: Marketing/{pack_dir.name}")
+
+    return _scrub_outgoing("\n".join(lines))
+
+
 def handle_command(cmd, ids, db_path=None):
     if cmd == "status":
         return status_text(db_path)
@@ -1180,6 +1302,8 @@ def handle_command(cmd, ids, db_path=None):
         return ready_packs_text(page=page)
     if cmd == "pack":
         return pack_detail_text(ids[0], db_path) if ids else "Send /pack <number> to view pack details."
+    if cmd == "marketing":
+        return marketing_text(ids[0] if ids else None)
     if cmd == "list":
         return list_text(db_path)
     if cmd == "view":
@@ -1426,6 +1550,9 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                 return ("url", u[0])
             if re.match(r"^\s*(?:ee\s*vaaram|eevaaram|this\s*week)\s*$", m_text or "", re.IGNORECASE):
                 return ("week_cmd",)
+            m_n = parse_marketing_phrase(m_text)
+            if m_n is not None:
+                return ("marketing_cmd", m_n)
             import ab_results
             if ab_results.parse_and_handle_ab(m_text, db_path=db_path) is not None:
                 return ("ab_cmd", m_text.strip().lower())
@@ -1557,6 +1684,15 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
             if ab_reply is not None:
                 if not is_duplicate:
                     send_text(token, owner_chat_id, ab_reply + burst_note)
+                handled += 1
+                continue
+
+            # Check for /marketing pack files request (slash, "pack N marketing", "marketing N chupinchu")
+            marketing_n = parse_marketing_phrase(message_text)
+            if marketing_n is not None:
+                if not is_duplicate:
+                    reply = marketing_text(marketing_n) + burst_note
+                    send_text(token, owner_chat_id, reply)
                 handled += 1
                 continue
 
