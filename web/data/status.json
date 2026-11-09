@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-09T12:43:14Z",
+ "generated_at": "2026-11-09T19:52:03Z",
  "llm": {
-  "calls_today": 1,
+  "calls_today": 7,
   "cap": 500
  },
  "agents": [
@@ -204,42 +204,6 @@
  ],
  "pending_approvals": [
   {
-   "id": 88,
-   "ts": "2026-11-06T21:59:51.177995",
-   "kind": "public_draft",
-   "title": "Draft #88"
-  },
-  {
-   "id": 89,
-   "ts": "2026-11-06T21:59:54.340573",
-   "kind": "public_draft",
-   "title": "Draft #89"
-  },
-  {
-   "id": 90,
-   "ts": "2026-11-06T21:59:56.743938",
-   "kind": "public_draft",
-   "title": "Draft #90"
-  },
-  {
-   "id": 91,
-   "ts": "2026-11-07T02:16:49.202861",
-   "kind": "scout_idea",
-   "title": "Draft #91"
-  },
-  {
-   "id": 92,
-   "ts": "2026-11-07T02:16:49.205756",
-   "kind": "scout_idea",
-   "title": "Draft #92"
-  },
-  {
-   "id": 93,
-   "ts": "2026-11-07T02:16:49.208326",
-   "kind": "scout_idea",
-   "title": "Draft #93"
-  },
-  {
    "id": 94,
    "ts": "2026-11-09T12:43:12.472483",
    "kind": "scout_idea",
@@ -371,38 +335,38 @@
  "ai_health": [
   {
    "provider": "Groq",
-   "model": "openai/gpt-oss-20b",
+   "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-09T12:43:14Z"
+   "checked_at": "2026-11-09T19:52:03Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
    "state": "unknown",
    "reason": "No recent activity recorded",
-   "checked_at": "2026-11-09T12:43:14Z"
+   "checked_at": "2026-11-09T19:52:03Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "unknown",
    "reason": "No recent activity recorded",
-   "checked_at": "2026-11-09T12:43:14Z"
+   "checked_at": "2026-11-09T19:52:03Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-09T12:43:14Z"
+   "checked_at": "2026-11-09T19:52:03Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-09T12:43:14Z"
+   "checked_at": "2026-11-09T19:52:03Z"
   }
  ],
  "minutes": {
@@ -410,6 +374,42 @@
   "limit": null
  },
  "products": [
+  {
+   "id": 90,
+   "short_title": "Resume Template Pack for Remote Creato",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
+   },
+   "store_url": null
+  },
+  {
+   "id": 89,
+   "short_title": "Skill Showcase\" - helps individuals cr",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
+   },
+   "store_url": null
+  },
+  {
+   "id": 88,
+   "short_title": "Reference Request Kit\" - enables job s",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
+   },
+   "store_url": null
+  },
   {
    "id": 58,
    "short_title": "Interview Prep Pro\" - provides a set o",
@@ -652,79 +652,34 @@
     ]
    },
    "store_url": null
-  },
-  {
-   "id": 31,
-   "short_title": "Google Sheets pet care expense tracker",
-   "has_image": true,
-   "listing_status": "ready",
-   "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
-    "reasons": [
-     "Promises 'Google Sheets tracker' (listing.md): promised but not in the files",
-     "Promises 'Use tab' (README.md): promised but not in the files"
-    ]
-   },
-   "store_url": null
-  },
-  {
-   "id": 30,
-   "short_title": "Networking Navigator\" - assists indivi",
-   "has_image": true,
-   "listing_status": "ready",
-   "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
-    "reasons": [
-     "Promises 'fillable / editable PDF' (listing.md): the PDFs are print-only (no fillable fields or link"
-    ]
-   },
-   "store_url": null
-  },
-  {
-   "id": 29,
-   "short_title": "Job Search Tracker\" - enables busy pro",
-   "has_image": true,
-   "listing_status": "ready",
-   "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
-    "reasons": [
-     "Promises 'year overview page' (listing.md): no year overview page in the files",
-     "Promises 'charts / progress bars' (listing.md): no charts in the files",
-     "Promises 'Overview tab' (README.md): promised but not in the files"
-    ]
-   },
-   "store_url": null
   }
  ],
  "reject_reasons": [
   {
    "reason": "Formatting or rubric issue",
-   "count": 94
+   "count": 95
   },
   {
    "reason": "Unclear value over free template",
-   "count": 51
+   "count": 52
   },
   {
    "reason": "Risky or prohibited claim",
-   "count": 44
+   "count": 48
   },
   {
    "reason": "Product structure incomplete",
-   "count": 36
+   "count": 39
   },
   {
    "reason": "Target audience unclear",
-   "count": 31
+   "count": 35
   }
  ],
  "report": {
   "drafts_made": 2,
-  "drafts_waiting": 8,
-  "drafts_approved": 0,
+  "drafts_waiting": 2,
+  "drafts_approved": 6,
   "products_built": 0,
   "errors": 0
  },
@@ -834,68 +789,92 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   }
  ],
  "loop_events": [
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-09T19:52:03Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-09T19:52:03Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-09T12:43:34Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-09T12:43:31Z"
+  },
   {
    "agent": "Unknown agent",
    "kind": "error",
@@ -2252,12 +2231,14 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-09T12:43:10Z",
-  "last_run_end": "2026-11-09T12:43:14Z",
+  "last_run_start": "2026-11-09T19:52:02Z",
+  "last_run_end": "2026-11-09T19:52:03Z",
   "runner": "github-actions",
-  "run_id": "42618081478"
+  "run_id": "42687289694"
  },
  "changelog": [
+  "agent: owner inbox state [skip ci]",
+  "agent: state + content update [skip ci]",
   "Jules T1-T5: covers, boards, newsletter, shorts, landing pages, sitemap, PDF metadata, dup check, image optimiser, calendar, ops dashboard, pack versions, idea",
   "O13 README, FB11 posting guide, FB12/FB13 edge tests, FB14 SEO guide, FB15 upload day guide (verified by Claude)",
   "O12 /marketing command",
@@ -2275,12 +2256,10 @@
   "KC office data, KD Tenglish Telegram text, KE packs in report, KF deep QA, KG post planner (Jules, verified by Claude)",
   "F1 listing copy helper",
   "agent: state + content update [skip ci]",
-  "agent: owner inbox state [skip ci]",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]"
+  "agent: owner inbox state [skip ci]"
  ],
  "daily_report": {
-  "date_ist": "2026-11-09",
+  "date_ist": "2026-11-10",
   "summary": "No completed work recorded.",
   "items_done": []
  },
@@ -2636,8 +2615,8 @@
  ],
  "scout_ideas_count": {
   "total": 44,
-  "pending": 5,
-  "approved": 39
+  "pending": 2,
+  "approved": 42
  },
  "trend_items_count": {
   "total": 110,
