@@ -21,6 +21,20 @@ PY310 = sys.version_info >= (3, 10)
 REQUIRES_PY310 = unittest.skipUnless(PY310, "module uses py3.10+ union annotations")
 
 
+def _load_real(name):
+    """Load the real module from its file under a private name.
+
+    Other tests (e.g. test_feeds) put a stub "web_fetcher" into sys.modules for the
+    whole run, so a plain import here could get that stub instead of the real file.
+    """
+    import importlib.util
+    root = pathlib.Path(__file__).resolve().parent.parent
+    spec = importlib.util.spec_from_file_location("o3_real_" + name, root / (name + ".py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 class UntestedModuleSmokeContract(unittest.TestCase):
     UNTESTED_MODULES = ["log_validation", "office_cubes", "office_policy",
                         "start", "versions"]
@@ -30,7 +44,7 @@ class UntestedModuleSmokeContract(unittest.TestCase):
         names = [*self.UNTESTED_MODULES, *(self.PY310_ONLY_MODULES if PY310 else [])]
         for name in names:
             with self.subTest(module=name):
-                module = __import__(name)
+                module = _load_real(name)
                 self.assertTrue(hasattr(module, "__file__"), name)
 
 
@@ -177,7 +191,7 @@ class VersionsSmoke(unittest.TestCase):
 class WebFetcherSmoke(unittest.TestCase):
     @REQUIRES_PY310
     def test_stripper_removes_hidden_markup_and_unescapes_entities(self):
-        import web_fetcher
+        web_fetcher = _load_real("web_fetcher")
         stripper = web_fetcher._Stripper()
         stripper.feed(
             "<head><title>hidden</title></head>"
@@ -207,7 +221,7 @@ class WebFetcherSmoke(unittest.TestCase):
 
     @REQUIRES_PY310
     def test_fetch_text_turns_html_into_plain_text_without_network(self):
-        import web_fetcher
+        web_fetcher = _load_real("web_fetcher")
         with mock.patch.object(web_fetcher, "_LAST_FETCH", -1e9), \
                 mock.patch.object(web_fetcher.urllib.request, "urlopen", return_value=self.fake_response):
             text, error = web_fetcher.fetch_text("https://example.invalid/smoke")
@@ -216,7 +230,7 @@ class WebFetcherSmoke(unittest.TestCase):
 
     @REQUIRES_PY310
     def test_non_text_content_type_reports_an_error(self):
-        import web_fetcher
+        web_fetcher = _load_real("web_fetcher")
         self.fake_response_headers["Content-Type"] = "image/png"
         with mock.patch.object(web_fetcher, "_LAST_FETCH", -1e9), \
                 mock.patch.object(web_fetcher.urllib.request, "urlopen", return_value=self.fake_response):
@@ -226,7 +240,7 @@ class WebFetcherSmoke(unittest.TestCase):
 
     @REQUIRES_PY310
     def test_http_error_is_scrubbed_and_returns_empty_text(self):
-        import web_fetcher
+        web_fetcher = _load_real("web_fetcher")
         failure = web_fetcher.urllib.error.HTTPError("https://example.invalid/missing", 404, "Not Found", None, None)
         with mock.patch.object(web_fetcher, "_LAST_FETCH", -1e9), \
                 mock.patch.object(web_fetcher.urllib.request, "urlopen", side_effect=failure):
@@ -235,7 +249,7 @@ class WebFetcherSmoke(unittest.TestCase):
 
     @REQUIRES_PY310
     def test_fetch_words_limits_the_snippet_to_the_requested_count(self):
-        import web_fetcher
+        web_fetcher = _load_real("web_fetcher")
         self.fake_response.read = lambda max_bytes: b"<p>one two three four five</p>"
         with mock.patch.object(web_fetcher, "_LAST_FETCH", -1e9), \
                 mock.patch.object(web_fetcher.urllib.request, "urlopen", return_value=self.fake_response):
@@ -245,7 +259,7 @@ class WebFetcherSmoke(unittest.TestCase):
 
     @REQUIRES_PY310
     def test_timeout_constant_keeps_fetches_bounded(self):
-        import web_fetcher
+        web_fetcher = _load_real("web_fetcher")
         self.assertEqual(web_fetcher._TIMEOUT, 10)
         self.assertEqual(web_fetcher._MIN_GAP, 3.0)
 

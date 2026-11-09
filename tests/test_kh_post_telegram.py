@@ -372,7 +372,9 @@ class KhPostTelegramTests(unittest.TestCase):
     # 26. Full _run integration executes morning message when in morning window
     def test_26_full_run_integration_morning_post_plan(self):
         dt = datetime.datetime(2026, 11, 10, 9, 30, tzinfo=IST)
-        with mock.patch("notify._telegram_configured", return_value=(True, "tok", OWNER)), \
+        # a real robot run (not a test run) sends the morning plan
+        with mock.patch.dict(os.environ, {"CHILLI_TEST": "0"}), \
+             mock.patch("notify._telegram_configured", return_value=(True, "tok", OWNER)), \
              mock.patch.object(ti, "send_morning_post_plan", return_value=True) as mock_morning, \
              mock.patch.object(ti, "process_updates", return_value=0), \
              mock.patch.object(ti, "alert_new_drafts", return_value=0), \

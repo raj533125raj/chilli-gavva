@@ -1827,7 +1827,11 @@ def _run(db_path=None, recovery=False, stats=None):
     alerts = alert_new_drafts(token, chat_id, db_path)
     waiting_reminder = remind_waiting_drafts(token, chat_id, db_path)
     try:
-        morning_sent = send_morning_post_plan(token, chat_id, db_path=db_path)
+        # Test runs (CHILLI_TEST=1) must not read the real post plan or send a morning message.
+        if os.environ.get("CHILLI_TEST") == "1":
+            morning_sent = False
+        else:
+            morning_sent = send_morning_post_plan(token, chat_id, db_path=db_path)
     except Exception as exc:
         print(f"Morning post plan skipped: {type(exc).__name__}")
         morning_sent = False
