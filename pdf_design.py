@@ -223,27 +223,82 @@ class Pdf:
         for i, line in enumerate(lines[:2] if len(lines) <= 2 else lines):
             self.text(MARGIN, FOOTER_Y + 4 * (len(lines) - 1) - 8 * i, line, size, color=st["muted"])
 
-    def save(self, path, title=""):
+    def save(self, path, title="", meta=None, outlines=None):
         if self.footer:
             for i, ops in enumerate(self.pages, 1):
                 saved, self.pages = self.pages, [ops]
                 self._draw_footer(i, len(saved))
                 self.pages = saved
-        objs = ["<< /Type /Catalog /Pages 2 0 R >>", None,
+        objs = [None, None,
                 "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
                 "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>"]
         kids = []
+        page_obj_ids = []
         for ops in self.pages:
             stream = "\n".join(ops).encode("latin-1")
             objs.append(b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream")
             content_id = len(objs)
+            page_obj_id = content_id + 1
             objs.append(f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {self.w} {self.h}] "
                         f"/Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents {content_id} 0 R >>")
-            kids.append(f"{len(objs)} 0 R")
+            page_obj_ids.append(page_obj_id)
+            kids.append(f"{page_obj_id} 0 R")
         objs[1] = f"<< /Type /Pages /Kids [{' '.join(kids)}] /Count {len(kids)} >>"
-        info = f"<< /Producer (Chilli Gavva Product Builder) /Title ({_pdf_text(title)}) " \
-               f"/ChilliStyle ({self.style_key or 'none'}) >>"
-        objs.append(info)
+
+        # Outlines (bookmarks)
+        outline_items = []
+        if outlines:
+            for item in outlines:
+                if isinstance(item, (tuple, list)) and len(item) == 2:
+                    t_name, p_idx = item
+                elif isinstance(item, str):
+                    t_name, p_idx = item, len(outline_items)
+                else:
+                    continue
+                if 0 <= p_idx < len(page_obj_ids):
+                    outline_items.append((str(t_name), page_obj_ids[p_idx]))
+
+        if outline_items:
+            outlines_id = len(objs) + 1
+            objs[0] = f"<< /Type /Catalog /Pages 2 0 R /Outlines {outlines_id} 0 R >>"
+            first_item_id = outlines_id + 1
+            last_item_id = outlines_id + len(outline_items)
+            objs.append(f"<< /Type /Outlines /First {first_item_id} 0 R /Last {last_item_id} 0 R /Count {len(outline_items)} >>")
+            for idx, (item_title, target_page_id) in enumerate(outline_items):
+                curr_id = outlines_id + 1 + idx
+                parts = [f"/Title ({_pdf_text(item_title)})", f"/Parent {outlines_id} 0 R"]
+                if idx > 0:
+                    parts.append(f"/Prev {curr_id - 1} 0 R")
+                if idx < len(outline_items) - 1:
+                    parts.append(f"/Next {curr_id + 1} 0 R")
+                parts.append(f"/Dest [{target_page_id} 0 R /Fit]")
+                objs.append(f"<< {' '.join(parts)} >>")
+        else:
+            objs[0] = "<< /Type /Catalog /Pages 2 0 R >>"
+
+        # Document Information dictionary
+        meta_dict = meta if isinstance(meta, dict) else {}
+        doc_title = meta_dict.get("Title") if meta_dict.get("Title") is not None else title
+        doc_author = meta_dict.get("Author", "Chilli Gavva")
+        doc_subject = meta_dict.get("Subject", "")
+        doc_keywords = meta_dict.get("Keywords", "")
+        if isinstance(doc_keywords, (list, tuple)):
+            doc_keywords = ", ".join(str(k) for k in doc_keywords)
+        doc_creator = meta_dict.get("Creator", "Chilli Gavva robot")
+
+        info_entries = [
+            "/Producer (Chilli Gavva Product Builder)",
+            f"/Title ({_pdf_text(doc_title)})",
+            f"/Author ({_pdf_text(doc_author)})",
+            f"/Creator ({_pdf_text(doc_creator)})",
+            f"/ChilliStyle ({self.style_key or 'none'})",
+        ]
+        if doc_subject:
+            info_entries.append(f"/Subject ({_pdf_text(doc_subject)})")
+        if doc_keywords:
+            info_entries.append(f"/Keywords ({_pdf_text(doc_keywords)})")
+
+        objs.append(f"<< {' '.join(info_entries)} >>")
         out, offsets = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n"), []
         for i, obj in enumerate(objs, 1):
             offsets.append(len(out))
@@ -777,8 +832,30 @@ def _finish(path, spec, size, body, label=None, week_start=None):
         if len(front.pages) == offset:
             break
         offset = len(front.pages)
+    front_pages_count = len(front.pages)
     front.pages += content.pages
-    front.save(path, spec.get("name") or "")
+
+    # Bookmarks / outlines: one entry per section/page title the builder already knows
+    outlines = []
+    if front_pages_count >= 1:
+        outlines.append(("Cover", 0))
+    if front_pages_count >= 2:
+        outlines.append(("How to use", 1))
+    for idx, t in enumerate(titles):
+        outlines.append((t, front_pages_count + idx))
+
+    # Document metadata:
+    # Document Title (product name), Author 'Chilli Gavva', Subject (short description),
+    # Keywords (tags), Creator 'Chilli Gavva robot'
+    listing = spec.get("listing") or {}
+    meta = {
+        "Title": spec.get("name") or listing.get("title") or "",
+        "Author": "Chilli Gavva",
+        "Subject": listing.get("description") or "",
+        "Keywords": listing.get("tags") or [],
+        "Creator": "Chilli Gavva robot",
+    }
+    front.save(path, spec.get("name") or "", meta=meta, outlines=outlines)
     return len(front.pages)
 
 
