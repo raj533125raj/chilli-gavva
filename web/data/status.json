@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-07T17:04:00Z",
+ "generated_at": "2026-11-09T12:43:14Z",
  "llm": {
-  "calls_today": 7,
+  "calls_today": 1,
   "cap": 500
  },
  "agents": [
@@ -204,36 +204,6 @@
  ],
  "pending_approvals": [
   {
-   "id": 83,
-   "ts": "2026-11-06T03:20:17.829366",
-   "kind": "scout_idea",
-   "title": "Draft #83"
-  },
-  {
-   "id": 84,
-   "ts": "2026-11-06T03:20:17.832658",
-   "kind": "scout_idea",
-   "title": "Draft #84"
-  },
-  {
-   "id": 85,
-   "ts": "2026-11-06T03:20:17.835344",
-   "kind": "scout_idea",
-   "title": "Draft #85"
-  },
-  {
-   "id": 86,
-   "ts": "2026-11-06T03:20:17.837779",
-   "kind": "scout_idea",
-   "title": "Draft #86"
-  },
-  {
-   "id": 87,
-   "ts": "2026-11-06T03:20:17.840422",
-   "kind": "scout_idea",
-   "title": "Draft #87"
-  },
-  {
    "id": 88,
    "ts": "2026-11-06T21:59:51.177995",
    "kind": "public_draft",
@@ -268,32 +238,25 @@
    "ts": "2026-11-07T02:16:49.208326",
    "kind": "scout_idea",
    "title": "Draft #93"
+  },
+  {
+   "id": 94,
+   "ts": "2026-11-09T12:43:12.472483",
+   "kind": "scout_idea",
+   "title": "Draft #94"
+  },
+  {
+   "id": 95,
+   "ts": "2026-11-09T12:43:12.474843",
+   "kind": "scout_idea",
+   "title": "Draft #95"
   }
  ],
  "worker": {
   "running": false,
   "age_seconds": null
  },
- "handoffs": [
-  {
-   "from_agent": "Draft Worker",
-   "to_agent": "Content Manager",
-   "item": "draft #90",
-   "at": "2026-11-06T21:59:56Z"
-  },
-  {
-   "from_agent": "Draft Worker",
-   "to_agent": "Content Manager",
-   "item": "draft #89",
-   "at": "2026-11-06T21:59:54Z"
-  },
-  {
-   "from_agent": "Draft Worker",
-   "to_agent": "Content Manager",
-   "item": "draft #88",
-   "at": "2026-11-06T21:59:51Z"
-  }
- ],
+ "handoffs": [],
  "office": {
   "agents": [
    {
@@ -411,35 +374,35 @@
    "model": "openai/gpt-oss-20b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-07T17:04:00Z"
+   "checked_at": "2026-11-09T12:43:14Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
-   "state": "up",
-   "reason": "Latest request succeeded",
-   "checked_at": "2026-11-07T17:04:00Z"
+   "state": "unknown",
+   "reason": "No recent activity recorded",
+   "checked_at": "2026-11-09T12:43:14Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
-   "state": "up",
-   "reason": "Latest request succeeded",
-   "checked_at": "2026-11-07T17:04:00Z"
+   "state": "unknown",
+   "reason": "No recent activity recorded",
+   "checked_at": "2026-11-09T12:43:14Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-07T17:04:00Z"
+   "checked_at": "2026-11-09T12:43:14Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-07T17:04:00Z"
+   "checked_at": "2026-11-09T12:43:14Z"
   }
  ],
  "minutes": {
@@ -759,10 +722,10 @@
   }
  ],
  "report": {
-  "drafts_made": 3,
-  "drafts_waiting": 11,
+  "drafts_made": 2,
+  "drafts_waiting": 8,
   "drafts_approved": 0,
-  "products_built": 1,
+  "products_built": 0,
   "errors": 0
  },
  "workers": [
@@ -840,7 +803,7 @@
   },
   "product_builds": {
    "plan": 2,
-   "done": 1
+   "done": 0
   },
   "promotion": {
    "plan": 2,
@@ -871,68 +834,74 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   }
  ],
  "loop_events": [
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-09T12:43:10Z"
+  },
   {
    "agent": "Unknown agent",
    "kind": "error",
@@ -2283,12 +2252,21 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-07T17:04:00Z",
-  "last_run_end": "2026-11-07T17:04:00Z",
+  "last_run_start": "2026-11-09T12:43:10Z",
+  "last_run_end": "2026-11-09T12:43:14Z",
   "runner": "github-actions",
-  "run_id": "42393841758"
+  "run_id": "42618081478"
  },
  "changelog": [
+  "Jules T1-T5: covers, boards, newsletter, shorts, landing pages, sitemap, PDF metadata, dup check, image optimiser, calendar, ops dashboard, pack versions, idea",
+  "O13 README, FB11 posting guide, FB12/FB13 edge tests, FB14 SEO guide, FB15 upload day guide (verified by Claude)",
+  "O12 /marketing command",
+  "Fix CI: smoke tests load the real web_fetcher file; no morning post message during test runs (verified by Claude)",
+  "O7-O10 lint/readiness/FAQ/marketing, FB7-FB10 docs+tests, S1-S5 reels/blog/planner, SEO tools, ops+doctor, Telegram packs/AB/week, launch/gifts/catalog (verifie",
+  "agent: owner inbox state [skip ci]",
+  "KJ Instagram carousels, KK five pin designs + A/B titles, KL bundle builder (Jules, verified by Claude)",
+  "FB1 Tenglish owner guide, FB2 Instamojo fields, O2 tests pass outside CI, O3 smoke tests, O4 robot map (verified by Claude)",
+  "agent: state + content update [skip ci]",
   "KH posts in Telegram + morning message, KI auto-repair after deep QA (Jules, verified by Claude)",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
@@ -2299,32 +2277,12 @@
   "agent: state + content update [skip ci]",
   "agent: owner inbox state [skip ci]",
   "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "Fix JX test env cleanup under GitHub runner variables",
-  "Robot makes upload packs after a ready build + /packs and /pack in Telegram (Jules JX); office life events: activity, meetings, letters (Jules KA); owner voice/",
-  "Workflow: give the growing test suite 9 minutes (job 16) so runs stop timing out",
-  "Cloud ledger reader module (not wired in yet): owner-first decisions, idempotent (Jules JZ)",
-  "Upload packs: up to 13 clean tags, no untested app claims, personal-use line (Jules JY)",
-  "Upload pack checker script for owner/Claude, runs under unittest (Aider A4)",
-  "Daily report: auto-decisions, built products and the owner's next step (Jules JU)",
-  "Telegram diagnostic: show allowed_updates and flag when button presses would be dropped (Jules JT)",
-  "Preserve legacy format checks and report PDF pagination per file"
+  "agent: state + content update [skip ci]"
  ],
  "daily_report": {
-  "date_ist": "2026-11-07",
-  "summary": "9 tasks completed; 0 approvals reviewed; 1 products built.",
-  "items_done": [
-   "Review completed",
-   "Review completed",
-   "Review completed",
-   "Draft completed",
-   "Draft completed",
-   "Draft completed",
-   "Research completed",
-   "Research completed",
-   "Research completed",
-   "Product built"
-  ]
+  "date_ist": "2026-11-09",
+  "summary": "No completed work recorded.",
+  "items_done": []
  },
  "sunday_letter": null,
  "cubes": [
@@ -2677,12 +2635,12 @@
   }
  ],
  "scout_ideas_count": {
-  "total": 42,
-  "pending": 8,
-  "approved": 34
+  "total": 44,
+  "pending": 5,
+  "approved": 39
  },
  "trend_items_count": {
-  "total": 100,
+  "total": 110,
   "proposed": 0,
   "approved": 0
  },
