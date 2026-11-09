@@ -1,53 +1,85 @@
 # Chilli Gavva Agent
 
-Zero-cost autonomous agent project (Python + SQLite + web dashboard).
+A small Python robot that drafts digital products — and **waits for you**.
+It researches a niche, writes a product draft, builds the approved files,
+prepares a hand-upload pack with marketing assets, and stops there.
+Nothing auto-publishes. The owner posts every item by hand.
 
-**Start here:** read `STATUS.md` first. It holds the current state, goals, known issues and next steps.
+- Plain tour of the whole robot: [docs/ROBOT-MAP.md](docs/ROBOT-MAP.md)
+- Owner commands in Telegram (English / Tenglish): [docs/OWNER-GUIDE-TENGLISH.md](docs/OWNER-GUIDE-TENGLISH.md)
+- Our word style for every message: [docs/TENGLISH-STYLE.md](docs/TENGLISH-STYLE.md)
 
-## Layout
-Read `STATUS.md` for the full table. Short version:
-- `workforce.py` (agent team), `guardrails.py` (kill switch, budget cap, approvals), `improver.py` (safe self-improvement), `engine.py` (old simulation + LLM call)
-- `serve.py` + `web/index.html`: local 2D office dashboard
-- `cloud_runner.py` + `.github/workflows/agent.yml`: 24/7 cloud cycle (optional)
-- `versions.py` (rollback), `log_validation.py` (14-day test), `tests/` (run: `python3 -m unittest discover -s tests`)
-- `agent_data.db`: SQLite database. `config.json`: local settings, git-ignored, never commit.
-- `docs/`: research, plans, setup guides. `docs/memory_2026-10-02/` and `archive/` are historical and outdated.
+## What the robot does
 
-## Run
-- Everything (worker + dashboard): `python3 start.py` then http://127.0.0.1:8787. See docs/AUTOSTART.md
-- Agent cycle: `python3 workforce.py run`
-- Emergency stop: `python3 guardrails.py kill`
+1. **Research.** Every cycle the robot studies its niche topic.
+2. **Draft.** It writes a small digital product draft (title, page text, files).
+3. **Approve.** The draft waits in a queue. The owner reviews it and says yes or
+   no from Telegram or the local dashboard. Unapproved drafts never become files.
+4. **Build.** Approved drafts are built into real product files.
+5. **Check.** A separate reality-check pass reads the built files honestly and
+   reports problems: empty pages, broken links, weak content.
+6. **Pack.** The robot assembles a hand-upload pack: listing text, product
+   carousel, pins with A/B titles, reel frames, a blog post, a launch checklist
+   and SEO metadata — all saved under `exported_content/`.
+7. **Post plan.** It proposes when and where to post. The owner posts by hand.
+8. **Nothing publishes itself.** There is no auto-post path from the robot to
+   any store or social network.
 
+## How it runs
 
-## More tools
-- `python3 record_earning.py add|list|void|total` real earnings with proof
-- `python3 maintenance.py` backup/prune/integrity
-- `python3 site_builder.py` build static pages from approved drafts
-- `python3 coder.py request "goal" file.py` ask the coder agent for a patch proposal (human approves and applies)
-- `python3 report.py` daily report (worker writes it automatically)
+- **GitHub Actions** (`.github/workflows/agent.yml`) drives one work cycle
+  every 3 hours. A failed run can open an auto-fix pull request
+  (`autofix.yml`) that must prove itself on `autofix-check.yml` before merge.
+- **publish-content** (`.github/workflows/publish.yml`) republishes the
+  approved public content website on pushes.
+- **Local mode.** `python3 start.py` starts the worker plus the local office
+  dashboard at http://127.0.0.1:8787 — a 3D office `index.html` where every
+  agent is drawn with its own name and team logo.
+- **Tests.** `python3 -m unittest discover -s tests` (no network, LLM stubbed).
+  CI runs Python 3.11 with only Pillow available; tests that need other
+  libraries skip themselves.
 
-## Public repo safety
+## Main folders and modules
 
-This repo is **public**. Anything committed can be read by anyone, and git keeps old copies in history even after a file is deleted.
+- `workforce.py` — the agent team cycle (research → draft → build → pack).
+- `guardrails.py` — approvals queue, rate limits, integrity checks and the
+  owner-only emergency stop.
+- `product_builder.py` — turns an approved draft into product files.
+- `upload_pack.py`, `pin_variants.py`, `carousel_maker.py`, `blog_post.py` —
+  the marketing-asset builders that fill `exported_content/marketing/<pack>/`.
+- `telegram_inbox.py` — the owner's Telegram commands (draft review, pack
+  status, A/B title tracking), Tenglish phrases included.
+- `secret_guard.py` — privacy scrub that runs on every save (see below).
+- `exported_content/` — the product files and marketing packs, meant to be
+  public.
+- `cloud_runner.py` + `.github/workflows/` — the scheduled cloud cycle.
+- `docs/` — guides, research notes and the robot map. `archive/` and dated
+  memory folders are historical.
 
-**What is public**
-- The code, the docs and the tests.
-- `web/data/status.json`: the dashboard snapshot. It has the kill switch, LLM call counts, agent names and roles, task counts, recent task kinds, pending approval titles, and whether the worker is running. It has no money, prompts, logs, validation numbers, service requests, built tools, approval review text, keys or tokens.
-- `exported_content/`: the product files for approved drafts, which are meant to be public listings.
+## Safety
 
-**What is never public**
-- The database. The working copy `agent_data.db` is git-ignored. The copy in git is `agent_data.db.enc`, encrypted with AES-256 (openssl, PBKDF2, 200 000 iterations). The key is the GitHub secret `DB_KEY` and the owner's password manager. Nothing else.
-- API keys, tokens, passwords, chat IDs and personal emails. The secret guard (`secret_guard.py`) runs on every save and blocks a save that contains one.
+This repository is **public**. The robot is written so that its mistakes
+cannot leak private data:
 
-**If the key is missing:** the cloud job stops at its first step with `DB_KEY not set`. Nothing is read, written or committed.
+- **Secret guard.** `secret_guard.py` scrubs and blocks every save that
+  contains keys, tokens, emails or other credentials.
+- **Encrypted database.** The working database `agent_data.db` is git-ignored.
+  The copy stored in git is `agent_data.db.enc`, encrypted with AES-256
+  (PBKDF2 with 200 000 iterations). The key lives only in GitHub Actions
+  secrets and the owner's password manager.
+- **No money in public.** No earnings, prices or amounts are stored in this
+  public repo; the private copy lives outside it.
+- **Owner gates everything.** Drafts need approval, publishing needs the
+  owner, and the emergency stop is an owner-only command kept out of public
+  docs.
+- **Git history is forever.** Anything once committed stays readable in
+  history, so the guard runs *before* the save, not after.
 
-**Rotating `DB_KEY`** (type the key in the terminal prompt, never in chat or a file):
-1. Create a new key: `openssl rand -base64 32`. Save it in the password manager.
-2. In the repo folder, decrypt with the old key:
-   `read -s -p "old DB_KEY: " DB_KEY; export DB_KEY; python3 scripts/db_crypt.py decrypt; unset DB_KEY`
-3. Encrypt with the new key:
-   `read -s -p "new DB_KEY: " DB_KEY; export DB_KEY; python3 scripts/db_crypt.py encrypt; unset DB_KEY`
-4. Replace the `DB_KEY` secret on GitHub (Settings > Secrets and variables > Actions).
-5. Commit `agent_data.db.enc` and push. Run the workflow once to check it is green.
+## Licence
 
-**Old copies are still in history.** Before this change, `agent_data.db` (105 commits) and `archive/agent_data_backup_2026-10-13.db` (2 commits) were committed in plain form. Encrypting from now on does not remove those copies. Removing them needs a history rewrite and a force push. That is an owner decision and has not been done.
+This project is released under the **MIT licence**. The office theme keeps its
+credit to [LimeZu](https://limezu.itch.io/modernoffice) — thank you for the
+Modern Office art style the visuals draw on.
+
+More guides live in [`docs/`](docs/): the robot map, the owner guide, the
+Tenglish style guide, upload-pack details, bundle notes and setup.
