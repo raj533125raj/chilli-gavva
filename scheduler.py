@@ -118,9 +118,28 @@ def _queue_full(db_path=None):
 
 
 def run_slot(slot, dry_run=False, db_path=None, today=None):
+    # Check if run slot is enabled in owner settings
+    try:
+        import tg_settings
+        if not tg_settings.is_slot_enabled(slot.get("name", ""), ctx_or_db=db_path):
+            return {"skipped": True, "slot": slot.get("name"),
+                    "reason": f"run slot '{slot.get('name')}' is disabled in owner settings"}
+    except Exception:
+        pass
+
     recipe_name = resolve_recipe(slot, today)
     if not recipe_name:
         return {"error": f"slot '{slot['name']}' has no recipe"}
+
+    # Check if niche / recipe is enabled in owner settings
+    try:
+        import tg_settings
+        if not tg_settings.is_niche_enabled(recipe_name, ctx_or_db=db_path):
+            return {"skipped": True, "name": recipe_name,
+                    "reason": f"niche '{recipe_name}' is disabled in owner settings"}
+    except Exception:
+        pass
+
     if slot.get("rotate") and not dry_run and _queue_full(db_path):
         return {"skipped": True, "name": recipe_name,
                 "reason": f"approval queue is full, '{recipe_name}' waits for a later run"}
