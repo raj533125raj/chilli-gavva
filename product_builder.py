@@ -1197,6 +1197,26 @@ BUILDERS = {"sheets": _build_sheets, "planner": _build_planner, "notion": _build
             "dated_planner": _build_dated_planner}
 
 
+def get_builder_dispatch(kind: str):
+    """Return the build function for kind, checking registered builders if not built-in."""
+    if kind in BUILDERS:
+        return BUILDERS[kind]
+    try:
+        import format_registry
+        reg_build = format_registry.get_builder(kind)
+        if reg_build:
+            def _adapted_builder(folder, spec):
+                res = reg_build(spec, folder)
+                created_files = res if isinstance(res, (list, tuple)) else []
+                instructions = spec.get("instructions", [])
+                how_to = instructions if isinstance(instructions, list) else [str(instructions)]
+                return list(created_files), how_to
+            return _adapted_builder
+    except Exception:
+        pass
+    return None
+
+
 def build_product(spec, approval_id, out_dir=None, folder_name=None):
     """Write all files for one spec. Returns the folder name."""
     out_dir = out_dir or PRODUCTS_DIR
@@ -1204,7 +1224,11 @@ def build_product(spec, approval_id, out_dir=None, folder_name=None):
     folder_name = folder_name or f"{approval_id}-{spec['short_name']}"
     folder = os.path.join(out_dir, folder_name)
     os.makedirs(folder, exist_ok=True)
-    files, how_to = BUILDERS[spec["kind"]](folder, spec)
+
+    builder_fn = get_builder_dispatch(spec["kind"])
+    if builder_fn is None:
+        raise KeyError(f"No builder registered for kind '{spec['kind']}'")
+    files, how_to = builder_fn(folder, spec)
     if spec["kind"] in ("planner", "dated_planner") and spec.get("sheets"):
         sheet_files, sheet_how_to = _build_sheets(folder, spec)
         files += sheet_files
