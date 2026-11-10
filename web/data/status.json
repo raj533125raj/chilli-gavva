@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-10T01:50:04Z",
+ "generated_at": "2026-11-10T03:37:13Z",
  "llm": {
-  "calls_today": 1,
+  "calls_today": 8,
   "cap": 500
  },
  "agents": [
@@ -353,38 +353,38 @@
  "ai_health": [
   {
    "provider": "Groq",
-   "model": "openai/gpt-oss-20b",
+   "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-10T01:50:04Z"
+   "checked_at": "2026-11-10T03:37:13Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
    "state": "unknown",
    "reason": "No recent activity recorded",
-   "checked_at": "2026-11-10T01:50:04Z"
+   "checked_at": "2026-11-10T03:37:13Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "unknown",
    "reason": "No recent activity recorded",
-   "checked_at": "2026-11-10T01:50:04Z"
+   "checked_at": "2026-11-10T03:37:13Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-10T01:50:04Z"
+   "checked_at": "2026-11-10T03:37:13Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-10T01:50:04Z"
+   "checked_at": "2026-11-10T03:37:13Z"
   }
  ],
  "minutes": {
@@ -675,23 +675,23 @@
  "reject_reasons": [
   {
    "reason": "Formatting or rubric issue",
-   "count": 95
+   "count": 99
   },
   {
    "reason": "Unclear value over free template",
-   "count": 52
+   "count": 53
   },
   {
    "reason": "Risky or prohibited claim",
-   "count": 48
+   "count": 51
   },
   {
    "reason": "Product structure incomplete",
-   "count": 39
+   "count": 42
   },
   {
    "reason": "Target audience unclear",
-   "count": 35
+   "count": 39
   }
  ],
  "report": {
@@ -807,68 +807,92 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 8,
    "calls_limit_today": 500,
    "context_percent": null
   }
  ],
  "loop_events": [
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-10T03:37:13Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-10T03:37:13Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-10T01:50:20Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-10T01:50:15Z"
+  },
   {
    "agent": "Unknown agent",
    "kind": "error",
@@ -1144,30 +1168,6 @@
    "kind": "error",
    "label": "Recovery check",
    "at": "2026-11-02T00:12:47Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-02T00:12:44Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-01T00:03:59Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-01T00:03:56Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-10-31T13:17:03Z"
   }
  ],
  "activity_events": [
@@ -2255,12 +2255,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-10T01:49:59Z",
-  "last_run_end": "2026-11-10T01:50:04Z",
+  "last_run_start": "2026-11-10T03:37:13Z",
+  "last_run_end": "2026-11-10T03:37:13Z",
   "runner": "github-actions",
-  "run_id": "42737634546"
+  "run_id": "42750463646"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: owner inbox state [skip ci]",
   "agent: state + content update [skip ci]",
@@ -2279,8 +2280,7 @@
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "KC office data, KD Tenglish Telegram text, KE packs in report, KF deep QA, KG post planner (Jules, verified by Claude)",
-  "F1 listing copy helper",
-  "agent: state + content update [skip ci]"
+  "F1 listing copy helper"
  ],
  "daily_report": {
   "date_ist": "2026-11-10",
