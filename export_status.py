@@ -117,6 +117,7 @@ def build_status_private(db_path=None):
         "service_requests": svc_reqs,
         "built_tools": built_tools,
         "llm_providers": _llm_providers(),
+        **get_freshness_fields(db_path),
     }
 
 
@@ -386,3 +387,52 @@ def write_status(path=None, db_path=None):
 
 if __name__ == "__main__":
     print("wrote", write_status())
+
+
+def get_freshness_fields(db_path=None):
+    """Retrieve last_successful_run and last_run_failed_step safely without secrets."""
+    last_successful = None
+    last_failed_step = None
+
+    runner_temp = os.environ.get("RUNNER_TEMP")
+    candidates = []
+    if runner_temp:
+        candidates.append(Path(runner_temp) / "robot-failure-state.json")
+    candidates.append(Path("/tmp/robot-failure-state.json"))
+    candidates.append(Path(BASE_DIR) / "robot-failure-state.json")
+
+    for path in candidates:
+        if path.is_file():
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    if not last_successful and isinstance(data.get("last_successful_run"), str):
+                        last_successful = data["last_successful_run"]
+                    if not last_failed_step and isinstance(data.get("last_run_failed_step"), str):
+                        last_failed_step = data["last_run_failed_step"]
+            except Exception:
+                pass
+        if last_successful or last_failed_step:
+            break
+
+    if db_path and (not last_successful or not last_failed_step):
+        try:
+            import sqlite3
+            conn = sqlite3.connect(db_path)
+            if _has_table(conn, "telegram_state"):
+                if not last_successful:
+                    row = conn.execute("SELECT value FROM telegram_state WHERE key = 'last_successful_run'").fetchone()
+                    if row and row[0]:
+                        last_successful = row[0]
+                if not last_failed_step:
+                    row = conn.execute("SELECT value FROM telegram_state WHERE key = 'last_run_failed_step'").fetchone()
+                    if row and row[0]:
+                        last_failed_step = row[0]
+            conn.close()
+        except Exception:
+            pass
+
+    return {
+        "last_successful_run": last_successful,
+        "last_run_failed_step": last_failed_step,
+    }

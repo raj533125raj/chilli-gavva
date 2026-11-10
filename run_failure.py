@@ -89,6 +89,83 @@ def safe_detail(detail, env=None):
     return detail if detail in allowed else UNKNOWN
 
 
+PREFIX_MAP = {
+    "v5c_alerts": "run_failure.py",
+    "alerts": "run_failure.py",
+    "run_failure": "run_failure.py",
+    "control_inbox": "control_inbox.py",
+    "public_status": "export_status.py",
+    "export_status": "export_status.py",
+}
+
+
+def likely_file_for_test(test_name):
+    """Infer the likely repository source file under test from a test name."""
+    if not test_name or not isinstance(test_name, str):
+        return None
+    module = test_name.split(".")[0]
+    name = module.removeprefix("test_")
+
+    if name in PREFIX_MAP and (ROOT / PREFIX_MAP[name]).is_file():
+        return PREFIX_MAP[name]
+    if (ROOT / f"{name}.py").is_file():
+        return f"{name}.py"
+
+    m = re.match(r"^(?:[a-z]\d+[a-z]?|\d+|jn|ju|kc|ke|ki|v\d+[a-z]?)_(.+)$", name)
+    if m:
+        sub = m.group(1)
+        if sub in PREFIX_MAP and (ROOT / PREFIX_MAP[sub]).is_file():
+            return PREFIX_MAP[sub]
+        if (ROOT / f"{sub}.py").is_file():
+            return f"{sub}.py"
+
+    test_path = ROOT / "tests" / f"{module}.py"
+    if test_path.is_file():
+        try:
+            tree = ast.parse(test_path.read_text(encoding="utf-8"))
+            candidates = []
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        base = alias.name.split(".")[0]
+                        if (ROOT / f"{base}.py").is_file():
+                            candidates.append(f"{base}.py")
+                elif isinstance(node, ast.ImportFrom) and node.module:
+                    base = node.module.split(".")[0]
+                    if (ROOT / f"{base}.py").is_file():
+                        candidates.append(f"{base}.py")
+            spec = [c for c in candidates if c not in ("notify.py", "secret_guard.py", "guardrails.py", "telegram_inbox.py")]
+            if spec:
+                return spec[0]
+            if candidates:
+                return candidates[0]
+        except Exception:
+            pass
+
+    for p in ROOT.glob("*.py"):
+        if p.name == "setup.py":
+            continue
+        stem = p.stem
+        if (stem in name or name in stem) and len(stem) >= 4:
+            return p.name
+    return None
+
+
+def parse_failed_tests(summary):
+    for line in summary.splitlines():
+        if line.startswith("Problem: Failed tests: "):
+            raw = line[len("Problem: Failed tests: "):].strip()
+            return [t.strip() for t in raw.split(",") if t.strip()]
+    return []
+
+
+def extract_step_name(summary):
+    for line in summary.splitlines():
+        if line.startswith("Step: "):
+            return line[len("Step: "):].strip()
+    return "workflow"
+
+
 def known_tests():
     names = set()
     for path in (ROOT / "tests").glob("test_*.py"):
@@ -258,15 +335,24 @@ def write_state(path, data):
         temporary.unlink(missing_ok=True)
 
 
-def save_count(path, count, alerted=False, autofix_dispatch=None):
+def save_count(path, count, alerted=False, autofix_dispatch=None, extra=None):
     old = state_document(path)
     data = {"consecutive_failures": count, "alerted": alerted}
     last_dispatch = last_autofix_dispatch(path) if autofix_dispatch is None else autofix_dispatch
     if last_dispatch is not None:
         data["last_autofix_dispatch"] = last_dispatch
-    for name in ("autofix_retry", "last_success_at"):
-        if name in old:
+    for name in ("autofix_retry", "last_success_at", "last_successful_run", "last_run_failed_step",
+                 "failure_groups", "last_alert_group", "last_alert_time", "had_failure_alert"):
+        if extra and name in extra:
+            val = extra[name]
+            if val is not None:
+                data[name] = val
+        elif name in old:
             data[name] = old[name]
+    if extra:
+        for k, v in extra.items():
+            if k not in data and v is not None:
+                data[k] = v
     write_state(path, data)
 
 
@@ -302,31 +388,85 @@ def start_autofix(state_path, summary_path, summary, count, alerted, env, curren
 def finish(status, state_path, summary_path, send=None, env=None, dispatch=None, now=None):
     env = os.environ if env is None else env
     current = time.time() if now is None else now
+    doc = state_document(state_path)
     previous, alerted = read_state(state_path)
     if status == "cancelled":
         save_count(state_path, previous, alerted)
         return previous
+
     failed = status == "failure" or Path(summary_path).exists()
     count = previous + 1 if failed else 0
     retry_reported = False
-    save_count(state_path, count, alerted if failed else False)
+
     if not failed:
         import autofix_retry
         autofix_retry.cancel(state_path, current)
+        extra_updates = {
+            "last_successful_run": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(current)),
+            "last_run_failed_step": None,
+        }
+        had_failure_alert = doc.get("had_failure_alert") is True or alerted
+        if had_failure_alert:
+            fixed_msg = "fixed ✓"
+            try:
+                (send or notify.send)(fixed_msg)
+            except Exception:
+                pass
+            extra_updates["had_failure_alert"] = False
+            extra_updates["failure_groups"] = {}
+            extra_updates["last_alert_group"] = None
+            extra_updates["last_alert_time"] = None
+        save_count(state_path, 0, False, extra=extra_updates)
+        return 0
+
+    summary = read_summary(summary_path)
+    step_name = extract_step_name(summary)
+    failed_tests = parse_failed_tests(summary)
+    group_key = f"{step_name}:" + ",".join(sorted(failed_tests))
+
+    failure_groups = dict(doc.get("failure_groups") or {})
+    initial_count = count - 1 if group_key not in failure_groups and count >= 2 else 0
+    group_info = dict(failure_groups.get(group_key) or {"count": initial_count, "first_seen": current, "last_alert": 0})
+    group_info["count"] = group_info.get("count", 0) + 1
+    failure_groups[group_key] = group_info
+
+    last_alert_time = group_info.get("last_alert", 0)
+    time_since_alert = current - last_alert_time
+    # Group repeated failures (same step + same failing tests) into one alert per 6 h with a count
+    should_alert = count >= 2 and (not alerted or time_since_alert >= 21600)
+
+    extra_updates = {}
+    if count >= 2 or doc.get("had_failure_alert") or "failure_groups" in doc or len(doc) > 2:
+        extra_updates["failure_groups"] = failure_groups
+        extra_updates["last_run_failed_step"] = step_name
+    save_count(state_path, count, alerted, extra=extra_updates)
+
     if count == 1:
         print("temporary problem, will retry")
-    elif count >= 2 and not alerted:
-        summary = read_summary(summary_path)
+    elif should_alert:
         import autofix_retry
         outcomes = []
-        # A due retry can coincide with the first repeated-failure alert (for example after a drill).
-        # Include that actual result instead of claiming the daily guard blocked all dispatches.
         autofix_retry.dispatch_due(state_path, env, current, dispatch, summary, report=outcomes.append)
         retry_reported = bool(outcomes)
         outcome = (outcomes[0] if outcomes else
                    start_autofix(state_path, summary_path, summary, count, alerted, env, current, dispatch))
         print(outcome)
-        message = ("Chilli Gavva: run FAILED 2 times in a row.\n" + summary
+
+        repeat_count = group_info["count"]
+        count_display = repeat_count if repeat_count > 2 else count
+
+        extra_detail = ""
+        if failed_tests:
+            first_three = failed_tests[:3]
+            likely_file = likely_file_for_test(first_three[0])
+            detail_lines = ["Failing tests: " + ", ".join(first_three)]
+            if likely_file:
+                detail_lines.append(f"Likely file: {likely_file}")
+            extra_detail = "\n" + "\n".join(detail_lines)
+
+        message = (f"Chilli Gavva: run FAILED {count_display} times in a row.\n"
+                   + summary
+                   + extra_detail
                    + "\nWhat to do: open the robot-fix-runbook, paste this message into Codex.\n"
                    + links(env) + "\n" + outcome)
         try:
@@ -334,11 +474,19 @@ def finish(status, state_path, summary_path, send=None, env=None, dispatch=None,
         except Exception:
             delivered = False
         if delivered:
-            save_count(state_path, count, True)
+            group_info["last_alert"] = current
+            failure_groups[group_key] = group_info
+            save_count(state_path, count, True, extra={
+                "had_failure_alert": True,
+                "failure_groups": failure_groups,
+                "last_alert_group": group_key,
+                "last_alert_time": current,
+            })
         else:
             print("The repeated failure alert could not be delivered.")
     elif count >= 2:
         print("Repeated failure alert already delivered.")
+
     if failed:
         import autofix_retry
         if not retry_reported:
