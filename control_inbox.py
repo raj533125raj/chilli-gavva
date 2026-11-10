@@ -1,3 +1,4 @@
+import notify
 """Consume signed office controls and publish secret-free runtime receipts to Cloudflare KV."""
 import datetime
 from contextlib import contextmanager
@@ -42,20 +43,34 @@ def _url(account, namespace, suffix):
     return f"https://api.cloudflare.com/client/v4/accounts/{part(account)}/storage/kv/namespaces/{part(namespace)}/{suffix}"
 
 
+def _http_single(url, token, method="GET", data=None, http_request=None):
+    if http_request:
+        return http_request(url, token, method, data)
+    request = urllib.request.Request(url, data=data.encode() if isinstance(data, str) else data, method=method,
+                                     headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+    with urllib.request.urlopen(request, timeout=10) as response:
+        return response.read(256 * 1024 + 1).decode()
+
+
 def _http(url, token, method="GET", data=None, http_request=None):
     try:
-        if http_request:
-            return http_request(url, token, method, data)
-        request = urllib.request.Request(url, data=data.encode() if isinstance(data, str) else data, method=method,
-                                         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
-        with urllib.request.urlopen(request, timeout=10) as response:
-            return response.read(256 * 1024 + 1).decode()
+        return _http_single(url, token, method, data, http_request)
     except urllib.error.HTTPError as error:
-        # Describe the route, never the URL, credentials, key name or API body.
         path = urllib.parse.unquote(urllib.parse.urlsplit(url).path)
         error.kv_request = ("list_keys" if path.endswith("/keys") else
                             "write_receipt" if method == "PUT" else
                             "read_receipt" if "/values/" + RECEIPT_PREFIX in path else "read_request")
+        raise
+    except OSError as error:
+        if method == "GET":
+            try:
+                return _http_single(url, token, method, data, http_request)
+            except urllib.error.HTTPError as err:
+                path = urllib.parse.unquote(urllib.parse.urlsplit(url).path)
+                err.kv_request = ("list_keys" if path.endswith("/keys") else
+                                  "write_receipt" if method == "PUT" else
+                                  "read_receipt" if "/values/" + RECEIPT_PREFIX in path else "read_request")
+                raise
         raise
 
 
@@ -84,7 +99,7 @@ def _logger(env=None):
     return log
 
 
-def fetch(env=None, http_request=None, log=None, completed=None, skipped=None):
+def fetch(env=None, http_request=None, log=None, completed=None, skipped=None, db_path=None, now=None, send=None):
     """Bounded, paginated reads. A failed KV request logs at most once per run."""
     global _not_configured_logged
     config = _config(env)
@@ -123,6 +138,8 @@ def fetch(env=None, http_request=None, log=None, completed=None, skipped=None):
                     record = None
                 except Exception as error:
                     log("read", error)
+                    if isinstance(error, OSError):
+                        alert_kv_oserror(db_path, now, send)
                     return result
                 result.append((name, record))
                 if len(result) == MAX_RECORDS:
@@ -134,6 +151,8 @@ def fetch(env=None, http_request=None, log=None, completed=None, skipped=None):
         return result
     except Exception as error:
         log("read", error)
+        if isinstance(error, OSError):
+            alert_kv_oserror(db_path, now, send)
         return result
 
 
@@ -328,7 +347,7 @@ def run(db_path=None, env=None, http_request=None, now=None, send=None):
             conn.execute("DELETE FROM office_receipt_outbox WHERE id=?", (ident,))
         completed = {row[0] for row in conn.execute("SELECT id FROM office_requests WHERE id NOT IN (SELECT id FROM office_receipt_outbox)")}
     skipped = []
-    requests = fetch(env, http_request, log, completed, skipped)
+    requests = fetch(env, http_request, log, completed, skipped, db_path=db_path, now=now, send=send)
     refused = len(skipped)
     attempted = 0
     for name, record in requests:
@@ -413,3 +432,39 @@ def run(db_path=None, env=None, http_request=None, now=None, send=None):
         else:
             refused += 1
     return {"applied": applied, "refused": refused}
+
+
+_last_oserror_alert_time = 0
+
+def alert_kv_oserror(db_path=None, now=None, send=None):
+    """One owner alert per day max with the fix hint ('CF_KV_NAMESPACE_ID secret check cheyandi')."""
+    global _last_oserror_alert_time
+    now = time.time() if now is None else now
+    last_sent = _last_oserror_alert_time
+    if db_path:
+        try:
+            val = telegram_inbox.get_state("kv_oserror_alert_ts", None, db_path=db_path)
+            if val:
+                last_sent = float(val)
+        except Exception:
+            pass
+    if last_sent and now - last_sent < 86400:
+        return False
+    msg = "Control inbox: KV read failed (OSError). CF_KV_NAMESPACE_ID secret check cheyandi"
+    sent = False
+    try:
+        if send:
+            res = send(msg)
+            sent = True if res is None or res is True or bool(res) else False
+        else:
+            sent = bool(notify.send(msg))
+    except Exception:
+        sent = False
+    if sent:
+        _last_oserror_alert_time = now
+        if db_path:
+            try:
+                telegram_inbox.set_state("kv_oserror_alert_ts", str(now), db_path=db_path)
+            except Exception:
+                pass
+    return sent

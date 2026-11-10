@@ -81,7 +81,10 @@ class WorkforceTests(Base):
 
     def test_pipeline_with_llm(self):
         result = self.run_pipeline(self.stub_llm)
-        self.assertEqual(result, {"status": "ok", "ran": 4, "failed": 0})
+        # V3A strict checker may send a weak draft back for up to 2 rewrites (2 extra tasks each).
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["failed"], 0)
+        self.assertIn(result["ran"], (4, 6, 8))
         pending = guardrails.pending(self.db)
         self.assertEqual(len(pending), 1)                         # draft waits for a human
         self.assertIn("score", pending[0]["review"])

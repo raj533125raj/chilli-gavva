@@ -13,6 +13,7 @@ import time
 
 import checker
 import cubes
+import format_registry
 import guardrails
 import launch_pack
 import product_builder
@@ -209,8 +210,31 @@ def run_pending(db_path=None, out_dir=None, llm=None, max_builds=DAILY_BUILDS,
             break
         if aid in product_builder.OWNER_HOLDS or not _reserve(aid, day, db_path):
             continue
-        stage = "council"
+        stage = "feasibility"
         try:
+            # BINNY-V4A: Feasibility check before build. If no builder can make the idea,
+            # mark the draft 'needs_owner' with a Tenglish reason (never build a fake product).
+            niche = product_builder.niche_of(title)
+            can_make = False
+            if niche and niche in product_builder.NICHES:
+                kind = product_builder.NICHES[niche].get("kind")
+                if format_registry.can_build({"kind": kind}):
+                    can_make = True
+            if not can_make:
+                combined_text = f"{title}\n{payload}"
+                fmt = format_registry.classify(combined_text)
+                if fmt and format_registry.can_build({"kind": fmt}):
+                    can_make = True
+
+            if not can_make:
+                tenglish_reason = format_registry.get_tenglish_unbuildable_reason(payload)
+                with guardrails.connect(db_path) as conn:
+                    conn.execute("UPDATE approvals SET status='needs_owner', reason=? WHERE id=?",
+                                 (tenglish_reason, aid))
+                results.append(_stuck(aid, "feasibility", tenglish_reason, db_path))
+                continue
+
+            stage = "council"
             if not product_builder.niche_of(title):
                 results.append(_stuck(aid, "niche", "Unsupported product niche", db_path))
                 continue

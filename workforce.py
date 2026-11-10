@@ -523,7 +523,7 @@ def step_review(task, ctx):
     if fallback:
         review = f"score {qa_score}/100 (checklist v2) | Checker: {score}/100 | CHECKER: unavailable (checklist only)"
     else:
-        review = f"score {qa_score}/100 (checklist v2) | Checker: {score}/100 | CHECKER: {verdict.upper()} (AI {score})"
+        review = f"score {qa_score}/100 (checklist v2) | Checker: {score}/100 | CHECKER: {verdict.upper()} (AI {check.get('raw_llm_score', score)})"
 
     if reasons:
         review += " | top: " + "; ".join(reasons[:2])

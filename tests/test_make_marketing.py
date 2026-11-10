@@ -243,6 +243,35 @@ class MakeMarketingTests(unittest.TestCase):
         self.assertIn("skip all-loose: not ready", out)
         self.assertTrue(any(line.startswith("skip ") for line in out.splitlines()))
 
+    def test_make_report_json_written_on_run(self):
+        self.ready_pack("report-pack")
+        make_marketing.run(
+            all_packs=True,
+            packs_dir=self.packs_root,
+            marketing_dir=self.marketing_root,
+            makers=fake_makers(),
+        )
+        report_path = self.marketing_root / "make_report.json"
+        self.assertTrue(report_path.is_file())
+        import json
+        data = json.loads(report_path.read_text(encoding="utf-8"))
+        self.assertIn("summary", data)
+        self.assertIn("packs", data)
+        self.assertIn("global_steps", data)
+        self.assertEqual(data["total_packs"], 1)
+
+    def test_step_filtering_only_and_skip(self):
+        pack = self.ready_pack("filter-pack")
+        result = make_marketing.process_pack(
+            pack,
+            self.marketing_root,
+            makers=fake_makers(),
+            only="carousel_maker",
+        )
+        self.assertEqual(result["steps"]["carousel_maker"]["status"], "ok")
+        self.assertEqual(result["steps"]["pin_variants"]["status"], "skipped")
+        self.assertEqual(result["steps"]["pin_variants"]["error"], "filtered")
+
 
 if __name__ == "__main__":
     unittest.main()

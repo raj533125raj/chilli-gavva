@@ -54,7 +54,8 @@ class LoopTests(WorkerBase):
         count = conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
         conn.close()
         self.assertEqual(statuses, {"done"})
-        self.assertEqual(count, 4)                              # plan, research, draft, review
+        # plan, research, draft, review (+ up to 2 rewrite rounds from the V3A strict checker)
+        self.assertIn(count, (4, 6, 8))
         self.assertEqual(len(guardrails.pending(self.db)), 1)   # draft waits for a human
 
     def test_only_one_plan_per_day_across_passes(self):
@@ -99,7 +100,7 @@ class LoopTests(WorkerBase):
         conn = workforce.connect(self.db)
         done = conn.execute("SELECT COUNT(*) FROM tasks WHERE status = 'done'").fetchone()[0]
         conn.close()
-        self.assertEqual(done, 4)                                # recovered and finished the work
+        self.assertIn(done, (4, 6, 8))                           # recovered and finished the work
 
     def test_stop_flag_ends_loop(self):
         n = worker_daemon.loop(db_path=self.db, interval=10, sleep=lambda s: None, write_snapshot=False,

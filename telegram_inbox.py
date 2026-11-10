@@ -182,10 +182,93 @@ def _scrub_outgoing(text: str) -> str:
     return scrubbed
 
 
-def send_text(token, chat_id, text, buttons=None):
+def _call_multipart(token, method, fields, files, opener=None, sleep_fn=None):
+    """Call Telegram multipart upload with bounded retries; never expose the token."""
+    import uuid
+    import mimetypes
+    boundary = f"----WebKitFormBoundary{uuid.uuid4().hex}"
+    body = bytearray()
+
+    for name, value in fields.items():
+        if value is None:
+            continue
+        body.extend(f"--{boundary}\r\n".encode("utf-8"))
+        body.extend(f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("utf-8"))
+        if isinstance(value, bytes):
+            body.extend(value)
+        else:
+            body.extend(str(value).encode("utf-8"))
+        body.extend(b"\r\n")
+
+    for field_name, (filename, file_bytes) in files.items():
+        ctype = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        body.extend(f"--{boundary}\r\n".encode("utf-8"))
+        body.extend(f'Content-Disposition: form-data; name="{field_name}"; filename="{filename}"\r\n'.encode("utf-8"))
+        body.extend(f'Content-Type: {ctype}\r\n\r\n'.encode("utf-8"))
+        body.extend(file_bytes)
+        body.extend(b"\r\n")
+
+    body.extend(f"--{boundary}--\r\n".encode("utf-8"))
+
+    url = API.format(token=token, method=method)
+    req = urllib.request.Request(
+        url,
+        data=bytes(body),
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"}
+    )
+    open_request = opener or urllib.request.urlopen
+    sleep = sleep_fn or time.sleep
+
+    def safe_error(label, detail):
+        print(f"Telegram API {label}: {detail}", file=sys.stderr)
+
+    attempt = 0
+    while True:
+        try:
+            with open_request(req, timeout=_TIMEOUT) as resp:
+                status = getattr(resp, "status", 200)
+                status = status if type(status) is int else 200
+                result = json.loads(resp.read().decode("utf-8"))
+            ok = isinstance(result, dict) and result.get("ok") is True
+            code = result.get("error_code") if isinstance(result, dict) else None
+            code = code if type(code) is int else status
+            diagnostics.record(method, status, None if ok else diagnostics.error_kind(code), ok)
+            return result
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429 and attempt == 0:
+                diagnostics.record(method, exc.code, "rate_limit", terminal=False)
+                retry_after = None
+                try:
+                    retry_after = float((exc.headers or {}).get("Retry-After"))
+                except (TypeError, ValueError):
+                    try:
+                        resp_body = json.loads(exc.read().decode("utf-8"))
+                        retry_after = float(resp_body.get("parameters", {}).get("retry_after", 0))
+                    except (AttributeError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
+                        retry_after = 0
+                sleep(max(0, min(retry_after or 0, 30)))
+                attempt += 1
+                continue
+            safe_error("HTTP error", str(exc.code))
+            diagnostics.record(method, exc.code, diagnostics.error_kind(exc.code))
+            return None
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            safe_error("network error", type(exc).__name__)
+            diagnostics.record(method, kind="timeout" if isinstance(exc, TimeoutError) else "network")
+            return None
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            safe_error("response error", "invalid JSON")
+            diagnostics.record(method, kind="invalid_response")
+            return None
+
+
+def send_text(token, chat_id, text, buttons=None, keyboard=None):
     """Send plain text (no HTML parsing, so draft content can never break formatting).
 
     buttons: optional rows of (label, callback_data) shown as inline buttons under the message.
+    keyboard: optional custom reply keyboard.
+      - list of rows of button texts e.g. [["✅ 91", "❌ 91"], ...] -> ReplyKeyboardMarkup with resize_keyboard=True
+      - "remove" or {"remove_keyboard": True} -> ReplyKeyboardRemove
     """
     text = _scrub_outgoing(text)
     if not text:
@@ -195,11 +278,111 @@ def send_text(token, chat_id, text, buttons=None):
     if buttons:
         params["reply_markup"] = {"inline_keyboard": [[{"text": label, "callback_data": data} for label, data in row]
                                                       for row in buttons]}
+    elif keyboard is not None:
+        if keyboard == "remove" or (isinstance(keyboard, dict) and keyboard.get("remove_keyboard")):
+            params["reply_markup"] = {"remove_keyboard": True}
+        elif isinstance(keyboard, list):
+            keyboard_rows = []
+            for row in keyboard:
+                if isinstance(row, list):
+                    keyboard_rows.append([{"text": str(btn)} if not isinstance(btn, dict) else btn for btn in row])
+                else:
+                    keyboard_rows.append([{"text": str(row)}])
+            params["reply_markup"] = {"keyboard": keyboard_rows, "resize_keyboard": True}
+        elif isinstance(keyboard, dict):
+            params["reply_markup"] = keyboard
+
     try:
         result = _call(token, "sendMessage", params)
         return isinstance(result, dict) and result.get("ok") is True
     except Exception:
         diagnostics.record("sendMessage", kind="unexpected")
+        return False
+
+
+def send_document(token, chat_id, path, caption=""):
+    """Send a local document to chat_id using Telegram multipart upload."""
+    if not os.path.isfile(path):
+        return False
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except OSError:
+        return False
+    filename = os.path.basename(path)
+    fields = {"chat_id": str(chat_id)}
+    if caption:
+        scrubbed = _scrub_outgoing(caption)
+        if scrubbed:
+            fields["caption"] = scrubbed
+    files = {"document": (filename, data)}
+    try:
+        res = _call_multipart(token, "sendDocument", fields, files)
+        return isinstance(res, dict) and res.get("ok") is True
+    except Exception:
+        diagnostics.record("sendDocument", kind="unexpected")
+        return False
+
+
+def send_photo(token, chat_id, path, caption=""):
+    """Send a local photo to chat_id using Telegram multipart upload."""
+    if not os.path.isfile(path):
+        return False
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except OSError:
+        return False
+    filename = os.path.basename(path)
+    fields = {"chat_id": str(chat_id)}
+    if caption:
+        scrubbed = _scrub_outgoing(caption)
+        if scrubbed:
+            fields["caption"] = scrubbed
+    files = {"photo": (filename, data)}
+    try:
+        res = _call_multipart(token, "sendPhoto", fields, files)
+        return isinstance(res, dict) and res.get("ok") is True
+    except Exception:
+        diagnostics.record("sendPhoto", kind="unexpected")
+        return False
+
+
+def send_media_group(token, chat_id, paths, caption=""):
+    """Send a group of local photos/documents to chat_id using Telegram multipart upload."""
+    valid_paths = [p for p in paths if os.path.isfile(p)]
+    if not valid_paths or len(valid_paths) > 10:
+        return False
+    media = []
+    files = {}
+    for idx, path in enumerate(valid_paths):
+        attach_name = f"attach_{idx}"
+        try:
+            with open(path, "rb") as f:
+                data = f.read()
+        except OSError:
+            return False
+        filename = os.path.basename(path)
+        ext = os.path.splitext(filename)[1].lower()
+        is_photo = ext in (".jpg", ".jpeg", ".png", ".webp")
+        media_type = "photo" if is_photo else "document"
+        item = {"type": media_type, "media": f"attach://{attach_name}"}
+        if idx == 0 and caption:
+            scrubbed = _scrub_outgoing(caption)
+            if scrubbed:
+                item["caption"] = scrubbed
+        media.append(item)
+        files[attach_name] = (filename, data)
+
+    fields = {
+        "chat_id": str(chat_id),
+        "media": json.dumps(media)
+    }
+    try:
+        res = _call_multipart(token, "sendMediaGroup", fields, files)
+        return isinstance(res, dict) and res.get("ok") is True
+    except Exception:
+        diagnostics.record("sendMediaGroup", kind="unexpected")
         return False
 
 
@@ -486,6 +669,100 @@ def execute_confirmed_risky_action(intent, args, db_path=None):
             return f"🚀 Engine run failed: {type(exc).__name__}"
 
     return "Unknown action."
+
+
+# ---- Plugin Loader -----------------------------------------------------------
+_PLUGIN_IMPORT_ERRORS_LOGGED = set()
+
+
+def discover_plugins(repo_root=None):
+    """Discover tg_*.py plugin modules in repo root (sorted, errors logged once)."""
+    import importlib
+    import importlib.util
+    import glob
+    root = repo_root or os.path.dirname(os.path.abspath(__file__))
+    pattern = os.path.join(root, "tg_*.py")
+    plugin_files = sorted(glob.glob(pattern))
+    plugins = []
+
+    for ppath in plugin_files:
+        mod_name = os.path.splitext(os.path.basename(ppath))[0]
+        try:
+            if root != os.path.dirname(os.path.abspath(__file__)):
+                spec = importlib.util.spec_from_file_location(mod_name, ppath)
+                if spec and spec.loader:
+                    mod = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(mod)
+                else:
+                    raise ImportError(f"Cannot load spec from {ppath}")
+            else:
+                if mod_name in sys.modules:
+                    mod = sys.modules[mod_name]
+                else:
+                    mod = importlib.import_module(mod_name)
+            if hasattr(mod, "handle"):
+                plugins.append(mod)
+        except Exception as exc:
+            if mod_name not in _PLUGIN_IMPORT_ERRORS_LOGGED:
+                _PLUGIN_IMPORT_ERRORS_LOGGED.add(mod_name)
+                print(f"Telegram plugin load error for {mod_name}: {exc}", file=sys.stderr)
+            continue
+    return plugins
+
+
+def _send_text_kw(token, chat_id, text, buttons=None, keyboard=None):
+    """Helper that passes keyboard only if non-None, avoiding unexpected kwarg in mocked send_text."""
+    if keyboard is not None:
+        return send_text(token, chat_id, text, buttons=buttons, keyboard=keyboard)
+    return send_text(token, chat_id, text, buttons=buttons)
+
+
+def build_plugin_ctx(token, chat_id, db_path=None, now=None):
+    """Build the standard plugin ctx dictionary."""
+    if now is None:
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
+    elif isinstance(now, datetime.datetime):
+        now_utc = now if now.tzinfo is not None else now.replace(tzinfo=datetime.timezone.utc)
+    else:
+        now_utc = datetime.datetime.fromtimestamp(now, tz=datetime.timezone.utc)
+
+    def _ctx_send_text(text, keyboard=None):
+        return _send_text_kw(token, chat_id, text, keyboard=keyboard)
+
+    return {
+        "db_path": db_path,
+        "chat_id": str(chat_id),
+        "now": now_utc,
+        "send_text": _ctx_send_text,
+        "send_document": lambda path, caption="": send_document(token, chat_id, path, caption=caption),
+        "send_photo": lambda path, caption="": send_photo(token, chat_id, path, caption=caption),
+        "send_media_group": lambda paths, caption="": send_media_group(token, chat_id, paths, caption=caption),
+        "state_get": lambda key, default=None: get_state(key, default=default, db_path=db_path),
+        "state_set": lambda key, value: set_state(key, value, db_path=db_path),
+    }
+
+
+def call_plugins(text, token, chat_id, db_path=None, now=None, plugins=None):
+    """Run loaded plugins on text in sorted order. Returns (handled: bool, reply_dict or None)."""
+    if plugins is None:
+        plugins = discover_plugins()
+    if not plugins:
+        return False, None
+
+    ctx = build_plugin_ctx(token, chat_id, db_path=db_path, now=now)
+    for plugin in plugins:
+        try:
+            res = plugin.handle(text, ctx)
+        except Exception as exc:
+            print(f"Plugin error in {getattr(plugin, '__name__', 'unknown')}: {exc}", file=sys.stderr)
+            continue
+        if res is not None:
+            if isinstance(res, dict):
+                return True, res
+            elif isinstance(res, str):
+                return True, {"text": res}
+            return True, {"handled": True}
+    return False, None
 
 
 # ---- command handling --------------------------------------------------------
@@ -1753,6 +2030,14 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                 handled += 1
                 continue
 
+            # Call plugins for owner plain text before the old 'Ardam kaaledu' fallback
+            plugin_handled, plugin_res = call_plugins(message_text, token, owner_chat_id, db_path=db_path)
+            if plugin_handled:
+                if not is_duplicate and isinstance(plugin_res, dict) and plugin_res.get("text"):
+                    _send_text_kw(token, owner_chat_id, plugin_res["text"] + burst_note, keyboard=plugin_res.get("keyboard"))
+                handled += 1
+                continue
+
             # Fallback for unknown text: reply with parser's Tenglish help hint
             if not is_duplicate:
                 hint_text = cmd_info.get("hint") or UNKNOWN_TEXT_HINT
@@ -1771,8 +2056,19 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                 text, buttons = cubes.format_telegram_cubes_list(db_path)
                 send_text(token, owner_chat_id, text + burst_note, buttons)
             else:
-                reply = handle_command(cmd, ids, db_path) + burst_note
-                send_text(token, owner_chat_id, reply)
+                plugin_handled = False
+                # If command has arguments (like /help word) or is not in builtins, check plugins first:
+                if (cmd == "help" and message_text.strip().lower().split("@")[0] not in ("/help", "help", "/start")) or \
+                   cmd not in ("status", "packs", "pack", "marketing", "list", "view", "approve", "reject",
+                               "pipeline", "pause", "resume", "buttontest", "autofix_drill", "today", "posted", "ab", "week", "help", "start"):
+                    plugin_handled, plugin_res = call_plugins(message_text, token, owner_chat_id, db_path=db_path)
+                    if plugin_handled:
+                        if isinstance(plugin_res, dict) and plugin_res.get("text"):
+                            _send_text_kw(token, owner_chat_id, plugin_res["text"] + burst_note, keyboard=plugin_res.get("keyboard"))
+
+                if not plugin_handled:
+                    reply = handle_command(cmd, ids, db_path) + burst_note
+                    send_text(token, owner_chat_id, reply)
             if cmd == "list":       # fresh buttons for every waiting draft (up to 10)
                 for it in guardrails.pending(db_path)[:10]:
                     send_text(token, owner_chat_id, draft_card(it, db_path=db_path), draft_buttons(it["id"]))
