@@ -9,6 +9,7 @@ Sent by the Telegram step of the cloud run (telegram_inbox.run) to the owner cha
 Nothing here is sent to an AI model.
 """
 import datetime
+import os
 import pathlib
 import sqlite3
 from zoneinfo import ZoneInfo
@@ -186,11 +187,25 @@ def weekly_text(db_path=None, now=None):
     week = float(real_week[0][0]) if real_week else 0.0
     total = float(real_all[0][0]) if real_all else 0.0
     top = ", ".join(f"{r} ({n})" for r, n in reasons) or "no reasons given"
-    return "\n".join([
+
+    lines = [
         "Sunday letter (last 7 days)",
         f"Made: {made} drafts, {built} products built",
         f"Approved: {approved}. Rejected: {rejected} (top reasons: {top})",
-        f"Real money: ${week:.2f} this week, ${total:.2f} in total (only payouts recorded with proof)"])
+        f"Real money: ${week:.2f} this week, ${total:.2f} in total (only payouts recorded with proof)"
+    ]
+
+    # Guarded weekly routine run (BINNY-V5B) — never delays or breaks daily report; skipped when CHILLI_TEST=1
+    if os.environ.get("CHILLI_TEST") != "1":
+        try:
+            import weekly_routine
+            summary = weekly_routine.run(now=now, db_path=db_path)
+            if summary:
+                lines.append(summary)
+        except Exception:
+            pass
+
+    return "\n".join(lines)
 
 
 def report_text(db_path=None, now=None, status_fn=None, products_dir=None):
