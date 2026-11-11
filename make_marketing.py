@@ -267,7 +267,10 @@ def run_pack_step(
         elif step_name == "pin_variants":
             # pin_variants outputs to out_dir / "marketing" / <pack> / "pins"
             # or default "exported_content" / "marketing" / <pack> / "pins"
-            return mod.generate_pins_for_pack(pack_dir, out_dir=marketing_dir.parent)
+            res = mod.generate_pins_for_pack(pack_dir, out_dir=marketing_dir.parent)
+            if hasattr(mod, "generate_social_variants"):
+                mod.generate_social_variants(pack_dir, out_dir=marketing_dir.parent)
+            return res
         elif step_name == "cover_variants":
             return mod.make_pack_covers(pack_dir, marketing_base=marketing_dir)
         elif step_name == "reel_frames":

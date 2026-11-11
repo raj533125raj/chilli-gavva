@@ -17,6 +17,8 @@ import json
 import os
 import re
 import unicodedata
+import tempfile
+import shutil
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -802,4 +804,669 @@ def generate_pins_for_pack(
         "pins_dir": str(target_pins_dir),
         "titles": titles,
         "meta": pins_meta,
+    }
+
+
+# ==============================================================================
+# BINNY-W5A EXTENDED SOCIAL POST & PIN VARIANTS GENERATOR
+# ==============================================================================
+
+SQUARE_WIDTH = 1080
+SQUARE_HEIGHT = 1080
+STORY_WIDTH = 1080
+STORY_HEIGHT = 1920
+
+THEMES = {
+    "calm sage": {
+        "name": "Calm Sage",
+        "bg": (246, 248, 246),
+        "card": (255, 255, 255),
+        "ink": (24, 38, 32),
+        "primary": (42, 102, 79),
+        "accent": (180, 75, 35),
+        "muted": (88, 108, 98),
+        "tag": "ORGANIZATION & FOCUS",
+    },
+    "midnight focus": {
+        "name": "Midnight Focus",
+        "bg": (245, 247, 250),
+        "card": (255, 255, 255),
+        "ink": (15, 23, 42),
+        "primary": (30, 58, 138),
+        "accent": (180, 83, 9),
+        "muted": (71, 85, 105),
+        "tag": "DAILY CLARITY",
+    },
+    "terracotta": {
+        "name": "Terracotta",
+        "bg": (253, 248, 246),
+        "card": (255, 255, 255),
+        "ink": (44, 24, 16),
+        "primary": (154, 52, 18),
+        "accent": (180, 83, 9),
+        "muted": (120, 80, 68),
+        "tag": "WARM & MINIMAL",
+    },
+    "ocean": {
+        "name": "Ocean",
+        "bg": (244, 249, 251),
+        "card": (255, 255, 255),
+        "ink": (12, 33, 48),
+        "primary": (14, 116, 144),
+        "accent": (190, 24, 60),
+        "muted": (70, 95, 110),
+        "tag": "CLEAN HABITS",
+    },
+    "minimal mono": {
+        "name": "Minimal Mono",
+        "bg": (250, 250, 250),
+        "card": (255, 255, 255),
+        "ink": (17, 24, 39),
+        "primary": (55, 65, 81),
+        "accent": (185, 28, 28),
+        "muted": (107, 114, 128),
+        "tag": "PRACTICAL TEMPLATE",
+    },
+    "festive marigold": {
+        "name": "Festive Marigold",
+        "bg": (254, 250, 242),
+        "card": (255, 255, 255),
+        "ink": (45, 28, 10),
+        "primary": (180, 83, 9),
+        "accent": (170, 20, 80),
+        "muted": (115, 85, 55),
+        "tag": "SPECIAL EDITION",
+    },
+}
+
+
+def resolve_theme(theme_name: Optional[str] = None, pack_name: str = "") -> Dict[str, Any]:
+    """Resolve theme colors, falling back to a harmonious theme based on name."""
+    try:
+        import pdf_themes  # type: ignore
+
+        if hasattr(pdf_themes, "THEMES"):
+            t_cand = str(theme_name or "").lower().strip()
+            for k, val in pdf_themes.THEMES.items():
+                if k.lower() == t_cand or getattr(val, "name", "").lower() == t_cand:
+                    return {
+                        "name": getattr(val, "name", k),
+                        "bg": getattr(val, "bg", (246, 248, 246)),
+                        "card": (255, 255, 255),
+                        "ink": getattr(val, "ink", (24, 38, 32)),
+                        "primary": getattr(val, "primary", (42, 102, 79)),
+                        "accent": getattr(val, "accent", (180, 75, 35)),
+                        "muted": getattr(val, "muted", (88, 108, 98)),
+                        "tag": "ORGANIZATION & FOCUS",
+                    }
+    except Exception:
+        pass
+
+    key = str(theme_name or "").lower().strip()
+    if key in THEMES:
+        return THEMES[key]
+
+    for k, th in THEMES.items():
+        if k in key:
+            return th
+
+    p_lower = pack_name.lower()
+    if "adhd" in p_lower or "focus" in p_lower:
+        return THEMES["calm sage"]
+    elif "2027" in p_lower or "budget" in p_lower or "finance" in p_lower:
+        return THEMES["midnight focus"]
+    elif "wedding" in p_lower or "event" in p_lower or "warm" in p_lower:
+        return THEMES["terracotta"]
+    elif "fitness" in p_lower or "habit" in p_lower or "water" in p_lower:
+        return THEMES["ocean"]
+    elif "diwali" in p_lower or "festival" in p_lower:
+        return THEMES["festive marigold"]
+
+    return THEMES["calm sage"]
+
+
+def render_hero_mockup(
+    title: str,
+    pack_name: str,
+    pages: List[Any],
+    dimensions: Tuple[int, int] = (PIN_WIDTH, PIN_HEIGHT),
+    theme: Optional[Dict[str, Any]] = None,
+) -> Any:
+    """Hero mockup: Big prominent angled hero page with clear title band and badges."""
+    w, h = dimensions
+    th = theme or resolve_theme(pack_name=pack_name)
+    canvas = Image.new("RGBA", (w, h), th["bg"] + (255,))
+    d = ImageDraw.Draw(canvas)
+
+    f_tag = get_font("bold", max(18, int(w * 0.024)))
+    d.text((SAFE_MARGIN, int(h * 0.05)), th["tag"], font=f_tag, fill=th["primary"])
+
+    max_w = w - 2 * SAFE_MARGIN
+    max_title_size = int(w * 0.065)
+    min_title_size = int(w * 0.038)
+    lines, f_title = fit_text(title, "bold", max_title_size, min_title_size, max_w, 3)
+    y = int(h * 0.08)
+    for l in lines:
+        d.text((SAFE_MARGIN, y), l, font=f_title, fill=th["ink"])
+        y += line_height(f_title)
+
+    d.rectangle([SAFE_MARGIN, int(y + 10), SAFE_MARGIN + 100, int(y + 16)], fill=th["accent"])
+
+    hero_w = int(w * 0.65)
+    hero_h = int(hero_w * 1.35)
+    p_hero = pages[0].resize((hero_w, hero_h), Image.Resampling.LANCZOS)
+
+    center_y = int(h * 0.62)
+    center_x = w // 2
+    draw_tilted_page(canvas, p_hero, (center_x, center_y), angle=-2, shadow=True)
+
+    d = ImageDraw.Draw(canvas)
+    draw_footer(d, pack_name, y=int(h - 70), width=w, color=th["ink"])
+    return canvas.convert("RGB")
+
+
+def render_three_page_fan(
+    title: str,
+    pack_name: str,
+    pages: List[Any],
+    dimensions: Tuple[int, int] = (PIN_WIDTH, PIN_HEIGHT),
+    theme: Optional[Dict[str, Any]] = None,
+) -> Any:
+    """3-page fan: Elegant fanned display of 3 pages with soft drop shadows."""
+    w, h = dimensions
+    th = theme or resolve_theme(pack_name=pack_name)
+    canvas = Image.new("RGBA", (w, h), th["bg"] + (255,))
+    d = ImageDraw.Draw(canvas)
+
+    tagline = "ALL-IN-ONE PACK"
+    f_tag = get_font("bold", max(18, int(w * 0.022)))
+    w_tag = text_width(tagline, f_tag)
+    d.text(((w - w_tag) / 2, int(h * 0.05)), tagline, font=f_tag, fill=th["primary"])
+
+    max_w = w - 2 * SAFE_MARGIN
+    max_title_size = int(w * 0.06)
+    min_title_size = int(w * 0.036)
+    lines, f_title = fit_text(title, "bold", max_title_size, min_title_size, max_w, 3)
+    y = int(h * 0.085)
+    for l in lines:
+        w_l = text_width(l, f_title)
+        d.text(((w - w_l) / 2, y), l, font=f_title, fill=th["ink"])
+        y += line_height(f_title)
+
+    p_w = int(w * 0.46)
+    p_h = int(p_w * 1.35)
+
+    p0 = pages[0].resize((p_w, p_h), Image.Resampling.LANCZOS)
+    p1 = (pages[1] if len(pages) > 1 else pages[0]).resize((p_w, p_h), Image.Resampling.LANCZOS)
+    p2 = (pages[2] if len(pages) > 2 else pages[0]).resize((p_w, p_h), Image.Resampling.LANCZOS)
+
+    cy = int(h * 0.63)
+    draw_tilted_page(canvas, p1, (int(w * 0.32), cy), angle=-9, shadow=True)
+    draw_tilted_page(canvas, p2, (int(w * 0.68), cy), angle=9, shadow=True)
+    draw_tilted_page(canvas, p0, (w // 2, cy - 10), angle=0, shadow=True)
+
+    d = ImageDraw.Draw(canvas)
+    draw_footer(d, pack_name, y=int(h - 70), width=w, color=th["ink"])
+    return canvas.convert("RGB")
+
+
+def render_checklist_teaser(
+    title: str,
+    pack_name: str,
+    pages: List[Any],
+    dimensions: Tuple[int, int] = (PIN_WIDTH, PIN_HEIGHT),
+    theme: Optional[Dict[str, Any]] = None,
+    benefits: Optional[List[str]] = None,
+) -> Any:
+    """Checklist teaser: 3 benefit ticks + page preview."""
+    w, h = dimensions
+    th = theme or resolve_theme(pack_name=pack_name)
+    canvas = Image.new("RGBA", (w, h), th["bg"] + (255,))
+    d = ImageDraw.Draw(canvas)
+
+    max_w = w - 2 * SAFE_MARGIN
+    lines, f_title = fit_text(title, "bold", int(w * 0.058), int(w * 0.036), max_w, 3)
+    y = int(h * 0.055)
+    for l in lines:
+        d.text((SAFE_MARGIN, y), l, font=f_title, fill=th["ink"])
+        y += line_height(f_title)
+
+    y += 15
+    ticks = benefits or [
+        "Instant easy-to-print format",
+        "Clear step-by-step layout",
+        "Reusable undated template",
+    ]
+
+    f_tick = get_font("semibold", max(18, int(w * 0.028)))
+    for tick in ticks[:3]:
+        d.ellipse([SAFE_MARGIN, int(y + 2), SAFE_MARGIN + 32, int(y + 34)], fill=th["primary"])
+        d.line([(SAFE_MARGIN + 9, int(y + 17)), (SAFE_MARGIN + 15, int(y + 23))], fill=(255, 255, 255), width=3)
+        d.line([(SAFE_MARGIN + 15, int(y + 23)), (SAFE_MARGIN + 24, int(y + 13))], fill=(255, 255, 255), width=3)
+
+        d.text((SAFE_MARGIN + 46, int(y + 3)), tick, font=f_tick, fill=th["ink"])
+        y += max(45, int(h * 0.04))
+
+    p_w = int(w * 0.62)
+    p_h = int(p_w * 1.35)
+    p_img = pages[0].resize((p_w, p_h), Image.Resampling.LANCZOS)
+    draw_tilted_page(canvas, p_img, (w // 2, int(h * 0.70)), angle=0, shadow=True)
+
+    d = ImageDraw.Draw(canvas)
+    draw_footer(d, pack_name, y=int(h - 70), width=w, color=th["ink"])
+    return canvas.convert("RGB")
+
+
+def render_before_after(
+    title: str,
+    pack_name: str,
+    pages: List[Any],
+    dimensions: Tuple[int, int] = (PIN_WIDTH, PIN_HEIGHT),
+    theme: Optional[Dict[str, Any]] = None,
+    before_text: str = "Scattered Notes & Overwhelm",
+    after_text: str = "Calm Structure & Clear Focus",
+) -> Any:
+    """Before / after: Side-by-side comparison card contrasting chaos vs clarity."""
+    w, h = dimensions
+    th = theme or resolve_theme(pack_name=pack_name)
+    canvas = Image.new("RGBA", (w, h), th["bg"] + (255,))
+    d = ImageDraw.Draw(canvas)
+
+    tagline = "THE DIFFERENCE"
+    f_tag = get_font("bold", max(18, int(w * 0.022)))
+    w_tag = text_width(tagline, f_tag)
+    d.text(((w - w_tag) / 2, int(h * 0.05)), tagline, font=f_tag, fill=th["primary"])
+
+    max_w = w - 2 * SAFE_MARGIN
+    lines, f_title = fit_text(title, "bold", int(w * 0.056), int(w * 0.035), max_w, 2)
+    y = int(h * 0.085)
+    for l in lines:
+        w_l = text_width(l, f_title)
+        d.text(((w - w_l) / 2, y), l, font=f_title, fill=th["ink"])
+        y += line_height(f_title)
+
+    card_w = int((w - 3 * SAFE_MARGIN) // 2)
+    card_h = int(h * 0.64)
+    card_y = int(h * 0.22)
+
+    x_before = int(SAFE_MARGIN)
+    d.rounded_rectangle([x_before, card_y, x_before + card_w, card_y + card_h], radius=16, fill=(238, 240, 242))
+    f_badge = get_font("bold", max(16, int(w * 0.022)))
+    d.rounded_rectangle([x_before + 20, card_y + 20, x_before + 120, card_y + 55], radius=8, fill=(100, 115, 125))
+    d.text((x_before + 32, card_y + 26), "BEFORE", font=f_badge, fill=(255, 255, 255))
+
+    f_card_desc = get_font("semibold", max(16, int(w * 0.023)))
+    b_lines = wrap_text(before_text, f_card_desc, card_w - 40)
+    by = card_y + 75
+    for bl in b_lines:
+        d.text((x_before + 20, by), bl, font=f_card_desc, fill=(70, 85, 95))
+        by += int(line_height(f_card_desc))
+
+    for ly in range(int(by + 20), int(card_y + card_h - 40), 35):
+        d.line([(x_before + 20, ly), (x_before + card_w - 20, ly)], fill=(210, 215, 220), width=2)
+
+    x_after = int(x_before + card_w + SAFE_MARGIN)
+    d.rounded_rectangle([x_after, card_y, x_after + card_w, card_y + card_h], radius=16, fill=(255, 255, 255), outline=th["primary"], width=2)
+    d.rounded_rectangle([x_after + 20, card_y + 20, x_after + 120, card_y + 55], radius=8, fill=th["primary"])
+    d.text((x_after + 38, card_y + 26), "AFTER", font=f_badge, fill=(255, 255, 255))
+
+    a_lines = wrap_text(after_text, f_card_desc, card_w - 40)
+    ay = card_y + 75
+    for al in a_lines:
+        d.text((x_after + 20, ay), al, font=f_card_desc, fill=th["ink"])
+        ay += int(line_height(f_card_desc))
+
+    mini_w = card_w - 40
+    mini_h = int(mini_w * 1.35)
+    p_mini = pages[0].resize((mini_w, mini_h), Image.Resampling.LANCZOS)
+    canvas.paste(p_mini, (x_after + 20, int(card_y + card_h - mini_h - 25)))
+
+    d = ImageDraw.Draw(canvas)
+    draw_footer(d, pack_name, y=int(h - 70), width=w, color=th["ink"])
+    return canvas.convert("RGB")
+
+
+def render_quote_card(
+    title: str,
+    pack_name: str,
+    pages: List[Any],
+    dimensions: Tuple[int, int] = (PIN_WIDTH, PIN_HEIGHT),
+    theme: Optional[Dict[str, Any]] = None,
+    quote_text: str = "Small daily habits create remarkable long-term clarity.",
+    quote_author: str = "Mindful Focus",
+) -> Any:
+    """Quote card: Inspiring mindset quote with elegant typography and subtle mockup."""
+    w, h = dimensions
+    th = theme or resolve_theme(pack_name=pack_name)
+    canvas = Image.new("RGBA", (w, h), th["bg"] + (255,))
+    d = ImageDraw.Draw(canvas)
+
+    f_mark = get_font("bold", int(w * 0.12))
+    d.text((SAFE_MARGIN, int(h * 0.05)), "“", font=f_mark, fill=th["primary"])
+
+    f_quote = get_font("bold", max(24, int(w * 0.046)))
+    q_lines = wrap_text(f'"{quote_text}"', f_quote, w - 2 * SAFE_MARGIN)
+    qy = int(h * 0.16)
+    for ql in q_lines:
+        d.text((SAFE_MARGIN, qy), ql, font=f_quote, fill=th["ink"])
+        qy += line_height(f_quote)
+
+    f_author = get_font("semibold", max(18, int(w * 0.026)))
+    d.text((SAFE_MARGIN, int(qy + 15)), f"— {quote_author}", font=f_author, fill=th["accent"])
+
+    p_w = int(w * 0.64)
+    p_h = int(p_w * 1.35)
+    p_img = pages[0].resize((p_w, p_h), Image.Resampling.LANCZOS)
+    draw_tilted_page(canvas, p_img, (w // 2, int(h * 0.72)), angle=-1, shadow=True)
+
+    d = ImageDraw.Draw(canvas)
+    draw_footer(d, pack_name, y=int(h - 70), width=w, color=th["ink"])
+    return canvas.convert("RGB")
+
+
+def render_whats_inside_grid(
+    title: str,
+    pack_name: str,
+    pages: List[Any],
+    dimensions: Tuple[int, int] = (PIN_WIDTH, PIN_HEIGHT),
+    theme: Optional[Dict[str, Any]] = None,
+    grid_items: Optional[List[str]] = None,
+) -> Any:
+    """What's inside grid: 2x2 grid of items/pages."""
+    w, h = dimensions
+    th = theme or resolve_theme(pack_name=pack_name)
+    canvas = Image.new("RGBA", (w, h), th["bg"] + (255,))
+    d = ImageDraw.Draw(canvas)
+
+    tagline = "WHAT'S INCLUDED"
+    f_tag = get_font("bold", max(18, int(w * 0.022)))
+    w_tag = text_width(tagline, f_tag)
+    d.text(((w - w_tag) / 2, int(h * 0.05)), tagline, font=f_tag, fill=th["primary"])
+
+    max_w = w - 2 * SAFE_MARGIN
+    lines, f_title = fit_text(title, "bold", int(w * 0.056), int(w * 0.035), max_w, 2)
+    y = int(h * 0.085)
+    for l in lines:
+        w_l = text_width(l, f_title)
+        d.text(((w - w_l) / 2, y), l, font=f_title, fill=th["ink"])
+        y += line_height(f_title)
+
+    items = grid_items or [
+        "Daily Routine Tracker",
+        "Weekly Planning Grid",
+        "Priority Action Matrix",
+        "Reflective Habit Log",
+    ]
+
+    cols = 2
+    rows = 2
+    grid_top = int(h * 0.22)
+    col_w = int((w - 3 * SAFE_MARGIN) // cols)
+    row_h = int((h * 0.65) // rows)
+
+    f_num = get_font("bold", max(18, int(w * 0.026)))
+    f_item = get_font("semibold", max(16, int(w * 0.024)))
+
+    for idx, item in enumerate(items[:4]):
+        r = idx // cols
+        c = idx % cols
+        bx = SAFE_MARGIN + c * (col_w + SAFE_MARGIN)
+        by = grid_top + r * row_h
+
+        d.rounded_rectangle([bx, by, bx + col_w, by + row_h - 20], radius=14, fill=(255, 255, 255), outline=(225, 230, 232), width=1)
+        d.ellipse([bx + 16, by + 16, bx + 50, by + 50], fill=th["primary"])
+        d.text((bx + 26, by + 21), str(idx + 1), font=f_num, fill=(255, 255, 255))
+
+        i_lines = wrap_text(item, f_item, col_w - 70)
+        iy = by + 20
+        for il in i_lines:
+            d.text((bx + 62, iy), il, font=f_item, fill=th["ink"])
+            iy += line_height(f_item)
+
+        page_idx = idx % len(pages)
+        p_thumb = pages[page_idx].resize((col_w - 32, max(40, row_h - 90)), Image.Resampling.LANCZOS)
+        canvas.paste(p_thumb, (bx + 16, by + 65))
+
+    d = ImageDraw.Draw(canvas)
+    draw_footer(d, pack_name, y=int(h - 70), width=w, color=th["ink"])
+    return canvas.convert("RGB")
+
+
+def generate_image_captions_and_alt(
+    pack_name: str,
+    title: str,
+    layout: str,
+    aspect: str,
+    desc: str,
+) -> Tuple[str, str, str]:
+    """Generate Alt Text, English Caption, and Tenglish Caption.
+
+    Tenglish: Telugu sentence words + common English nouns (Pack, Pin, Post, Store, Settings...).
+    No money amounts, no brands.
+    """
+    clean_title = clean_text_no_brands_or_money(title)
+    clean_pname = clean_text_no_brands_or_money(pack_name.replace("-", " ").title())
+    alt_text = f"{clean_title} - {clean_pname} printable template {layout} {aspect} image"
+    if len(alt_text) > 400:
+        alt_text = alt_text[:400]
+
+    en_caption = f"Organize your day with {clean_title}. Simple printable template designed for clear daily structure. {desc[:200]}"
+    en_caption = clean_text_no_brands_or_money(en_caption)
+
+    te_templates = {
+        "hero mockup": f"Mee daily routine kosam {clean_title} ready ga undi. Simple printable template download chesukoni print cheyandi.",
+        "3-page fan": f"Ee {clean_pname} pack lo 3 clear printable pages unnay. Easy structure tho mee goals track cheyandi.",
+        "checklist teaser": f"Clear daily checklist tho organize avvandi. Ee {clean_title} template tho prathi task complete cheyandi.",
+        "before/after": f"Chaotic notes vadilesi calm structure loki marandi. Ee {clean_title} pack mee schedule ni clear ga unchutundi.",
+        "quote card": f"Daily consistency tho pedda goals reach avvochu. Ee {clean_title} printable pack meeku help chestundi.",
+        "what's inside grid": f"Ee {clean_pname} pack lo unna printable pages overview chudandi. Store lo file ready ga undi.",
+    }
+    te_caption = te_templates.get(
+        layout,
+        f"Mee daily planning kosam {clean_title} pack ready ga undi. Store nunchi printable files download chesukondi.",
+    )
+    te_caption = clean_text_no_brands_or_money(te_caption)
+
+    return alt_text, en_caption, te_caption
+
+
+def generate_social_variants(
+    pack_dir: Path,
+    out_dir: Optional[Path] = None,
+) -> Dict[str, Any]:
+    """Generate all BINNY-W5A image variants:
+
+    - 6 Pin designs: 1000x1500
+    - 3 Square posts: 1080x1080
+    - 2 Story images: 1080x1920
+
+    Layouts used:
+    - hero mockup, 3-page fan, checklist teaser, before/after, quote card, what's inside grid
+    Outputs written atomically to marketing/<pack>/pins/ and marketing/<pack>/posts/.
+    """
+    pack_dir = Path(pack_dir).resolve()
+    if not pack_dir.is_dir():
+        raise ValueError(f"Pack directory not found: {pack_dir}")
+
+    info = extract_pack_info(pack_dir)
+    pack_name = info["pack_name"]
+    base_title = info["raw_title"]
+    th = resolve_theme(info.get("theme"), pack_name=pack_name)
+
+    titles = generate_ab_titles(base_title)
+    while len(titles) < 6:
+        titles.append(f"{base_title} Template {len(titles) + 1}")
+
+    if out_dir is None:
+        target_pins_dir = Path("exported_content") / "marketing" / pack_name / "pins"
+        target_posts_dir = Path("exported_content") / "marketing" / pack_name / "posts"
+    else:
+        target_pins_dir = Path(out_dir).resolve() / "marketing" / pack_name / "pins"
+        target_posts_dir = Path(out_dir).resolve() / "marketing" / pack_name / "posts"
+
+    target_pins_dir.mkdir(parents=True, exist_ok=True)
+    target_posts_dir.mkdir(parents=True, exist_ok=True)
+
+    page1 = load_or_create_page(info["cover_path"], base_title, (700, 950))
+    preview1 = info["preview_paths"][0] if info["preview_paths"] else None
+    page2 = load_or_create_page(preview1, f"{base_title} Checklist", (700, 950))
+    preview2 = info["preview_paths"][1] if len(info["preview_paths"]) > 1 else None
+    page3 = load_or_create_page(preview2, f"{base_title} Grid", (700, 950))
+    pages = [page1, page2, page3]
+
+    temp_parent = target_pins_dir.parent
+    temp_dir = Path(tempfile.mkdtemp(prefix=f".w5a-{pack_name}-", dir=str(temp_parent)))
+
+    try:
+        pins_meta: List[Dict[str, Any]] = []
+        posts_meta: List[Dict[str, Any]] = []
+        all_meta: List[Dict[str, Any]] = []
+
+        # 6 Pin designs (1000x1500)
+        pin_specs = [
+            ("variant_pin_1_hero.png", "hero mockup", titles[0]),
+            ("variant_pin_2_fan.png", "3-page fan", titles[1]),
+            ("variant_pin_3_checklist.png", "checklist teaser", titles[2]),
+            ("variant_pin_4_before_after.png", "before/after", titles[3]),
+            ("variant_pin_5_quote.png", "quote card", titles[4]),
+            ("variant_pin_6_grid.png", "what's inside grid", titles[5]),
+        ]
+        for fname, layout, title in pin_specs:
+            dest = temp_dir / fname
+            if layout == "hero mockup":
+                img = render_hero_mockup(title, pack_name, pages, (PIN_WIDTH, PIN_HEIGHT), th)
+            elif layout == "3-page fan":
+                img = render_three_page_fan(title, pack_name, pages, (PIN_WIDTH, PIN_HEIGHT), th)
+            elif layout == "checklist teaser":
+                img = render_checklist_teaser(title, pack_name, pages, (PIN_WIDTH, PIN_HEIGHT), th)
+            elif layout == "before/after":
+                img = render_before_after(title, pack_name, pages, (PIN_WIDTH, PIN_HEIGHT), th)
+            elif layout == "quote card":
+                img = render_quote_card(title, pack_name, pages, (PIN_WIDTH, PIN_HEIGHT), th)
+            else:
+                img = render_whats_inside_grid(title, pack_name, pages, (PIN_WIDTH, PIN_HEIGHT), th)
+
+            img.save(dest, format="PNG", optimize=True)
+            if dest.stat().st_size > 1024 * 1024:
+                q = img.quantize(colors=256)
+                q.save(dest, format="PNG", optimize=True)
+
+            alt, en_cap, te_cap = generate_image_captions_and_alt(
+                pack_name, title, layout, "pin", info["description"]
+            )
+            item = {
+                "file": fname,
+                "layout": layout,
+                "title": title,
+                "aspect": "pin",
+                "width": PIN_WIDTH,
+                "height": PIN_HEIGHT,
+                "alt": alt,
+                "caption_en": en_cap,
+                "caption_te": te_cap,
+                "description": en_cap,
+            }
+            pins_meta.append(item)
+            all_meta.append(item)
+
+        # 3 Square posts (1080x1080)
+        square_specs = [
+            ("post_1_hero.png", "hero mockup", titles[0]),
+            ("post_2_checklist.png", "checklist teaser", titles[2]),
+            ("post_3_quote.png", "quote card", titles[4]),
+        ]
+        for fname, layout, title in square_specs:
+            dest = temp_dir / fname
+            if layout == "hero mockup":
+                img = render_hero_mockup(title, pack_name, pages, (SQUARE_WIDTH, SQUARE_HEIGHT), th)
+            elif layout == "checklist teaser":
+                img = render_checklist_teaser(title, pack_name, pages, (SQUARE_WIDTH, SQUARE_HEIGHT), th)
+            else:
+                img = render_quote_card(title, pack_name, pages, (SQUARE_WIDTH, SQUARE_HEIGHT), th)
+
+            img.save(dest, format="PNG", optimize=True)
+            if dest.stat().st_size > 1024 * 1024:
+                q = img.quantize(colors=256)
+                q.save(dest, format="PNG", optimize=True)
+
+            alt, en_cap, te_cap = generate_image_captions_and_alt(
+                pack_name, title, layout, "square", info["description"]
+            )
+            item = {
+                "file": fname,
+                "layout": layout,
+                "title": title,
+                "aspect": "square",
+                "width": SQUARE_WIDTH,
+                "height": SQUARE_HEIGHT,
+                "alt": alt,
+                "caption_en": en_cap,
+                "caption_te": te_cap,
+                "description": en_cap,
+            }
+            posts_meta.append(item)
+            all_meta.append(item)
+
+        # 2 Story images (1080x1920)
+        story_specs = [
+            ("story_1_fan.png", "3-page fan", titles[1]),
+            ("story_2_before_after.png", "before/after", titles[3]),
+        ]
+        for fname, layout, title in story_specs:
+            dest = temp_dir / fname
+            if layout == "3-page fan":
+                img = render_three_page_fan(title, pack_name, pages, (STORY_WIDTH, STORY_HEIGHT), th)
+            else:
+                img = render_before_after(title, pack_name, pages, (STORY_WIDTH, STORY_HEIGHT), th)
+
+            img.save(dest, format="PNG", optimize=True)
+            if dest.stat().st_size > 1024 * 1024:
+                q = img.quantize(colors=256)
+                q.save(dest, format="PNG", optimize=True)
+
+            alt, en_cap, te_cap = generate_image_captions_and_alt(
+                pack_name, title, layout, "story", info["description"]
+            )
+            item = {
+                "file": fname,
+                "layout": layout,
+                "title": title,
+                "aspect": "story",
+                "width": STORY_WIDTH,
+                "height": STORY_HEIGHT,
+                "alt": alt,
+                "caption_en": en_cap,
+                "caption_te": te_cap,
+                "description": en_cap,
+            }
+            posts_meta.append(item)
+            all_meta.append(item)
+
+        (temp_dir / "variants.json").write_text(json.dumps(pins_meta, indent=2), encoding="utf-8")
+        (temp_dir / "posts.json").write_text(json.dumps(posts_meta, indent=2), encoding="utf-8")
+
+        for f in temp_dir.iterdir():
+            if f.name.startswith("variant_pin_") or f.name == "variants.json":
+                target = target_pins_dir / f.name
+                if target.exists():
+                    target.unlink()
+                shutil.copy2(f, target)
+            if f.name.startswith("post_") or f.name.startswith("story_") or f.name == "posts.json":
+                target = target_posts_dir / f.name
+                if target.exists():
+                    target.unlink()
+                shutil.copy2(f, target)
+
+    finally:
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+    return {
+        "pack_name": pack_name,
+        "pins_dir": str(target_pins_dir),
+        "posts_dir": str(target_posts_dir),
+        "titles": titles,
+        "pins_meta": pins_meta,
+        "posts_meta": posts_meta,
+        "all_meta": all_meta,
     }
