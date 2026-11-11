@@ -717,7 +717,29 @@ def _send_text_kw(token, chat_id, text, buttons=None, keyboard=None):
     return send_text(token, chat_id, text, buttons=buttons)
 
 
-def build_plugin_ctx(token, chat_id, db_path=None, now=None):
+def download_telegram_file_to_path(token: str, file_id: str, dest_path: str, max_bytes: int = 2 * 1024 * 1024) -> bool:
+    """Download a file by file_id from Telegram Bot API and save it to dest_path.
+
+    Returns True on success, False on error or if max_bytes exceeded.
+    """
+    try:
+        import media_brain
+        data, err = media_brain.download_telegram_file(token, file_id, max_bytes=max_bytes)
+        if err or not data:
+            return False
+        if len(data) > max_bytes:
+            return False
+        dest_dir = os.path.dirname(dest_path)
+        if dest_dir:
+            os.makedirs(dest_dir, exist_ok=True)
+        with open(dest_path, "wb") as f:
+            f.write(data)
+        return True
+    except Exception:
+        return False
+
+
+def build_plugin_ctx(token, chat_id, db_path=None, now=None, message=None):
     """Build the standard plugin ctx dictionary."""
     if now is None:
         now_utc = datetime.datetime.now(datetime.timezone.utc)
@@ -729,7 +751,10 @@ def build_plugin_ctx(token, chat_id, db_path=None, now=None):
     def _ctx_send_text(text, keyboard=None):
         return _send_text_kw(token, chat_id, text, keyboard=keyboard)
 
-    return {
+    def _ctx_download_file(file_id, dest_path, max_bytes=2 * 1024 * 1024):
+        return download_telegram_file_to_path(token, file_id, dest_path, max_bytes=max_bytes)
+
+    ctx = {
         "db_path": db_path,
         "chat_id": str(chat_id),
         "now": now_utc,
@@ -737,19 +762,23 @@ def build_plugin_ctx(token, chat_id, db_path=None, now=None):
         "send_document": lambda path, caption="": send_document(token, chat_id, path, caption=caption),
         "send_photo": lambda path, caption="": send_photo(token, chat_id, path, caption=caption),
         "send_media_group": lambda paths, caption="": send_media_group(token, chat_id, paths, caption=caption),
+        "download_file": _ctx_download_file,
         "state_get": lambda key, default=None: get_state(key, default=default, db_path=db_path),
         "state_set": lambda key, value: set_state(key, value, db_path=db_path),
     }
+    if message is not None:
+        ctx["message"] = message
+    return ctx
 
 
-def call_plugins(text, token, chat_id, db_path=None, now=None, plugins=None):
+def call_plugins(text, token, chat_id, db_path=None, now=None, plugins=None, message=None):
     """Run loaded plugins on text in sorted order. Returns (handled: bool, reply_dict or None)."""
     if plugins is None:
         plugins = discover_plugins()
     if not plugins:
         return False, None
 
-    ctx = build_plugin_ctx(token, chat_id, db_path=db_path, now=now)
+    ctx = build_plugin_ctx(token, chat_id, db_path=db_path, now=now, message=message)
     for plugin in plugins:
         try:
             res = plugin.handle(text, ctx)
@@ -1903,6 +1932,12 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
         caption = msg.get("caption", "")
 
         if "photo" in msg:
+            plugin_handled, plugin_res = call_plugins(caption, token, owner_chat_id, db_path=db_path, message=msg)
+            if plugin_handled:
+                if isinstance(plugin_res, dict) and plugin_res.get("text"):
+                    _send_text_kw(token, owner_chat_id, plugin_res["text"], keyboard=plugin_res.get("keyboard"))
+                handled += 1
+                continue
             reply_text, buttons, _ = media_brain.process_photo(token, msg["photo"], caption=caption, db_path=db_path)
             send_text(token, owner_chat_id, reply_text, buttons)
             handled += 1
@@ -1916,6 +1951,12 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
             continue
 
         if "document" in msg:
+            plugin_handled, plugin_res = call_plugins(caption, token, owner_chat_id, db_path=db_path, message=msg)
+            if plugin_handled:
+                if isinstance(plugin_res, dict) and plugin_res.get("text"):
+                    _send_text_kw(token, owner_chat_id, plugin_res["text"], keyboard=plugin_res.get("keyboard"))
+                handled += 1
+                continue
             reply_text, buttons, _ = media_brain.process_document(token, msg["document"], db_path=db_path)
             send_text(token, owner_chat_id, reply_text, buttons)
             handled += 1
