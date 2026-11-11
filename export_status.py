@@ -117,6 +117,7 @@ def build_status_private(db_path=None):
         "service_requests": svc_reqs,
         "built_tools": built_tools,
         "llm_providers": _llm_providers(),
+        "office_requests": _queued_office_requests(db_path),
         **get_freshness_fields(db_path),
     }
 
@@ -139,6 +140,27 @@ def _public_approval(approval):
     if approval.get("status") != "approved":
         item["title"] = f"Draft #{approval.get('id')}"
     return item
+
+
+def _queued_office_requests(db_path=None) -> list:
+    """Return queued office requests safe for public consumption without secrets."""
+    try:
+        import office_requests
+        reqs = office_requests.list_office_requests(db_path=db_path, status="queued", limit=50)
+        cleaned = []
+        for r in reqs:
+            cleaned.append({
+                "id": str(r.get("id") or ""),
+                "ts": str(r.get("ts") or ""),
+                "kind": str(r.get("kind") or ""),
+                "target": public_export.scrub_text(str(r.get("target") or "")),
+                "value": public_export.scrub_public_data(r.get("value")),
+                "label_te": public_export.scrub_text(str(r.get("label_te") or "")),
+                "status": "queued",
+            })
+        return cleaned
+    except Exception:
+        return []
 
 
 def _handoffs(db_path=None, now_utc=None):
@@ -353,6 +375,7 @@ def write_status(path=None, db_path=None):
         snapshot.update(public_export.get_public_office_export(db_path, snapshot["generated_at"]))
         import cubes
         snapshot["cubes"] = cubes.get_public_cubes_export(db_path)
+        snapshot["office_requests"] = _queued_office_requests(db_path)
         scout_counts = {"total": 0, "pending": 0, "approved": 0}
         try:
             import scout
