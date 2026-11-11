@@ -18,6 +18,7 @@ import sys
 import cubes
 import guardrails
 import niche_topics
+import learning_loop
 import public_export
 import rest_window
 import secret_guard
@@ -928,7 +929,19 @@ def run_scout(db_path=None, llm=None):
 
         # Prefer niches whose past drafts were approved or built READY
         niche_boost = niche_scores.get(adjusted["niche"], 0)
-        adjusted["total_score"] = adjusted.get("total_score", 80) + min(15, niche_boost // 2)
+        base_score = adjusted.get("total_score", 80) + min(15, niche_boost // 2)
+
+        # Apply learning loop weight when sufficient history exists
+        learned_weight = 1.0
+        try:
+            learned_weight = learning_loop.get_candidate_weight(adjusted, db_path=db_path)
+            if learned_weight != 1.0:
+                base_score = round(base_score * learned_weight)
+        except Exception:
+            pass
+
+        adjusted["total_score"] = base_score
+        adjusted["learning_weight"] = learned_weight
 
         # Ensure why_pass and why_sells are present and scrubbed of currency/money
         if not adjusted.get("why_pass"):
@@ -938,6 +951,16 @@ def run_scout(db_path=None, llm=None):
         aud = adjusted.get("audience") or detect_audience(adjusted["idea"])
         if not adjusted.get("why_sells"):
             adjusted["why_sells"] = generate_why_sells(adjusted["idea"], audience=aud, fmt=fmt_adj)
+
+        # Attach learned Tenglish why line if available
+        try:
+            learning_why = learning_loop.generate_learning_why(adjusted, db_path=db_path)
+            if learning_why:
+                adjusted["learning_why"] = learning_why
+                adjusted["why_sells"] = f"{adjusted['why_sells']} {learning_why}".strip()
+        except Exception:
+            pass
+
         adjusted["why_sells"] = secret_guard.scrub_text(adjusted["why_sells"])
 
         filtered_candidates.append(adjusted)
