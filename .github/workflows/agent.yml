@@ -192,7 +192,7 @@ jobs:
         if: steps.gate.outputs.run == 'true' && steps.test_plan.outputs.run != 'false'
         timeout-minutes: 4
         run: |
-          python3 -m pip install --quiet --disable-pip-version-check -r .agent-image-requirements.txt
+          python3 tools/ci_install.py || python3 -m pip install --quiet --disable-pip-version-check -r .agent-image-requirements.txt
           # Product/launch-pack tests need poppler (PDF page pictures) and the URW fonts, same as real builds.
           if [ "$(dpkg-query -W -f='${Status}' poppler-utils 2>/dev/null)" != "install ok installed" ]; then
             sudo apt-get -o Acquire::Retries=3 update -qq
@@ -209,7 +209,7 @@ jobs:
           DB_KEY: ${{ secrets.DB_KEY }}
         run: |
           python3 run_failure.py run tests -- bash -e -o pipefail <<'ROBOT_STEP'
-          python3 -m unittest discover -s tests
+          python3 tools/run_tests_chunked.py
           # Some tests write to the real database / status file. Put the committed copies back
           # (and drop files tests created) so test data is never saved by "Save state".
           git checkout -- web/data/status.json agent_data.db.enc products.tar.gz.enc .scheduler_locks
