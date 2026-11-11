@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-10T17:05:30Z",
+ "generated_at": "2026-11-11T06:31:07Z",
  "llm": {
-  "calls_today": 8,
+  "calls_today": 1,
   "cap": 500
  },
  "agents": [
@@ -220,6 +220,24 @@
    "ts": "2026-11-10T01:50:02.239946",
    "kind": "scout_idea",
    "title": "Draft #98"
+  },
+  {
+   "id": 99,
+   "ts": "2026-11-11T06:31:04.887434",
+   "kind": "scout_idea",
+   "title": "Draft #99"
+  },
+  {
+   "id": 100,
+   "ts": "2026-11-11T06:31:04.890669",
+   "kind": "scout_idea",
+   "title": "Draft #100"
+  },
+  {
+   "id": 101,
+   "ts": "2026-11-11T06:31:04.892836",
+   "kind": "scout_idea",
+   "title": "Draft #101"
   }
  ],
  "worker": {
@@ -341,38 +359,38 @@
  "ai_health": [
   {
    "provider": "Groq",
-   "model": "openai/gpt-oss-120b",
+   "model": "openai/gpt-oss-20b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-10T17:05:30Z"
+   "checked_at": "2026-11-11T06:31:07Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
    "state": "unknown",
    "reason": "No recent activity recorded",
-   "checked_at": "2026-11-10T17:05:30Z"
+   "checked_at": "2026-11-11T06:31:07Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "unknown",
    "reason": "No recent activity recorded",
-   "checked_at": "2026-11-10T17:05:30Z"
+   "checked_at": "2026-11-11T06:31:07Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-10T17:05:30Z"
+   "checked_at": "2026-11-11T06:31:07Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-10T17:05:30Z"
+   "checked_at": "2026-11-11T06:31:07Z"
   }
  ],
  "minutes": {
@@ -684,8 +702,8 @@
  ],
  "report": {
   "drafts_made": 3,
-  "drafts_waiting": 3,
-  "drafts_approved": 2,
+  "drafts_waiting": 6,
+  "drafts_approved": 0,
   "products_built": 0,
   "errors": 0
  },
@@ -795,68 +813,80 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 8,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 8,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 8,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 8,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 8,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 8,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 8,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 8,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 8,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   }
  ],
  "loop_events": [
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-11T06:31:01Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-11T06:31:01Z"
+  },
   {
    "agent": "Unknown agent",
    "kind": "error",
@@ -1144,18 +1174,6 @@
    "kind": "error",
    "label": "Recovery check",
    "at": "2026-11-03T01:11:42Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-03T01:11:32Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-02T00:12:47Z"
   }
  ],
  "activity_events": [
@@ -2243,12 +2261,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-10T17:05:30Z",
-  "last_run_end": "2026-11-10T17:05:30Z",
+  "last_run_start": "2026-11-11T06:31:01Z",
+  "last_run_end": "2026-11-11T06:31:07Z",
   "runner": "github-actions",
-  "run_id": "42859816198"
+  "run_id": "42972849273"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "FB16 calendar edge tests, FB17 landing edge tests, FB19 marketing tools guide",
@@ -2267,15 +2286,12 @@
   "agent: owner inbox state [skip ci]",
   "KJ Instagram carousels, KK five pin designs + A/B titles, KL bundle builder (Jules, verified by Claude)",
   "FB1 Tenglish owner guide, FB2 Instamojo fields, O2 tests pass outside CI, O3 smoke tests, O4 robot map (verified by Claude)",
-  "agent: state + content update [skip ci]",
-  "KH posts in Telegram + morning message, KI auto-repair after deep QA (Jules, verified by Claude)"
+  "agent: state + content update [skip ci]"
  ],
  "daily_report": {
-  "date_ist": "2026-11-10",
-  "summary": "0 tasks completed; 2 approvals reviewed; 0 products built.",
-  "items_done": [
-   "Approval reviewed"
-  ]
+  "date_ist": "2026-11-11",
+  "summary": "No completed work recorded.",
+  "items_done": []
  },
  "sunday_letter": null,
  "cubes": [
@@ -2628,12 +2644,12 @@
   }
  ],
  "scout_ideas_count": {
-  "total": 47,
-  "pending": 3,
+  "total": 50,
+  "pending": 6,
   "approved": 44
  },
  "trend_items_count": {
-  "total": 120,
+  "total": 130,
   "proposed": 0,
   "approved": 0
  },
