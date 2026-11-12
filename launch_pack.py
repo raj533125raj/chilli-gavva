@@ -131,6 +131,10 @@ def _format_launch_listing(spec: Dict[str, Any], file_list: List[str], facts: Op
     title = sanitize(listing.get("title", spec.get("name", "Digital Product")))
     description = sanitize(listing.get("description", ""))
 
+    # Fall back to the spec's embedded facts (e.g. pdf_sizes) when no facts
+    # dict was passed in, so deliverable facts surface in the listing/FAQ.
+    facts = facts or spec.get("facts") or {}
+
     # Ensure description explicitly states deliverable facts for truth checker
     kind = spec.get("kind", "")
     if facts and facts.get("pdf_sizes"):

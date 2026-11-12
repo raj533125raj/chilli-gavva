@@ -257,7 +257,6 @@ class PackReportEdgeTests(unittest.TestCase):
         self.assertRegex(last_line, r"Ready: \d+ of \d+")
 
     # 13. Expected failure: huge zip still shows as ready when QA stub is ready
-    @unittest.expectedFailure
     def test_huge_zip_not_claimed_ready_by_default(self):
         big_bytes = int(260 * 1024 * 1024)
         _make_pack(

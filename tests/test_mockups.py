@@ -44,6 +44,25 @@ def build(niche, out):
     return os.path.join(out, pb.build_product(spec, 70, out))
 
 
+class _SharedBuilds:
+    """Build each niche product once (setUpClass); tests copy the pre-built folder,
+    so mockups.write_mockups / pdf rendering is not re-run per test."""
+    folders = {}
+
+    @classmethod
+    def build_all(cls):
+        import tempfile
+        base = tempfile.mkdtemp(prefix="mockups_test_base_")
+        for niche in REPLIES:
+            cls.folders[niche] = build(niche, base)
+        cls._base = base
+
+    @classmethod
+    def cleanup(cls):
+        import shutil
+        shutil.rmtree(cls._base, ignore_errors=True)
+
+
 def drawn_texts(folder):
     mockups.DRAWN = []
     try:
@@ -55,11 +74,27 @@ def drawn_texts(folder):
 
 @unittest.skipUnless(mockups.available(), "needs Pillow and poppler (free image tools)")
 class ImageTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        _SharedBuilds.build_all()
+
+    @classmethod
+    def tearDownClass(cls):
+        _SharedBuilds.cleanup()
+        super().tearDownClass()
+
+    def _copy(self, niche):
+        import shutil
+        d = tempfile.mkdtemp(prefix="mockups_test_copy_")
+        self.addCleanup(lambda p=d: shutil.rmtree(p, ignore_errors=True))
+        return shutil.copytree(_SharedBuilds.folders[niche], os.path.join(d, os.path.basename(_SharedBuilds.folders[niche])))
+
     def test_image_sizes_for_every_kind(self):
         from PIL import Image
         for niche in REPLIES:
-            with self.subTest(niche=niche), tempfile.TemporaryDirectory() as d:
-                folder = build(niche, d)
+            with self.subTest(niche=niche):
+                folder = self._copy(niche)
                 sizes = {}
                 for name in ("cover.png", "preview-1.png", "preview-2.png", "preview-3.png", "pinterest.png"):
                     with Image.open(os.path.join(folder, name)) as im:
@@ -70,10 +105,9 @@ class ImageTests(unittest.TestCase):
                 self.assertEqual(sizes["pinterest.png"], (1000, 1500))
 
     def test_facts_on_images_are_proven_and_nothing_is_cut(self):
-        with tempfile.TemporaryDirectory() as d:
-            folder = build("2027 Planners Agent", d)
-            drawn = drawn_texts(folder)
-            facts = truth_check.image_facts(folder)
+        folder = self._copy("2027 Planners Agent")
+        drawn = drawn_texts(folder)
+        facts = truth_check.image_facts(folder)
         self.assertIn(f"{facts['pages']} pages", drawn)
         self.assertIn("A4 + US Letter", drawn)
         self.assertIn("Dated 2027", drawn)
@@ -84,26 +118,25 @@ class ImageTests(unittest.TestCase):
             self.assertNotIn(brand, joined)
 
     def test_shown_pages_are_real_pages_of_this_product(self):
-        with tempfile.TemporaryDirectory() as d:
-            folder = build("ADHD Planners Agent", d)
-            info = mockups.product_info(folder)
-            titles = truth_check.facts(folder)["titles"]
-        self.assertEqual(info["theme"], mockups.THEMES["B"])            # ADHD niche: Style B
+        folder = self._copy("ADHD Planners Agent")
+        info = mockups.product_info(folder)
+        titles = truth_check.facts(folder)["titles"]
+        # Images use the same colours as the PDF: Style B or the premium theme (pdf_themes) it was built with.
+        style = truth_check.image_facts(folder).get("style")
+        self.assertEqual(info["theme"], mockups._theme_for(style))
         self.assertEqual([p["title"] for p in info["pages"]], ["Today", "Brain Dump"])
         for p in info["pages"]:
             self.assertIn(p["title"], titles)
             self.assertEqual(len(p["bullets"]), 3)
 
     def test_undated_planner_never_says_dated(self):
-        with tempfile.TemporaryDirectory() as d:
-            folder = build("ADHD Planners Agent", d)
-            chips = mockups.chips(truth_check.image_facts(folder))
+        folder = self._copy("ADHD Planners Agent")
+        chips = mockups.chips(truth_check.image_facts(folder))
         self.assertFalse([c for c in chips if "Dated" in c])
         self.assertIn("A4 + US Letter", chips)
 
     def test_sheet_picture_shows_the_real_columns(self):
-        with tempfile.TemporaryDirectory() as d:
-            drawn = drawn_texts(build("Budget Sheets Agent", d))
+        drawn = drawn_texts(self._copy("Budget Sheets Agent"))
         self.assertIn("Client", drawn)          # a real column of the workbook
         self.assertTrue(any(re.fullmatch(r"\d+ sheets", t) for t in drawn))
 

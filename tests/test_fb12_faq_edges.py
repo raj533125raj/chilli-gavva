@@ -235,7 +235,6 @@ class FaqEdgeTests(unittest.TestCase):
             "Missing LICENSE.txt should not remove the FAQ section",
         )
 
-    @unittest.expectedFailure
     def test_a4_and_letter_names_in_faq_when_both_sizes_present(self):
         spec = _simple_spec(
             kind="planner",

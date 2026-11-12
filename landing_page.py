@@ -60,6 +60,8 @@ MONEY_PATTERNS = [
     re.compile(r"[\d,]+(?:\.\d{1,2})?\s*(?:usd|eur|gbp|inr|rs\.?|rupees?|dollars?|cents?|paise)\b", re.IGNORECASE),
     re.compile(r"(?:usd|eur|gbp|inr|rs\.?|rupees?|dollars?|cents?|paise)\s*[\d,]+(?:\.\d{1,2})?\b", re.IGNORECASE),
     re.compile(r"[₹€£¥]\s*[\d,]+(?:\.\d{1,2})?"),
+    # Standalone price/cost/token words — money-related text must not appear in schema or public text
+    re.compile(r"\b(?:price|cost|token)\b", re.IGNORECASE),
 ]
 
 BRAND_PATTERNS = [

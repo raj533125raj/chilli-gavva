@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+import zipfile
 
 
 MONEY_PATTERNS = [
@@ -42,6 +43,23 @@ def _check_money(text: str) -> 'str | None':
     return None
 
 
+def _is_bundle_folder(folder: str) -> bool:
+    """A bundle folder (made by bundle_builder.py) ships bundle.zip instead of product.zip."""
+    return os.path.isfile(os.path.join(folder, "bundle.zip"))
+
+
+def _bundle_member_count(folder: str) -> int:
+    """Count member packs inside bundle.zip (one .zip entry per member pack)."""
+    zip_path = os.path.join(folder, "bundle.zip")
+    if not os.path.isfile(zip_path):
+        return 0
+    try:
+        with zipfile.ZipFile(zip_path) as z:
+            return sum(1 for name in z.namelist() if name.lower().endswith(".zip"))
+    except Exception:
+        return 0
+
+
 def _section(text: str, label: str) -> str:
     """Extract a section value by label. Returns '' if missing."""
     # Match "Label:" at start of a line, capture everything until next section label or EOF.
@@ -59,7 +77,7 @@ def _section(text: str, label: str) -> str:
     return value.strip()
 
 
-def gumroad_block(title: str, description: str, tags: str) -> str:
+def gumroad_block(title: str, description: str, tags: str, member_count: int | None = None) -> str:
     what_you_get = _section_raw_for_what_you_get(description)
     desc_block = description
     if what_you_get:
@@ -74,8 +92,14 @@ def gumroad_block(title: str, description: str, tags: str) -> str:
     lines.append(f"Name: {title}")
     lines.append(f"Description: {desc_block}")
     lines.append(f"Tags: {tags_out}")
-    lines.append("Files to upload: product.zip")
+    if member_count:
+        lines.append("Files to upload: bundle.zip")
+    else:
+        lines.append("Files to upload: product.zip")
     lines.append("Cover: cover.png")
+    if member_count:
+        lines.append("BUNDLE")
+        lines.append(f"Members: {member_count} packs")
     lines.append("Price: SET BY OWNER")
     return "\n".join(lines)
 
@@ -94,16 +118,23 @@ def _section_raw_for_what_you_get(description: str) -> str:
     return val.strip()
 
 
-def topmate_block(title: str, description: str) -> str:
+def topmate_block(title: str, description: str, member_count: int | None = None) -> str:
     short_desc = _cut_150(description)
-    return (
-        "TOPMATE\n"
-        f"Title: {title}\n"
-        f"Short description: {short_desc}\n"
-        f"Long description: {description}\n"
-        "Files: product.zip\n"
-        "Price: SET BY OWNER"
-    )
+    lines = [
+        "TOPMATE",
+        f"Title: {title}",
+        f"Short description: {short_desc}",
+        f"Long description: {description}",
+    ]
+    if member_count:
+        lines.append("Files: bundle.zip")
+    else:
+        lines.append("Files: product.zip")
+    if member_count:
+        lines.append("BUNDLE")
+        lines.append(f"Members: {member_count} packs")
+    lines.append("Price: SET BY OWNER")
+    return "\n".join(lines)
 
 
 def _cut_150(text: str) -> str:
@@ -119,7 +150,7 @@ def _cut_150(text: str) -> str:
     return head[:sp].rstrip()
 
 
-def instamojo_block(title: str, description: str, what_you_get: str = "") -> str:
+def instamojo_block(title: str, description: str, what_you_get: str = "", member_count: int | None = None) -> str:
     """Produce an INSTAMOJO listing block."""
     title_cut = _cut_title(title, 80)
     desc_block = description
@@ -127,14 +158,21 @@ def instamojo_block(title: str, description: str, what_you_get: str = "") -> str
         desc_block = description + "\n\n" + what_you_get
     desc_cut = desc_block[:5000]
 
-    return (
-        "INSTAMOJO\n"
-        f"Title: {title_cut}\n"
-        f"Description: {desc_cut}\n"
-        "Files to upload: product.zip\n"
-        "Cover: cover.png\n"
-        "Price: SET BY OWNER"
-    )
+    lines = [
+        "INSTAMOJO",
+        f"Title: {title_cut}",
+        f"Description: {desc_cut}",
+    ]
+    if member_count:
+        lines.append("Files to upload: bundle.zip")
+    else:
+        lines.append("Files to upload: product.zip")
+    lines.append("Cover: cover.png")
+    if member_count:
+        lines.append("BUNDLE")
+        lines.append(f"Members: {member_count} packs")
+    lines.append("Price: SET BY OWNER")
+    return "\n".join(lines)
 
 
 def _section_what_you_get_block(description: str, whole_text: str = "") -> str:
@@ -165,19 +203,22 @@ def _cut_title(text: str, max_len: int) -> str:
     return head[:sp].rstrip()
 
 
-def build_blocks(title: str, description: str, tags: str, store: str = "all", whole_text: str = "") -> str:
+def build_blocks(title: str, description: str, tags: str, store: str = "all", whole_text: str = "",
+                 member_count: int | None = None) -> str:
     """Return one or more listing blocks, separated by blank lines.
 
     store: 'gumroad', 'topmate', 'instamojo', or 'all'.
+    member_count: when set (bundle folder), upload bundle.zip and print a
+    "BUNDLE / Members: N packs" line instead of product.zip.
     """
     parts = []
     if store in ("all", "gumroad"):
-        parts.append(gumroad_block(title, description, tags))
+        parts.append(gumroad_block(title, description, tags, member_count))
     if store in ("all", "topmate"):
-        parts.append(topmate_block(title, description))
+        parts.append(topmate_block(title, description, member_count))
     if store in ("all", "instamojo"):
         what_you_get = _section_what_you_get_block(description, whole_text)
-        parts.append(instamojo_block(title, description, what_you_get))
+        parts.append(instamojo_block(title, description, what_you_get, member_count))
     return "\n\n".join(parts)
 
 
@@ -207,12 +248,14 @@ def main() -> None:
         print("Error: listing.txt is missing a Title section.", file=sys.stderr)
         sys.exit(1)
 
-    print(gumroad_block(title, description, tags))
+    member_count = _bundle_member_count(folder) if _is_bundle_folder(folder) else None
+
+    print(gumroad_block(title, description, tags, member_count))
     print()
-    print(topmate_block(title, description))
+    print(topmate_block(title, description, member_count))
     print()
     what_you_get = _section_what_you_get_block(description, text)
-    print(instamojo_block(title, description, what_you_get))
+    print(instamojo_block(title, description, what_you_get, member_count))
     print()
 
 

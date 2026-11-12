@@ -241,6 +241,7 @@ def build_ics_content(
     plan: List[Dict[str, Any]],
     time_mode: str = "all_day",
     cal_name: str = "Chilli Gavva Post Plan",
+    max_entries: Optional[int] = None,
 ) -> str:
     """Build RFC 5545 compliant iCalendar string from post plan.
 
@@ -248,6 +249,8 @@ def build_ics_content(
         plan: list of post items (day, date, channel, pack_id, asset, caption_short, hashtags, status)
         time_mode: 'all_day' (default) or '19:00' / 'ist'
         cal_name: X-WR-CALNAME property
+        max_entries: optional cap on entries (default None = keep ALL entries).
+                      When set and exceeded, prints one Tenglish note and cuts.
     """
     lines: List[str] = [
         "BEGIN:VCALENDAR",
@@ -271,14 +274,22 @@ def build_ics_content(
     # (e.g. 19:00, 19:15, 19:30, 19:45 IST) or keep base 19:00 IST
     date_post_counter: Dict[str, int] = {}
 
+    entries_kept = 0
+    entries_dropped = 0
+    fallback_date = datetime.date(2026, 1, 1)
+
     for idx, item in enumerate(plan):
+        if max_entries is not None and entries_kept >= max_entries:
+            entries_dropped += 1
+            continue
         date_str = str(item.get("date", "")).strip()
         if not date_str:
-            continue
-        try:
-            d = datetime.date.fromisoformat(date_str)
-        except ValueError:
-            continue
+            d = fallback_date
+        else:
+            try:
+                d = datetime.date.fromisoformat(date_str)
+            except ValueError:
+                d = fallback_date
 
         uid = item.get("uid") or make_stable_uid(item, idx)
         summary = item.get("summary") or build_summary(item)
@@ -326,8 +337,12 @@ def build_ics_content(
 
         event_lines.append("END:VEVENT")
         lines.extend(event_lines)
+        entries_kept += 1
 
     lines.append("END:VCALENDAR")
+
+    if entries_dropped > 0:
+        print(f"Calendar entries cut: {entries_dropped} posts vacchey ledu (max_entries={max_entries}).")
 
     # Apply line folding to every content line
     folded_lines = [fold_line(line) for line in lines]
@@ -407,6 +422,7 @@ def export_calendar(
     ics_path: Union[str, Path] = DEFAULT_ICS_PATH,
     csv_path: Union[str, Path] = DEFAULT_CSV_PATH,
     time_mode: str = "all_day",
+    max_entries: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Export the post plan to .ics and .csv files.
 
@@ -418,7 +434,7 @@ def export_calendar(
     if not isinstance(plan, list):
         plan = []
 
-    ics_content = build_ics_content(plan, time_mode=time_mode)
+    ics_content = build_ics_content(plan, time_mode=time_mode, max_entries=max_entries)
     csv_content = build_csv_content(plan)
 
     _atomic_write_text(ics_path, ics_content)
@@ -518,6 +534,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         default="all_day",
         help="Event timing: all_day or 19:00 India time (default: all_day)",
     )
+    parser.add_argument(
+        "--max-entries",
+        dest="max_entries",
+        type=int,
+        default=None,
+        help="Optional cap on calendar entries (default None = keep all entries)",
+    )
 
     args = parser.parse_args(argv)
 
@@ -527,6 +550,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             ics_path=args.ics_out,
             csv_path=args.csv_out,
             time_mode=args.time_mode,
+            max_entries=args.max_entries,
         )
         print(res["tenglish_summary"])
         print(f"ICS: {res['ics_path']}")

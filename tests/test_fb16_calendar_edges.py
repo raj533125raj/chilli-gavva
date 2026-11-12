@@ -74,18 +74,13 @@ class TestFb16CalendarEdges(unittest.TestCase):
         self.assertIn("uid", rows[0])
 
     # 3. 200 entries (folding + stable UID + deterministic count)
-    @unittest.expectedFailure
     def test_200_entries_stable_count_and_folding(self):
-        # Keep only as an expectedFailure with this one-line reason:
-        # build_ics_content silently drops entries past 30 (kept here so the
-        # 200-entry path is still covered under CI failure tracking).
         plan = [_base_item(date=f"2026-11-{d:02d}", day=d,
                            asset=f"pins/pin_{d % 4 + 1}.png",
                            caption_short=f"Caption for day {d} " * 4)
                 for d in range(1, 201)]
         ics = calendar_export.build_ics_content(plan)
         events = calendar_export.parse_ics(ics)
-        # Real bug: only 30 events survive, not 200.
         self.assertEqual(len(events), 200)
         # Every content line must still honour 75-octet folding.
         for raw_line in ics.split("\r\n"):

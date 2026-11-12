@@ -83,13 +83,13 @@ class TestKJCarousel(unittest.TestCase):
         )
         (pack_dir / "listing.txt").write_text(listing_content, encoding="utf-8")
 
-        # Create dummy cover.png (1280x720)
-        cover = Image.new("RGB", (1280, 720), (70, 130, 180))
+        # Create dummy cover.png (16:9, small -> faster compositing)
+        cover = Image.new("RGB", (400, 225), (70, 130, 180))
         cover.save(pack_dir / "cover.png")
 
         if create_previews:
             for i in range(1, 4):
-                p_im = Image.new("RGB", (1280, 720), (100 + i * 20, 150, 200))
+                p_im = Image.new("RGB", (400, 225), (100 + i * 20, 150, 200))
                 p_im.save(pack_dir / f"preview-{i}.png")
 
         return pack_dir

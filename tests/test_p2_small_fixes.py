@@ -58,7 +58,11 @@ class CheckerScoreBoundsTests(unittest.TestCase):
             approvals = guardrails.pending(db_path=db)
             for approval in approvals:
                 self.assertIn('/100',approval['review'])
-                self.assertEqual(checker.parse_review(approval['review'])[0],100)
+                # The card/auto-approve score is the strict Checker's, never the Scout's own ranking.
+                score = checker.parse_review(approval['review'])[0]
+                self.assertTrue(0 <= score <= 100)
+                self.assertLess(score, 100)
+                self.assertIn('Scout: 100/100', approval['review'])
                 self.assertIn('Total: 100/100',guardrails.get_approval(approval['id'],db)['payload'])
 
 

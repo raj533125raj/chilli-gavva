@@ -274,6 +274,24 @@ def _doc_picture(theme, name, paragraphs):
 
 
 # ---- what the product really contains -------------------------------------------------------------------
+def _theme_for(style):
+    """Old pack styles are "A"/"B"; premium PDF themes (pdf_themes, W1C) use their own names.
+    Unknown names use that theme's colours (same bg/accent/ink/body keys), else Style A."""
+    if style in THEMES:
+        return THEMES[style]
+    try:
+        import pdf_themes
+        tok = (pdf_themes.get_theme(style) or {}).get("tokens") or {}
+        h = lambda x: tuple(int(x[k:k + 2], 16) for k in (1, 3, 5))
+        keys = {"bg": tok.get("surface_soft") or tok.get("bg"), "accent": tok.get("accent"),
+                "ink": tok.get("ink"), "body": tok.get("muted") or tok.get("ink")}
+        if all(isinstance(v, str) and len(v) == 7 and v.startswith("#") for v in keys.values()):
+            return {k: h(v) for k, v in keys.items()}
+    except Exception:
+        pass
+    return THEMES["A"]
+
+
 def _sentence(text):
     t = re.sub(r"\s+", " ", text).strip()
     return t[:1].upper() + t[1:].lower() if t.isupper() else t
@@ -283,7 +301,7 @@ def product_pages(folder, facts):
     """[{"title", "bullets", "picture"(callable height->Image)}] for the pages the images may show, all
     real. For PDFs: the content pages (no cover, no How-to page, no 'cont.' pages)."""
     import truth_check
-    kind, theme = facts["kind"], THEMES[facts["style"]]
+    kind, theme = facts["kind"], _theme_for(facts.get("style"))
     out = []
     if kind == "pdf":
         pdf = facts["pdf_path"]
@@ -585,7 +603,7 @@ def product_info(folder, spec=None):
     if facts["kind"] == "pdf" and facts.get("dated"):
         label = f"PRINTABLE · {facts['dated']}"
     return {"name": no_brands(name) or "Digital template", "label": label, "kind": facts["kind"],
-            "theme": THEMES[facts["style"]], "chips": chips(facts), "pages": pages, "total": facts["pages"],
+            "theme": _theme_for(facts.get("style")), "chips": chips(facts), "pages": pages, "total": facts["pages"],
             "description": no_brands(_description(facts, pages))}
 
 

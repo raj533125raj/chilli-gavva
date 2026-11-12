@@ -162,6 +162,103 @@ def _check_caps(text):
     return None
 
 
+_BRAND_WORDS = {"etsy", "amazon", "canva", "notion"}
+
+
+def _description_words(description, existing_tags):
+    """Extract clean candidate tag words from description: no brands, <= 20 chars, deduped."""
+    seen = {t.casefold() for t in existing_tags}
+    words = []
+    for raw in re.findall(r"[A-Za-z][A-Za-z0-9' -]*", description):
+        word = raw.strip(" -'").strip()
+        if not word or len(word) > TAG_MAX_LEN or len(word) < 3:
+            continue
+        folded = word.casefold()
+        if folded in _BRAND_WORDS or folded in seen:
+            continue
+        seen.add(folded)
+        words.append(word)
+    return words
+
+
+def suggest_for(text, name="listing text"):
+    """Generate a concrete suggestion for each WARN/FAIL check.
+
+    Returns a list of suggestion strings, one per failing or warning check.
+    """
+    results = lint_text(text, name=name)
+    s = parse_listing(text)
+    title = s["title"]["inline"]
+    tags = list(_split_tags(s["tags"]))
+    description = ("\n".join([s["description"]["inline"]] + s["description"]["lines"])
+                   if s["description"]["inline"] else "\n".join(s["description"]["lines"])).strip()
+    items = [line for line in [s["get"]["inline"]] + s["get"]["lines"] if line]
+
+    suggestions = []
+    for check, level, message in results:
+        if level == "PASS":
+            continue
+        if check == "title" and len(title) > TITLE_MAX:
+            cut = title[:TITLE_MAX]
+            sp = cut.rfind(" ")
+            if sp > 0:
+                suggestions.append(
+                    f"title too long: cut at a word -> '{cut[:sp]}' ({len(cut[:sp])} chars)")
+            else:
+                suggestions.append(
+                    f"title too long: '{cut}' ({len(cut)} chars, single long word)")
+        elif check == "tag duplicates":
+            if ":" in message:
+                dups = message.split(":", 1)[1].strip()
+                suggestions.append(f"duplicate tags: remove these repeats -> {dups}")
+        elif check == "tags":
+            m = re.search(r"(\d+) tags; must be exactly (\d+)", message)
+            if m and int(m.group(1)) < int(m.group(2)):
+                needed = int(m.group(2)) - int(m.group(1))
+                candidates = _description_words(description, tags)[:needed]
+                if candidates:
+                    suggestions.append(
+                        f"fewer than {TAG_TARGET} tags: consider adding -> "
+                        + ", ".join(candidates))
+                else:
+                    suggestions.append(
+                        f"fewer than {TAG_TARGET} tags: add more descriptive tags "
+                        f"(no brands, each <= {TAG_MAX_LEN} chars)")
+        elif check == "caps":
+            words_part = message.split(":", 1)[1].strip() if ":" in message else message
+            words = [w for w in words_part.split(", ") if w]
+            title_case = [w.capitalize() for w in words]
+            suggestions.append(
+                f"all-caps words: use Title Case -> {', '.join(title_case)}")
+        elif check == "what you get":
+            suggestions.append(
+                'missing "What you get": add at least 3 deliverable lines, e.g.:\n'
+                "- A4 PDF\n- US Letter PDF\n- Readme and personal use licence")
+    return suggestions
+
+
+SUGGEST_ROOT = REPO_ROOT / "exported_content" / "products" / "lint"
+
+
+def write_suggestions(pack_name, suggestions):
+    """Write suggestions to exported_content/products/lint/<pack>.suggest.txt.
+
+    Never touches the pack folder itself. Returns the written path.
+    """
+    SUGGEST_ROOT.mkdir(parents=True, exist_ok=True)
+    path = SUGGEST_ROOT / f"{pack_name}.suggest.txt"
+    lines = []
+    if suggestions:
+        lines.append(f"Suggestions for {pack_name}:")
+        lines.append("")
+        for i, s in enumerate(suggestions, 1):
+            lines.append(f"{i}. {s}")
+    else:
+        lines.append(f"No suggestions for {pack_name} (all checks PASS).")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
 def lint_folder(pack_folder, name=None):
     """Lint one pack folder's listing.txt -> (results, ok)."""
     pack_folder = Path(pack_folder)
@@ -194,6 +291,8 @@ def main(argv=None):
     parser.add_argument("--all", action="store_true",
                         help=f"lint every pack under {ALL_PACKS_ROOT}")
     parser.add_argument("--packs-root", help="override the --all root folder")
+    parser.add_argument("--suggest", action="store_true",
+                        help="write concrete fix suggestions to exported_content/products/lint/<pack>.suggest.txt")
     args = parser.parse_args(argv)
     if args.all and args.folder:
         parser.error("use either a pack folder or --all, not both")
@@ -204,11 +303,25 @@ def main(argv=None):
             for check, level, message in results:
                 print(f"{level} {check}: {message}")
             any_fail = any_fail or not ok
+            if args.suggest:
+                pack_path = Path(args.packs_root or ALL_PACKS_ROOT) / label
+                text = (pack_path / "listing.txt").read_text(encoding="utf-8-sig")
+                suggestions = suggest_for(text, name=label)
+                write_suggestions(label, suggestions)
+                for s in suggestions:
+                    print(f"  SUGGEST: {s}")
     elif args.folder:
         results, ok = lint_folder(args.folder)
         for check, level, message in results:
             print(f"{level} {check}: {message}")
         any_fail = not ok
+        if args.suggest:
+            pack_path = Path(args.folder)
+            text = (pack_path / "listing.txt").read_text(encoding="utf-8-sig")
+            suggestions = suggest_for(text, name=pack_path.name)
+            write_suggestions(pack_path.name, suggestions)
+            for s in suggestions:
+                print(f"  SUGGEST: {s}")
     else:
         parser.error("give an upload pack folder or --all")
     print("FAIL listing lint" if any_fail else "PASS listing lint")

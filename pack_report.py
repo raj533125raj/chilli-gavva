@@ -18,6 +18,7 @@ prints "Ready: 0 of 0".
 """
 import argparse
 import sys
+import zipfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent
@@ -27,6 +28,7 @@ DEFAULT_MARKETING_DIR = REPO_ROOT / "exported_content" / "marketing"
 REQUIRED_FILES = ("product.zip", "listing.txt")
 REPORTED_FILES = ("product.zip", "cover.png", "preview-1.png", "preview-2.png",
                   "preview-3.png", "pinterest.png", "listing.txt")
+MAX_ZIP_MB = 250
 
 try:
     import product_qa_deep as _qa_deep
@@ -59,7 +61,17 @@ def report_row(pack_dir, marketing_root):
         if files["product.zip"] else None
     qa = deep_qa_verdict(pack_dir)
     marketing = marketing_ready(pack_dir, marketing_root)
-    ready = files["product.zip"] and files["listing.txt"] and qa == "ready"
+    zip_too_big = size_mb is not None and size_mb > MAX_ZIP_MB
+    if not zip_too_big and files["product.zip"]:
+        try:
+            with zipfile.ZipFile(pack_dir / "product.zip") as z:
+                uncompressed_mb = round(
+                    sum(info.file_size for info in z.infolist()) / (1024 * 1024), 1)
+                if uncompressed_mb > MAX_ZIP_MB:
+                    zip_too_big = True
+        except Exception:
+            pass
+    ready = files["product.zip"] and files["listing.txt"] and qa == "ready" and not zip_too_big
     return {
         "id": pack_dir.name,
         "files": files,
@@ -67,6 +79,7 @@ def report_row(pack_dir, marketing_root):
         "qa": qa,
         "marketing": marketing,
         "ready": ready,
+        "reason": "zip too big" if zip_too_big else "",
     }
 
 
@@ -96,7 +109,10 @@ def render_line(row):
     parts.append(f"qa {row['qa']}")
     parts.append(f"marketing {_mark(row['marketing'])}")
     status = "READY" if row["ready"] else "NOT READY"
-    return f"{row['id']}  {' · '.join(parts)}  {status}"
+    line = f"{row['id']}  {' · '.join(parts)}  {status}"
+    if row["reason"]:
+        line += f"  ({row['reason']})"
+    return line
 
 
 def summary(rows):

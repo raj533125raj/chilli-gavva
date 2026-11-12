@@ -4,6 +4,7 @@ import contextlib
 import io
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -37,6 +38,33 @@ PNG = base64.b64decode(
 
 
 class UploadPackTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        # Build the expensive planner PDFs and base product folder ONCE; every test
+        # gets a cheap private copy, so the PDF generator is not re-run 21 times.
+        cls._base = tempfile.TemporaryDirectory()
+        base = Path(cls._base.name)
+        prod = base / "products" / "17-focus-planner"
+        prod.mkdir(parents=True)
+        (prod / "listing.md").write_text(LISTING)
+        (prod / "README.md").write_text("# Focus Planner\nWrite with a pen.\n")
+        (prod / "LICENSE.txt").write_text(product_builder.LICENSE_TEXT)
+        pages = [
+            {"title": "Brain Dump", "sections": [{"heading": "Thoughts", "type": "lines", "count": 20}]},
+            {"title": "Daily Focus", "sections": [{"heading": "Priorities", "type": "lines", "count": 20}]}]
+        spec = {"name": "Focus Planner", "listing": {"title": "Focus Planner", "buyer": "adults"},
+                "pages": pages}
+        for size in ("A4", "Letter"):
+            product_builder.build_planner_pdf(str(prod / f"focus-{size}.pdf"), spec, size)
+        (prod / "cover.png").write_bytes(PNG)
+        cls._base_folder = prod
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._base.cleanup()
+        super().tearDownClass()
+
     def setUp(self):
         # Remove every inherited GITHUB_* key, including newly introduced CI keys.
         env = {k: v for k, v in os.environ.items() if not k.startswith("GITHUB_")}
@@ -47,20 +75,10 @@ class UploadPackTests(unittest.TestCase):
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name).resolve()
         self.folder = self.root / "products" / "17-focus-planner"
-        self.folder.mkdir(parents=True)
+        self.folder.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(UploadPackTests._base_folder, self.folder)
         self.out = self.root / "packs"
         self.listing = self.folder / "listing.md"
-        self.listing.write_text(LISTING)
-        (self.folder / "README.md").write_text("# Focus Planner\nWrite with a pen.\n")
-        (self.folder / "LICENSE.txt").write_text(product_builder.LICENSE_TEXT)
-        pages = [
-            {"title": "Brain Dump", "sections": [{"heading": "Thoughts", "type": "lines", "count": 20}]},
-            {"title": "Daily Focus", "sections": [{"heading": "Priorities", "type": "lines", "count": 20}]}]
-        spec = {"name": "Focus Planner", "listing": {"title": "Focus Planner", "buyer": "adults"},
-                "pages": pages}
-        for size in ("A4", "Letter"):
-            product_builder.build_planner_pdf(str(self.folder / f"focus-{size}.pdf"), spec, size)
-        (self.folder / "cover.png").write_bytes(PNG)
 
     def test_good_real_folder_four_files_and_exact_buyer_content(self):
         self.assertEqual(truth_check.check(str(self.folder))["verdict"], "ready")

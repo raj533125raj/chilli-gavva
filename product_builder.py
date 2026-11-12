@@ -1119,9 +1119,16 @@ def _build_sheets(folder, spec):
 
 def _build_planner(folder, spec):
     files = []
+    # Ensure theme from spec or niche default is applied
+    import pdf_themes
+    pdf_themes.register_themes_in_pdf_design()
+    planner_spec = dict(spec)
+    theme = pdf_themes.get_theme_for_spec(spec)
+    if "style" not in planner_spec:
+        planner_spec["style"] = theme["slug"]
     for size in ("A4", "Letter"):
         name = f"{spec['short_name']}-{size}.pdf"
-        build_planner_pdf(os.path.join(folder, name), spec, size)
+        build_planner_pdf(os.path.join(folder, name), planner_spec, size)
         files.append(name)
     return files, ["Print the A4 or US Letter PDF at 100% scale (or use it in a PDF annotation app).",
                    "Print as many copies as you need for personal use."]
@@ -1176,9 +1183,16 @@ LICENSE_TEXT = "Personal use only. Do not resell or share the files.\n"
 
 def _build_dated_planner(folder, spec):
     files = []
+    # Ensure theme from spec or niche default is applied
+    import pdf_themes
+    pdf_themes.register_themes_in_pdf_design()
+    planner_spec = dict(spec)
+    theme = pdf_themes.get_theme_for_spec(spec)
+    if "style" not in planner_spec:
+        planner_spec["style"] = theme["slug"]
     for size in ("A4", "Letter"):
         name = f"{spec['short_name']}-{size}.pdf"
-        build_dated_planner_pdf(os.path.join(folder, name), spec, size)
+        build_dated_planner_pdf(os.path.join(folder, name), planner_spec, size)
         files.append(name)
     import pdf_design
     months, first = pdf_design.planner_months(spec)

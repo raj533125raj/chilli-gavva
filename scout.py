@@ -18,6 +18,7 @@ import sys
 import cubes
 import guardrails
 import niche_topics
+import learning_loop
 import public_export
 import rest_window
 import secret_guard
@@ -928,7 +929,19 @@ def run_scout(db_path=None, llm=None):
 
         # Prefer niches whose past drafts were approved or built READY
         niche_boost = niche_scores.get(adjusted["niche"], 0)
-        adjusted["total_score"] = adjusted.get("total_score", 80) + min(15, niche_boost // 2)
+        base_score = adjusted.get("total_score", 80) + min(15, niche_boost // 2)
+
+        # Apply learning loop weight when sufficient history exists
+        learned_weight = 1.0
+        try:
+            learned_weight = learning_loop.get_candidate_weight(adjusted, db_path=db_path)
+            if learned_weight != 1.0:
+                base_score = round(base_score * learned_weight)
+        except Exception:
+            pass
+
+        adjusted["total_score"] = base_score
+        adjusted["learning_weight"] = learned_weight
 
         # Ensure why_pass and why_sells are present and scrubbed of currency/money
         if not adjusted.get("why_pass"):
@@ -938,6 +951,16 @@ def run_scout(db_path=None, llm=None):
         aud = adjusted.get("audience") or detect_audience(adjusted["idea"])
         if not adjusted.get("why_sells"):
             adjusted["why_sells"] = generate_why_sells(adjusted["idea"], audience=aud, fmt=fmt_adj)
+
+        # Attach learned Tenglish why line if available
+        try:
+            learning_why = learning_loop.generate_learning_why(adjusted, db_path=db_path)
+            if learning_why:
+                adjusted["learning_why"] = learning_why
+                adjusted["why_sells"] = f"{adjusted['why_sells']} {learning_why}".strip()
+        except Exception:
+            pass
+
         adjusted["why_sells"] = secret_guard.scrub_text(adjusted["why_sells"])
 
         filtered_candidates.append(adjusted)
@@ -1016,7 +1039,19 @@ def run_scout(db_path=None, llm=None):
                         f"Why this should pass: {item['why_pass']}\n"
                         f"Reason: {item['reason']}")
 
-        review_str = f"Score: {item['total_score']}/100 | Why sells: {item['why_sells']} | Why pass: {item['why_pass']} | {item['reason']}"
+        # Every Scout idea goes through the strict rule checker (no AI call), so the alert and the
+        # 24h auto-approve never trust the Scout's own ranking score.
+        try:
+            import checker as _checker
+            _chk = _checker.rule_based_fallback(f"[Scout Idea] {item['idea']}\n{payload_text}",
+                                                topic=item['idea'], recent_drafts=None, db_path=db_path)
+            _cs, _cv = int(_chk.get("score", 0)), str(_chk.get("verdict", "revise")).upper()
+            _why = "; ".join(r for r in (_chk.get("reasons") or [])[:3] if r)
+        except Exception:
+            _cs, _cv, _why = 0, "UNAVAILABLE", "checker error"
+        review_str = (f"Checker: {_cs}/100 | CHECKER: {_cv} (rules) | Scout: {item['total_score']}/100"
+                      + (f" | top: {_why}" if _why else "")
+                      + f" | Why sells: {item['why_sells']} | Why pass: {item['why_pass']} | {item['reason']}")
         title = f"[Scout Idea] {item['idea']}"
 
         approval_id = guardrails.request_approval(

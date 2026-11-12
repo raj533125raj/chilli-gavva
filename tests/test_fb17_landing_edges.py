@@ -272,13 +272,8 @@ class TestFb17LandingEdges(unittest.TestCase):
         self.assertIn("బాగుంది", html)
         self.assertIn("మంచి ప్లానర్", html)
 
-    # 11. Real bug -> expectedFailure + one-line reason
-    @unittest.expectedFailure
+    # 11. Real bug fixed: JSON-LD price in description is stripped from schema
     def test_json_ld_price_in_description_is_stripped_from_schema(self):
-        # Keep only as expectedFailure with this one-line reason:
-        # JSON-LD name/description can still carry money text from the listing
-        # when sanitize_text already stripped it but schema rebuilds from the
-        # already-sanitized fields; kept here so the path stays covered.
         pack = self.tmp / "money-schema-pack"
         pack.mkdir()
         _write_listing(pack, "Plan costs token", description="price token is not shown.",
