@@ -129,7 +129,8 @@ def reset_registry():
     _REGISTRY.clear()
     for fid, meta in BUILTIN_FORMATS.items():
         register_format(fid, meta["keywords"], build_fn=None, description=meta["description"])
-    _DISCOVERED = True
+    # Only built-ins are registered now; builder_*.py files are still to be discovered.
+    _DISCOVERED = False
 
 
 # Initialise with built-ins
@@ -165,12 +166,16 @@ def discover_builders(search_dir=None, force_reload=False) -> dict[str, dict]:
             sys.path.insert(0, str(root_path))
 
         try:
-            spec = importlib.util.spec_from_file_location(mod_name, file_path)
-            if spec is None or spec.loader is None:
-                continue
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[mod_name] = module
-            spec.loader.exec_module(module)
+            existing = sys.modules.get(mod_name)
+            if existing is not None and Path(getattr(existing, "__file__", "") or "").resolve() == file_path.resolve():
+                module = existing  # reuse the already-imported module (never load a second copy)
+            else:
+                spec = importlib.util.spec_from_file_location(mod_name, file_path)
+                if spec is None or spec.loader is None:
+                    continue
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[mod_name] = module
+                spec.loader.exec_module(module)
 
             fmt = getattr(module, "FORMAT", None)
             kws = getattr(module, "KEYWORDS", None)
@@ -183,6 +188,8 @@ def discover_builders(search_dir=None, force_reload=False) -> dict[str, dict]:
             if not callable(build_fn):
                 continue
 
+            if fmt in _REGISTRY and _REGISTRY[fmt].get("build"):
+                continue  # a format registered by hand keeps its own builder
             register_format(
                 format_id=fmt,
                 keywords=list(kws),
