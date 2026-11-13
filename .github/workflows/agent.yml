@@ -212,7 +212,7 @@ jobs:
           python3 tools/run_tests_chunked.py
           # Some tests write to the real database / status file. Put the committed copies back
           # (and drop files tests created) so test data is never saved by "Save state".
-          git checkout -- web/data/status.json agent_data.db.enc products.tar.gz.enc .scheduler_locks
+          git checkout -- web/data/status.json agent_data.db.enc products.tar.gz.enc .scheduler_locks exported_content
           python3 scripts/db_crypt.py decrypt
           git clean -fdq -- exported_content .scheduler_locks
           ROBOT_STEP

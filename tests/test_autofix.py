@@ -643,7 +643,7 @@ class ProviderOrderTests(unittest.TestCase):
             self.assertIn("timeout-minutes: 1", block)
             self.assertNotIn("API_KEY", block)
         prompt = ConfigurationTests.workflow_step("prompt")
-        self.assertIn('cp autofix.py run_failure.py notify.py secret_guard.py autofix_retry.py "$RUNNER_TEMP/autofix-control/"', prompt)
+        self.assertIn('cp autofix.py run_failure.py notify.py secret_guard.py autofix_retry.py telegram_diagnostics.py "$RUNNER_TEMP/autofix-control/"', prompt)
         self.assertIn('python3 "$RUNNER_TEMP/autofix-control/autofix.py" result-start', prompt)
 
     def test_successful_exit_without_remote_proposal_tries_every_allowed_provider_and_fails(self):

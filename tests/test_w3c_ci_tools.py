@@ -664,7 +664,7 @@ class TestRunTestsChunked(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertIsNone(mock_run.call_args[1]["tests_dir"])
             self.assertEqual(mock_run.call_args[1]["chunk_size"], 20)
-            self.assertEqual(mock_run.call_args[1]["timeout_per_chunk"], 120)
+            self.assertEqual(mock_run.call_args[1]["timeout_per_chunk"], 300)
 
     def test_56_run_tests_chunked_environment_chilli_test_default(self):
         env_passed = {}
@@ -763,3 +763,25 @@ class TestRunTestsChunked(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ChunkedRunnerImportPathTest(unittest.TestCase):
+    def test_tests_folder_is_on_pythonpath_like_discover(self):
+        import os, importlib
+        import importlib.util
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        spec = importlib.util.spec_from_file_location("rtc_pp", os.path.join(root, "tools", "run_tests_chunked.py"))
+        rtc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(rtc)
+        seen = {}
+
+        def fake_runner(cmd, **kw):
+            seen["pp"] = kw["env"]["PYTHONPATH"].split(os.pathsep)
+            class R:
+                returncode = 0
+                stdout = "Ran 1 test in 0.1s\n\nOK\n"
+            return R()
+
+        rtc.run_all_chunked(chunk_size=500, runner=fake_runner, log_func=lambda *a: None)
+        self.assertIn(os.path.join(root, "tests"), seen["pp"])
+        self.assertIn(root, seen["pp"])

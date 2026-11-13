@@ -50,7 +50,8 @@ PATTERNS = [
 ]
 EMAIL = re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b")
 SAFE_EMAIL = re.compile(r"(?i)(noreply|no-reply|example\.(com|org)|\.invalid$|@test\.|@localhost|"
-                        r"users\.noreply\.github\.com|@anthropic\.com$|@email\.com$|@domain\.com$|@x$|@t$)")
+                        r"users\.noreply\.github\.com|@anthropic\.com$|@email\.com$|@domain\.com$|@x$|@t$|"
+                        r"@chilligavva\.local$)")  # calendar event UIDs (post-...@chilligavva.local), not people
 
 
 def scrub_text(text, replacement="[hidden]", env=None):

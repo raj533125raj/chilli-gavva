@@ -17,7 +17,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CHUNK_SIZE = 20
-DEFAULT_TIMEOUT_PER_CHUNK = 120  # 2 minutes per chunk
+DEFAULT_TIMEOUT_PER_CHUNK = 300  # 5 minutes per chunk (GitHub runners are slower than local)
 
 
 def discover_test_modules(tests_dir=None):
@@ -249,6 +249,13 @@ def run_all_chunked(
     """
     run_env = dict(os.environ if env is None else env)
     run_env.setdefault("CHILLI_TEST", "1")
+    # Same import paths as "python3 -m unittest discover -s tests": the repo root AND the tests
+    # folder (several tests import shared helpers such as test_office_controls by plain name).
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    t_dir = os.path.abspath(tests_dir) if tests_dir else os.path.join(repo_root, "tests")
+    extra = [repo_root, t_dir]
+    old_pp = run_env.get("PYTHONPATH", "")
+    run_env["PYTHONPATH"] = os.pathsep.join(extra + ([old_pp] if old_pp else []))
 
     modules = discover_test_modules(tests_dir)
     if not modules:
