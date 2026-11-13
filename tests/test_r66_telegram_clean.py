@@ -144,7 +144,13 @@ class TestR66TelegramClean(unittest.TestCase):
 
         ti.set_state("last_cloud_run_ts", "2026-10-31T05:00:00Z", self.db)
 
-        text = ti.status_text(self.db)
+        # Use an empty products folder: in CI the real private products are unpacked and a real
+        # "1-..." folder would replace this fake product's check result.
+        import public_export, tempfile
+        from unittest import mock as _mock
+        with tempfile.TemporaryDirectory() as empty_products, \
+                _mock.patch.object(public_export, "PRODUCTS_DIR", empty_products):
+            text = ti.status_text(self.db)
         self.assertIn("ok: Groq", text)
         self.assertIn("failing: Gemini", text)
         self.assertIn("GitHub minutes: 450/2000", text)

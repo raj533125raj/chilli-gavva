@@ -17,7 +17,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CHUNK_SIZE = 20
-DEFAULT_TIMEOUT_PER_CHUNK = 300  # 5 minutes per chunk (GitHub runners are slower than local)
+DEFAULT_TIMEOUT_PER_CHUNK = 480  # 8 minutes per chunk (a GitHub chunk took 217 s on 2026-11-13)
 
 
 def discover_test_modules(tests_dir=None):

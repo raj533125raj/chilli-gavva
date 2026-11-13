@@ -664,7 +664,7 @@ class TestRunTestsChunked(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertIsNone(mock_run.call_args[1]["tests_dir"])
             self.assertEqual(mock_run.call_args[1]["chunk_size"], 20)
-            self.assertEqual(mock_run.call_args[1]["timeout_per_chunk"], 300)
+            self.assertEqual(mock_run.call_args[1]["timeout_per_chunk"], 480)
 
     def test_56_run_tests_chunked_environment_chilli_test_default(self):
         env_passed = {}
