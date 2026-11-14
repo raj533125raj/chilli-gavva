@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-14T16:13:04Z",
+ "generated_at": "2026-11-14T18:13:37Z",
  "llm": {
   "calls_today": 7,
   "cap": 500
@@ -368,35 +368,35 @@
    "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-14T16:13:04Z"
+   "checked_at": "2026-11-14T18:13:37Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
    "state": "unknown",
    "reason": "No recent activity recorded",
-   "checked_at": "2026-11-14T16:13:04Z"
+   "checked_at": "2026-11-14T18:13:37Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "unknown",
    "reason": "No recent activity recorded",
-   "checked_at": "2026-11-14T16:13:04Z"
+   "checked_at": "2026-11-14T18:13:37Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-14T16:13:04Z"
+   "checked_at": "2026-11-14T18:13:37Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-14T16:13:04Z"
+   "checked_at": "2026-11-14T18:13:37Z"
   }
  ],
  "minutes": {
@@ -2267,12 +2267,15 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-14T16:13:03Z",
-  "last_run_end": "2026-11-14T16:13:04Z",
+  "last_run_start": "2026-11-14T18:13:36Z",
+  "last_run_end": "2026-11-14T18:13:37Z",
   "runner": "github-actions",
-  "run_id": "43613265176"
+  "run_id": "43624906575"
  },
  "changelog": [
+  "Faster tests, /listed, /sell pictures, Gumroad images, safer sell tools",
+  "agent: owner inbox state [skip ci]",
+  "agent: state + content update [skip ci]",
   "Sell first: /sell for Gumroad, Tenglish talk, marketing auto-build, Kiro fixes, 3 new product types",
   "agent: state + content update [skip ci]",
   "OpenCode OC1/OC2 + Kiro docs: buyer support kit, weekly PDF report, DB care, SEO kit, Gumroad guide",
@@ -2289,10 +2292,7 @@
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "FB16 calendar edge tests, FB17 landing edge tests, FB19 marketing tools guide",
-  "Jules V round: Telegram plugins (menu, files, keyboard, settings, reports, posts, auto-approve), stricter checker, varied scout, format registry, wall art + ema"
+  "agent: state + content update [skip ci]"
  ],
  "daily_report": {
   "date_ist": "2026-11-14",
