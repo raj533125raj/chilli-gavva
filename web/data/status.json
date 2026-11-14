@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-14T10:31:23Z",
+ "generated_at": "2026-11-14T12:36:23Z",
  "llm": {
   "calls_today": 7,
   "cap": 500
@@ -368,35 +368,35 @@
    "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-14T10:31:23Z"
+   "checked_at": "2026-11-14T12:36:23Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
    "state": "unknown",
    "reason": "No recent activity recorded",
-   "checked_at": "2026-11-14T10:31:23Z"
+   "checked_at": "2026-11-14T12:36:23Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "unknown",
    "reason": "No recent activity recorded",
-   "checked_at": "2026-11-14T10:31:23Z"
+   "checked_at": "2026-11-14T12:36:23Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-14T10:31:23Z"
+   "checked_at": "2026-11-14T12:36:23Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-14T10:31:23Z"
+   "checked_at": "2026-11-14T12:36:23Z"
   }
  ],
  "minutes": {
@@ -2267,12 +2267,14 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-14T10:31:23Z",
-  "last_run_end": "2026-11-14T10:31:23Z",
+  "last_run_start": "2026-11-14T12:36:23Z",
+  "last_run_end": "2026-11-14T12:36:23Z",
   "runner": "github-actions",
-  "run_id": "43585615107"
+  "run_id": "43594798448"
  },
  "changelog": [
+  "OpenCode OC1/OC2 + Kiro docs: buyer support kit, weekly PDF report, DB care, SEO kit, Gumroad guide",
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "Fix the last CI failure and give tests more time",
   "Fix the 'Python module' test failures and the broken auto-fix",
@@ -2289,8 +2291,6 @@
   "agent: state + content update [skip ci]",
   "FB16 calendar edge tests, FB17 landing edge tests, FB19 marketing tools guide",
   "Jules V round: Telegram plugins (menu, files, keyboard, settings, reports, posts, auto-approve), stricter checker, varied scout, format registry, wall art + ema",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]"
  ],
