@@ -99,6 +99,13 @@ def handle(text: str, ctx: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if lower == b or lower.startswith(b + " ") or lower.startswith(b + "@"):
             return None
 
+    # Bare "sale" is a declared word but names no pack, so the ledger parser returned nothing and the
+    # owner got "Ardam kaaledu". Say how a sale is recorded instead.
+    if lower.rstrip("?.! ") in ("sale", "/sale"):
+        return {"text": ("Sale note cheyadaniki pack number cheppandi, udaharanaki: 'sale pack 3 Gumroad' "
+                         "leda 'pack 5 ki 2 sales Etsy'.\nSummary kosam: /sales (today | week | month | all).\n"
+                         "Chivari sale teeseyadaniki: /sales undo")}
+
     # Parse via sales_ledger
     parsed = sales_ledger.parse_sales_input(raw)
     if not parsed:

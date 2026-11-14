@@ -339,7 +339,8 @@ def inspect_listing_lint(pack_dir: Path) -> Dict[str, Any]:
 
 def find_marketing_dir(pack_dir: Path, marketing_base: Optional[Path] = None) -> Optional[Path]:
     """Locate the marketing directory for a given pack folder."""
-    base = marketing_base or Path("exported_content/marketing")
+    base = marketing_base or (Path(__file__).resolve().parent / "exported_content" / "marketing")
+    base = Path(base)
     if not base.is_dir():
         return None
 
@@ -354,6 +355,16 @@ def find_marketing_dir(pack_dir: Path, marketing_base: Optional[Path] = None) ->
         aid = m.group(1)
         for child in base.iterdir():
             if child.is_dir() and (child.name == aid or child.name.startswith(f"{aid}-")):
+                return child
+
+    def _slug(name: str) -> str:
+        name = re.sub(r"^\d+[-_ ]*", "", name.lower())
+        return re.sub(r"[^a-z0-9]+", "-", name).strip("-")
+
+    pack_slug = _slug(pack_dir.name)
+    if pack_slug:
+        for child in sorted(base.iterdir()):
+            if child.is_dir() and _slug(child.name) == pack_slug:
                 return child
 
     return None
@@ -468,17 +479,6 @@ def inspect_store_kits(pack_dir: Path) -> Dict[str, Any]:
             has_kits = True
             stores_found = [f.stem.replace("kit-", "") for f in root_kits]
 
-    # Also check if tg_kits / store_kits module is present to build on-the-fly
-    if not has_kits:
-        try:
-            import store_kits
-            # If the module exists and pack has listing.txt, consider it accessible
-            if (pack_dir / "listing.txt").is_file():
-                has_kits = True
-                stores_found = ["generator-ready"]
-        except ImportError:
-            pass
-
     score = 100 if has_kits else 0
     if not has_kits:
         issues.append("Missing store listing kits (store-kits folder)")
@@ -516,6 +516,7 @@ def inspect_preview_images(pack_dir: Path, marketing_base: Optional[Path] = None
             "image_count": 0,
             "issues": ["No preview or cover image files found"],
             "max_file_size": 0,
+            "hard_fail": True,
         }
 
     max_size = 0
@@ -547,6 +548,7 @@ def inspect_preview_images(pack_dir: Path, marketing_base: Optional[Path] = None
         "image_count": len(images),
         "max_file_size": max_size,
         "issues": issues,
+        "hard_fail": False,
     }
 
 
@@ -595,7 +597,7 @@ def inspect_design_theme(pack_dir: Path) -> Dict[str, Any]:
             pass
 
     has_theme = theme_found is not None
-    score = 100 if has_theme else 40
+    score = 100 if has_theme else 0
     if not has_theme:
         issues.append("Design theme not specified in metadata or listing")
 
@@ -673,6 +675,8 @@ def evaluate_pack(
         hard_fails.append(f"Deep QA: score {deep_qa_res.get('score')} too low or critical errors")
     if lint_res.get("hard_fail"):
         hard_fails.append("Listing lint: forbidden money text or multiple critical lint fails")
+    if preview_res.get("hard_fail"):
+        hard_fails.append("Previews: no cover or preview images found")
 
     # 3. Calculate weighted score (0–100)
     # Weights:
@@ -718,7 +722,7 @@ def evaluate_pack(
     # 5. Determine honest status
     if hard_fails:
         status = STATUS_NOT_YET
-    elif overall_score >= SELLABLE_MIN_SCORE and not all_fixes:
+    elif overall_score >= SELLABLE_MIN_SCORE:
         status = STATUS_SELLABLE
     elif overall_score >= ALMOST_MIN_SCORE:
         status = STATUS_ALMOST

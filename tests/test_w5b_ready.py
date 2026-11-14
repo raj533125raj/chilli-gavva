@@ -485,7 +485,7 @@ class TestSellReadyCore(unittest.TestCase):
         p_dir = create_mock_pack(self.products_dir, theme=None)
         res = sell_ready.inspect_design_theme(p_dir)
         self.assertFalse(res["has_theme"])
-        self.assertEqual(res["score"], 40)
+        self.assertEqual(res["score"], 0)
         self.assertTrue(any("theme not specified" in i for i in res["issues"]))
 
 
@@ -525,8 +525,8 @@ class TestSellReadyEvaluation(unittest.TestCase):
     @mock.patch("product_qa_deep.check_folder")
     def test_evaluate_pack_almost(self, mock_qa, mock_tc):
         # Truth check and Deep QA are passing, but missing marketing files and store kits
-        mock_tc.return_value = {"verdict": "ready", "score": 90, "problems": []}
-        mock_qa.return_value = {"verdict": "ready", "score": 90, "problems": []}
+        mock_tc.return_value = {"verdict": "ready", "score": 80, "problems": []}
+        mock_qa.return_value = {"verdict": "ready", "score": 70, "problems": []}
 
         p_dir = create_mock_pack(self.products_dir, theme="Calm Sage")
         res = sell_ready.evaluate_pack(p_dir, self.root / "empty_mkt")

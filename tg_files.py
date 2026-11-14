@@ -165,21 +165,22 @@ def find_ready_pack_dir(aid: int | str, ctx: Optional[Dict[str, Any]] = None) ->
 def find_marketing_pack_dir(aid: int | str, ctx: Optional[Dict[str, Any]] = None) -> Optional[Path]:
     """Marketing folder for pack aid (exact or '<aid>-' prefix names), or None."""
     aid_str = str(aid)
-    _, marketing_dir = _get_base_dirs(ctx)
-    if not marketing_dir.is_dir():
-        return None
-
-    try:
-        entries = sorted(marketing_dir.iterdir())
-    except OSError:
-        return None
-
-    for child in entries:
+    products_dir, marketing_dir = _get_base_dirs(ctx)
+    # The shared marketing folder first, then the private one that marketing_auto fills for READY
+    # packs (<products>/marketing/<pack>/). Before, /pins N and /landing N never found those files.
+    for base in (marketing_dir, products_dir / "marketing"):
+        if not base.is_dir():
+            continue
         try:
-            if child.is_dir() and (child.name == aid_str or child.name.startswith(f"{aid_str}-")):
-                return child
+            entries = sorted(base.iterdir())
         except OSError:
             continue
+        for child in entries:
+            try:
+                if child.is_dir() and (child.name == aid_str or child.name.startswith(f"{aid_str}-")):
+                    return child
+            except OSError:
+                continue
     return None
 
 

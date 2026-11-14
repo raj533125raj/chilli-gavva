@@ -81,7 +81,7 @@ def _find_target_pack(aid: int, products_dir: Optional[str] = None) -> Optional[
             for p in sorted(sdir.iterdir()):
                 if not p.is_dir() or p.name == "upload":
                     continue
-                if re.match(rf"^{aid}(?:-.*)?$", p.name):
+                if re.match(rf"^0*{aid}(?:-.*)?$", p.name):
                     return p
         except OSError:
             continue

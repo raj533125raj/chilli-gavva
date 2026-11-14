@@ -40,7 +40,7 @@ import re
 import sys
 import tempfile
 import unicodedata
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import listing_fields
 
@@ -282,8 +282,14 @@ def grapheme_clusters(text: str) -> List[str]:
         is_combining = category in ("Mn", "Mc", "Me")
         is_variation_selector = (0xFE00 <= ord(char) <= 0xFE0F) or (0xE0100 <= ord(char) <= 0xE01EF)
         is_zwj = ord(char) == 0x200D
+        is_regional_indicator = 0x1F1E6 <= ord(char) <= 0x1F1FF
+        starts_flag_pair = (
+            is_regional_indicator
+            and len(current_cluster) == 1
+            and 0x1F1E6 <= ord(current_cluster) <= 0x1F1FF
+        )
 
-        if current_cluster and (is_combining or is_variation_selector or is_zwj or current_cluster.endswith("\u200D")):
+        if current_cluster and (is_combining or is_variation_selector or is_zwj or starts_flag_pair or current_cluster.endswith("\u200D")):
             current_cluster += char
         else:
             if current_cluster:
@@ -578,10 +584,9 @@ def generate_kit_text(
 
     content = "\n".join(lines)
 
-    # Safety check: ensure no currency amounts slipped in
     money_hit = check_money(content)
     if money_hit:
-        content = sanitize_no_money(content)
+        raise ValueError(f"Generated kit content contains forbidden money amount: {money_hit}")
 
     return content
 
@@ -590,7 +595,7 @@ def generate_kit_text(
 # Core Builder: build(pack_dir)
 # ---------------------------------------------------------------------------
 
-def build(pack_dir: Path | str) -> Dict[str, Path]:
+def build(pack_dir: Union[Path, str]) -> Dict[str, Path]:
     """Generate <pack>/store-kits/<store>.txt for all 6 supported stores.
 
     Writes atomically and deterministically.
@@ -628,7 +633,7 @@ def build(pack_dir: Path | str) -> Dict[str, Path]:
 # Pack Discovery & CLI
 # ---------------------------------------------------------------------------
 
-def discover_ready_packs(products_dir: Path | str = "exported_content/products") -> List[Path]:
+def discover_ready_packs(products_dir: Union[Path, str] = "exported_content/products") -> List[Path]:
     """Find all ready upload packs under products_dir/upload or products_dir."""
     base = Path(products_dir)
     upload_dir = base / "upload" if (base / "upload").is_dir() else base

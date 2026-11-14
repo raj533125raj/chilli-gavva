@@ -698,7 +698,10 @@ def handle(text: str, ctx: dict) -> dict | None:
             return handle_post_tomorrow(ctx)
         if is_week:
             return handle_post_week(ctx)
-        if is_today or norm in ("/post today", "post today", "/post", "post", "today posts", "ee roju posts"):
+        # "post chey" is a declared word of /post but had no branch here, so it fell through to
+        # "Ardam kaaledu". It means: give me today's posts to post.
+        if is_today or norm in ("/post today", "post today", "/post", "post", "today posts", "ee roju posts",
+                                "post chey", "/post chey", "post cheyali", "posts chey"):
             return handle_post_today(ctx)
 
     # Specific slash commands

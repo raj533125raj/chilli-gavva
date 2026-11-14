@@ -29,6 +29,25 @@ def _upd(uid, text, chat=OWNER):
     return {"update_id": uid, "message": {"chat": {"id": int(chat)}, "text": text}}
 
 
+# Several commands under test write below a relative "exported_content/" path (post plan, pack
+# versions, lint notes). Run this module from a temp folder so nothing lands in the repo.
+_ORIGINAL_CWD = os.getcwd()
+_SCRATCH_CWD = None
+
+
+def setUpModule():
+    global _SCRATCH_CWD
+    import tempfile as _tempfile
+    _SCRATCH_CWD = _tempfile.TemporaryDirectory()
+    os.chdir(_SCRATCH_CWD.name)
+
+
+def tearDownModule():
+    os.chdir(_ORIGINAL_CWD)
+    if _SCRATCH_CWD is not None:
+        _SCRATCH_CWD.cleanup()
+
+
 class PluginLoaderTests(unittest.TestCase):
     def setUp(self):
         self.env = mock.patch.dict(os.environ, {

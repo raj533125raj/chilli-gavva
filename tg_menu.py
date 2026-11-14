@@ -267,7 +267,9 @@ def handle(text: str, ctx: dict) -> dict | None:
         return {"text": format_grouped_menu()}
 
     # 3. /help or /help <word> or help <word>
-    help_match = re.match(r"^/?help(?:\s+(.*))?$", raw, re.IGNORECASE)
+    # "sahayam" and "ela cheyali" are declared /help words; before they were not matched here and
+    # ended in "Ardam kaaledu".
+    help_match = re.match(r"^(?:/?help|sahayam|ela\s+cheyali)(?:\s+(.*))?$", raw.rstrip("?.! "), re.IGNORECASE)
     if help_match:
         target = (help_match.group(1) or "").strip()
         if not target:

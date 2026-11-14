@@ -120,6 +120,34 @@ def fake_llm_dispatch(prompt: str, size: str = None, **kwargs) -> str:
     )
 
 
+# Several commands under test write below a relative "exported_content/" path (post plan, pack
+# versions, lint notes). Run this module from a temp folder so nothing lands in the repo.
+_ORIGINAL_CWD = os.getcwd()
+_SCRATCH_CWD = None
+_SAVED_DEFAULT = None
+
+
+def setUpModule():
+    global _SCRATCH_CWD
+    import tempfile as _tempfile
+    _SCRATCH_CWD = _tempfile.TemporaryDirectory()
+    os.chdir(_SCRATCH_CWD.name)
+    # weekly_routine.DEFAULT_PRODUCTS_DIR is an absolute repo path: point it at the temp folder too.
+    import weekly_routine as _module
+    from pathlib import Path as _Path
+    global _SAVED_DEFAULT
+    _SAVED_DEFAULT = _module.DEFAULT_PRODUCTS_DIR
+    _module.DEFAULT_PRODUCTS_DIR = _Path(_SCRATCH_CWD.name) / "exported_content" / "products"
+
+
+def tearDownModule():
+    os.chdir(_ORIGINAL_CWD)
+    import weekly_routine as _module
+    _module.DEFAULT_PRODUCTS_DIR = _SAVED_DEFAULT
+    if _SCRATCH_CWD is not None:
+        _SCRATCH_CWD.cleanup()
+
+
 class FakeTelegramBot:
     """In-memory mock for Telegram getUpdates, sendMessage, and document sending."""
 

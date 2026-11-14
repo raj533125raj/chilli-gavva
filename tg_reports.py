@@ -190,12 +190,23 @@ def extract_pack_id(text: str) -> Optional[str]:
     m = re.search(r"(?:pack\s+|#)?(\d+)", text, re.IGNORECASE)
     if m:
         return m.group(1)
-    tokens = text.strip().split()
-    if len(tokens) >= 2:
-        candidate = tokens[1].strip().lstrip("#")
-        if candidate:
+    # A pack folder name may follow the command ("/seo 20-adhd-planner"). The command's own words
+    # ("seo score", "faq pampu", "pack version") are not pack names: before this check they were
+    # answered with "Pack #score ready folder dorakaledu".
+    for token in text.strip().split()[1:]:
+        candidate = token.strip().lstrip("#")
+        if candidate and candidate.lower() not in _COMMAND_WORDS:
             return candidate
     return None
+
+
+# Every single word used in this plugin's declared commands / phrases, plus common request words.
+_COMMAND_WORDS = {
+    word.lstrip("/")
+    for entry in COMMANDS
+    for phrase in [entry.get("cmd", "")] + list(entry.get("words") or [])
+    for word in str(phrase).lower().split()
+} | {"pack", "chupinchu", "pampu", "pampinchu", "kavali", "cheppu", "chey", "ivvu", "send", "show", "ki", "ni", "lo"}
 
 
 # --- Command Handlers ---

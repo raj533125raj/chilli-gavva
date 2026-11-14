@@ -43,6 +43,34 @@ def run_module(argv):
     return code, buffer.getvalue()
 
 
+# Several commands under test write below a relative "exported_content/" path (post plan, pack
+# versions, lint notes). Run this module from a temp folder so nothing lands in the repo.
+_ORIGINAL_CWD = os.getcwd()
+_SCRATCH_CWD = None
+_SAVED_DEFAULT = None
+
+
+def setUpModule():
+    global _SCRATCH_CWD
+    import tempfile as _tempfile
+    _SCRATCH_CWD = _tempfile.TemporaryDirectory()
+    os.chdir(_SCRATCH_CWD.name)
+    # listing_lint.SUGGEST_ROOT is an absolute repo path: point it at the temp folder too.
+    import listing_lint as _module
+    from pathlib import Path as _Path
+    global _SAVED_DEFAULT
+    _SAVED_DEFAULT = _module.SUGGEST_ROOT
+    _module.SUGGEST_ROOT = _Path(_SCRATCH_CWD.name) / "exported_content" / "products" / "lint"
+
+
+def tearDownModule():
+    os.chdir(_ORIGINAL_CWD)
+    import listing_lint as _module
+    _module.SUGGEST_ROOT = _SAVED_DEFAULT
+    if _SCRATCH_CWD is not None:
+        _SCRATCH_CWD.cleanup()
+
+
 class SuggestForTests(unittest.TestCase):
     """Unit tests for listing_lint.suggest_for()."""
 

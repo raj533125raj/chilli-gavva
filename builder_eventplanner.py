@@ -67,6 +67,7 @@ except ImportError:
     HAS_PILLOW = False
 
 import pdf_design
+import store_kits
 
 # --- Constants & Format Registration ---
 
@@ -174,7 +175,7 @@ def _rgb_norm(rgb_255: Tuple[int, int, int]) -> Tuple[float, float, float]:
     return (rgb_255[0] / 255.0, rgb_255[1] / 255.0, rgb_255[2] / 255.0)
 
 
-def normalize_event_spec(spec: Dict[str, Any] | None) -> Dict[str, Any]:
+def normalize_event_spec(spec: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """Normalizes and validates spec for event planner generation."""
     raw = dict(spec or {})
 
@@ -1078,9 +1079,7 @@ def render_cover_image(out_path: Union[str, Path], spec: Dict[str, Any]) -> None
     draw.text((w / 2.0, 95), badge_text, fill=pal["accent"], font=font_badge, anchor="mm")
 
     # Main Title
-    title = norm["title"]
-    if len(title) > 42:
-        title = title[:40] + "..."
+    title = store_kits.trim_to_word_boundary(norm["title"], 42)
     draw.text((w / 2.0, 145), title, fill=pal["primary"], font=font_title, anchor="mm")
 
     sub = f"Organizing System for {norm['event_type'].replace('_', ' ').title()} · A4 & US Letter PDF Formats"
@@ -1363,7 +1362,7 @@ This printable event planning system is designed to provide complete peace of mi
 
 # --- Format Registration & Core build() Entrypoint ---
 
-def build(spec: Dict[str, Any] | None = None, out_dir: Union[str, Path] | None = None) -> Union[List[str], Dict[str, Any]]:
+def build(spec: Optional[Dict[str, Any]] = None, out_dir: Optional[Union[str, Path]] = None) -> Union[List[str], Dict[str, Any]]:
     """Builds the complete Event / Wedding Planner Pack.
 
     Creates:

@@ -123,6 +123,15 @@ def mark_encrypted(db_path=None, out_dir=None, archive=None):
         product_builder._record(db_path, aid, "built", folder, "READY; encrypted private pack")
 
 
+def _marketing_lines(db_path):
+    """CC1-1 hook: private marketing files for READY packs (max 3 per run); never stops delivery."""
+    try:
+        import marketing_auto
+        return marketing_auto.run_ready(db_path)
+    except Exception:
+        return {}
+
+
 def notify_ready(db_path=None, send=None):
     """Retry failed sends without rebuilding or spending any AI calls."""
     import notify
@@ -131,12 +140,14 @@ def notify_ready(db_path=None, send=None):
     rows = conn.execute("SELECT d.approval_id, a.title FROM product_deliveries d JOIN approvals a ON a.id=d.approval_id "
                         "WHERE d.status='ready' AND d.notified=0 AND a.status='approved' ORDER BY d.approval_id").fetchall()
     conn.close()
+    marketing = _marketing_lines(db_path)   # also backfills older READY packs
     for aid, title in rows:
         if aid in product_builder.OWNER_HOLDS:
             continue
         title = " ".join((title or "Product").split())[:140]
         try:
-            sent = send(f"Product ready: #{aid} {title} — files ready to upload\n/pack {aid}")
+            sent = send(f"Product ready: #{aid} {title} — files ready to upload\n/pack {aid}"
+                        + (f"\n{marketing[aid]}" if marketing.get(aid) else ""))
         except Exception:
             sent = False
         if sent:

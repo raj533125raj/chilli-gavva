@@ -242,6 +242,9 @@ class DataTests(unittest.TestCase):
         self.db = Path(self.tmp.name) / "state.db"
 
     def collect(self, now=NOW, plan=None):
+        # Never read the robot's real post plan from the repo: default to a missing temp file.
+        if plan is None:
+            plan = os.path.join(tempfile.mkdtemp(), "no_post_plan.json")
         return report_pdf.collect_weekly_data(db_path=self.db, now=now, plan_path=plan)
 
     def test_week_starts_on_monday(self):

@@ -42,6 +42,7 @@ Defaults: DEFAULT_PAPER_SIZE = 'a4', DEFAULT_CARDS_PER_PAGE = 8, DEFAULT_WORKSHE
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import math
 import os
@@ -161,7 +162,7 @@ def _build_pdf_page(
         label = elements[0].get("label", "") if elements else ""
         if label:
             draw.text((10, 10), label, fill="black")
-        buf = __import__("io").BytesIO()
+        buf = io.BytesIO()
         img.save(buf, format="PNG")
         return buf.getvalue()
     except Exception:
@@ -169,6 +170,28 @@ def _build_pdf_page(
 
 
 # ── Main Build Function ────────────────────────────────────────────────
+
+def _build_cover_pdf(path: Path, title: str, paper_size: str) -> None:
+    from pdf_design import Pdf
+
+    size = "A4" if paper_size == "a4" else "Letter"
+    pdf = Pdf(size)
+    pdf.new_page()
+    pdf.text_center(pdf.w / 2, pdf.h / 2 + 30, title, 26, bold=True)
+    pdf.text_center(pdf.w / 2, pdf.h / 2 - 10, "Printable learning set", 12)
+    pdf.save(str(path), title=title)
+
+
+def _duplex_back_elements(elements: List[Dict[str, any]], width_px: int) -> List[Dict[str, any]]:
+    backs = []
+    for elem in elements:
+        back = dict(elem)
+        back["x"] = width_px - elem["x"] - elem["width"]
+        back["label"] = elem["label"].replace("Front:", "Back:")
+        back["type"] = "flashcard_back"
+        backs.append(back)
+    return backs
+
 
 def build(spec: dict, out_dir: str) -> List[str]:
     """Build printable flashcards or kids worksheets.
@@ -210,34 +233,33 @@ def build(spec: dict, out_dir: str) -> List[str]:
 
     created_files: List[str] = []
 
-    marketing_dir = Path(out_dir) / "marketing"
-    marketing_dir.mkdir(parents=True, exist_ok=True)
-    (marketing_dir / "images").mkdir(parents=True, exist_ok=True)
+    output_dir = Path(out_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "marketing" / "images").mkdir(parents=True, exist_ok=True)
 
     if kind == "flashcards":
-        _build_flashcards(topic, paper_size, cards_per_page, width_px, height_px, marketing_dir, created_files)
+        _build_flashcards(topic, paper_size, cards_per_page, width_px, height_px, output_dir, created_files)
     elif kind == "worksheets":
-        _build_worksheets(topic, activity, paper_size, width_px, height_px, marketing_dir, created_files)
+        _build_worksheets(topic, activity, paper_size, width_px, height_px, output_dir, created_files)
 
     # Generate 3 preview images
-    _generate_previews(marketing_dir / "images", created_files)
+    _generate_previews(output_dir, created_files)
 
     # Write README
-    readme_path = marketing_dir / "README-HOW-TO-INSTALL.txt"
+    readme_path = output_dir / "README-HOW-TO-INSTALL.txt"
     readme_text = _make_tenglish_readme(kind, topic, paper_size, cards_per_page)
     readme_path.write_text(readme_text, encoding="utf-8")
     created_files.append("README-HOW-TO-INSTALL.txt")
 
     # Write LICENSE
-    license_path = marketing_dir / "LICENSE.txt"
+    license_path = output_dir / "LICENSE.txt"
     license_text = _make_license_text(kind, topic)
     license_path.write_text(license_text, encoding="utf-8")
     created_files.append("LICENSE.txt")
 
     # Write cover page
-    cover_path = marketing_dir / "cover.pdf"
-    cover_bytes = _build_pdf_page(width_px, height_px, [{"label": f"{kind.title()} - {topic.title()}"}])
-    cover_path.write_bytes(cover_bytes)
+    cover_path = output_dir / "cover.pdf"
+    _build_cover_pdf(cover_path, f"{kind.title()} - {topic.title()}", paper_size)
     created_files.append("cover.pdf")
 
     return created_files
@@ -275,7 +297,7 @@ def _build_flashcards(
     pages_needed = math.ceil(total_cards / (cols * rows))
 
     for page_idx in range(pages_needed):
-        elements = []
+        front_elements = []
         start_idx = page_idx * cols * rows
         end_idx = min(start_idx + cols * rows, len(characters))
 
@@ -288,31 +310,24 @@ def _build_flashcards(
             x = 40 + col * card_width_px
             y = 40 + row * card_height_px
 
-            # Front side
-            front_elem = {
+            front_elements.append({
                 "x": x, "y": y,
                 "width": card_width_px * 0.9,
                 "height": card_height_px * 0.9,
                 "label": f"Front: {char}",
                 "type": "flashcard_front",
-            }
-            elements.append(front_elem)
+            })
 
-            # Back side (duplex-aligned)
-            back_elem = {
-                "x": x, "y": y,
-                "width": card_width_px * 0.9,
-                "height": card_height_px * 0.9,
-                "label": f"Back: {char}",
-                "type": "flashcard_back",
-            }
-            elements.append(back_elem)
-
-        page_bytes = _build_pdf_page(width_px, height_px, elements)
         page_name = f"flashcards_{topic}_page_{page_idx + 1}.png"
-        page_path = marketing_dir / "images" / page_name
-        page_path.write_bytes(page_bytes)
+        page_path = marketing_dir / page_name
+        page_path.write_bytes(_build_pdf_page(width_px, height_px, front_elements))
         created_files.append(page_name)
+
+        back_elements = _duplex_back_elements(front_elements, width_px)
+        back_name = f"flashcards_{topic}_page_{page_idx + 1}_back.png"
+        back_path = marketing_dir / back_name
+        back_path.write_bytes(_build_pdf_page(width_px, height_px, back_elements))
+        created_files.append(back_name)
 
         manifest = {
             "page": page_idx + 1,
@@ -321,6 +336,9 @@ def _build_flashcards(
             "topic": topic,
             "characters": characters[start_idx:end_idx],
             "grid": {"cols": cols, "rows": rows},
+            "front_page": page_name,
+            "back_page": back_name,
+            "duplex": "flip_horizontal",
         }
         manifest_path = marketing_dir / f"flashcards_{topic}_page_{page_idx + 1}_manifest.json"
         manifest_path.write_text(
@@ -359,12 +377,15 @@ def _build_worksheets(
 def _build_worksheet_trace(topic: str, characters: List[str], width_px: int, height_px: int,
                           marketing_dir: Path, created_files: List[str]):
     elements = []
-    card_w = (width_px - 80) / 2
-    card_h = height_px - 80
+    cols = 2
+    rows = 5
+    gap = 20
+    card_w = (width_px - 80 - (cols - 1) * gap) / cols
+    card_h = (height_px - 80 - (rows - 1) * gap) / rows
 
     for i, char in enumerate(characters[:10]):
-        x = 40 + (i % 2) * card_w
-        y = 40 + (i // 2) * (card_h + 40)
+        x = 40 + (i % cols) * (card_w + gap)
+        y = 40 + (i // cols) * (card_h + gap)
         elements.append({
             "x": x, "y": y,
             "width": card_w, "height": card_h,
@@ -374,7 +395,7 @@ def _build_worksheet_trace(topic: str, characters: List[str], width_px: int, hei
 
     page_bytes = _build_pdf_page(width_px, height_px, elements)
     page_name = f"worksheet_trace_{topic}.png"
-    page_path = marketing_dir / "images" / page_name
+    page_path = marketing_dir / page_name
     page_path.write_bytes(page_bytes)
     created_files.append(page_name)
 
@@ -410,7 +431,7 @@ def _build_worksheet_match(topic: str, characters: List[str], width_px: int, hei
 
     page_bytes = _build_pdf_page(width_px, height_px, elements)
     page_name = f"worksheet_match_{topic}.png"
-    page_path = marketing_dir / "images" / page_name
+    page_path = marketing_dir / page_name
     page_path.write_bytes(page_bytes)
     created_files.append(page_name)
 
@@ -445,7 +466,7 @@ def _build_worksheet_count_colour(topic: str, characters: List[str], width_px: i
 
     page_bytes = _build_pdf_page(width_px, height_px, elements)
     page_name = f"worksheet_count_colour_{topic}.png"
-    page_path = marketing_dir / "images" / page_name
+    page_path = marketing_dir / page_name
     page_path.write_bytes(page_bytes)
     created_files.append(page_name)
 
@@ -482,7 +503,7 @@ def _build_worksheet_simple_math(topic: str, characters: List[str], width_px: in
 
     page_bytes = _build_pdf_page(width_px, height_px, elements)
     page_name = f"worksheet_simple_math_{topic}.png"
-    page_path = marketing_dir / "images" / page_name
+    page_path = marketing_dir / page_name
     page_path.write_bytes(page_bytes)
     created_files.append(page_name)
 

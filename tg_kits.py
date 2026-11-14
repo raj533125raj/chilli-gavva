@@ -24,7 +24,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import store_kits
 
@@ -77,12 +77,9 @@ def _is_safe_path(path: Path | str, ctx: Optional[Dict[str, Any]] = None) -> boo
     repo_root = Path(__file__).resolve().parent
     exported_root = (repo_root / "exported_content").resolve()
 
-    allowed_roots = [exported_root]
-    if ctx:
-        if ctx.get("products_dir"):
-            allowed_roots.append(Path(ctx["products_dir"]).resolve())
-        if ctx.get("marketing_dir"):
-            allowed_roots.append(Path(ctx["marketing_dir"]).resolve())
+    # The same folders the pack lookup uses (ctx, then CHILLI_PRODUCTS_DIR / CHILLI_MARKETING_DIR).
+    # Before, a pack found through the environment setting was then refused as "path safe kaadu".
+    allowed_roots = [exported_root] + list(_get_base_dirs(ctx))
 
     for root in allowed_roots:
         try:
@@ -93,7 +90,7 @@ def _is_safe_path(path: Path | str, ctx: Optional[Dict[str, Any]] = None) -> boo
     return False
 
 
-def find_ready_pack_dir(aid: int | str, ctx: Optional[Dict[str, Any]] = None) -> Optional[Path]:
+def find_ready_pack_dir(aid: Union[int, str], ctx: Optional[Dict[str, Any]] = None) -> Optional[Path]:
     """Find the directory path of ready pack aid, matching /pack N rules."""
     aid_str = str(aid)
     products_dir, _ = _get_base_dirs(ctx)
@@ -218,7 +215,7 @@ def extract_first_3_fields(kit_text: str) -> str:
 # Plugin Handle Entrypoint
 # ---------------------------------------------------------------------------
 
-def handle(text: str, ctx: dict) -> dict | None:
+def handle(text: str, ctx: dict) -> Optional[dict]:
     """Plugin entrypoint.
 
     Args:
@@ -257,6 +254,9 @@ def handle(text: str, ctx: dict) -> dict | None:
     pack_dir = find_ready_pack_dir(pack_id, ctx)
     if not pack_dir:
         return {"text": f"Pack #{pack_id} ready pack dorakaledu. /packs tho chudandi."}
+
+    if not _is_safe_path(pack_dir, ctx):
+        return {"text": f"Pack #{pack_id} path safe kaadu."}
 
     # Ensure store kits exist in <pack>/store-kits/
     kits_dir = pack_dir / "store-kits"

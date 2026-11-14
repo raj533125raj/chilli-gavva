@@ -532,29 +532,48 @@ def _ensure_office_requests_table(conn):
 
 
 def store_office_request(intent, args, db_path=None):
-    """Store an office UI request in the office_requests queue table."""
+    """Store an office UI request in the office_requests queue table.
+
+    Three modules create this table with different columns (this file, office_requests.py and
+    control_inbox.py). The row is therefore built from the columns that really exist, every
+    NOT NULL column gets a value, and the connection is always closed (a failed insert used to
+    crash the whole inbox and leave the database locked).
+    """
+    import uuid
     conn = guardrails.connect(db_path)
-    _ensure_office_requests_table(conn)
-    ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    args_json = json.dumps(args or {})
-    cols = {row[1] for row in conn.execute("PRAGMA table_info(office_requests)").fetchall()}
-    if "nonce" in cols:
-        import uuid
-        req_id = f"req_{uuid.uuid4().hex[:12]}"
-        nonce = uuid.uuid4().hex
-        digest = "local_office_ui"
-        receipt_data = json.dumps({"at": ts, "state": "held", "type": intent, "reason": "Office UI request queued"})
-        conn.execute(
-            "INSERT INTO office_requests (id, nonce, digest, receipt, intent, args, ts) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (req_id, nonce, digest, receipt_data, intent, args_json, ts)
-        )
-    else:
-        conn.execute(
-            "INSERT INTO office_requests (intent, args, ts) VALUES (?, ?, ?)",
-            (intent, args_json, ts)
-        )
-    conn.commit()
-    conn.close()
+    try:
+        _ensure_office_requests_table(conn)
+        ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        args_json = json.dumps(args or {})
+        columns = {row[1]: row for row in conn.execute("PRAGMA table_info(office_requests)").fetchall()}
+        values = {"intent": intent, "args": args_json, "ts": ts}
+        known = {
+            "nonce": uuid.uuid4().hex,
+            "digest": "local_office_ui",
+            "receipt": json.dumps({"at": ts, "state": "held", "type": intent, "reason": "Office UI request queued"}),
+            "kind": "undo" if intent == "undo_last_ui_change" else str(intent),
+            "status": "queued",
+            "target": str((args or {}).get("room") or (args or {}).get("agent") or (args or {}).get("target") or ""),
+            "value": args_json,
+            "label_te": _format_office_action_desc(intent, args or {}),
+        }
+        for name, row in columns.items():
+            column_type, not_null, default, is_key = str(row[2] or "").upper(), row[3], row[4], row[5]
+            if name in values:
+                continue
+            if name == "id":
+                if "INT" not in column_type:          # text ids need a value; integer ids count by themselves
+                    values["id"] = f"req_{uuid.uuid4().hex[:12]}"
+            elif name in known:
+                values[name] = known[name]
+            elif not_null and default is None and not is_key:
+                values[name] = ""
+        names = list(values)
+        conn.execute(f"INSERT INTO office_requests ({', '.join(names)}) VALUES ({', '.join('?' for _ in names)})",
+                     [values[name] for name in names])
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def _format_office_action_desc(intent, args):
@@ -793,13 +812,90 @@ def call_plugins(text, token, chat_id, db_path=None, now=None, plugins=None, mes
                 res = {"text": res}
             elif not isinstance(res, dict):
                 res = {"handled": True}
-            if fallback is None and str(res.get("text", "")).startswith("Meeru cheppindi ardam kaaledu"):
+            reply_text = str(res.get("text", ""))
+            # tg_menu's guesses ("ardam kaaledu ... try these", "Meeru '/ops' anukunnara?") are only a
+            # fallback. Without the second check its typo guess for "Yes" hid the reply from tg_settings,
+            # so a settings change could never be confirmed.
+            if fallback is None and (reply_text.startswith("Meeru cheppindi ardam kaaledu")
+                                     or (reply_text.startswith("Meeru '") and "anukunnara?" in reply_text)):
                 fallback = res
                 continue
             return True, res
     if fallback is not None:
         return True, fallback
     return False, None
+
+
+def plugin_words(plugins=None):
+    """Lower-case words and slash commands every loaded plugin declares in COMMANDS."""
+    words = set()
+    for plugin in (discover_plugins() if plugins is None else plugins):
+        for entry in getattr(plugin, "COMMANDS", None) or []:
+            if not isinstance(entry, dict):
+                continue
+            for word in [entry.get("cmd", "")] + list(entry.get("words") or []):
+                word = " ".join(str(word).lower().split())
+                if word:
+                    words.add(word)
+    return words
+
+
+def plugin_can_answer(text, plugins=None):
+    """True when the text looks like something a plugin answers (checked without running plugins)."""
+    low = " ".join(str(text or "").lower().split()).rstrip("?.! ")
+    if not low:
+        return False
+    if low.startswith("/"):
+        return True
+    try:
+        for word in plugin_words(plugins):
+            if low == word or low.startswith(word + " ") or low.endswith(" " + word):
+                return True
+        import talk_intents
+        return talk_intents.detect(text) is not None
+    except Exception:
+        return False
+
+
+# What the old owner_commands parser's safe intents run, as a command word (to compare with talk_intents).
+_OWNER_INTENT_COMMAND = {"show_pack": "/pack", "list_drafts": "/list", "list_packs": "/packs",
+                         "show_status": "/status", "what_happened_today": "daily", "daily_report": "daily",
+                         "post_today": "/today", "post_done": "/posted"}
+_MENU_FALLBACK = "Meeru cheppindi ardam kaaledu"
+
+
+def plugins_first(text, owner_intent, plugins=None):
+    """True when a plugin must see this plain text BEFORE the old owner_commands intent is used.
+
+    owner_commands matches loosely ("pack 3 ..." is always show_pack, "... approve ..." is always
+    approve_draft), so plugin sentences such as "pack 3 files pampu" or "auto approve status" never
+    reached their plugin. Office wording (theme, rename room, undo ...) keeps its old meaning.
+    """
+    raw = str(text or "").strip()
+    low = " ".join(raw.lower().split()).rstrip("?.! ")
+    if not low or owner_intent == "unknown":
+        return False                      # unknown text goes to the plugins anyway
+    if raw.startswith("/"):
+        return True                       # a slash command that is not built in belongs to a plugin
+    if owner_intent in OFFICE_INTENTS:
+        # "quiet 22-8" / "quiet off" are robot settings (tg_settings), not the office "mute".
+        try:
+            import tg_settings
+            return bool(tg_settings.parse_setting_request(raw))
+        except Exception:
+            return False
+    try:
+        # Exactly a word a plugin declares ("office status", "auto approve"). Today's-posts wording keeps
+        # the built-in /today and /posted answers it always had.
+        if low in plugin_words(plugins) and owner_intent not in ("post_today", "post_done"):
+            return True
+        import talk_intents
+        found = talk_intents.detect(raw)
+        if not found or not talk_intents.should_run(found) or found["confidence"] < 0.9:
+            return False
+        return found["command"].split()[0] != _OWNER_INTENT_COMMAND.get(owner_intent)
+    except Exception:
+        return False
 
 
 # ---- command handling --------------------------------------------------------
@@ -1509,15 +1605,19 @@ def parse_marketing_phrase(text):
 def _find_marketing_pack_dir(n, marketing_dir=None):
     """Marketing folder for pack n (exact or '<n>-' prefix names), or None."""
     import pathlib
-    base = pathlib.Path(marketing_dir or "exported_content/marketing")
-    if not base.is_dir():
-        return None
-    for child in sorted(base.iterdir()):
-        try:
-            if child.is_dir() and (child.name == str(n) or child.name.startswith(f"{n}-")):
-                return child
-        except OSError:
+    # Default: the shared marketing folder, then the private one marketing_auto fills for READY packs
+    # (exported_content/products/marketing/<pack>/). Before, files made there were never found.
+    bases = [marketing_dir] if marketing_dir else ["exported_content/marketing",
+                                                   "exported_content/products/marketing"]
+    for base in (pathlib.Path(item) for item in bases):
+        if not base.is_dir():
             continue
+        for child in sorted(base.iterdir()):
+            try:
+                if child.is_dir() and (child.name == str(n) or child.name.startswith(f"{n}-")):
+                    return child
+            except OSError:
+                continue
     return None
 
 
@@ -1873,8 +1973,13 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
             import owner_commands
             cmd_info = owner_commands.parse(m_text)
             intent = cmd_info.get("intent", "unknown")
-            if intent != "unknown":
+            if intent != "unknown" and not plugins_first(m_text, intent):
                 return ("owner_cmd", intent, json.dumps(cmd_info.get("args") or {}, sort_keys=True))
+            # Text a plugin can answer is keyed by the text itself: with one shared key, two DIFFERENT
+            # plugin commands sent close together ("/ideas" then "/keywords") counted as duplicates and
+            # only the first was answered. Chatter nobody understands still shares one key (one hint).
+            if plugin_can_answer(m_text):
+                return ("text", " ".join((m_text or "").lower().split()))
             return ("unknown_text",)
         return ("command", c, tuple(c_ids))
 
@@ -2027,6 +2132,22 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
             c_intent = cmd_info.get("intent", "unknown")
             c_args = cmd_info.get("args") or {}
 
+            # Plugin sentences first ("pack 3 files pampu", "auto approve status", "/undo"): see plugins_first.
+            plugins_tried, early_res = False, None
+            if plugins_first(message_text, c_intent):
+                plugins_tried = True
+                plugin_handled, early_res = call_plugins(message_text, token, owner_chat_id, db_path=db_path)
+                is_menu_fallback = (isinstance(early_res, dict)
+                                    and str(early_res.get("text", "")).startswith(_MENU_FALLBACK))
+                if plugin_handled and not is_menu_fallback:
+                    if not is_duplicate and isinstance(early_res, dict) and early_res.get("text"):
+                        _send_text_kw(token, owner_chat_id, early_res["text"] + burst_note,
+                                      keyboard=early_res.get("keyboard"))
+                    handled += 1
+                    continue
+                if not plugin_handled:
+                    early_res = None      # no plugin wanted it: the old intent below answers
+
             if c_intent in SAFE_OWNER_INTENTS:
                 if not is_duplicate:
                     if c_intent == "list_drafts":
@@ -2072,15 +2193,23 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
 
             if c_intent in OFFICE_INTENTS:
                 if not is_duplicate:
-                    store_office_request(c_intent, c_args, db_path=db_path)
                     action_desc = _format_office_action_desc(c_intent, c_args)
-                    reply = f"Office lo marchutha: {action_desc} (Binny Mills app lo apply avutundi)" + burst_note
+                    try:
+                        store_office_request(c_intent, c_args, db_path=db_path)
+                        reply = f"Office lo marchutha: {action_desc} (Binny Mills app lo apply avutundi)" + burst_note
+                    except Exception as exc:    # a queue problem must never stop the other messages
+                        print(f"Office request not saved: {type(exc).__name__}", file=sys.stderr)
+                        reply = (f"Office request save kaaledu: {action_desc}. Malli try cheyandi leda /doctor chudandi."
+                                 + burst_note)
                     send_text(token, owner_chat_id, reply)
                 handled += 1
                 continue
 
             # Call plugins for owner plain text before the old 'Ardam kaaledu' fallback
-            plugin_handled, plugin_res = call_plugins(message_text, token, owner_chat_id, db_path=db_path)
+            if plugins_tried:             # already asked above: do not run the plugins twice
+                plugin_handled, plugin_res = early_res is not None, early_res
+            else:
+                plugin_handled, plugin_res = call_plugins(message_text, token, owner_chat_id, db_path=db_path)
             if plugin_handled:
                 if not is_duplicate and isinstance(plugin_res, dict) and plugin_res.get("text"):
                     _send_text_kw(token, owner_chat_id, plugin_res["text"] + burst_note, keyboard=plugin_res.get("keyboard"))
@@ -2109,7 +2238,8 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                 # If command has arguments (like /help word) or is not in builtins, check plugins first:
                 if (cmd == "help" and message_text.strip().lower().split("@")[0] not in ("/help", "help", "/start")) or \
                    cmd not in ("status", "packs", "pack", "marketing", "list", "view", "approve", "reject",
-                               "pipeline", "pause", "resume", "buttontest", "autofix_drill", "today", "posted", "ab", "week", "help", "start"):
+                               "pipeline", "pause", "resume", "buttontest", "autofix_drill", "today", "posted", "ab", "week", "help", "start",
+                               "doctor"):   # /doctor is built in: without it tg_menu's "ardam kaaledu" fallback answered
                     plugin_handled, plugin_res = call_plugins(message_text, token, owner_chat_id, db_path=db_path)
                     if plugin_handled:
                         if isinstance(plugin_res, dict) and plugin_res.get("text"):

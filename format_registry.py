@@ -18,6 +18,8 @@ Provides:
 - `get_format_info(format_id: str) -> dict | None`: metadata for a registered format.
 """
 
+from __future__ import annotations
+
 import importlib
 import importlib.util
 import os
@@ -170,6 +172,11 @@ def discover_builders(search_dir=None, force_reload=False) -> dict[str, dict]:
             if existing is not None and Path(getattr(existing, "__file__", "") or "").resolve() == file_path.resolve():
                 module = existing  # reuse the already-imported module (never load a second copy)
             else:
+                if existing is not None:
+                    sys.stderr.write(
+                        f"format_registry: replacing {mod_name} loaded from a different path "
+                        f"({getattr(existing, '__file__', 'unknown')} -> {file_path})\n"
+                    )
                 spec = importlib.util.spec_from_file_location(mod_name, file_path)
                 if spec is None or spec.loader is None:
                     continue
@@ -189,6 +196,12 @@ def discover_builders(search_dir=None, force_reload=False) -> dict[str, dict]:
                 continue
 
             if fmt in _REGISTRY and _REGISTRY[fmt].get("build"):
+                existing_module = _REGISTRY[fmt].get("module_name")
+                if existing_module and existing_module != mod_name:
+                    sys.stderr.write(
+                        f"format_registry: format '{fmt}' already registered by {existing_module}; "
+                        f"skipping {mod_name}\n"
+                    )
                 continue  # a format registered by hand keeps its own builder
             register_format(
                 format_id=fmt,
