@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-12T00:47:31Z",
+ "generated_at": "2026-11-14T01:39:10Z",
  "llm": {
   "calls_today": 1,
   "cap": 500
@@ -204,12 +204,6 @@
  ],
  "pending_approvals": [
   {
-   "id": 98,
-   "ts": "2026-11-10T01:50:02.239946",
-   "kind": "scout_idea",
-   "title": "Draft #98"
-  },
-  {
    "id": 99,
    "ts": "2026-11-11T06:31:04.887434",
    "kind": "scout_idea",
@@ -250,6 +244,18 @@
    "ts": "2026-11-12T00:47:29.444642",
    "kind": "scout_idea",
    "title": "Draft #105"
+  },
+  {
+   "id": 106,
+   "ts": "2026-11-14T01:39:08.560453",
+   "kind": "scout_idea",
+   "title": "Draft #106"
+  },
+  {
+   "id": 107,
+   "ts": "2026-11-14T01:39:08.563360",
+   "kind": "scout_idea",
+   "title": "Draft #107"
   }
  ],
  "worker": {
@@ -374,35 +380,35 @@
    "model": "openai/gpt-oss-20b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-12T00:47:31Z"
+   "checked_at": "2026-11-14T01:39:10Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
    "state": "unknown",
    "reason": "No recent activity recorded",
-   "checked_at": "2026-11-12T00:47:31Z"
+   "checked_at": "2026-11-14T01:39:10Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "unknown",
    "reason": "No recent activity recorded",
-   "checked_at": "2026-11-12T00:47:31Z"
+   "checked_at": "2026-11-14T01:39:10Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-12T00:47:31Z"
+   "checked_at": "2026-11-14T01:39:10Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-12T00:47:31Z"
+   "checked_at": "2026-11-14T01:39:10Z"
   }
  ],
  "minutes": {
@@ -693,28 +699,28 @@
  "reject_reasons": [
   {
    "reason": "Formatting or rubric issue",
-   "count": 101
+   "count": 102
   },
   {
    "reason": "Risky or prohibited claim",
-   "count": 55
+   "count": 59
   },
   {
    "reason": "Unclear value over free template",
-   "count": 53
-  },
-  {
-   "reason": "Product structure incomplete",
-   "count": 44
+   "count": 50
   },
   {
    "reason": "Target audience unclear",
-   "count": 43
+   "count": 44
+  },
+  {
+   "reason": "Product structure incomplete",
+   "count": 35
   }
  ],
  "report": {
-  "drafts_made": 4,
-  "drafts_waiting": 8,
+  "drafts_made": 2,
+  "drafts_waiting": 9,
   "drafts_approved": 0,
   "products_built": 0,
   "errors": 0
@@ -887,6 +893,30 @@
   }
  ],
  "loop_events": [
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-14T01:39:05Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-14T01:39:05Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-12T00:47:59Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-12T00:47:56Z"
+  },
   {
    "agent": "Unknown agent",
    "kind": "error",
@@ -1144,30 +1174,6 @@
    "kind": "error",
    "label": "Recovery check",
    "at": "2026-11-05T01:29:34Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-04T18:52:51Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-04T18:52:51Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-04T18:52:51Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-04T18:52:51Z"
   },
   {
    "agent": "Unknown agent",
@@ -2273,12 +2279,18 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-12T00:47:26Z",
-  "last_run_end": "2026-11-12T00:47:31Z",
+  "last_run_start": "2026-11-14T01:39:05Z",
+  "last_run_end": "2026-11-14T01:39:10Z",
   "runner": "github-actions",
-  "run_id": "43129758584"
+  "run_id": "43540714790"
  },
  "changelog": [
+  "Fix the last CI failure and give tests more time",
+  "Fix the 'Python module' test failures and the broken auto-fix",
+  "New product formats really reachable; flashcards builder; FB24, FB27, FB28",
+  "agent: owner inbox state [skip ci]",
+  "Fix CI timeout + Telegram fixes; add Jules W round, OpenCode O14-O17/O19, Freebuff FB18/FB20-FB23",
+  "agent: state + content update [skip ci]",
   "agent: owner inbox state [skip ci]",
   "agent: owner inbox state [skip ci]",
   "agent: state + content update [skip ci]",
@@ -2292,16 +2304,10 @@
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
-  "agent: owner inbox state [skip ci]",
-  "agent: state + content update [skip ci]",
-  "Jules T1-T5: covers, boards, newsletter, shorts, landing pages, sitemap, PDF metadata, dup check, image optimiser, calendar, ops dashboard, pack versions, idea",
-  "O13 README, FB11 posting guide, FB12/FB13 edge tests, FB14 SEO guide, FB15 upload day guide (verified by Claude)",
-  "O12 /marketing command",
-  "Fix CI: smoke tests load the real web_fetcher file; no morning post message during test runs (verified by Claude)",
-  "O7-O10 lint/readiness/FAQ/marketing, FB7-FB10 docs+tests, S1-S5 reels/blog/planner, SEO tools, ops+doctor, Telegram packs/AB/week, launch/gifts/catalog (verifie"
+  "agent: owner inbox state [skip ci]"
  ],
  "daily_report": {
-  "date_ist": "2026-11-12",
+  "date_ist": "2026-11-14",
   "summary": "No completed work recorded.",
   "items_done": []
  },
@@ -2655,13 +2661,14 @@
    "colour": "#e60023"
   }
  ],
+ "office_requests": [],
  "scout_ideas_count": {
-  "total": 54,
-  "pending": 8,
-  "approved": 46
+  "total": 56,
+  "pending": 9,
+  "approved": 47
  },
  "trend_items_count": {
-  "total": 140,
+  "total": 150,
   "proposed": 0,
   "approved": 0
  },
