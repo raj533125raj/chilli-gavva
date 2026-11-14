@@ -30,6 +30,36 @@ _SIG_HAS_PILLOW = builder_signature.HAS_PILLOW
 PILLOW_OK = _WALL_ART_HAS_PILLOW and _SIG_HAS_PILLOW
 
 
+# CC2-1 speed: the wall art builder writes 300-dpi PNGs with optimize=True (zlib level 9), which
+# was ~80% of this module's run time. In tests the same pixels are written with a quick zlib level:
+# sizes, dpi, file names, counts and byte-for-byte determinism are unchanged.
+_REAL_PNG_SAVE = None
+
+
+def setUpModule():
+    global _REAL_PNG_SAVE
+    try:
+        from PIL import Image as _Image
+    except ImportError:
+        return
+    _REAL_PNG_SAVE = _Image.Image.save
+
+    def _quick_save(self, fp, format=None, **params):
+        name = str(fp).lower() if isinstance(fp, (str, os.PathLike)) else ""
+        if params.get("optimize") and ((format or "").upper() == "PNG" or name.endswith(".png")):
+            params["optimize"] = False
+            params["compress_level"] = 1
+        return _REAL_PNG_SAVE(self, fp, format, **params)
+
+    _Image.Image.save = _quick_save
+
+
+def tearDownModule():
+    if _REAL_PNG_SAVE is not None:
+        from PIL import Image as _Image
+        _Image.Image.save = _REAL_PNG_SAVE
+
+
 def _ascii_letters_only(text: str, maxlen: int = 28) -> str:
     keep = []
     for ch in text:

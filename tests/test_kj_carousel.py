@@ -36,6 +36,18 @@ except ImportError:
 import carousel_maker
 
 
+# CC2-1 speed: 8 tests each rendered the same default sample pack only to read the
+# result (6 slides, ~0.4 s). The real maker now runs once for them; they still check its real output.
+_SHARED = {}
+
+
+def tearDownModule():
+    holder = _SHARED.pop("dir", None)
+    _SHARED.clear()
+    if holder is not None:
+        holder.cleanup()
+
+
 @unittest.skipUnless(HAS_PIL, "Pillow is required for carousel tests")
 class TestKJCarousel(unittest.TestCase):
     def setUp(self):
@@ -53,6 +65,22 @@ class TestKJCarousel(unittest.TestCase):
         self.products_dir.mkdir(parents=True, exist_ok=True)
         self.marketing_dir = self.root / "marketing"
         self.marketing_dir.mkdir(parents=True, exist_ok=True)
+
+    def _shared_default_render(self):
+        """carousel_maker.make_pack_carousel() result for the default sample pack, rendered once per module."""
+        if "result" not in _SHARED:
+            _SHARED["dir"] = tempfile.TemporaryDirectory()
+            root = Path(_SHARED["dir"].name)
+            own_products = self.products_dir
+            self.products_dir = root / "products" / "upload"
+            self.products_dir.mkdir(parents=True)
+            try:
+                pack = self._create_sample_pack()
+            finally:
+                self.products_dir = own_products
+            (root / "marketing").mkdir()
+            _SHARED["result"] = carousel_maker.make_pack_carousel(pack, root / "marketing")
+        return _SHARED["result"]
 
     def _create_sample_pack(
         self,
@@ -96,15 +124,13 @@ class TestKJCarousel(unittest.TestCase):
 
     # 1. Slide Count
     def test_slide_count_is_six(self):
-        pack = self._create_sample_pack()
-        out = carousel_maker.make_pack_carousel(pack, self.marketing_dir)
+        out = self._shared_default_render()
         pngs = sorted(out.glob("slide-*.png"))
         self.assertEqual(len(pngs), 6)
 
     # 2. Slide Dimensions
     def test_slide_dimensions_1080x1350(self):
-        pack = self._create_sample_pack()
-        out = carousel_maker.make_pack_carousel(pack, self.marketing_dir)
+        out = self._shared_default_render()
         for i in range(1, 7):
             slide_path = out / f"slide-{i}.png"
             with Image.open(slide_path) as im:
@@ -112,32 +138,27 @@ class TestKJCarousel(unittest.TestCase):
 
     # 3. Slide 1 Hook text exists and is non-empty
     def test_slide_1_hook_generated(self):
-        pack = self._create_sample_pack()
-        out = carousel_maker.make_pack_carousel(pack, self.marketing_dir)
+        out = self._shared_default_render()
         self.assertTrue((out / "slide-1.png").is_file())
 
     # 4. Slide 6 CTA exists
     def test_slide_6_cta_generated(self):
-        pack = self._create_sample_pack()
-        out = carousel_maker.make_pack_carousel(pack, self.marketing_dir)
+        out = self._shared_default_render()
         self.assertTrue((out / "slide-6.png").is_file())
 
     # 5. Caption file generated
     def test_caption_file_exists(self):
-        pack = self._create_sample_pack()
-        out = carousel_maker.make_pack_carousel(pack, self.marketing_dir)
+        out = self._shared_default_render()
         self.assertTrue((out / "caption.txt").is_file())
 
     # 6. Alt text file generated
     def test_alt_text_file_exists(self):
-        pack = self._create_sample_pack()
-        out = carousel_maker.make_pack_carousel(pack, self.marketing_dir)
+        out = self._shared_default_render()
         self.assertTrue((out / "alt.txt").is_file())
 
     # 7. Alt text has exactly 6 lines (one per slide)
     def test_alt_text_has_six_lines(self):
-        pack = self._create_sample_pack()
-        out = carousel_maker.make_pack_carousel(pack, self.marketing_dir)
+        out = self._shared_default_render()
         lines = [line for line in (out / "alt.txt").read_text(encoding="utf-8").splitlines() if line.strip()]
         self.assertEqual(len(lines), 6)
         for i, line in enumerate(lines, 1):
@@ -390,8 +411,7 @@ class TestKJCarousel(unittest.TestCase):
 
     # 35. File size < 1.5MB each
     def test_slide_file_sizes_under_1_5mb(self):
-        pack = self._create_sample_pack()
-        out = carousel_maker.make_pack_carousel(pack, self.marketing_dir)
+        out = self._shared_default_render()
         for i in range(1, 7):
             size = (out / f"slide-{i}.png").stat().st_size
             self.assertLess(size, 1_500_000, f"Slide {i} was {size} bytes")

@@ -1212,16 +1212,25 @@ def status_text(db_path=None):
         pass
     last_run_line = f"Last run: {last_run_ist}"
 
-    return "\n".join([
+    # 7. Packs the owner already listed on Gumroad (/listed N <link>); no line when there are none
+    listed_line = ""
+    try:
+        import tg_listed
+        listed_line = tg_listed.status_line(db_path)
+    except Exception:
+        listed_line = ""
+
+    return "\n".join([line for line in [
         "🤖 Chilli Gavva Status",
         ai_line,
         gh_line,
         drafts_line,
         built_line,
         prod_check_line,
+        listed_line,
         pipe_line,
         last_run_line,
-    ])
+    ] if line])
 
 
 def _format_size(size_bytes: int) -> str:
@@ -1935,6 +1944,18 @@ def new_stats():
             "skipped": {"not owner chat": 0, "not a command": 0, "unknown button": 0}}
 
 
+def _link_belongs_to_command(message_text):
+    """True when a message with a link is a slash command or a /listed sentence (handled by plugins)."""
+    text = (message_text or "").strip()
+    if text.startswith("/"):
+        return True
+    try:
+        import tg_listed
+        return tg_listed.parse(text) is not None
+    except Exception:
+        return False
+
+
 def process_updates(token, owner_chat_id, db_path=None, stats=None):
     """Handle new commands and button presses from the owner chat. Returns number handled.
 
@@ -2094,6 +2115,10 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
         if not cmd:
             # Check for URL link in message_text
             urls = re.findall(r"https?://[^\s]+", message_text)
+            # A link inside a command ("/listed 3 https://...gumroad.com/l/x") is that command's
+            # argument, not a link shared for the media brain: the media brain must not fetch it.
+            if urls and _link_belongs_to_command(message_text):
+                urls = []
             if urls:
                 if not is_duplicate:
                     reply_text, buttons, _ = media_brain.process_url(urls[0], db_path=db_path)

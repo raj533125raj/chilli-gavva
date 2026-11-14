@@ -32,9 +32,30 @@ except ImportError:
 import pin_variants
 
 
+# CC2-1 speed: eight tests each rendered the same default pack (11 images, ~1.5 s) only to read
+# the result. The real generator now runs once for them; every test still checks real output.
+_SHARED = {}
+
+
+def tearDownModule():
+    holder = _SHARED.pop("dir", None)
+    _SHARED.clear()
+    if holder is not None:
+        holder.cleanup()
+
+
 class BaseW5APinTestCase(unittest.TestCase):
     def setUp(self):
         super().setUp()
+
+    def _default_pack_variants(self):
+        """generate_social_variants() result for the default mock pack, rendered once per module."""
+        if "result" not in _SHARED:
+            _SHARED["dir"] = tempfile.TemporaryDirectory()
+            pack_dir = self._create_mock_pack(_SHARED["dir"].name)
+            out_dir = pathlib.Path(_SHARED["dir"].name) / "out"
+            _SHARED["result"] = pin_variants.generate_social_variants(pack_dir, out_dir=out_dir)
+        return _SHARED["result"]
 
     def _create_mock_pack(
         self,
@@ -72,10 +93,8 @@ class BaseW5APinTestCase(unittest.TestCase):
 class TestImageDimensionsAndFormats(BaseW5APinTestCase):
     @unittest.skipUnless(HAS_PILLOW, "needs Pillow")
     def test_01_pins_exact_dimensions(self):
-        with tempfile.TemporaryDirectory() as td:
-            pack_dir = self._create_mock_pack(td)
-            out_dir = pathlib.Path(td) / "out"
-            res = pin_variants.generate_social_variants(pack_dir, out_dir=out_dir)
+        if True:  # shared render (was a fresh render per test)
+            res = self._default_pack_variants()
             pins_dir = pathlib.Path(res["pins_dir"])
             for i in range(1, 7):
                 pins = list(pins_dir.glob(f"*_{i}_*.png"))
@@ -85,10 +104,8 @@ class TestImageDimensionsAndFormats(BaseW5APinTestCase):
 
     @unittest.skipUnless(HAS_PILLOW, "needs Pillow")
     def test_02_square_posts_exact_dimensions(self):
-        with tempfile.TemporaryDirectory() as td:
-            pack_dir = self._create_mock_pack(td)
-            out_dir = pathlib.Path(td) / "out"
-            res = pin_variants.generate_social_variants(pack_dir, out_dir=out_dir)
+        if True:  # shared render (was a fresh render per test)
+            res = self._default_pack_variants()
             posts_dir = pathlib.Path(res["posts_dir"])
             for i in range(1, 4):
                 f = posts_dir / f"post_{i}_"
@@ -99,10 +116,8 @@ class TestImageDimensionsAndFormats(BaseW5APinTestCase):
 
     @unittest.skipUnless(HAS_PILLOW, "needs Pillow")
     def test_03_story_images_exact_dimensions(self):
-        with tempfile.TemporaryDirectory() as td:
-            pack_dir = self._create_mock_pack(td)
-            out_dir = pathlib.Path(td) / "out"
-            res = pin_variants.generate_social_variants(pack_dir, out_dir=out_dir)
+        if True:  # shared render (was a fresh render per test)
+            res = self._default_pack_variants()
             posts_dir = pathlib.Path(res["posts_dir"])
             for i in range(1, 3):
                 matches = list(posts_dir.glob(f"story_{i}_*.png"))
@@ -112,34 +127,26 @@ class TestImageDimensionsAndFormats(BaseW5APinTestCase):
 
     @unittest.skipUnless(HAS_PILLOW, "needs Pillow")
     def test_04_six_pins_count(self):
-        with tempfile.TemporaryDirectory() as td:
-            pack_dir = self._create_mock_pack(td)
-            out_dir = pathlib.Path(td) / "out"
-            res = pin_variants.generate_social_variants(pack_dir, out_dir=out_dir)
+        if True:  # shared render (was a fresh render per test)
+            res = self._default_pack_variants()
             self.assertEqual(len(res["pins_meta"]), 6)
 
     @unittest.skipUnless(HAS_PILLOW, "needs Pillow")
     def test_05_three_square_posts_count(self):
-        with tempfile.TemporaryDirectory() as td:
-            pack_dir = self._create_mock_pack(td)
-            out_dir = pathlib.Path(td) / "out"
-            res = pin_variants.generate_social_variants(pack_dir, out_dir=out_dir)
+        if True:  # shared render (was a fresh render per test)
+            res = self._default_pack_variants()
             self.assertEqual(len(res["posts_meta"]), 5)  # 3 posts + 2 stories = 5 post items
 
     @unittest.skipUnless(HAS_PILLOW, "needs Pillow")
     def test_06_total_eleven_variants_generated(self):
-        with tempfile.TemporaryDirectory() as td:
-            pack_dir = self._create_mock_pack(td)
-            out_dir = pathlib.Path(td) / "out"
-            res = pin_variants.generate_social_variants(pack_dir, out_dir=out_dir)
+        if True:  # shared render (was a fresh render per test)
+            res = self._default_pack_variants()
             self.assertEqual(len(res["all_meta"]), 11)
 
     @unittest.skipUnless(HAS_PILLOW, "needs Pillow")
     def test_07_all_image_files_under_one_mb(self):
-        with tempfile.TemporaryDirectory() as td:
-            pack_dir = self._create_mock_pack(td)
-            out_dir = pathlib.Path(td) / "out"
-            res = pin_variants.generate_social_variants(pack_dir, out_dir=out_dir)
+        if True:  # shared render (was a fresh render per test)
+            res = self._default_pack_variants()
             pins_dir = pathlib.Path(res["pins_dir"])
             posts_dir = pathlib.Path(res["posts_dir"])
             for f in list(pins_dir.glob("*.png")) + list(posts_dir.glob("*.png")):
@@ -462,10 +469,8 @@ class TestCaptionsAltTextAndHouseStyle(BaseW5APinTestCase):
         self.assertLessEqual(len(alt), 400)
 
     def test_58_posts_json_created_and_valid(self):
-        with tempfile.TemporaryDirectory() as td:
-            pack_dir = self._create_mock_pack(td)
-            out_dir = pathlib.Path(td) / "out"
-            res = pin_variants.generate_social_variants(pack_dir, out_dir=out_dir)
+        if True:  # shared render (was a fresh render per test)
+            res = self._default_pack_variants()
             p_json = pathlib.Path(res["posts_dir"]) / "posts.json"
             self.assertTrue(p_json.is_file())
             data = json.loads(p_json.read_text(encoding="utf-8"))

@@ -47,6 +47,24 @@ PNG_BYTES = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x
              b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82")
 
 
+# CC2-2: commands under test fall back to the relative path "exported_content/post_plan.json" and
+# created that file in the repo. This module now runs from a temp folder, so nothing lands there.
+_ORIGINAL_CWD = os.getcwd()
+_SCRATCH_CWD = None
+
+
+def setUpModule():
+    global _SCRATCH_CWD
+    _SCRATCH_CWD = tempfile.TemporaryDirectory()
+    os.chdir(_SCRATCH_CWD.name)
+
+
+def tearDownModule():
+    os.chdir(_ORIGINAL_CWD)
+    if _SCRATCH_CWD is not None:
+        _SCRATCH_CWD.cleanup()
+
+
 class S4TelegramJobATests(unittest.TestCase):
     def setUp(self):
         clean_env = {k: v for k, v in os.environ.items() if not k.startswith("GITHUB_") and k != "RUNNER_ENVIRONMENT"}

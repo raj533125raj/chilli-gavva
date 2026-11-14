@@ -24,6 +24,7 @@ from pathlib import Path
 import re
 import sqlite3
 import tempfile
+import unicodedata
 import zlib
 
 import pdf_design
@@ -46,6 +47,17 @@ MONEY = re.compile(
     re.IGNORECASE,
 )
 
+SECRET = re.compile(
+    r"(?ix)"
+    r"(?:\bsk-[a-z0-9_-]{12,}\b)"
+    r"|(?:\bbearer\s+[a-z0-9._~+/-]{10,}=*)"
+    r"|(?:\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|secret[_-]?key|token|secret)\s*[:=]\s*[^\s,;]{8,})"
+    r"|(?:\b[0-9a-f]{32,}\b)"
+    r"|(?:\beyJ[a-z0-9_-]{8,}\.[a-z0-9_-]{8,}\.[a-z0-9_-]{8,}\b)"
+)
+
+EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
+
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 
@@ -61,9 +73,25 @@ def _utc(now=None):
     raise TypeError("now must be a datetime, date or timestamp")
 
 
+def _safe_pdf_chars(text):
+    """Keep WinAnsi characters and replace anything else with a visible ASCII fallback."""
+    out = []
+    for char in text:
+        try:
+            char.encode("cp1252")
+            out.append(char)
+        except UnicodeEncodeError:
+            plain = unicodedata.normalize("NFKD", char).encode("ascii", "ignore").decode()
+            out.append(plain or "?")
+    return "".join(out)
+
+
 def _scrub(text):
     text = str(text or "").replace("\x00", " ").strip()
-    return MONEY.sub("[amount]", text)
+    text = MONEY.sub("[amount]", text)
+    text = EMAIL.sub("[email]", text)
+    text = SECRET.sub("[secret]", text)
+    return _safe_pdf_chars(text)
 
 
 def _count(conn, sql, args=()):
@@ -72,6 +100,12 @@ def _count(conn, sql, args=()):
         return int(row[0] or 0) if row else 0
     except sqlite3.Error:
         return 0
+
+
+def _count_table(conn, table, sql, args=()):
+    if not _table_exists(conn, table):
+        return 0
+    return _count(conn, sql, args)
 
 
 def _rows(conn, sql, args=()):
@@ -110,13 +144,21 @@ def _week_bounds(now):
     }
 
 
-def _load_plan(plan_path):
+def _load_plan_with_warning(plan_path):
     path = Path(plan_path) if plan_path else DEFAULT_PLAN
+    if not path.is_file():
+        return [], None
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError, TypeError):
-        return []
-    return data if isinstance(data, list) else []
+        return [], f"Post plan file chadavaledu ({path.name}); posts 0 ga chupistunnam."
+    if not isinstance(data, list):
+        return [], f"Post plan file list format lo ledu ({path.name}); posts 0 ga chupistunnam."
+    return data, None
+
+
+def _load_plan(plan_path):
+    return _load_plan_with_warning(plan_path)[0]
 
 
 def _posts(plan, start_iso, end_iso):
@@ -273,13 +315,16 @@ def collect_weekly_data(db_path=None, now=None, plan_path=None, products_dir=Non
             conn, "SELECT COUNT(*) FROM approvals WHERE status = 'rejected' AND decided_ts >= ? AND decided_ts < ?",
             (start, end))
         drafts_pending = _count(conn, "SELECT COUNT(*) FROM approvals WHERE status = 'pending'")
-        packs_built = _count(
-            conn, "SELECT COUNT(*) FROM product_builds WHERE status = 'built' AND ts >= ? AND ts < ?",
+        packs_built = _count_table(
+            conn, "product_builds",
+            "SELECT COUNT(*) FROM product_builds WHERE status = 'built' AND ts >= ? AND ts < ?",
             (start, end))
-        ready = _count(conn, "SELECT COUNT(*) FROM product_deliveries WHERE status = 'ready'")
-        needs_fix = _count(
-            conn, "SELECT COUNT(*) FROM product_builds WHERE status IN ('failed', 'retry', 'needs_fix')")
-        needs_fix += _count(conn, "SELECT COUNT(*) FROM product_deliveries WHERE status = 'retry'")
+        ready = _count_table(conn, "product_deliveries", "SELECT COUNT(*) FROM product_deliveries WHERE status = 'ready'")
+        needs_fix = _count_table(
+            conn, "product_builds",
+            "SELECT COUNT(*) FROM product_builds WHERE status IN ('failed', 'retry', 'needs_fix')")
+        needs_fix += _count_table(
+            conn, "product_deliveries", "SELECT COUNT(*) FROM product_deliveries WHERE status = 'retry'")
         runs_ok = _count(
             conn,
             "SELECT COUNT(*) FROM tasks WHERE status = 'done' "
@@ -294,7 +339,8 @@ def collect_weekly_data(db_path=None, now=None, plan_path=None, products_dir=Non
     finally:
         conn.close()
 
-    planned, done = _posts(_load_plan(plan_path), bounds["start_iso"], bounds["end_iso"])
+    plan, plan_warning = _load_plan_with_warning(plan_path)
+    planned, done = _posts(plan, bounds["start_iso"], bounds["end_iso"])
     data = {
         "week": bounds["label"],
         "week_key": f"{bounds['iso_year']}-W{bounds['iso_week']:02d}",
@@ -316,9 +362,16 @@ def collect_weekly_data(db_path=None, now=None, plan_path=None, products_dir=Non
         "providers": providers,
         "provider_total": sum(item["total"] for item in providers.values()),
         "failures_by_step": failures,
+        "plan_warning": plan_warning,
     }
     data["wins"] = _wins(data)
-    data["problems"] = _problems(data)
+    problems = _problems(data)
+    if plan_warning:
+        problems.insert(0, {
+            "problem": plan_warning,
+            "fix": "exported_content/post_plan.json check chesi malli save cheyandi.",
+        })
+    data["problems"] = problems[:3]
     data["next_plan"] = _next_plan(data)
     data["generated_for"] = "Owner"
     return data
@@ -386,12 +439,22 @@ class _ReportPdf:
         self.text(MARGIN, 30, "Chilli Gavva · owner weekly report · counts only", 8, color=MUTED)
         self.text_right(self.w - MARGIN, 30, f"Page {page_number} of {total}", 8, color=MUTED)
 
+    def _footer_ops(self, page_number, total):
+        original = self.pages
+        self.pages = [[]]
+        try:
+            self._footer(page_number, total)
+            return self.pages[0]
+        finally:
+            self.pages = original
+
     def save(self, path, title="Weekly report"):
         saved_pages = self.pages
+        if not saved_pages:
+            raise ValueError("cannot save a report PDF with no pages")
         total = len(saved_pages)
         for number, ops in enumerate(saved_pages, 1):
-            self.pages = [ops]
-            self._footer(number, total)
+            ops.extend(self._footer_ops(number, total))
         self.pages = saved_pages
         objects = [None, None,
                    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",

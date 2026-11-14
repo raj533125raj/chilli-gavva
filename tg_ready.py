@@ -171,6 +171,9 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
 
         evaluation = sell_ready.evaluate_pack(pack_folder, marketing_dir)
         card_text = sell_ready.format_pack_card(evaluation)
+        listed = _listed_note(ctx, aid)
+        if listed:
+            card_text = listed + "\n\n" + card_text
 
         # Build reply keyboard with [Kit] [Files] [Marketing]
         # Providing specific labels or generic labels
@@ -188,11 +191,32 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
     if "all ready packs" in lower or lower in ("/ready", "ready", "sell ready", "ready packs", "sellable", "ready list"):
         evaluations = sell_ready.evaluate_all_packs(products_dir, marketing_dir)
         summary_text = sell_ready.format_ready_summary(evaluations)
-        return {"text": summary_text}
+        return {"text": _with_listed_summary(ctx, summary_text, evaluations)}
 
     # Fallback to evaluating all packs
     evaluations = sell_ready.evaluate_all_packs(products_dir, marketing_dir)
-    return {"text": sell_ready.format_ready_summary(evaluations)}
+    return {"text": _with_listed_summary(ctx, sell_ready.format_ready_summary(evaluations), evaluations)}
+
+
+def _listed_note(ctx: dict, aid: int) -> str:
+    """Line for the /ready N card when the owner already listed pack N on Gumroad (/listed)."""
+    try:
+        import tg_listed
+        return tg_listed.ready_note(aid, ctx.get("db_path"))
+    except Exception:
+        return ""
+
+
+def _with_listed_summary(ctx: dict, summary_text: str, evaluations: list) -> str:
+    """Add one line to the /ready list naming the packs already listed on Gumroad."""
+    if not evaluations:
+        return summary_text
+    try:
+        import tg_listed
+        note = tg_listed.ready_summary_note(ctx.get("db_path"))
+    except Exception:
+        note = ""
+    return summary_text + "\n\n" + note if note else summary_text
 
 
 def _handle_button_action(action: str, aid: int, ctx: dict) -> dict:

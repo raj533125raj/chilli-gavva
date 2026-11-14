@@ -5,7 +5,9 @@
                2) Gumroad fields text from the Gumroad kit (store_kits): title, description, tags,
                   "Price: owner decides"
                3) product files as documents (store_kits.get_files_to_upload)
-               4) cover + preview images (store_kits.get_images_to_upload)
+               4) Gumroad pictures: when the gumroad_images module is there (OpenCode builds it) the
+                  thumbnail, the cover and the gallery images in upload order; else cover + previews
+                  (store_kits.get_images_to_upload)
                5) Tenglish click-by-click checklist for gumroad.com
   Verdict NOT YET -> only the list of fixes is sent; no files, no fields.
 
@@ -213,11 +215,171 @@ def image_files(pack_dir: Path) -> List[Path]:
     return found[:MAX_IMAGES]
 
 
-def checklist_text(pack_id: int, files: List[Path], images: List[Path]) -> str:
+# ---- Gumroad pictures (thumbnail + cover + gallery) from gumroad_images ---------------
+# gumroad_images is built by another worker. tg_sell accepts any of these shapes, so the two
+# modules do not have to be released together:
+#   a function (first one found) called with the pack folder:
+#       upload_order / get_upload_order / images_for_pack / gumroad_upload_order / find_images
+#   returning  {"thumbnail": path, "cover": path, "gallery": [paths]}
+#          or  a list of paths, (role, path) pairs or {"role": ..., "path": ...} dicts
+#   or no usable function: image files found in <pack>/gumroad, <pack>/gumroad-images,
+#   <pack>/gumroad_images or the same folders in the pack's marketing folder.
+# Roles are "thumbnail", "cover" and "gallery"; a path without a role gets it from its file name.
+ROLE_THUMBNAIL, ROLE_COVER, ROLE_GALLERY = "thumbnail", "cover", "gallery"
+GUMROAD_IMAGE_FUNCTIONS = ("upload_order", "get_upload_order", "images_for_pack", "gumroad_upload_order", "find_images")
+GUMROAD_IMAGE_FOLDERS = ("gumroad", "gumroad-images", "gumroad_images")
+_ROLE_WORDS = {"thumbnail": ROLE_THUMBNAIL, "thumb": ROLE_THUMBNAIL, "square": ROLE_THUMBNAIL,
+               "cover": ROLE_COVER, "hero": ROLE_COVER,
+               "gallery": ROLE_GALLERY, "previews": ROLE_GALLERY, "preview": ROLE_GALLERY,
+               "images": ROLE_GALLERY, "image": ROLE_GALLERY, "extra": ROLE_GALLERY}
+
+
+def _gumroad_module():
+    """The gumroad_images module, or None when it is not installed (guarded import)."""
+    try:
+        import gumroad_images
+        return gumroad_images
+    except Exception:
+        return None
+
+
+def _role_from_name(name: str) -> str:
+    low = name.lower()
+    if "thumb" in low or "square" in low:
+        return ROLE_THUMBNAIL
+    if "cover" in low:
+        return ROLE_COVER
+    return ROLE_GALLERY
+
+
+def _as_list(value: Any) -> List[Any]:
+    if value is None or value == "":
+        return []
+    return list(value) if isinstance(value, (list, tuple)) else [value]
+
+
+def _role_pairs(raw: Any) -> List[Tuple[Optional[str], Any]]:
+    """Whatever gumroad_images returned -> [(role or None, path-like)] in the order given."""
+    pairs: List[Tuple[Optional[str], Any]] = []
+    if isinstance(raw, dict):
+        for key, value in raw.items():
+            role = _ROLE_WORDS.get(str(key).lower())
+            if role is None:
+                continue
+            pairs += [(role, item) for item in _as_list(value)]
+        return pairs
+    for item in _as_list(raw):
+        if isinstance(item, dict):
+            path = item.get("path") or item.get("file") or item.get("name")
+            pairs.append((_ROLE_WORDS.get(str(item.get("role") or item.get("kind") or "").lower()), path))
+        elif isinstance(item, (list, tuple)) and len(item) == 2:
+            first, second = item
+            if str(first).lower() in _ROLE_WORDS:
+                pairs.append((_ROLE_WORDS[str(first).lower()], second))
+            elif str(second).lower() in _ROLE_WORDS:
+                pairs.append((_ROLE_WORDS[str(second).lower()], first))
+        else:
+            pairs.append((None, item))
+    return pairs
+
+
+def _safe_image(value: Any, roots: List[Path]) -> Optional[Path]:
+    """A real image file inside the pack folder or the pack's marketing folder; else None."""
+    if not isinstance(value, (str, os.PathLike)) or not str(value).strip():
+        return None
+    candidate = Path(value)
+    options = [candidate] if candidate.is_absolute() else [root / candidate for root in roots]
+    for path in options:
+        try:
+            if path.is_symlink() or not path.is_file() or path.suffix.lower() not in IMAGE_SUFFIXES:
+                continue
+            real = path.resolve()
+            if any(root.resolve() == real.parent or root.resolve() in real.parents for root in roots):
+                return real
+        except OSError:
+            continue
+    return None
+
+
+def _natural(path: Path) -> List[Any]:
+    return [int(part) if part.isdigit() else part.lower() for part in re.split(r"(\d+)", path.name)]
+
+
+def gumroad_image_set(pack_dir: Path, ctx: Optional[Dict[str, Any]] = None) -> List[Tuple[str, Path]]:
+    """[(role, file)] in Gumroad upload order: thumbnail, cover, gallery 1..N.
+
+    Empty list when gumroad_images is not installed or has nothing for this pack; the caller then
+    keeps the cover + preview behaviour.
+    """
+    module = _gumroad_module()
+    if module is None:
+        return []
+    pack_dir = Path(pack_dir)
+    roots = [pack_dir, marketing_base(pack_dir, ctx) / pack_dir.name]
+    pairs: List[Tuple[Optional[str], Any]] = []
+    for name in GUMROAD_IMAGE_FUNCTIONS:
+        function = getattr(module, name, None)
+        if not callable(function):
+            continue
+        try:
+            pairs = _role_pairs(function(pack_dir))
+        except Exception:
+            pairs = []
+        if pairs:
+            break
+    if not pairs:                                   # no usable function: look for the image folders
+        for root in roots:
+            for folder_name in GUMROAD_IMAGE_FOLDERS:
+                folder = root / folder_name
+                if folder.is_dir():
+                    pairs += [(None, path) for path in sorted(folder.iterdir(), key=_natural)]
+            if pairs:
+                break
+    thumbnail: List[Tuple[str, Path]] = []
+    cover: List[Tuple[str, Path]] = []
+    gallery: List[Tuple[str, Path]] = []
+    seen = set()
+    for role, value in pairs:
+        path = _safe_image(value, roots)
+        if path is None or path in seen:
+            continue
+        seen.add(path)
+        role = role or _role_from_name(path.name)
+        if role == ROLE_THUMBNAIL and not thumbnail:
+            thumbnail.append((ROLE_THUMBNAIL, path))
+        elif role == ROLE_COVER and not cover:
+            cover.append((ROLE_COVER, path))
+        else:
+            gallery.append((ROLE_GALLERY, path))
+    return (thumbnail + cover + gallery)[:MAX_IMAGES]
+
+
+def sell_images(pack_dir: Path, ctx: Optional[Dict[str, Any]] = None) -> List[Tuple[str, Path]]:
+    """The pictures /sell sends, with their roles: the Gumroad set when there is one, else the
+    pack's own cover (first image) and previews."""
+    chosen = gumroad_image_set(pack_dir, ctx)
+    if chosen:
+        return chosen
+    return [(ROLE_COVER if index == 0 else ROLE_GALLERY, path)
+            for index, path in enumerate(image_files(pack_dir))]
+
+
+def checklist_text(pack_id: int, files: List[Path], images: List[Path],
+                   roles: Optional[List[str]] = None) -> str:
     """Click-by-click steps for gumroad.com, in Tenglish, with this pack's real file names."""
     file_names = ", ".join(path.name for path in files) or "product.zip"
-    cover = images[0].name if images else "cover image"
-    previews = ", ".join(path.name for path in images[1:])
+    if roles and len(roles) == len(images):
+        covers = [path.name for role, path in zip(roles, images) if role == ROLE_COVER]
+        thumbs = [path.name for role, path in zip(roles, images) if role == ROLE_THUMBNAIL]
+        gallery = [path.name for role, path in zip(roles, images) if role == ROLE_GALLERY]
+    else:
+        covers, thumbs, gallery = [path.name for path in images[:1]], [], [path.name for path in images[1:]]
+    cover = covers[0] if covers else (gallery[0] if gallery and not thumbs else "cover image")
+    if not covers and gallery and not thumbs:
+        gallery = gallery[1:]
+    previews = ", ".join(gallery)
+    thumbnail_step = (f"'Thumbnail' section lo {thumbs[0]} upload cheyandi (square image)." if thumbs
+                      else "'Thumbnail' ki ade cover image upload cheyandi.")
     steps = [
         "Browser lo gumroad.com open chesi mee account lo login avvandi (login meere cheyali).",
         "Left menu lo 'Products' click cheyandi, tarvata 'New product' button click cheyandi.",
@@ -228,7 +390,7 @@ def checklist_text(pack_id: int, files: List[Path], images: List[Path]) -> str:
         "'Description' box lo paina unna Description paste cheyandi.",
         f"'Cover' section lo 'Upload images or videos' click chesi {cover} upload cheyandi."
         + (f" Tarvata previews kuda add cheyandi: {previews}." if previews else ""),
-        "'Thumbnail' ki ade cover image upload cheyandi.",
+        thumbnail_step,
         "Summary box unte Short Description paste cheyandi.",
         f"'Content' tab open chesi 'Upload your files' click cheyandi: {file_names}.",
         "'Share' tab lo Category select chesi, paina unna Tags okkokkati type chesi Enter kottandi.",
@@ -307,11 +469,30 @@ def _send_documents(pack_id: int, files: List[Path], ctx: Dict[str, Any]) -> Tup
     return sent, problems
 
 
-def _send_images(pack_id: int, images: List[Path], ctx: Dict[str, Any]) -> Tuple[int, List[str]]:
+def image_labels(images: List[Path], roles: Optional[List[str]] = None) -> List[str]:
+    """Caption label per image. Without roles: 'Cover image', 'Preview 1', ... (cover + previews)."""
+    if not roles or len(roles) != len(images):
+        return ["Cover image" if index == 0 else f"Preview {index}" for index in range(len(images))]
+    labels, gallery_number = [], 0
+    from_gumroad_set = ROLE_THUMBNAIL in roles
+    for role in roles:
+        if role == ROLE_THUMBNAIL:
+            labels.append("Thumbnail (square)")
+        elif role == ROLE_COVER:
+            labels.append("Cover image")
+        else:
+            gallery_number += 1
+            labels.append(f"Gallery {gallery_number}" if from_gumroad_set else f"Preview {gallery_number}")
+    return labels
+
+
+def _send_images(pack_id: int, images: List[Path], ctx: Dict[str, Any],
+                 roles: Optional[List[str]] = None) -> Tuple[int, List[str]]:
     send_photo, send_document = ctx.get("send_photo"), ctx.get("send_document")
     sent, problems = 0, []
+    labels = image_labels(images, roles)
     for index, path in enumerate(images):
-        role = "Cover image" if index == 0 else f"Preview {index}"
+        role = labels[index]
         caption = f"3/4 Pack #{pack_id} {role}: {path.name}"
         ok = send_photo(str(path), caption=caption) if callable(send_photo) else False
         if ok is False and callable(send_document):   # e.g. photo too large for a Telegram photo
@@ -359,8 +540,10 @@ def handle_sell(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as error:
         return {"text": verdict + "\n\n" + clean(f"Gumroad fields tayaru cheyalekapoya: {error}. "
                                                     f"listing.txt check cheyandi (/ready {pack_id}).")}
-    files, images = product_files(pack_dir), image_files(pack_dir)
-    checklist = checklist_text(pack_id, files, images)
+    files = product_files(pack_dir)
+    chosen = sell_images(pack_dir, ctx)
+    roles, images = [role for role, _ in chosen], [path for _, path in chosen]
+    checklist = checklist_text(pack_id, files, images, roles)
 
     if not callable(ctx.get("send_text")):
         return {"text": "\n\n".join([verdict, fields, checklist])}
@@ -368,7 +551,7 @@ def handle_sell(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
     _send(ctx, verdict)
     _send(ctx, fields)
     sent_files, problems = _send_documents(pack_id, files, ctx)
-    sent_images, image_problems = _send_images(pack_id, images, ctx)
+    sent_images, image_problems = _send_images(pack_id, images, ctx, roles)
     problems += image_problems
     if not files:
         problems.append("Product file okkati kuda dorakaledu (product.zip ledu)")

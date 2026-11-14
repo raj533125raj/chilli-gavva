@@ -5,19 +5,39 @@ Splits tests into chunks, runs each chunk in a subprocess with a timeout,
 collects timing per test module, identifies slowest 10 modules, outputs
 FAIL/ERROR lines for run_failure compatibility, and exits with code 0 on pass
 or non-zero on test failures/timeouts.
+
+Chunks run side by side (CC2-1): up to MAX_JOBS chunk processes at once, never more than the
+machine has CPU cores. Every chunk gets its OWN empty temp folder (TMPDIR), so chunks cannot
+see each other's temp files. Results are still printed in chunk order. Use --jobs 1 (or
+CHILLI_TEST_JOBS=1) for the old one-after-another behaviour.
 """
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import glob
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CHUNK_SIZE = 20
 DEFAULT_TIMEOUT_PER_CHUNK = 480  # 8 minutes per chunk (a GitHub chunk took 217 s on 2026-11-13)
+MAX_JOBS = 4  # most chunk processes side by side
+JOBS_ENV = "CHILLI_TEST_JOBS"
+
+
+def default_jobs(env=None, cpu_count=None):
+    """How many chunks run side by side: CHILLI_TEST_JOBS if set, else CPU cores (1..MAX_JOBS)."""
+    env = os.environ if env is None else env
+    raw = str(env.get(JOBS_ENV, "")).strip()
+    if raw.isdigit() and int(raw) >= 1:
+        return min(int(raw), 16)
+    cores = cpu_count if cpu_count is not None else (os.cpu_count() or 1)
+    return max(1, min(MAX_JOBS, cores))
 
 
 def discover_test_modules(tests_dir=None):
@@ -241,8 +261,12 @@ def run_all_chunked(
     env=None,
     runner=subprocess.run,
     log_func=print,
+    jobs=None,
 ):
     """Discover all tests, run in chunks, print per-chunk status and final summary.
+
+    jobs: chunk processes side by side. None = default_jobs() for real runs, and 1 when a fake
+    runner is passed in (unit tests of this tool stay strictly in order).
 
     Returns:
         int: exit code (0 if all passed, non-zero if any failed or timed out)
@@ -279,17 +303,39 @@ def run_all_chunked(
     start_total = time.time()
     any_failed = False
 
-    for idx, chk in enumerate(chunks, 1):
-        chunk_name = f"chunk_{idx:02d}_{chk[0].split('.')[-1]}"
-        log_func(f"[Chunk {idx}/{total_chunks}] Running {len(chk)} modules...")
+    real_run = runner is subprocess.run
+    if jobs is None:
+        jobs = default_jobs(run_env) if real_run else 1
+    jobs = max(1, min(int(jobs), total_chunks))
+    # Real runs: one private temp folder per chunk (resolved path, so a /var -> /private/var
+    # link on a Mac cannot confuse path comparisons). Removed again at the end.
+    temp_root = os.path.realpath(tempfile.mkdtemp(prefix="chilli_tests_")) if real_run else None
+    if jobs > 1:
+        log_func(f"[run_tests_chunked] Running up to {jobs} chunks side by side.")
 
-        res = run_chunk(
+    def run_numbered(idx, chk):
+        chunk_env = run_env
+        if temp_root:
+            chunk_tmp = os.path.join(temp_root, f"chunk_{idx:02d}")
+            os.makedirs(chunk_tmp, exist_ok=True)
+            chunk_env = dict(run_env, TMPDIR=chunk_tmp, TEMP=chunk_tmp, TMP=chunk_tmp)
+        return run_chunk(
             chk,
             timeout=timeout_per_chunk,
-            env=run_env,
+            env=chunk_env,
             runner=runner,
             log_func=log_func,
         )
+
+    pool = ThreadPoolExecutor(max_workers=jobs) if jobs > 1 else None
+    futures = [pool.submit(run_numbered, idx, chk) for idx, chk in enumerate(chunks, 1)] if pool else []
+
+    for idx, chk in enumerate(chunks, 1):
+        chunk_name = f"chunk_{idx:02d}_{chk[0].split('.')[-1]}"
+        if not pool:
+            log_func(f"[Chunk {idx}/{total_chunks}] Running {len(chk)} modules...")
+
+        res = futures[idx - 1].result() if pool else run_numbered(idx, chk)
 
         chunk_timings[chunk_name] = res["elapsed"]
         parsed = res["parsed"]
@@ -317,6 +363,11 @@ def run_all_chunked(
 
         if parsed["failing_tests"]:
             all_failing_tests.extend(parsed["failing_tests"])
+
+    if pool:
+        pool.shutdown(wait=True)
+    if temp_root:
+        shutil.rmtree(temp_root, ignore_errors=True)
 
     total_elapsed = time.time() - start_total
     summary_text = format_summary(
@@ -357,7 +408,15 @@ def main(argv=None):
         default=DEFAULT_TIMEOUT_PER_CHUNK,
         help=f"Per-chunk timeout in seconds (default: {DEFAULT_TIMEOUT_PER_CHUNK})",
     )
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=None,
+        help=f"Chunks side by side (default: CPU cores, at most {MAX_JOBS}; or ${JOBS_ENV}). 1 = one after another",
+    )
     args = parser.parse_args(argv)
+    if args.jobs is not None and args.jobs >= 1:
+        os.environ[JOBS_ENV] = str(args.jobs)
 
     return run_all_chunked(
         tests_dir=args.tests_dir,

@@ -15,6 +15,7 @@ inbox before plugins run.
 from __future__ import annotations
 
 import re
+import shutil
 import tempfile
 
 import report_pdf
@@ -50,16 +51,20 @@ def handle(text, ctx):
     send_document = ctx.get("send_document")
     if not callable(send_document):
         return {"text": "Report PDF pampadaniki send_document ledu; owner setup check cheyali."}
+    tmp_dir = tempfile.mkdtemp(prefix="weekly-report-")
     try:
-        result = report_pdf.build_weekly_report(
-            db_path=ctx.get("db_path"),
-            now=ctx.get("now"),
-            out_dir=tempfile.gettempdir(),
-        )
-    except Exception as exc:
-        return {"text": f"Report PDF build fail ayyindi ({type(exc).__name__}). Owner check cheyali."}
-    data = result.get("data", {})
-    caption = (f"Weekly report PDF · {data.get('week_key', data.get('week', ''))} · counts only. "
-               "Owner review cheyandi; nothing auto-published.")
-    send_document(result["path"], caption=caption[:1000])
-    return {"handled": True}
+        try:
+            result = report_pdf.build_weekly_report(
+                db_path=ctx.get("db_path"),
+                now=ctx.get("now"),
+                out_dir=tmp_dir,
+            )
+        except Exception as exc:
+            return {"text": f"Report PDF build fail ayyindi ({type(exc).__name__}). Owner check cheyali."}
+        data = result.get("data", {})
+        caption = (f"Weekly report PDF · {data.get('week_key', data.get('week', ''))} · counts only. "
+                   "Owner review cheyandi; nothing auto-published.")
+        send_document(result["path"], caption=caption[:1000])
+        return {"handled": True}
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)

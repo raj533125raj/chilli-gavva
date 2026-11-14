@@ -37,26 +37,30 @@ def _normalise(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "").strip().lower())
 
 
+def _matches(value: str, phrases) -> bool:
+    return any(value == phrase or value.startswith(phrase + " ") for phrase in phrases)
+
+
 def parse_action(text: str) -> Optional[str]:
     """Return 'report', 'clean' or 'copy' when the text belongs to this plugin."""
     value = _normalise(text)
     if not value:
         return None
-    if value in _CLEAN_WORDS:
+    if _matches(value, _CLEAN_WORDS):
         return "clean"
-    if value in _COPY_WORDS:
+    if _matches(value, _COPY_WORDS):
         return "copy"
     match = _CMD_RE.match((text or "").strip())
     if match:
         arg = _normalise(match.group(1) or "")
-        if arg in ("clean", "cleanup"):
+        if _matches(arg, ("clean", "cleanup")):
             return "clean"
-        if arg in ("copy", "check copy", "check-copy"):
+        if _matches(arg, ("copy", "check copy", "check-copy")):
             return "copy"
-        if arg in ("", "report", "status", "health"):
+        if _matches(arg, ("", "report", "status", "health")):
             return "report"
         return None
-    if value in ("dbcare", "db care", "database health", "db health", "db check"):
+    if _matches(value, ("dbcare", "db care", "database health", "db health", "db check")):
         return "report"
     return None
 
@@ -69,7 +73,7 @@ def _is_owner_chat(ctx: Dict[str, Any]) -> bool:
         if configured and owner_chat_id:
             return str(owner_chat_id) == str(ctx.get("chat_id"))
     except Exception:
-        pass
+        return False
     return True
 
 

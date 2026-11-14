@@ -111,10 +111,20 @@ class StatusTests(unittest.TestCase):
         import cloud_runner
         from unittest.mock import patch
         self.make_old_simulation_rows()
+        # CC2-1: cloud_runner.main() also starts the scout, the trend reader and the marketing
+        # agency. Unpatched, the trend reader fetched live feeds from the internet (about 36 s and
+        # not offline). They are not what this test checks, so they are stubbed and counted.
+        import marketing_agency
+        import scout
+        import trend
         with patch.object(export_status.guardrails, "DB_PATH", self.db), \
                 patch.object(cloud_runner.workforce, "run_once", lambda **k: {"status": "ok", "ran": 0, "failed": 0}), \
-                patch.object(cloud_runner.export_status, "write_status", lambda: None):
+                patch.object(cloud_runner.export_status, "write_status", lambda: None), \
+                patch.object(scout, "maybe_run") as scout_run, \
+                patch.object(trend, "maybe_run") as trend_run, \
+                patch.object(marketing_agency, "process_ready_products") as agency_run:
             cloud_runner.main()
+        self.assertEqual((scout_run.call_count, trend_run.call_count, agency_run.call_count), (1, 1, 1))
         self.assertEqual(self.count("campaigns", "source != 'real'"), 0)
         self.assertEqual(self.count("agent_logs"), 0)
 

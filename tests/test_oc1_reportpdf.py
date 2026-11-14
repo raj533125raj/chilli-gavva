@@ -644,11 +644,12 @@ class PluginTests(unittest.TestCase):
     def test_handle_sends_document(self):
         sent = []
         ctx = {"db_path": str(self.db), "now": NOW,
-               "send_document": lambda path, caption="": sent.append((path, caption))}
+               "send_document": lambda path, caption="": sent.append((path, caption, Path(path).is_file()))}
         result = tg_reportpdf.handle("/reportpdf", ctx)
         self.assertEqual(result, {"handled": True})
         self.assertEqual(len(sent), 1)
-        self.assertTrue(Path(sent[0][0]).is_file())
+        self.assertTrue(sent[0][2])
+        self.assertFalse(Path(sent[0][0]).exists())
 
     def test_caption_has_week_and_no_money(self):
         sent = []
@@ -677,14 +678,15 @@ class PluginTests(unittest.TestCase):
         import telegram_inbox as ti
         sent = []
         with mock.patch.object(ti, "send_document",
-                               side_effect=lambda token, chat, path, caption="": sent.append(path)), \
+                               side_effect=lambda token, chat, path, caption="": sent.append((path, Path(path).is_file()))), \
              mock.patch.object(ti, "send_text", return_value=True):
             handled, result = ti.call_plugins("/reportpdf", "tok", OWNER, db_path=str(self.db),
                                               now=NOW, plugins=[tg_reportpdf])
         self.assertTrue(handled)
         self.assertEqual(result, {"handled": True})
         self.assertEqual(len(sent), 1)
-        self.assertTrue(Path(sent[0]).is_file())
+        self.assertTrue(sent[0][1])
+        self.assertFalse(Path(sent[0][0]).exists())
 
     def test_discover_plugins_finds_module(self):
         import telegram_inbox as ti

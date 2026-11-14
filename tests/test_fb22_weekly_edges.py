@@ -119,6 +119,14 @@ class TestFb22WeeklyEdges(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="fb22_"))
         self.db_path = _make_db(self.tmp)
+        # CC2-2: runs without marketing_dir / products_dir fell back to the REPO folders and rewrote
+        # exported_content/marketing/* (newsletter, dup report, post plan). The fall-back folders
+        # now live in this test's temp folder; "missing folder" still means a folder that is not there.
+        for name, folder in (("DEFAULT_MARKETING_DIR", self.tmp / "default_marketing"),
+                             ("DEFAULT_PRODUCTS_DIR", self.tmp / "default_products")):
+            patcher = mock.patch.object(weekly_routine, name, folder)
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)

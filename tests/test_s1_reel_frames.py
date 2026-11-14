@@ -31,6 +31,18 @@ except ImportError:
 import reel_frames
 
 
+# CC2-1 speed: 10 tests each rendered the same default sample pack only to read the
+# result (8 frames, ~0.65 s). The real maker now runs once for them; they still check its real output.
+_SHARED = {}
+
+
+def tearDownModule():
+    holder = _SHARED.pop("dir", None)
+    _SHARED.clear()
+    if holder is not None:
+        holder.cleanup()
+
+
 @unittest.skipUnless(HAS_PIL, "Pillow is required for reel tests")
 class TestS1ReelFrames(unittest.TestCase):
     def setUp(self):
@@ -48,6 +60,22 @@ class TestS1ReelFrames(unittest.TestCase):
         self.products_dir.mkdir(parents=True, exist_ok=True)
         self.marketing_dir = self.root / "marketing"
         self.marketing_dir.mkdir(parents=True, exist_ok=True)
+
+    def _shared_default_render(self):
+        """reel_frames.make_pack_reel() result for the default sample pack, rendered once per module."""
+        if "result" not in _SHARED:
+            _SHARED["dir"] = tempfile.TemporaryDirectory()
+            root = Path(_SHARED["dir"].name)
+            own_products = self.products_dir
+            self.products_dir = root / "products" / "upload"
+            self.products_dir.mkdir(parents=True)
+            try:
+                pack = self._create_sample_pack()
+            finally:
+                self.products_dir = own_products
+            (root / "marketing").mkdir()
+            _SHARED["result"] = reel_frames.make_pack_reel(pack, root / "marketing")
+        return _SHARED["result"]
 
     def _create_sample_pack(
         self,
@@ -91,15 +119,13 @@ class TestS1ReelFrames(unittest.TestCase):
 
     # 1. Frame count is exactly 8
     def test_01_frame_count_is_eight(self):
-        pack = self._create_sample_pack()
-        out = reel_frames.make_pack_reel(pack, self.marketing_dir)
+        out = self._shared_default_render()
         pngs = sorted(out.glob("frame-*.png"))
         self.assertEqual(len(pngs), 8)
 
     # 2. Dimensions are 1080x1920 for all 8 frames
     def test_02_frame_dimensions_1080x1920(self):
-        pack = self._create_sample_pack()
-        out = reel_frames.make_pack_reel(pack, self.marketing_dir)
+        out = self._shared_default_render()
         for i in range(1, 9):
             frame_path = out / f"frame-{i}.png"
             with Image.open(frame_path) as im:
@@ -112,27 +138,23 @@ class TestS1ReelFrames(unittest.TestCase):
 
     # 4. Companion file reel.txt exists
     def test_04_reel_txt_exists(self):
-        pack = self._create_sample_pack()
-        out = reel_frames.make_pack_reel(pack, self.marketing_dir)
+        out = self._shared_default_render()
         self.assertTrue((out / "reel.txt").is_file())
 
     # 5. Companion file make_reel.sh exists
     def test_05_make_reel_sh_exists(self):
-        pack = self._create_sample_pack()
-        out = reel_frames.make_pack_reel(pack, self.marketing_dir)
+        out = self._shared_default_render()
         self.assertTrue((out / "make_reel.sh").is_file())
 
     # 6. make_reel.sh is executable
     def test_06_make_reel_sh_is_executable(self):
-        pack = self._create_sample_pack()
-        out = reel_frames.make_pack_reel(pack, self.marketing_dir)
+        out = self._shared_default_render()
         mode = os.stat(out / "make_reel.sh").st_mode
         self.assertTrue(bool(mode & stat.S_IXUSR))
 
     # 7. make_reel.sh contains ffmpeg commands and 15s framerate (never run in CI)
     def test_07_make_reel_sh_content(self):
-        pack = self._create_sample_pack()
-        out = reel_frames.make_pack_reel(pack, self.marketing_dir)
+        out = self._shared_default_render()
         content = (out / "make_reel.sh").read_text(encoding="utf-8")
         self.assertIn("ffmpeg", content)
         self.assertIn("1080:1920", content)
@@ -140,8 +162,7 @@ class TestS1ReelFrames(unittest.TestCase):
 
     # 8. reel.txt contains title, description, and exactly 8 hashtags
     def test_08_reel_txt_hashtags_count(self):
-        pack = self._create_sample_pack()
-        out = reel_frames.make_pack_reel(pack, self.marketing_dir)
+        out = self._shared_default_render()
         text = (out / "reel.txt").read_text(encoding="utf-8")
         hashtags = [w for w in text.split() if w.startswith("#")]
         self.assertEqual(len(hashtags), 8)
@@ -225,14 +246,12 @@ class TestS1ReelFrames(unittest.TestCase):
 
     # 17. Frame 7 'How it looks printed' is generated
     def test_17_frame_7_printed_exists(self):
-        pack = self._create_sample_pack()
-        out = reel_frames.make_pack_reel(pack, self.marketing_dir)
+        out = self._shared_default_render()
         self.assertTrue((out / "frame-7.png").is_file())
 
     # 18. Frame 8 CTA 'Link in bio' is generated
     def test_18_frame_8_cta_exists(self):
-        pack = self._create_sample_pack()
-        out = reel_frames.make_pack_reel(pack, self.marketing_dir)
+        out = self._shared_default_render()
         self.assertTrue((out / "frame-8.png").is_file())
 
     # 19. Fitted preview images preserve aspect ratio (not stretched)
@@ -294,8 +313,7 @@ class TestS1ReelFrames(unittest.TestCase):
 
     # 25. File sizes < 2.0MB per frame
     def test_25_file_sizes_under_2mb(self):
-        pack = self._create_sample_pack()
-        out = reel_frames.make_pack_reel(pack, self.marketing_dir)
+        out = self._shared_default_render()
         for i in range(1, 9):
             size = (out / f"frame-{i}.png").stat().st_size
             self.assertLess(size, 2_000_000, f"Frame {i} exceeded 2MB: {size} bytes")

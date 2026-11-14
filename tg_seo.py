@@ -32,18 +32,22 @@ _CMD_RE = re.compile(
 
 
 def parse_pack_number(text: str) -> Optional[int]:
-    """Return N for /seokit N (or 'seo kit N'), 0 when the command has no N, else None."""
+    """Return N for /seokit N (or 'seo kit N'), None when no N is given, else None."""
     match = _CMD_RE.match((text or "").strip())
     if not match:
         return None
     raw = match.group(1)
     if raw is None:
-        return 0
+        return None
     try:
         number = int(raw)
     except ValueError:
         return None
     return number if number > 0 else 0
+
+
+def _is_command(text: str) -> bool:
+    return bool(_CMD_RE.match((text or "").strip()))
 
 
 def _is_owner_chat(ctx: Dict[str, Any]) -> bool:
@@ -70,22 +74,22 @@ def _products_dir(ctx: Dict[str, Any]) -> Optional[str]:
 
 
 def handle(text: str, ctx: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    pack_number = parse_pack_number(text)
-    if pack_number is None:
+    if not _is_command(text):
         return None
     if not _is_owner_chat(ctx):
         return None
-    if pack_number <= 0:
+    pack_number = parse_pack_number(text)
+    if not pack_number:
         return {"text": "Pack number cheppandi (example: /seokit 3)."}
 
     try:
         output = seo_helper.build_for_pack(pack_number, _products_dir(ctx))
+        document = seo_helper.build_seo_document(output)
     except seo_helper.PackNotFoundError:
         return {"text": f"Pack {pack_number} folder dorakaledu. /packs tho ready packs chudandi."}
     except Exception as exc:  # noqa: BLE001 - owner gets a clear message
         return {"text": f"SEO kit error: {exc}"}
 
-    document = seo_helper.build_seo_document(output)
     summary = short_summary(output)
     send_document = ctx.get("send_document")
     if not callable(send_document):

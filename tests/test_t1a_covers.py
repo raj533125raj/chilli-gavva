@@ -53,6 +53,18 @@ import cover_variants
 import mockups
 
 
+# CC2-1 speed: 8 tests each rendered the same default sample pack only to read the
+# result (3 covers, ~0.4 s). The real maker now runs once for them; they still check its real output.
+_SHARED = {}
+
+
+def tearDownModule():
+    holder = _SHARED.pop("dir", None)
+    _SHARED.clear()
+    if holder is not None:
+        holder.cleanup()
+
+
 @unittest.skipUnless(HAS_PIL, "Pillow is required for cover_variants tests")
 class TestT1ACovers(unittest.TestCase):
     def setUp(self):
@@ -70,6 +82,22 @@ class TestT1ACovers(unittest.TestCase):
         self.products_dir.mkdir(parents=True, exist_ok=True)
         self.marketing_dir = self.root / "marketing"
         self.marketing_dir.mkdir(parents=True, exist_ok=True)
+
+    def _shared_default_render(self):
+        """cover_variants.make_pack_covers() result for the default sample pack, rendered once per module."""
+        if "result" not in _SHARED:
+            _SHARED["dir"] = tempfile.TemporaryDirectory()
+            root = Path(_SHARED["dir"].name)
+            own_products = self.products_dir
+            self.products_dir = root / "products" / "upload"
+            self.products_dir.mkdir(parents=True)
+            try:
+                pack = self._create_sample_pack()
+            finally:
+                self.products_dir = own_products
+            (root / "marketing").mkdir()
+            _SHARED["result"] = cover_variants.make_pack_covers(pack, root / "marketing")
+        return _SHARED["result"]
 
     def _create_sample_pack(
         self,
@@ -113,8 +141,7 @@ class TestT1ACovers(unittest.TestCase):
 
     # 1. Variant Count: exactly 3 cover images produced
     def test_01_variant_count(self):
-        pack = self._create_sample_pack()
-        res = cover_variants.make_pack_covers(pack, self.marketing_dir)
+        res = self._shared_default_render()
         covers_dir = Path(res["covers_dir"])
         png_files = sorted(list(covers_dir.glob("*.png")))
         self.assertEqual(len(png_files), 3)
@@ -122,29 +149,25 @@ class TestT1ACovers(unittest.TestCase):
 
     # 2. Dimensions for Variant A
     def test_02_dimensions_variant_a(self):
-        pack = self._create_sample_pack()
-        res = cover_variants.make_pack_covers(pack, self.marketing_dir)
+        res = self._shared_default_render()
         with Image.open(Path(res["covers_dir"]) / "cover_a.png") as im:
             self.assertEqual(im.size, (1280, 720))
 
     # 3. Dimensions for Variant B
     def test_03_dimensions_variant_b(self):
-        pack = self._create_sample_pack()
-        res = cover_variants.make_pack_covers(pack, self.marketing_dir)
+        res = self._shared_default_render()
         with Image.open(Path(res["covers_dir"]) / "cover_b.png") as im:
             self.assertEqual(im.size, (1280, 720))
 
     # 4. Dimensions for Variant C
     def test_04_dimensions_variant_c(self):
-        pack = self._create_sample_pack()
-        res = cover_variants.make_pack_covers(pack, self.marketing_dir)
+        res = self._shared_default_render()
         with Image.open(Path(res["covers_dir"]) / "cover_c.png") as im:
             self.assertEqual(im.size, (1280, 720))
 
     # 5. covers.json exists and is valid JSON
     def test_05_covers_json_exists(self):
-        pack = self._create_sample_pack()
-        res = cover_variants.make_pack_covers(pack, self.marketing_dir)
+        res = self._shared_default_render()
         json_file = Path(res["covers_dir"]) / "covers.json"
         self.assertTrue(json_file.is_file())
         data = json.loads(json_file.read_text(encoding="utf-8"))
@@ -153,8 +176,7 @@ class TestT1ACovers(unittest.TestCase):
 
     # 6. covers.json schema contains file, layout, title
     def test_06_covers_json_schema(self):
-        pack = self._create_sample_pack()
-        res = cover_variants.make_pack_covers(pack, self.marketing_dir)
+        res = self._shared_default_render()
         data = json.loads((Path(res["covers_dir"]) / "covers.json").read_text(encoding="utf-8"))
         for entry in data:
             self.assertIn("file", entry)
@@ -164,8 +186,7 @@ class TestT1ACovers(unittest.TestCase):
 
     # 7. covers.json layouts are A, B, C
     def test_07_covers_json_layouts(self):
-        pack = self._create_sample_pack()
-        res = cover_variants.make_pack_covers(pack, self.marketing_dir)
+        res = self._shared_default_render()
         data = json.loads((Path(res["covers_dir"]) / "covers.json").read_text(encoding="utf-8"))
         layouts = [e["layout"] for e in data]
         self.assertEqual(layouts, ["A", "B", "C"])
@@ -197,8 +218,7 @@ class TestT1ACovers(unittest.TestCase):
 
     # 11. File size < 1MB for all variants
     def test_11_file_size_under_one_mb(self):
-        pack = self._create_sample_pack()
-        res = cover_variants.make_pack_covers(pack, self.marketing_dir)
+        res = self._shared_default_render()
         covers_dir = Path(res["covers_dir"])
         for name in ["cover_a.png", "cover_b.png", "cover_c.png"]:
             f = covers_dir / name

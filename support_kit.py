@@ -164,17 +164,20 @@ def _display_name(pack_dir: Path) -> str:
 
 def _iter_pack_files(pack_dir: Path, exclude=None):
     support_dir = (Path(exclude) if exclude else (pack_dir / SUPPORT_DIRNAME)).resolve()
-    for path in sorted(pack_dir.rglob("*")):
-        if not path.is_file():
-            continue
-        try:
-            path.resolve().relative_to(support_dir)
-            continue
-        except ValueError:
-            pass
-        if path.name.startswith("."):
-            continue
-        yield path.name, path.suffix.lower(), path.stat().st_size
+    for current, dirs, names in os.walk(pack_dir, followlinks=False):
+        dirs.sort()
+        for name in sorted(names):
+            path = Path(current) / name
+            if path.is_symlink() or not path.is_file():
+                continue
+            try:
+                path.resolve().relative_to(support_dir)
+                continue
+            except ValueError:
+                pass
+            if name.startswith("."):
+                continue
+            yield name, path.suffix.lower(), path.stat().st_size
 
 
 def _zip_pack_files(pack_dir: Path):
@@ -431,7 +434,9 @@ def _support_replies(pack_name: str) -> str:
 
 These are templates for the seller. Keep replies short and polite. Never promise
 a refund, a result or a delivery time that you cannot keep. The seller sends the
-reply by hand after reading the buyer's message.
+reply by hand after reading the buyer's message. Where a template shows
+[amount], replace it with the exact price on the store listing before sending;
+never send the raw placeholder.
 
 ## Template 1 — download problem
 Subject: Your download for {pack_name}
@@ -474,8 +479,8 @@ did not work for you.
 
 I will review the request against the store's refund policy and the details you
 sent. If a refund is approved, the amount will be handled by the store where you
-bought the pack, using the original payment method. The listing shows [amount]
-as the price; any refund amount follows the store's policy.
+bought the pack, using the original payment method. See the store listing for
+the price; refunds follow the store's policy.
 
 I cannot promise a refund before this review. I will reply after I have checked
 the details.
@@ -517,6 +522,13 @@ Nothing auto-publish avvadu, auto-sell avvadu, auto-email avvadu. Buyer ki pampa
 """
 
 
+def _unlink_quiet(path: Path) -> None:
+    try:
+        Path(path).unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 def _write_if_changed(path: Path, data: bytes) -> bool:
     if path.is_file():
         try:
@@ -531,8 +543,7 @@ def _write_if_changed(path: Path, data: bytes) -> bool:
             handle_file.write(data)
         os.replace(temp_name, path)
     finally:
-        if os.path.exists(temp_name):
-            os.unlink(temp_name)
+        _unlink_quiet(temp_name)
     return True
 
 
@@ -633,30 +644,32 @@ def build(pack_dir, support_dir=None) -> dict:
     ])
 
     written, unchanged = [], []
-    for filename, text in documents:
-        if _write_if_changed(target / filename, text.encode("utf-8")):
-            written.append(filename)
-        else:
-            unchanged.append(filename)
-
-    pdf_path = target / THANK_YOU_PDF
-    handle, temp_name = tempfile.mkstemp(prefix=".support-", suffix=".pdf", dir=str(target))
-    os.close(handle)
     try:
-        _thank_you_pdf(Path(temp_name), pack_name, formats, files)
-        new_bytes = Path(temp_name).read_bytes()
-        if _write_if_changed(pdf_path, new_bytes):
-            written.append(THANK_YOU_PDF)
-        else:
-            unchanged.append(THANK_YOU_PDF)
+        for filename, text in documents:
+            if _write_if_changed(target / filename, text.encode("utf-8")):
+                written.append(filename)
+            else:
+                unchanged.append(filename)
+
+        pdf_path = target / THANK_YOU_PDF
+        handle, temp_name = tempfile.mkstemp(prefix=".support-", suffix=".pdf", dir=str(target))
+        os.close(handle)
+        try:
+            _thank_you_pdf(Path(temp_name), pack_name, formats, files)
+            new_bytes = Path(temp_name).read_bytes()
+            if _write_if_changed(pdf_path, new_bytes):
+                written.append(THANK_YOU_PDF)
+            else:
+                unchanged.append(THANK_YOU_PDF)
+        finally:
+            _unlink_quiet(temp_name)
     finally:
-        if os.path.exists(temp_name):
-            os.unlink(temp_name)
+        if target.is_dir():
+            for path in sorted(target.iterdir()):
+                if path.is_file() and path.name.startswith(".support-"):
+                    _unlink_quiet(path)
 
     expected = sorted([name for name, _ in documents] + [THANK_YOU_PDF])
-    for path in sorted(target.iterdir()):
-        if path.is_file() and path.name.startswith(".support-"):
-            path.unlink()
     return {
         "pack": pack_name,
         "folder": str(root),

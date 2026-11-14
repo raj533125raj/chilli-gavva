@@ -631,7 +631,7 @@ class PluginTests(unittest.TestCase):
         self.assertEqual(tg_seo.parse_pack_number("seokit for pack 3"), 3)
 
     def test_parse_no_number(self):
-        self.assertEqual(tg_seo.parse_pack_number("/seokit"), 0)
+        self.assertIsNone(tg_seo.parse_pack_number("/seokit"))
 
     def test_parse_zero(self):
         self.assertEqual(tg_seo.parse_pack_number("/seokit 0"), 0)

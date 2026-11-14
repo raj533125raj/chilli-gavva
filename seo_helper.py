@@ -11,8 +11,9 @@ from __future__ import annotations
 
 import os
 import re
+import stat
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -20,6 +21,7 @@ DEFAULT_PRODUCTS_DIR = BASE_DIR / "exported_content" / "products"
 MAX_FILE_BYTES = 200_000
 MAX_TOTAL_BYTES = 1_000_000
 MAX_ZIP_MEMBERS = 30
+MAX_SUBDIR_FILES = 20
 
 BRAND_BLOCKLIST: Set[str] = {
     "etsy", "gumroad", "payhip", "notion", "canva", "pinterest", "instagram",
@@ -199,16 +201,29 @@ def _read_text(path: Path) -> str:
     return data.decode("utf-8", errors="replace")
 
 
+def _safe_zip_member(member: zipfile.ZipInfo) -> bool:
+    name = member.filename
+    if not name or "\x00" in name or member.is_dir():
+        return False
+    normalized = name.replace("\\", "/")
+    if normalized.startswith("/") or re.match(r"^[A-Za-z]:", normalized):
+        return False
+    if any(part in ("", ".", "..") for part in PurePosixPath(normalized).parts):
+        return False
+    mode = (member.external_attr >> 16) & 0o170000
+    if mode == stat.S_IFLNK:
+        return False
+    return True
+
+
 def _zip_texts(zip_path: Path) -> Dict[str, str]:
     texts: Dict[str, str] = {}
     try:
         with zipfile.ZipFile(zip_path) as archive:
-            members = [m for m in archive.infolist() if not m.is_dir()]
+            members = [m for m in archive.infolist() if _safe_zip_member(m)]
             members.sort(key=lambda m: m.filename)
             for member in members[:MAX_ZIP_MEMBERS]:
                 name = member.filename
-                if ".." in name or name.startswith("/"):
-                    continue
                 if not name.lower().endswith((".txt", ".md", ".csv", ".json")):
                     continue
                 if member.file_size > MAX_FILE_BYTES:
@@ -230,8 +245,9 @@ def _candidate_files(folder: Path) -> List[Path]:
         child = folder / sub
         if child.is_dir():
             try:
-                files.extend(sorted(p for p in child.iterdir()
-                                    if p.is_file() and p.suffix.lower() in {".md", ".txt"}))
+                found = sorted(p for p in child.iterdir()
+                               if p.is_file() and p.suffix.lower() in {".md", ".txt"})
+                files.extend(found[:MAX_SUBDIR_FILES])
             except OSError:
                 pass
     return files
@@ -433,11 +449,16 @@ def _title_variants_for(base: str, style: str, max_chars: int) -> List[str]:
             if len(variants) >= 10:
                 return variants[:10]
     index = 2
-    while len(variants) < 10:
+    attempts = 0
+    while len(variants) < 10 and attempts < 200:
         add(f"{base} Edition {index}")
         index += 1
-        if index > 50:
-            break
+        attempts += 1
+    if not variants:
+        fallback = _fit(base or "Printable Planner", max_chars).strip()
+        if not fallback or _contains_banned(fallback):
+            fallback = "Printable Planner" if max_chars >= len("Printable Planner") else "Planner"
+        variants.append(fallback[:max_chars].strip() or "Planner")
     return variants[:10]
 
 

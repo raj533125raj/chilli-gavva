@@ -44,7 +44,7 @@ DEFAULT_LOG_RULES: Tuple[Tuple[str, str], ...] = (
 
 FINISHED_TASK_STATUSES = ("done", "failed", "cancelled", "canceled", "finished", "complete", "completed")
 
-PROTECTED_TABLES = frozenset({"approvals"})
+PROTECTED_TABLES = frozenset({"approvals", "sales", "sales_ledger"})
 
 DbPath = Union[str, os.PathLike, sqlite3.Connection]
 
@@ -605,6 +605,14 @@ def index_advice(path: DbPath, retries: int = LOCK_RETRIES,
 # ---------------------------------------------------------------------------
 # Safe check copy
 # ---------------------------------------------------------------------------
+def _ensure_outside_repo(base: Path) -> None:
+    try:
+        base.relative_to(BASE_DIR.resolve())
+    except ValueError:
+        return
+    raise ValueError("temp_dir must be outside the repo folder")
+
+
 def _cleanup_dir(folder: Path) -> List[str]:
     leftovers: List[str] = []
     try:
@@ -670,12 +678,7 @@ def safe_check_copy(path: DbPath, temp_dir: Optional[Union[str, os.PathLike]] = 
     _require_file(path)
     base = Path(temp_dir) if temp_dir is not None else Path(tempfile.gettempdir())
     base = base.resolve()
-    try:
-        base.relative_to(BASE_DIR.resolve())
-    except ValueError:
-        pass
-    else:
-        raise ValueError("temp_dir must be outside the repo folder")
+    _ensure_outside_repo(base)
     base.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="dbcare-check-", dir=str(base)))
     target = work / "check-copy.db"

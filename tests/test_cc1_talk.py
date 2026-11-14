@@ -11,6 +11,8 @@ commands write under a relative exported_content/ path). No Telegram, no network
 """
 from __future__ import annotations
 
+import re
+
 import datetime
 import os
 import sys
@@ -168,6 +170,11 @@ RISKY = [("draft 5 approve chey", "/approve 5"), ("approve 7", "/approve 7"), ("
          ("5 vaddu", "/reject 5"), ("robot ni aapu", "/pause"), ("pause chey", "/pause"),
          ("robot ni resume chey", "/resume"), ("malli modalupettu", "/resume")]
 
+
+
+def _no_clock(text):
+    """Status text without the "Last run:" time (it can tick between two calls in CI)."""
+    return re.sub(r"(?m)^Last run:.*$", "Last run: <time>", text)
 
 class NumberTests(unittest.TestCase):
     def test_digits(self):
@@ -685,7 +692,7 @@ class CallPluginsTests(TalkBase):
     def test_robot_ela_undi_through_call_plugins(self):
         handled, reply = self.call("robot ela undi")
         self.assertTrue(handled)
-        self.assertEqual(reply["text"], telegram_inbox.status_text(self.db))
+        self.assertEqual(_no_clock(reply["text"]), _no_clock(telegram_inbox.status_text(self.db)))
 
     def test_hi_stays_with_tg_menu(self):
         handled, reply = self.call("Hi")
@@ -778,7 +785,7 @@ class EndToEndTests(TalkBase):
 
     def test_robot_ela_undi(self):
         _handled, texts = self.say("robot ela undi")
-        self.assertEqual(texts, [telegram_inbox.status_text(self.db)])
+        self.assertEqual([_no_clock(t) for t in texts], [_no_clock(telegram_inbox.status_text(self.db))])
 
     def test_ee_roju_sales_entha(self):
         _handled, texts = self.say("ee roju sales entha")
