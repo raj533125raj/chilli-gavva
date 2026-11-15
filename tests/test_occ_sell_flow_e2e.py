@@ -493,11 +493,6 @@ class TestOcc1RecipeBook(SellFlowMixin, unittest.TestCase):
 class TestOcc1EmailSignature(SellFlowMixin, unittest.TestCase):
     KIND = "email_signature"
 
-    @unittest.expectedFailure
-    def test_7_tg_sell_reaches_sellable_or_almost(self):
-        """Real gap: truth_check has no proofs for HTML files and deep QA rejects the pack."""
-        super().test_7_tg_sell_reaches_sellable_or_almost()
-
 
 class TestOcc1StudyPlanner(SellFlowMixin, unittest.TestCase):
     KIND = "study_planner"

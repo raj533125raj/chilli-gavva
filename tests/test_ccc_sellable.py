@@ -344,5 +344,74 @@ class FlashcardsTests(unittest.TestCase):
         self.assertIn("9 printable pages in every PDF", facts["details"])
 
 
+@unittest.skipUnless(HAS_PIL, "needs Pillow")
+class EmailSignatureTests(unittest.TestCase):
+    SPEC = {"kind": "email_signature", "title": "Email Signature Pack", "short_name": "email-signature"}
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory(prefix="ccc_sig_")
+        cls.addClassCleanup(cls.tmp.cleanup)
+        cls.folder = build_folder("builder_signature", cls.SPEC, cls.tmp.name)
+
+    def test_full_pack_has_a_printable_guide_in_both_sizes(self):
+        names = sorted(p.name for p in self.folder.glob("*.pdf"))
+        self.assertEqual(names, ["email-signature-install-guide-A4.pdf", "email-signature-install-guide-Letter.pdf"])
+        facts = truth_check.facts(str(self.folder))
+        self.assertEqual(facts["pages"], 7)
+        self.assertEqual(page_problems(self.folder), [])
+
+    def test_guide_covers_every_template_placeholder_and_email_program(self):
+        import builder_signature as bs
+        texts = []
+        for number in range(1, 8):
+            page_items, _page = page_texts(self.folder, number)
+            texts += page_items
+        joined = " | ".join(texts)
+        for tdef in bs.TEMPLATE_DEFS:
+            self.assertIn(tdef["name"], joined)
+            self.assertIn(tdef["filename"], joined)
+        for placeholder, _meaning in bs.PLACEHOLDER_HELP:
+            self.assertIn(placeholder, joined)
+        for client, steps, _fixes in bs.GUIDE_CLIENTS:
+            self.assertIn(f"Set up in {client}", joined)
+
+    def test_guide_is_written_for_buyers_in_english(self):
+        texts, _page = page_texts(self.folder, 5)
+        joined = " ".join(texts)
+        for tenglish in ("cheyandi", "lo open", "mee "):
+            self.assertNotIn(tenglish, joined)
+
+    def test_signature_pictures_are_buyer_files_not_store_previews(self):
+        import builder_signature as bs
+        for tdef in bs.TEMPLATE_DEFS:
+            self.assertFalse(tdef["preview"].startswith("preview"))
+            self.assertTrue((self.folder / tdef["preview"]).is_file())
+
+    def test_bare_template_build_keeps_its_13_files(self):
+        import builder_signature as bs
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = bs.build({}, tmp)
+            self.assertEqual(len(os.listdir(tmp)), 13)
+            self.assertEqual(manifest["guides"], [])
+            self.assertEqual(len(manifest["files"]), 13)
+
+    def test_truth_check_proves_enough_with_a_listing(self):
+        import product_builder as pb
+        with tempfile.TemporaryDirectory() as tmp:
+            spec = dict(self.SPEC, name="Email Signature Pack", cover_image_idea="Signature",
+                        instructions=["Copy the HTML."],
+                        listing={"title": "Email Signature Templates", "buyer": "adults", "platform": "Gumroad",
+                                 "tags": ["email signature"], "description": "Six HTML email signatures."})
+            folder = Path(tmp) / pb.build_product(spec, 7, out_dir=tmp)
+            listing = (folder / "listing.md").read_text(encoding="utf-8")
+            for tdef in __import__("builder_signature").TEMPLATE_DEFS:
+                self.assertIn(f"`{tdef['filename']}` — HTML file", listing)
+                self.assertIn(f"`{tdef['preview']}` — PNG image, 600 x 240 px", listing)
+            verdict = truth_check.check(str(folder), with_images=False)
+            self.assertEqual(verdict["verdict"], "ready", verdict["problems"])
+            self.assertGreaterEqual(len(verdict["proven"]), truth_check.EXTRA_PROOF_PROMISES)
+
+
 if __name__ == "__main__":
     unittest.main()

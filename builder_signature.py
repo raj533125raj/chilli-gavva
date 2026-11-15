@@ -15,7 +15,8 @@ Builds professional, production-ready HTML email signature templates and preview
 - Web-safe fonts (Arial, Helvetica, Trebuchet MS, Georgia, Verdana, Tahoma, sans-serif)
 - Optional placeholder logo slot (using data URI or lightweight inline placeholder)
 - Placeholders: [NAME], [ROLE], [PHONE], [EMAIL], [WEBSITE]
-- Pillow-rendered layout preview PNGs (600x260 / 600x240, not browser screenshots)
+- Pillow-rendered layout preview PNGs (600x240, named signature_N_<name>.png, not browser screenshots)
+- For a full pack (spec kind = email_signature): a printable English install guide, A4 + US Letter PDF
 - README-HOW-TO-INSTALL.txt in Tenglish house style ('Settings lo Signature section open cheyandi')
 - Deterministic, atomic file writes
 - No currency or money amounts anywhere
@@ -73,7 +74,7 @@ TEMPLATE_DEFS = [
         "id": "template_1_minimal_clean",
         "name": "Minimal Clean",
         "filename": "signature_1_minimal_clean.html",
-        "preview": "preview_1_minimal_clean.png",
+        "preview": "signature_1_minimal_clean.png",
         "description": "Clean, text-focused email signature with subtle divider and crisp hierarchy.",
         "primary_color": "#1f2937",
         "accent_color": "#2563eb",
@@ -84,7 +85,7 @@ TEMPLATE_DEFS = [
         "id": "template_2_executive_split",
         "name": "Executive Split",
         "filename": "signature_2_executive_split.html",
-        "preview": "preview_2_executive_split.png",
+        "preview": "signature_2_executive_split.png",
         "description": "Two-column layout with logo or avatar container on left and structured contact details on right.",
         "primary_color": "#111827",
         "accent_color": "#0d9488",
@@ -95,7 +96,7 @@ TEMPLATE_DEFS = [
         "id": "template_3_modern_corporate",
         "name": "Modern Corporate",
         "filename": "signature_3_modern_corporate.html",
-        "preview": "preview_3_modern_corporate.png",
+        "preview": "signature_3_modern_corporate.png",
         "description": "Structured corporate template with accent top border, badges, and clean contact table.",
         "primary_color": "#0f172a",
         "accent_color": "#3b82f6",
@@ -106,7 +107,7 @@ TEMPLATE_DEFS = [
         "id": "template_4_creative_left_border",
         "name": "Creative Left Border",
         "filename": "signature_4_creative_left_border.html",
-        "preview": "preview_4_creative_left_border.png",
+        "preview": "signature_4_creative_left_border.png",
         "description": "Bold vertical accent border on left, highlighting personal brand and contact channels.",
         "primary_color": "#18181b",
         "accent_color": "#e11d48",
@@ -117,7 +118,7 @@ TEMPLATE_DEFS = [
         "id": "template_5_compact_horizontal",
         "name": "Compact Horizontal",
         "filename": "signature_5_compact_horizontal.html",
-        "preview": "preview_5_compact_horizontal.png",
+        "preview": "signature_5_compact_horizontal.png",
         "description": "Ultra-compact single/two-row signature ideal for mobile devices and high-frequency email replies.",
         "primary_color": "#1e293b",
         "accent_color": "#6366f1",
@@ -128,7 +129,7 @@ TEMPLATE_DEFS = [
         "id": "template_6_friendly_card",
         "name": "Friendly Card",
         "filename": "signature_6_friendly_card.html",
-        "preview": "preview_6_friendly_card.png",
+        "preview": "signature_6_friendly_card.png",
         "description": "Rounded card design with soft background, avatar frame, and organized multi-row details.",
         "primary_color": "#1e1e24",
         "accent_color": "#059669",
@@ -701,6 +702,236 @@ def render_preview_png(template_index: int, out_path: str, spec: dict | None = N
     return out_path
 
 
+# ── CCC-6: printable install guide (A4 + US Letter), English for buyers ─────────────────────
+# truth_check cannot read HTML, so a pack with only HTML files could never be proven. The guide is a real
+# part of the product (setup steps for each email program, a page per template, a details sheet), and its
+# page count and paper sizes are facts the Truth Checker can verify.
+
+PLACEHOLDER_HELP = [
+    ("[NAME]", "your full name"),
+    ("[ROLE]", "your job title or role"),
+    ("[PHONE]", "your phone number, with country code"),
+    ("[EMAIL]", "your email address"),
+    ("[WEBSITE]", "your website address"),
+]
+GUIDE_CLIENTS = [
+    ("Gmail (web browser)", [
+        "Open the template .html file in Chrome, Edge or Firefox.",
+        "Select the whole signature (Ctrl+A, or Cmd+A on a Mac) and copy it (Ctrl+C or Cmd+C).",
+        "In Gmail, click the gear icon, then See all settings, and stay on the General tab.",
+        "Scroll to Signature, click Create new and give the signature a name.",
+        "Paste into the signature box (Ctrl+V or Cmd+V).",
+        "Replace every placeholder with your own details, then click Save Changes at the bottom.",
+    ], [
+        "Layout or colours gone: paste with Ctrl+V (Cmd+V). Ctrl+Shift+V pastes plain text only.",
+        "Colours missing: copy from the browser window, not from the .html source code.",
+    ]),
+    ("Outlook (Windows, Mac and web)", [
+        "Open the template .html file in your browser and copy the whole signature.",
+        "Outlook on the web: Settings, then Mail, then Compose and reply.",
+        "Outlook for Windows: File, Options, Mail, then Signatures.",
+        "Create a new signature, give it a name and paste the template into the edit box.",
+        "Replace every placeholder with your own details.",
+        "Choose it as the default for new messages and replies, then Save.",
+    ], [
+        "Outlook shows a gap above the signature: delete the empty line at the top of the edit box.",
+        "Links not clickable: select the email or website text and add the link again in Outlook.",
+    ]),
+    ("Apple Mail (Mac)", [
+        "Open the template .html file in Safari and copy the whole signature.",
+        "In Mail, open Mail, then Settings (or Preferences), then the Signatures tab.",
+        "Select your account and click the + button to add a signature.",
+        "Untick Always match my default message font, so the template keeps its fonts.",
+        "Paste into the signature box and replace every placeholder.",
+        "Close the window; Mail saves the signature by itself.",
+    ], [
+        "Fonts change after pasting: check that Always match my default message font is unticked.",
+        "Send a test email to yourself and open it on your phone to check the layout.",
+    ]),
+]
+BEFORE_YOU_PASTE = ["Every placeholder replaced", "Email and website links tested",
+                    "Test email sent to yourself"]
+GUIDE_INK = "#1f2933"
+GUIDE_MUTED = "#5f6b73"
+GUIDE_LINE = "#cbd5e1"
+GUIDE_ACCENT = "#1e40af"
+
+
+def _wrap(text: str, size: float, width: float, bold: bool = False) -> list:
+    """Word-wrap with real Helvetica widths; a 1-2 letter word never ends a line (it moves down)."""
+    import pdf_design
+    lines, line = [], ""
+    for word in text.split():
+        trial = f"{line} {word}".strip()
+        if line and pdf_design.text_width(trial, size, bold) > width:
+            lines.append(line)
+            line = word
+        else:
+            line = trial
+    if line:
+        lines.append(line)
+    for i in range(len(lines) - 1):
+        head, _, last = lines[i].rpartition(" ")
+        if head and len(last) <= 2:
+            lines[i], lines[i + 1] = head, f"{last} {lines[i + 1]}"
+    return lines
+
+
+def _guide_heading(pdf, title: str, subtitle: str = "") -> float:
+    import pdf_design
+    left = pdf_design.MARGIN
+    pdf.text(left, pdf.h - 62, title, 18, bold=True, color=GUIDE_INK)
+    if subtitle:
+        pdf.text(left, pdf.h - 82, subtitle, 10, color=GUIDE_MUTED)
+    pdf.line(left, pdf.h - 94, pdf.w - left, pdf.h - 94, color=GUIDE_LINE)
+    return pdf.h - 120
+
+
+def _notes_to_bottom(pdf, y: float, label: str = "Notes") -> None:
+    import pdf_design
+    left, right = pdf_design.MARGIN, pdf.w - pdf_design.MARGIN
+    if y - 40 < pdf_design.BOTTOM + 10:
+        return
+    pdf.text(left, y, label, 10, bold=True, color=GUIDE_ACCENT)
+    y -= 22
+    while y >= pdf_design.BOTTOM + 14:
+        pdf.line(left, y, right, y, color=GUIDE_LINE, width=0.5)
+        y -= 22
+
+
+def _draw_layout(pdf, index: int, x: float, y: float, w: float, h: float, spec: dict) -> None:
+    """A drawing of the template's layout (same structure and colours as the HTML file)."""
+    tdef = TEMPLATE_DEFS[index]
+    primary = spec.get("primary_color", tdef["primary_color"])
+    accent = spec.get("accent_color", tdef["accent_color"])
+    text = spec.get("text_color", tdef["text_color"])
+    pdf.fill(x, y, w, h, tdef["bg_color"])
+    pdf.rect(x, y, w, h, color=GUIDE_LINE, width=0.8)
+    top = y + h
+    tx = x + 18
+    rows = [("[NAME]", 15, True, primary), ("[ROLE]", 10, True, accent)]
+    contact = [("Phone: [PHONE]", text), ("Email: [EMAIL]", accent), ("Web: [WEBSITE]", accent)]
+    if index == 0:
+        pdf.fill(x, top - 4, w, 4, accent)
+    elif index == 1:
+        pdf.rect(x + 18, top - 96, 70, 70, color=accent, width=1.2)
+        pdf.text_center(x + 53, top - 64, "LOGO", 8, bold=True, color=accent)
+        pdf.line(x + 104, top - 20, x + 104, y + 18, color=accent, width=1.2)
+        tx = x + 120
+    elif index == 2:
+        pdf.fill(x, top - 7, w, 7, accent)
+    elif index == 3:
+        pdf.fill(x, y, 7, h, accent)
+        tx = x + 26
+    elif index == 4:
+        pdf.fill(x, top - 3, w, 3, accent)
+        pdf.fill(x, y, w, 3, accent)
+    elif index == 5:
+        pdf.circle(x + 50, top - 58, 30, fill="#ffffff", stroke=accent, width=1.2)
+        pdf.text_center(x + 50, top - 61, "PHOTO", 7, bold=True, color=accent)
+        tx = x + 98
+    ty = top - 34
+    for label, size, bold, colour in rows:
+        pdf.text(tx, ty, label, size, bold=bold, color=colour)
+        ty -= size + 10
+    pdf.line(tx, ty + 4, x + w - 18, ty + 4, color=GUIDE_LINE, width=0.6)
+    ty -= 12
+    if index == 4:
+        pdf.text(tx, ty, "T: [PHONE]   |   E: [EMAIL]   |   W: [WEBSITE]", 9, color=text)
+    else:
+        for label, colour in contact:
+            pdf.text(tx, ty, label, 9, color=colour)
+            ty -= 16
+
+
+def build_install_guide(path: str, size: str, title: str, spec: dict | None = None) -> int:
+    """The printable install guide. Returns the page count."""
+    import pdf_design
+    spec = spec or {}
+    pdf = pdf_design.Pdf(size, footer=f"{title} · install guide", style="A")
+    left, right = pdf_design.MARGIN, pdf.w - pdf_design.MARGIN
+
+    # Page 1: what is inside, placeholders and a details sheet
+    pdf.new_page()
+    y = _guide_heading(pdf, f"{title}: Install Guide", "Six HTML email signatures, set up in a few minutes.")
+    pdf.text(left, y, "Templates in this pack", 12, bold=True, color=GUIDE_ACCENT)
+    y -= 20
+    for number, tdef in enumerate(TEMPLATE_DEFS, 1):
+        pdf.text(left, y, f"{number}. {tdef['name']}", 10, bold=True, color=GUIDE_INK)
+        pdf.text(left + 150, y, tdef["filename"], 9, color=GUIDE_MUTED)
+        y -= 18
+    y -= 14
+    pdf.text(left, y, "Placeholders to replace", 12, bold=True, color=GUIDE_ACCENT)
+    y -= 20
+    for placeholder, meaning in PLACEHOLDER_HELP:
+        pdf.text(left, y, placeholder, 10, bold=True, color=GUIDE_INK)
+        pdf.text(left + 100, y, meaning, 10, color=GUIDE_INK)
+        y -= 18
+    y -= 14
+    pdf.text(left, y, "My details (write them here first, then copy them into the template)", 12, bold=True,
+             color=GUIDE_ACCENT)
+    y -= 12
+    fields = [p for p, _ in PLACEHOLDER_HELP]
+    for placeholder in fields:
+        y -= 32
+        pdf.text(left, y + 4, placeholder.strip("[]").title(), 9, color=GUIDE_MUTED)
+        pdf.line(left + 90, y + 2, right, y + 2, color=GUIDE_LINE, width=0.6)
+    _notes_to_bottom(pdf, y - 34, "Extra lines (social links, office address, pronouns)")
+
+    # Template gallery: two templates per page
+    usable = pdf.h - 120 - pdf_design.BOTTOM
+    block = usable / 2
+    for start in range(0, len(TEMPLATE_DEFS), 2):
+        pdf.new_page()
+        top = _guide_heading(pdf, "Template gallery", f"Templates {start + 1} and {start + 2}")
+        for index in (start, start + 1):
+            tdef = TEMPLATE_DEFS[index]
+            y = top - (index - start) * block
+            pdf.text(left, y, f"{index + 1}. {tdef['name']}", 13, bold=True, color=GUIDE_INK)
+            pdf.text_right(right, y, tdef["filename"], 8, color=GUIDE_MUTED)
+            line_y = y - 16
+            for line in _wrap(tdef["description"], 9, right - left):
+                pdf.text(left, line_y, line, 9, color=GUIDE_MUTED)
+                line_y -= 12
+            box_h = min(150.0, block - 120)
+            _draw_layout(pdf, index, left, line_y - 8 - box_h, right - left, box_h, spec)
+            check_y = line_y - box_h - 30
+            pdf.text(left, check_y, "Before you paste:", 9, bold=True, color=GUIDE_ACCENT)
+            for n, item in enumerate(BEFORE_YOU_PASTE):
+                bx = left + 100 + n * ((right - left - 100) / len(BEFORE_YOU_PASTE))
+                pdf.box(bx, check_y - 1, 8, color=GUIDE_LINE)
+                pdf.text(bx + 13, check_y, item, 8.5, color=GUIDE_INK)
+
+    # One page per email program
+    for client, steps, fixes in GUIDE_CLIENTS:
+        pdf.new_page()
+        y = _guide_heading(pdf, f"Set up in {client}", "Follow the steps in order. Takes about five minutes.")
+        for number, step in enumerate(steps, 1):
+            lines = _wrap(step, 10.5, right - left - 24)
+            pdf.circle(left + 8, y + 3.5, 8, fill=GUIDE_ACCENT)
+            pdf.text_center(left + 8, y, str(number), 9, bold=True, color="#ffffff")
+            for line in lines:
+                pdf.text(left + 24, y, line, 10.5, color=GUIDE_INK)
+                y -= 15
+            y -= 10
+        y -= 10
+        pdf.text(left, y, "If something looks wrong", 12, bold=True, color=GUIDE_ACCENT)
+        y -= 18
+        for fix in fixes:
+            for line in _wrap(fix, 9.5, right - left - 14):
+                pdf.text(left + 14, y, line, 9.5, color=GUIDE_INK)
+                y -= 13
+            y -= 6
+        _notes_to_bottom(pdf, y - 16)
+    pdf.save(path, title=f"{title} install guide")
+    return len(pdf.pages)
+
+
+def guide_base_name(spec: dict) -> str:
+    raw = str(spec.get("short_name") or "email-signature").lower()
+    return re.sub(r"[^a-z0-9-]+", "-", raw).strip("-") or "email-signature"
+
+
 def substitute_placeholders(html_text: str, mapping: dict[str, str]) -> str:
     """Safely substitutes placeholders in HTML content while escaping user values."""
     res = html_text
@@ -772,4 +1003,18 @@ def build(spec: dict | None = None, out_dir: str | None = None) -> dict:
     atomic_write(readme_path, get_readme_content())
     manifest["readme_path"] = readme_path
 
+    # 4. CCC-6: a full sellable pack (a Product Builder spec, kind = email_signature) also gets the
+    #    printable English install guide in A4 and US Letter. A bare template build keeps its 13 files.
+    manifest["guides"] = []
+    if str(spec.get("kind") or "").lower() == FORMAT:
+        title = " ".join(str(spec.get("title") or "").split()) or "Email Signature Pack"
+        base = guide_base_name(spec)
+        for size in ("A4", "Letter"):
+            name = f"{base}-install-guide-{size}.pdf"
+            build_install_guide(os.path.join(out_dir, name), size, title, spec)
+            manifest["guides"].append(name)
+
+    manifest["files"] = ([t["filename"] for t in manifest["templates"]]
+                         + [p["filename"] for p in manifest["previews"]]
+                         + ["README-HOW-TO-INSTALL.txt"] + manifest["guides"])
     return manifest

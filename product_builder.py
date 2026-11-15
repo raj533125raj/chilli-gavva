@@ -1042,6 +1042,22 @@ def _verified_pdf(path):
     return count, next(iter(verified), None)
 
 
+# Store / listing pictures made for the owner, not files the buyer downloads
+LISTING_IMAGE_PREFIXES = ("cover", "preview", "thumbnail", "pinterest", "mockup", "pin-", "pin_")
+
+
+def _png_size(path):
+    """(width, height) read from the PNG header itself, or None."""
+    try:
+        with open(path, "rb") as handle:
+            head = handle.read(24)
+    except OSError:
+        return None
+    if len(head) < 24 or head[:8] != b"\x89PNG\r\n\x1a\n" or head[12:16] != b"IHDR":
+        return None
+    return int.from_bytes(head[16:20], "big"), int.from_bytes(head[20:24], "big")
+
+
 def _delivery_facts(folder):
     """Inspect robot-built deliverables; filenames and spec promises are not PDF evidence."""
     import truth_check
@@ -1071,6 +1087,11 @@ def _delivery_facts(folder):
             listed = [tab for tab in tabs if facts["kind"] != "resume" or tab.casefold() != "dashboard"]
             label = "tabs" if listed == tabs else "tabs include"
             contents.append(f"`{name}` — Excel (.xlsx); {label}: " + ", ".join(listed))
+        elif ext == ".html":
+            contents.append(f"`{name}` — HTML file (copy into your email program)")
+        elif ext == ".png" and not name.startswith(LISTING_IMAGE_PREFIXES):
+            size = _png_size(path)
+            contents.append(f"`{name}` — PNG image" + (f", {size[0]} x {size[1]} px" if size else ""))
         elif ext in (".docx", ".zip") or name in {"README.md", "README.txt", "README", "LICENSE.txt", "HOW_TO_IMPORT.md"}:
             label = {".docx": "Word document", ".zip": "ZIP archive", ".md": "Markdown", ".txt": "plain text"}.get(ext, "plain text")
             contents.append(f"`{name}` — {label}")
@@ -1285,6 +1306,8 @@ def get_builder_dispatch(kind: str):
             def _adapted_builder(folder, spec):
                 res = reg_build(spec, folder)
                 created_files = res if isinstance(res, (list, tuple)) else []
+                if isinstance(res, dict) and isinstance(res.get("files"), (list, tuple)):
+                    created_files = list(res["files"])        # builders that return a manifest
                 instructions = spec.get("instructions", [])
                 how_to = instructions if isinstance(instructions, list) else [str(instructions)]
                 renamed = standard_pdf_names(folder, spec)
