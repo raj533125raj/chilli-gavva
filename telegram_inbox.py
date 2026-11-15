@@ -821,11 +821,17 @@ def call_plugins(text, token, chat_id, db_path=None, now=None, plugins=None, mes
     # A "did not understand" suggestion (tg_menu) is only a fallback: a later plugin that really owns
     # the command (for example /ideas in tg_reports) must win.
     fallback = None
+    crash_note = crash_side_note = None
     for plugin in plugins:
         try:
             res = plugin.handle(text, ctx)
-        except Exception as exc:
-            print(f"Plugin error in {getattr(plugin, '__name__', 'unknown')}: {exc}", file=sys.stderr)
+        except (Exception, SystemExit) as exc:
+            # One broken plugin must never stop the others or the inbox. The owner hears one short line,
+            # the details go to the auto-fix log (plugin_crashes + doctor log), never to the chat.
+            record_plugin_crash(plugin, text, exc, db_path=db_path)
+            if crash_note is None:
+                crash_note = plugin_crash_text(text, plugin)        # owner's own command
+                crash_side_note = plugin_crash_text("", plugin)     # the crashed plugin's command
             continue
         if res is not None:
             if isinstance(res, str):
@@ -840,10 +846,103 @@ def call_plugins(text, token, chat_id, db_path=None, now=None, plugins=None, mes
                                      or (reply_text.startswith("Meeru '") and "anukunnara?" in reply_text)):
                 fallback = res
                 continue
+            if crash_note:
+                res = _with_crash_note(res, crash_side_note, ctx, token, chat_id, db_path)
             return True, res
+    if crash_note:     # the plugin that owned the text crashed: say so instead of a "did not understand" guess
+        return True, {"text": crash_note}
     if fallback is not None:
         return True, fallback
     return False, None
+
+
+PLUGIN_CRASH_TABLE = "plugin_crashes"
+
+
+def plugin_crash_text(text, plugin):
+    """'/xyz lo problem vachindi, robot fix chestundi' with the owner's command (or the plugin's own command)."""
+    first = str(text or "").strip().split(maxsplit=1)
+    cmd = first[0].split("@")[0].lower() if first and first[0].startswith("/") else ""
+    if not re.fullmatch(r"/[a-z0-9_]{1,32}", cmd):
+        cmd = ""
+        for entry in getattr(plugin, "COMMANDS", None) or []:
+            if isinstance(entry, dict) and re.fullmatch(r"/[a-z0-9_]{1,32}", str(entry.get("cmd", ""))):
+                cmd = entry["cmd"]
+                break
+    if not cmd:
+        name = str(getattr(plugin, "__name__", "plugin")).split(".")[-1]
+        cmd = "/" + (name[3:] if name.startswith("tg_") else name)
+    return f"{cmd} lo problem vachindi, robot fix chestundi."
+
+
+def _with_crash_note(res, note, ctx, token, chat_id, db_path):
+    """Another plugin answered after a crash: its reply stays as it is; the crash line goes as its own short
+    message, at most once a day (same-error rule)."""
+    first_copy, _ = diagnostics.error_gate(note, db_path=db_path)
+    if first_copy and ctx["send_text"](note):
+        diagnostics.error_sent(note, db_path=db_path)
+    return res
+
+
+def record_plugin_crash(plugin, text, exc, db_path=None):
+    """Write a plugin crash to the auto-fix log: table plugin_crashes (plugin, command, error type, scrubbed
+    message, file:line) and the doctor log (/doctor -> 'Send to auto-fix'). Never raises."""
+    import traceback
+    name = str(getattr(plugin, "__name__", "unknown")).split(".")[-1][:60]
+    words = str(text or "").strip().split(maxsplit=1)
+    command = words[0][:40] if words and words[0].startswith("/") else "(text)"
+    error_class = type(exc).__name__
+    where = ""
+    try:
+        frames = traceback.extract_tb(exc.__traceback__)
+        inside = [f for f in frames if os.path.basename(f.filename).startswith("tg_")] or frames
+        if inside:
+            where = f"{os.path.basename(inside[-1].filename)}:{inside[-1].lineno}"
+    except Exception:
+        pass
+    try:
+        import public_export
+        message = public_export.scrub_text(str(exc))[:300]
+    except Exception:
+        message = "(hidden)"
+    print(f"Plugin error in {name}: {message}", file=sys.stderr)
+    print(f"Telegram plugin crash: {name}.handle ({error_class}) at {where or 'unknown'}", file=sys.stderr)
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    try:
+        conn = guardrails.connect(db_path)
+        conn.execute(f"CREATE TABLE IF NOT EXISTS {PLUGIN_CRASH_TABLE} (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                     "ts TEXT, plugin TEXT, command TEXT, error_class TEXT, error_message TEXT, location TEXT, "
+                     "status TEXT DEFAULT 'needs_autofix')")
+        conn.execute(f"INSERT INTO {PLUGIN_CRASH_TABLE} (ts, plugin, command, error_class, error_message, location) "
+                     "VALUES (?, ?, ?, ?, ?, ?)", (now, name, command, error_class, message, where))
+        conn.execute(f"DELETE FROM {PLUGIN_CRASH_TABLE} WHERE id NOT IN "
+                     f"(SELECT id FROM {PLUGIN_CRASH_TABLE} ORDER BY id DESC LIMIT 200)")
+        conn.commit()
+        conn.close()
+    except Exception as err:
+        print(f"Plugin crash not saved: {type(err).__name__}", file=sys.stderr)
+    try:
+        import doctor
+        facts = doctor.collect_facts("telegram_plugin", f"{name}.handle {command}", f"{error_class}: {message}",
+                                     last_5_actions=[f"owner sent {command}", f"crash at {where or 'unknown'}"],
+                                     db_path=db_path)
+        doctor.record_case(facts, "plugin_crash", f"{name} crashed on {command} at {where or 'unknown'}",
+                           "send to auto-fix", "needs_autofix", db_path=db_path)
+    except Exception as err:
+        print(f"Plugin crash not in doctor log: {type(err).__name__}", file=sys.stderr)
+
+
+def plugin_crashes(db_path=None, limit=20):
+    """Last plugin crashes, newest first (for tests, /doctor helpers and the auto-fix prompt)."""
+    try:
+        conn = guardrails.connect(db_path)
+        rows = conn.execute(f"SELECT ts, plugin, command, error_class, error_message, location, status "
+                            f"FROM {PLUGIN_CRASH_TABLE} ORDER BY id DESC LIMIT ?", (int(limit),)).fetchall()
+        conn.close()
+    except Exception:
+        return []
+    keys = ("ts", "plugin", "command", "error_class", "error_message", "location", "status")
+    return [dict(zip(keys, row)) for row in rows]
 
 
 def plugin_words(plugins=None):
