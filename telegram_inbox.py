@@ -354,6 +354,13 @@ def send_media_group(token, chat_id, paths, caption=""):
     valid_paths = [p for p in paths if os.path.isfile(p)]
     if not valid_paths or len(valid_paths) > 10:
         return False
+    if len(valid_paths) == 1:
+        # Telegram refuses an album of one ("wrong number of media in the album"): send the file on its own.
+        # Happens when a plugin sends 11 pins as 10 + 1 (CCE-2, found by the day simulator).
+        path = valid_paths[0]
+        if os.path.splitext(path)[1].lower() in (".jpg", ".jpeg", ".png", ".webp"):
+            return send_photo(token, chat_id, path, caption=caption)
+        return send_document(token, chat_id, path, caption=caption)
     media = []
     files = {}
     for idx, path in enumerate(valid_paths):

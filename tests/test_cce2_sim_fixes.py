@@ -127,5 +127,29 @@ class DatedOwnerHoldTests(unittest.TestCase):
             self.assertFalse(pb.is_held(2, db))
 
 
+class SingleFileAlbumTests(unittest.TestCase):
+    """Sim: /pins 1 -> Telegram 400 'wrong number of media in the album' (an album of one file)."""
+
+    def test_one_file_goes_as_a_photo_or_document_not_an_album(self):
+        import telegram_inbox
+        with tempfile.TemporaryDirectory() as tmp:
+            photo, doc = os.path.join(tmp, "pin.png"), os.path.join(tmp, "notes.pdf")
+            for path in (photo, doc):
+                with open(path, "wb") as handle:
+                    handle.write(b"x")
+            calls = []
+
+            def fake_multipart(token, method, fields, files, opener=None, sleep_fn=None):
+                calls.append((method, fields.get("caption", "")))
+                return {"ok": True, "result": {"message_id": 1}}
+
+            with mock.patch.object(telegram_inbox, "_call_multipart", side_effect=fake_multipart):
+                self.assertTrue(telegram_inbox.send_media_group("t", "1", [photo], caption="Pins (1)"))
+                self.assertTrue(telegram_inbox.send_media_group("t", "1", [doc, os.path.join(tmp, "gone.png")]))
+                self.assertTrue(telegram_inbox.send_media_group("t", "1", [photo, doc]))
+        self.assertEqual([c[0] for c in calls], ["sendPhoto", "sendDocument", "sendMediaGroup"])
+        self.assertEqual(calls[0][1], "Pins (1)")
+
+
 if __name__ == "__main__":
     unittest.main()
