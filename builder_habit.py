@@ -195,13 +195,46 @@ def _heading(pdf: Any, text: str, subtitle: str = "") -> None:
 
 def _title_page(pdf: Any, norm: Dict[str, Any]) -> None:
     lines, size = pdf_design.fit_text(norm["title"], 30, pdf.w - 2 * pdf_design.MARGIN, bold=True, max_lines=3, min_size=16)
-    y = pdf.h / 2 + 80
+    y = pdf.h * 0.66
     for line in lines:
         pdf.text_center(pdf.w / 2, y, line, size, bold=True, color="#1f2933")
         y -= size * 1.25
     pdf.text_center(pdf.w / 2, y - 18, f"{norm['month_name']} {norm['year']}", 18, color="#2f7d78")
     pdf.text_center(pdf.w / 2, y - 48, "Habit grid · Streak boxes · Mood log · Reflection · Year overview", 10, color="#5f6b73")
     pdf.line(pdf.w / 2 - 80, y - 76, pdf.w / 2 + 80, y - 76, color="#2f7d78", width=1.2)
+    _start_here_box(pdf, norm, y - 106)
+
+
+START_HERE_FIELDS = ["My top habit this month", "Why it matters to me", "Start date", "My reward at the end"]
+PAGE_GUIDE = [
+    ("Habit Tracker", "one row per habit, one box per day"),
+    ("Mood Log", "colour one mood box each day, plus a streak row"),
+    ("Monthly Reflection", "three prompts to close the month"),
+    ("Yearly Overview", "all twelve months on one page"),
+]
+
+
+def _start_here_box(pdf: Any, norm: Dict[str, Any], top: float) -> None:
+    """Lower half of the title page: a fill-in 'Start here' card and a guide to the pages inside."""
+    left = pdf_design.MARGIN
+    right = pdf.w - pdf_design.MARGIN
+    bottom = 76
+    top = max(top, bottom + 230)
+    pdf.rect(left, bottom, right - left, top - bottom, color="#c9d3d6", width=0.8)
+    pdf.text(left + 14, top - 22, "Start here", 12, bold=True, color="#2f7d78")
+    y = top - 48
+    field_gap = (top - bottom - 150) / len(START_HERE_FIELDS)
+    for label in START_HERE_FIELDS:
+        pdf.text(left + 14, y, label, 9, color="#1f2933")
+        pdf.line(left + 150, y - 2, right - 14, y - 2, color="#c9d3d6", width=0.6)
+        y -= max(22.0, field_gap)
+    pdf.text(left + 14, bottom + 74, "Inside this pack", 9, bold=True, color="#2f7d78")
+    col_w = (right - left - 28) / 2
+    for index, (page, note) in enumerate(PAGE_GUIDE):
+        x = left + 14 + (index % 2) * col_w
+        row_y = bottom + 54 - (index // 2) * 26
+        pdf.text(x, row_y, page, 8.5, bold=True, color="#1f2933")
+        pdf.text(x, row_y - 11, note, 7.5, color="#5f6b73")
 
 
 def _tracker_page(pdf: Any, norm: Dict[str, Any]) -> None:

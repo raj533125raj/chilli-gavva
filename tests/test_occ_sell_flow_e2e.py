@@ -495,11 +495,6 @@ class TestOcc1Flashcards(SellFlowMixin, unittest.TestCase):
 class TestOcc1HabitTracker(SellFlowMixin, unittest.TestCase):
     KIND = "habit_tracker"
 
-    @unittest.expectedFailure
-    def test_7_tg_sell_reaches_sellable_or_almost(self):
-        """Real gap: truth_check needs A4/Letter filenames, but this builder uses _a4/_letter."""
-        super().test_7_tg_sell_reaches_sellable_or_almost()
-
 
 class TestOcc1RecipeBook(SellFlowMixin, unittest.TestCase):
     KIND = "recipe_book"
