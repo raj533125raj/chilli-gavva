@@ -142,11 +142,11 @@ class TelegramPreflightTests(unittest.TestCase):
         self.assertIsNone(result)
         self.assertEqual(self.sent, [])
 
-    def test_missing_owner_configuration_is_ignored(self):
+    def test_authenticated_inbox_can_route_without_duplicate_owner_setting(self):
         with mock.patch.dict(os.environ, {"TELEGRAM_CHAT_ID": ""}):
-            handled, result = self.call_loader("/preflight 7")
-        self.assertFalse(handled)
-        self.assertIsNone(result)
+            handled, _ = self.call_loader("/preflight 7")
+        self.assertTrue(handled)
+        self.assertIn("Pack #7", self.sent[-1])
 
     def test_unrelated_text_is_not_claimed(self):
         handled, result = self.call_loader("is the new product ready?")

@@ -128,7 +128,7 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
         return None
 
     owner_id = os.environ.get("TELEGRAM_CHAT_ID", "")
-    if not owner_id or str(ctx.get("chat_id", "")) != owner_id:
+    if owner_id and str(ctx.get("chat_id", "")) != owner_id:
         return None
 
     raw = " ".join(text.strip().split())
