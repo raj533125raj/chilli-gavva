@@ -226,3 +226,12 @@ class OwnerJourneyTests(Harness):
         self.assertIn("Today post", today)
         self.assertIn(folder, today)
         self.assertIn("posted 1", today)
+
+    @unittest.expectedFailure
+    def test_approve_button_accepts_approve_id(self):
+        aid = self.add_draft()
+        self.press(f"approve:{aid}")
+        status = guardrails.get_approval(aid, self.db)["status"]
+        self.assertEqual(status, "approved",
+                         "telegram_inbox.handle_callback only understands a:<id>; "
+                         "the owner button data approve:<id> is ignored (Claude Code is fixing buttons)")
