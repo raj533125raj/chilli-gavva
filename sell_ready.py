@@ -207,8 +207,23 @@ def inspect_license(pack_dir: Path) -> Dict[str, Any]:
     }
 
 
+def truth_source(pack_dir: Path) -> Path:
+    """The folder whose files the Truth Checker must read for this pack.
+
+    Bug fix (CCC-10): an upload pack <products>/upload/<name> (made by upload_pack.make) holds the buyer
+    files only inside product.zip, which the Truth Checker cannot open - so every PDF / Excel product was
+    'needs fix' there ("no A4 file"). The robot-built product folder <products>/<name> holds the same files
+    (product.zip is made from it). The check itself is unchanged; only the folder it reads is corrected."""
+    pack_dir = Path(pack_dir)
+    if pack_dir.parent.name == "upload":
+        source = pack_dir.parent.parent / pack_dir.name
+        if source.is_dir() and not source.is_symlink() and (source / "listing.md").is_file():
+            return source
+    return pack_dir
+
+
 def inspect_truth_check(pack_dir: Path) -> Dict[str, Any]:
-    """Run truth_check on pack folder."""
+    """Run truth_check on pack folder (for an upload pack: on its product folder, see truth_source)."""
     issues: List[str] = []
     score = 0
     verdict = "needs fix"
@@ -216,7 +231,7 @@ def inspect_truth_check(pack_dir: Path) -> Dict[str, Any]:
 
     try:
         import truth_check
-        tc_res = truth_check.check(str(pack_dir))
+        tc_res = truth_check.check(str(truth_source(pack_dir)))
         verdict = tc_res.get("verdict", "needs fix")
         score = int(tc_res.get("score", 0))
         for p in tc_res.get("problems", []):

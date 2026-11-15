@@ -1241,7 +1241,164 @@ def _build_notion(folder, spec):
         "5. Change property types if you like (for example Status to a Select, dates to Date).", ""])
     with open(os.path.join(folder, "HOW_TO_IMPORT.md"), "w", encoding="utf-8") as f:
         f.write(guide)
-    return [name, "HOW_TO_IMPORT.md"], ["Follow HOW_TO_IMPORT.md to bring the pages and databases into Notion."]
+    guides = []
+    for size in ("A4", "Letter"):
+        guide_name = f"{spec['short_name']}-import-guide-{size}.pdf"
+        _notion_guide_pdf(os.path.join(folder, guide_name), size, spec, name)
+        guides.append(guide_name)
+    return [name, "HOW_TO_IMPORT.md"] + guides, [
+        "Follow HOW_TO_IMPORT.md (or the printable import guide) to bring the pages and databases into Notion."]
+
+
+# ---- CCC-10: printable Notion import guide --------------------------------------------------------
+# upload_pack.make only stages a pack that has a PDF or Excel file, so a Notion pack (a .zip of .md/.csv)
+# could never reach /sell. The guide is a real part of the product: import steps, a printable copy of every
+# page and, for every database, its columns with the Notion property type to choose and the sample rows.
+# It has at least one page per Notion page and database, so page counts in a listing stay true.
+
+def _guide_wrap(text, size, width, bold=False):
+    """Word-wrap by the real Helvetica width AND by characters: deep QA estimates a line as
+    characters x size x 0.5, so a line of narrow letters must not pass the 5 mm safe margin by that measure."""
+    import pdf_design
+    max_chars = int(width / (size * 0.5))
+    lines, line = [], ""
+    for word in str(text).split():
+        trial = f"{line} {word}".strip()
+        if line and (pdf_design.text_width(trial, size, bold) > width or len(trial) > max_chars):
+            lines.append(line)
+            line = word
+        else:
+            line = trial
+    if line:
+        lines.append(line)
+    for i in range(len(lines) - 1):                 # a 1-2 letter word never ends a line
+        head, _, last = lines[i].rpartition(" ")
+        if head and len(last) <= 2:
+            lines[i], lines[i + 1] = head, f"{last} {lines[i + 1]}"
+    return lines
+
+
+def _property_type(column, values):
+    low = column.lower()
+    sample = [str(v) for v in values if str(v).strip()]
+    if any(re.fullmatch(r"\d{4}-\d{2}-\d{2}", v) for v in sample) or any(w in low for w in ("date", "due", "follow")):
+        return "Date"
+    if any(w in low for w in ("status", "stage", "type", "category", "priority")):
+        return "Select"
+    if any(w in low for w in ("note", "description", "summary")):
+        return "Text"
+    if sample and all(re.fullmatch(r"-?\d+(?:\.\d+)?", v) for v in sample):
+        return "Number"
+    return "Title" if column == "" else "Text"
+
+
+def _notion_guide_pdf(path, size, spec, zip_name):
+    import pdf_design
+    import pdf_themes
+    pdf_themes.register_themes_in_pdf_design()
+    theme = pdf_themes.get_theme_for_spec(spec)
+    tok = theme["tokens"]
+    ink, muted, accent, line_c = tok["ink"], tok["muted"], tok["accent"], tok["line"]
+    pdf = Pdf(size, footer=f"{spec['name']} · Notion import guide", style=theme["slug"])
+    left, right = pdf_design.MARGIN, pdf.w - pdf_design.MARGIN
+    bottom = pdf_design.BOTTOM + 12
+
+    def heading(title, subtitle):
+        pdf.text(left, pdf.h - 62, title[:70], 18, bold=True, color=ink)
+        pdf.text(left, pdf.h - 82, subtitle[:110], 10, color=muted)
+        pdf.line(left, pdf.h - 94, right, pdf.h - 94, color=line_c)
+        return pdf.h - 120
+
+    def notes(y):
+        if y - 40 < bottom:
+            return
+        pdf.text(left, y, "Notes", 10, bold=True, color=accent)
+        y -= 22
+        while y >= bottom:
+            pdf.line(left, y, right, y, color=line_c, width=0.5)
+            y -= 22
+
+    pages = spec["pages"] or [{"title": spec["name"], "markdown": f"# {spec['name']}"}]
+    # Page 1: how to import + what is inside
+    pdf.new_page()
+    y = heading(f"{spec['name']}: Import Guide", "Bring the pages and databases into Notion in a few minutes.")
+    steps = ["Open Notion on a computer and go to the page where you want the template.",
+             "Click Import in the left sidebar (or Settings, then Import).",
+             f"Choose Text & Markdown for the .md pages and CSV for the .csv databases, then pick the files "
+             f"from {zip_name} (unzip it first if your browser does not open .zip files).",
+             "Each .csv file becomes a Notion database and each .md file becomes a page.",
+             "Set the property types shown on the database pages of this guide (for example Status to Select).",
+             "Replace the sample rows with your own; they are examples only."]
+    for number, step in enumerate(steps, 1):
+        wrapped = _guide_wrap(step, 10, right - left - 22)
+        pdf.text(left, y, f"{number}.", 10, bold=True, color=accent)
+        for text in wrapped:
+            pdf.text(left + 22, y, text, 10, color=ink)
+            y -= 14
+        y -= 6
+    y -= 12
+    pdf.text(left, y, "What is inside the import file", 12, bold=True, color=accent)
+    y -= 20
+    for p in pages:
+        pdf.text(left, y, f"Page: {p['title']}"[:60], 10, color=ink)
+        pdf.text(left + 260, y, f"{_slug(p['title'])}.md", 9, color=muted)
+        y -= 16
+    for d in spec["databases"]:
+        pdf.text(left, y, f"Database: {d['name']} ({len(d['rows'])} sample rows)"[:60], 10, color=ink)
+        pdf.text(left + 260, y, f"{_slug(d['name'])}.csv", 9, color=muted)
+        y -= 16
+    notes(y - 14)
+
+    # One printable page per Notion page
+    for p in pages:
+        pdf.new_page()
+        y = heading(p["title"], f"Printable copy of {_slug(p['title'])}.md")
+        for raw in p["markdown"].splitlines():
+            text = raw.strip()
+            if not text or text.lstrip("# ").strip() == p["title"]:
+                continue
+            bold = text.startswith("#")
+            text = re.sub(r"^#+\s*|[*_`]", "", text).strip()
+            if not text:
+                continue
+            for part in _guide_wrap(text, 11 if bold else 10, right - left, bold):
+                if y < bottom + 20:
+                    break
+                pdf.text(left, y, part, 11 if bold else 10, bold=bold, color=ink)
+                y -= 15
+            y -= 8
+        notes(y - 10)
+
+    # One page per database: property types, then the sample rows
+    for d in spec["databases"]:
+        pdf.new_page()
+        y = heading(f"Database: {d['name']}", f"{_slug(d['name'])}.csv · {len(d['columns'])} columns")
+        pdf.text(left, y, "Column", 9, bold=True, color=muted)
+        pdf.text(left + 200, y, "Notion property type", 9, bold=True, color=muted)
+        y -= 16
+        for i, column in enumerate(d["columns"]):
+            kind = "Title" if i == 0 else _property_type(column, [r[i] for r in d["rows"] if i < len(r)])
+            pdf.text(left, y, str(column)[:40], 10, color=ink)
+            pdf.text(left + 200, y, kind, 10, color=accent)
+            pdf.line(left, y - 5, right, y - 5, color=line_c, width=0.4)
+            y -= 18
+        y -= 16
+        pdf.text(left, y, "Sample rows (replace them with your own)", 11, bold=True, color=accent)
+        y -= 18
+        col_w = (right - left) / max(1, len(d["columns"]))
+        for i, column in enumerate(d["columns"]):
+            pdf.text(left + i * col_w + 3, y, str(column)[:18], 8, bold=True, color=muted)
+        y -= 6
+        for row in d["rows"]:
+            if y - 18 < bottom:
+                break
+            for i in range(len(d["columns"])):
+                pdf.rect(left + i * col_w, y - 18, col_w, 18, color=line_c, width=0.4)
+                value = str(row[i]) if i < len(row) else ""
+                pdf.text(left + i * col_w + 3, y - 12, value[:int(col_w / 4.6)], 8, color=ink)
+            y -= 18
+        notes(y - 20)
+    pdf.save(path, title=f"{spec['name']} Notion import guide")
 
 
 def _build_resume(folder, spec):
@@ -1368,6 +1525,61 @@ def standard_pdf_names(folder, spec):
     return renamed
 
 
+def remove_empty_dirs(folder):
+    """CCC-10: a builder may leave empty sub-folders (the flashcards builder makes marketing/images).
+    upload_pack.make refuses a product folder with any sub-folder, so empty ones are removed.
+    Folders with files in them are never touched. Returns the removed paths."""
+    removed = []
+    for root, dirs, _files in os.walk(folder, topdown=False):
+        for name in dirs:
+            path = os.path.join(root, name)
+            if not os.path.islink(path) and not os.listdir(path):
+                os.rmdir(path)
+                removed.append(path)
+    return removed
+
+
+BUYER_EXTRAS = (".docx", ".html", ".png", ".jpg", ".jpeg", ".zip", ".md", ".txt")
+
+
+def listed_files(listing_md_text):
+    """The file names written in backticks under '## What you get' (the buyer promise)."""
+    section = listing_md_text.split("## What you get", 1)[1] if "## What you get" in listing_md_text else ""
+    section = re.split(r"\n## ", section, maxsplit=1)[0]
+    return re.findall(r"^- `([^`/\\]+)`", section, re.M)
+
+
+def complete_buyer_zip(product_folder, pack_dir):
+    """CCC-10: upload_pack.make zips only PDF, XLSX, README and LICENSE files, so a pack lost the files its
+    listing promises in other formats (resume .docx, signature .html, Notion import .zip, art / card PNGs).
+    make() has already money-checked EVERY file of the product folder; this adds each file named under
+    'What you get' that is missing from product.zip. Only listed files, never listing pictures.
+    Returns the added names."""
+    listing = os.path.join(product_folder, "listing.md")
+    archive_path = os.path.join(pack_dir, "product.zip")
+    if not os.path.isfile(listing) or not os.path.isfile(archive_path):
+        return []
+    with open(listing, encoding="utf-8") as handle:
+        wanted = listed_files(handle.read())
+    with zipfile.ZipFile(archive_path) as archive:
+        present = set(archive.namelist())
+    extras = [name for name in wanted
+              if name not in present and name.lower().endswith(BUYER_EXTRAS)
+              and not name.startswith(LISTING_IMAGE_PREFIXES)
+              and os.path.isfile(os.path.join(product_folder, name))
+              and not os.path.islink(os.path.join(product_folder, name))]
+    if not extras:
+        return []
+    import shutil
+    temp = archive_path + ".tmp"
+    shutil.copyfile(archive_path, temp)
+    with zipfile.ZipFile(temp, "a", zipfile.ZIP_DEFLATED) as archive:
+        for name in extras:
+            archive.write(os.path.join(product_folder, name), arcname=name)
+    os.replace(temp, archive_path)
+    return extras
+
+
 def build_product(spec, approval_id, out_dir=None, folder_name=None):
     """Write all files for one spec. Returns the folder name."""
     out_dir = out_dir or PRODUCTS_DIR
@@ -1380,6 +1592,7 @@ def build_product(spec, approval_id, out_dir=None, folder_name=None):
     if builder_fn is None:
         raise KeyError(f"No builder registered for kind '{spec['kind']}'")
     files, how_to = builder_fn(folder, spec)
+    remove_empty_dirs(folder)
     if spec["kind"] in ("planner", "dated_planner") and spec.get("sheets"):
         sheet_files, sheet_how_to = _build_sheets(folder, spec)
         files += sheet_files
@@ -1726,7 +1939,8 @@ def truth_check_folder(approval_id, folder_name, db_path=None, out_dir=None, not
     if result["verdict"] == "ready":
         try:
             import upload_pack
-            upload_pack.make(folder, os.path.join(out_dir, "upload"))
+            pack_dir = upload_pack.make(folder, os.path.join(out_dir, "upload"))
+            complete_buyer_zip(folder, pack_dir)
         except Exception as exc:
             print(f"Upload pack refused: {exc}", file=sys.stderr)
     held = approval_id in OWNER_HOLDS
