@@ -166,8 +166,20 @@ class PaperSizeTests(unittest.TestCase):
             with open(os.path.join(folder, name), "wb") as handle:
                 handle.write(a4 + name.encode())
         renamed = pb.standard_pdf_names(folder, {"short_name": "pack"})
-        self.assertEqual(sorted(renamed.values()), ["pack-2-A4.pdf", "pack-A4.pdf"])
+        # CCC-5: the second file keeps its own name ("two") so it sorts after the main pack-A4.pdf
+        self.assertEqual(sorted(renamed.values()), ["pack-A4.pdf", "pack-two-A4.pdf"])
         self.assertEqual(len(os.listdir(folder)), 2)
+
+    def test_a_cover_never_takes_the_main_name_from_the_real_product(self):
+        folder = tempfile.mkdtemp(prefix="cover_", dir=_TMP)
+        a4 = b"%PDF-1.4\n1 0 obj << /Type /Page /MediaBox [0 0 595.28 841.89] >> endobj\n%%EOF"
+        with open(os.path.join(folder, "pack-A4.pdf"), "wb") as handle:
+            handle.write(a4 + b"deck")
+        with open(os.path.join(folder, "cover.pdf"), "wb") as handle:
+            handle.write(a4 + b"cover")
+        self.assertEqual(pb.standard_pdf_names(folder, {"short_name": "pack"}), {"cover.pdf": "pack-cover-A4.pdf"})
+        first = next(n for n in sorted(os.listdir(folder)) if n.endswith("-A4.pdf"))
+        self.assertEqual(first, "pack-A4.pdf")
 
     def test_text_files_naming_the_old_file_are_updated(self):
         folder = tempfile.mkdtemp(prefix="txt_", dir=_TMP)

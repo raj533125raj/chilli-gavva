@@ -481,11 +481,6 @@ class TestOcc1EventPlanner(SellFlowMixin, unittest.TestCase):
 class TestOcc1Flashcards(SellFlowMixin, unittest.TestCase):
     KIND = "flashcards"
 
-    @unittest.expectedFailure
-    def test_7_tg_sell_reaches_sellable_or_almost(self):
-        """Real gap: truth_check sees a one-page cover PDF and no proven A4/Letter files."""
-        super().test_7_tg_sell_reaches_sellable_or_almost()
-
 
 class TestOcc1HabitTracker(SellFlowMixin, unittest.TestCase):
     KIND = "habit_tracker"

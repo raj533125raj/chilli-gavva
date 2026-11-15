@@ -257,5 +257,92 @@ class EventPlannerTests(unittest.TestCase):
             self.assertLessEqual(x + len(text) * size * 0.5, width - 14.17, text)
 
 
+@unittest.skipUnless(HAS_PIL, "needs Pillow")
+class FlashcardsTests(unittest.TestCase):
+    SPEC = {"kind": "flashcards", "title": "Alphabet Flashcards", "short_name": "alphabet-flashcards",
+            "topic": "alphabet"}
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory(prefix="ccc_cards_")
+        cls.addClassCleanup(cls.tmp.cleanup)
+        cls.folder = build_folder("builder_flashcards", cls.SPEC, cls.tmp.name)
+
+    def test_real_deck_in_both_sizes_and_cover_does_not_take_the_main_name(self):
+        names = sorted(p.name for p in self.folder.glob("*.pdf"))
+        self.assertEqual(names, ["alphabet-flashcards-A4.pdf", "alphabet-flashcards-Letter.pdf",
+                                 "alphabet-flashcards-cover-A4.pdf"])
+        facts = truth_check.facts(str(self.folder))
+        self.assertEqual(facts["pages"], 9)                       # how-to page + 4 sheets x (fronts + backs)
+        self.assertEqual(page_problems(self.folder), [])
+
+    def test_every_card_has_front_and_back_text(self):
+        import builder_flashcards
+        cards = builder_flashcards.deck_cards("alphabet")
+        self.assertEqual(len(cards), 26)
+        all_texts = []
+        for number in range(2, 10):
+            texts, _page = page_texts(self.folder, number)
+            all_texts += texts
+        for card in cards:
+            self.assertIn(card["front"], all_texts)
+            self.assertIn(card["back"], all_texts)
+            self.assertIn(card["prompt"], all_texts)
+
+    def test_fronts_then_mirrored_backs(self):
+        texts2, _p = page_texts(self.folder, 2)
+        texts3, page3 = page_texts(self.folder, 3)
+        self.assertIn("Fronts · sheet 1 of 4", texts2)
+        self.assertIn("Backs · sheet 1 of 4", texts3)
+        x_of = {t: x for _f, _s, x, _y, t in page3["items"]}
+        self.assertGreater(x_of["Ant"], x_of["Ball"])      # card 1 is left on the front, right on the back
+
+    def test_cut_lines_are_dashed_on_every_sheet(self):
+        for number in range(2, 10):
+            self.assertIn("[5 4] 0 d", stream_ops(self.folder, number))
+
+    def test_how_to_page_lists_every_card_and_reaches_the_bottom(self):
+        texts, page = page_texts(self.folder, 1)
+        self.assertIn("How to print and cut", texts)
+        self.assertIn("Practice log", texts)
+        self.assertTrue(any(t.startswith("26  Z z") for t in texts))
+        self.assertLess(page["low"], 0.35 * 842)
+
+    def test_png_sheets_and_previews_are_real_and_big_enough(self):
+        from PIL import Image
+        for name in ("preview_1.png", "preview_2.png", "preview_3.png"):
+            with Image.open(self.folder / name) as image:
+                self.assertGreaterEqual(min(image.size), 720)
+                self.assertGreater(len(image.getcolors(1 << 20) or []), 2)    # not a blank picture
+        with Image.open(self.folder / "flashcards_alphabet_page_1.png") as image:
+            self.assertEqual(image.size, (2480, 3508))
+
+    def test_every_topic_builds_a_clean_deck(self):
+        import builder_flashcards
+        for topic, per in (("numbers", 8), ("shapes", 12), ("colours", 8), ("telugu", 12)):
+            with self.subTest(topic=topic), tempfile.TemporaryDirectory() as tmp:
+                builder_flashcards.build({"kind": "flashcards", "topic": topic, "cards_per_page": per,
+                                          "short_name": f"{topic}-cards"}, tmp)
+                os.remove(os.path.join(tmp, "cover.pdf"))
+                facts = truth_check.facts(tmp)
+                self.assertGreaterEqual(facts["pages"], 3)
+                self.assertEqual(truth_check.file_quality(facts), [])
+
+    def test_shape_points_stay_inside_their_box(self):
+        import builder_flashcards
+        for shape in builder_flashcards.SHAPES:
+            points = builder_flashcards.shape_points(shape, 100, 100, 80)
+            self.assertGreaterEqual(len(points), 3)
+            for x, y in points:
+                self.assertLessEqual(abs(x - 100), 41)
+                self.assertLessEqual(abs(y - 100), 41)
+
+    def test_listing_page_count_ignores_the_box_label(self):
+        import product_builder as pb
+        facts = pb._delivery_facts(str(self.folder))
+        self.assertEqual(facts["pages"], 9)
+        self.assertIn("9 printable pages in every PDF", facts["details"])
+
+
 if __name__ == "__main__":
     unittest.main()

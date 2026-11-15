@@ -1056,7 +1056,8 @@ def _delivery_facts(folder):
             count, size = _verified_pdf(path)
             verified = {size} if size else set()
             sizes.update(verified)
-            counts.append(count)
+            if "-cover-" not in name:       # CCC-5: a one-page box label is not "every PDF" of the product
+                counts.append(count)
             label = "US Letter" if verified == {"Letter"} else next(iter(verified), "paper size unspecified")
             # Counts are per file: A4 and Letter can paginate differently.
             contents.append(f"`{name}` — PDF, page count: {count}, {label}")
@@ -1310,8 +1311,16 @@ def standard_pdf_names(folder, spec):
         if size not in ("A4", "Letter"):
             continue
         target = f"{base}-{size}.pdf"
+        taken = lambda t: os.path.exists(os.path.join(folder, t)) or t in renamed.values()  # noqa: E731
+        if taken(target):
+            # CCC-5: a second PDF of the same size keeps its own name inside the new one
+            # ("cover.pdf" -> "<base>-cover-A4.pdf"). It sorts AFTER the main "<base>-A4.pdf", so the
+            # Truth Checker (which reads the first "-A4.pdf") still reads the real product, not a cover.
+            stem = re.sub(r"[^a-z0-9]+", "-", os.path.splitext(name)[0].lower()).strip("-")
+            stem = re.sub(r"-(?:a4|letter)$", "", stem) or "extra"
+            target = f"{base}-{stem}-{size}.pdf"
         number = 2
-        while os.path.exists(os.path.join(folder, target)) or target in renamed.values():
+        while taken(target):
             target = f"{base}-{number}-{size}.pdf"
             number += 1
         os.replace(os.path.join(folder, name), os.path.join(folder, target))
