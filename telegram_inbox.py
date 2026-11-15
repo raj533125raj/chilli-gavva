@@ -1805,6 +1805,8 @@ def handle_command(cmd, ids, db_path=None):
 
 _CALLBACK = re.compile(r"^(a|r|v):(\d{1,9})$|^y:(\d{1,9}):(.{1,30})$|^(t):ping$")
 BUTTON_TEST_OK = "✅ Button presses reach the bot. Nothing was changed."
+BUTTONTEST_PENDING = "buttontest_sent_at"
+BUTTONTEST_PRESSED = "buttontest_pressed_at"
 
 
 def handle_callback(token, owner_chat_id, data, db_path=None, message_id=None):
@@ -1834,8 +1836,10 @@ def handle_callback(token, owner_chat_id, data, db_path=None, message_id=None):
         reply = marketing_agency.handle_callback(token, owner_chat_id, data, db_path)
         if reply is not None:
             return reply
-    import chat_brain
+    # chat_brain (AI) is imported only for its own "cb:" buttons: before, every button press imported it first,
+    # so an AI-module import problem made Approve / Reject / View buttons crash and the press was lost.
     if data and data.startswith("cb:"):
+        import chat_brain
         reply = chat_brain.handle_callback(token, owner_chat_id, data, db_path)
         if reply is not None:
             return reply
@@ -1844,16 +1848,18 @@ def handle_callback(token, owner_chat_id, data, db_path=None, message_id=None):
         reply = doctor.handle_callback(token, owner_chat_id, data, db_path)
         if reply is not None:
             return reply
-    import autofix
-    if autofix.CALLBACK.fullmatch(data or ""):
-        reply = autofix.decide(data, get_state, set_state, db_path)
-        send_text(token, owner_chat_id, reply)
-        return reply
-    import improver_loop
-    imp_reply = improver_loop.handle_callback(data, db_path)
-    if imp_reply is not None:
-        send_text(token, owner_chat_id, imp_reply)
-        return imp_reply
+    if data and data.startswith("af:"):
+        import autofix
+        if autofix.CALLBACK.fullmatch(data):
+            reply = autofix.decide(data, get_state, set_state, db_path)
+            send_text(token, owner_chat_id, reply)
+            return reply
+    if data and data.startswith("imp:"):
+        import improver_loop
+        imp_reply = improver_loop.handle_callback(data, db_path)
+        if imp_reply is not None:
+            send_text(token, owner_chat_id, imp_reply)
+            return imp_reply
     if data and data.startswith("kd:"):
         parts = data.split(":", 2)
         if len(parts) == 3:
@@ -1888,6 +1894,8 @@ def handle_callback(token, owner_chat_id, data, db_path=None, message_id=None):
     if not m:
         return None
     if m.group(5):   # the /buttontest button: only replies, changes nothing
+        set_state(BUTTONTEST_PRESSED, datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+                  db_path)
         send_text(token, owner_chat_id, BUTTON_TEST_OK)
         return BUTTON_TEST_OK
     if m.group(1):
@@ -1900,7 +1908,9 @@ def handle_callback(token, owner_chat_id, data, db_path=None, message_id=None):
         if kind == "a":
             appr = guardrails.get_approval(approval_id, db_path)
             if appr and appr.get("status") == "approved":
-                return "Approved ✓"
+                reply = f"Approved ✓ #{approval_id} (mundee approve ayyindi)"
+                send_text(token, owner_chat_id, reply)
+                return reply
             changed = guardrails.decide(approval_id, True, db_path)
             if changed:
                 reply = f"Approved ✓ #{approval_id}"
@@ -1916,7 +1926,9 @@ def handle_callback(token, owner_chat_id, data, db_path=None, message_id=None):
         appr = guardrails.get_approval(approval_id, db_path)
         if appr and appr.get("status") == "rejected":
             reason = appr.get("reason")
-            return f"Rejected: {reason}" if reason else "Rejected"
+            reply = (f"Rejected: {reason}" if reason else "Rejected") + f" #{approval_id} (mundee reject ayyindi)"
+            send_text(token, owner_chat_id, reply)
+            return reply
         changed = guardrails.decide(approval_id, False, db_path)
         if changed:
             reply = f"Rejected: #{approval_id}. Why? Pick a reason so the agents can learn:"
@@ -1935,7 +1947,9 @@ def handle_callback(token, owner_chat_id, data, db_path=None, message_id=None):
     cur_reason_row = conn.execute("SELECT reason FROM approvals WHERE id = ?", (approval_id,)).fetchone()
     conn.close()
     if cur_reason_row and cur_reason_row[0]:
-        return f"Rejected: {cur_reason_row[0]}"
+        reply = f"Rejected: {cur_reason_row[0]} #{approval_id} (reason mundee save ayyindi)"
+        send_text(token, owner_chat_id, reply)
+        return reply
 
     if guardrails.set_reason(approval_id, reason_label, db_path) or guardrails.set_reason(approval_id, raw_reason, db_path):
         reply = f"Rejected: {reason_label}"
@@ -1947,6 +1961,87 @@ def handle_callback(token, owner_chat_id, data, db_path=None, message_id=None):
         reply = f"Could not save that reason for #{approval_id}."
         send_text(token, owner_chat_id, reply)
     return reply
+
+
+UNKNOWN_BUTTON_TEXT = ("Ee button paata di leda robot ki teliyadu, emi marchaledu. "
+                       "/list pampandi: kotha buttons vastayi (leda /approve N, /reject N).")
+
+
+def callback_chat_id(cb):
+    """Chat of a button press. Normally callback_query.message.chat.id; when Telegram leaves the message out
+    (very old or inaccessible messages) the presser's id is used, which IS the chat id of a private chat."""
+    chat = ((cb.get("message") or {}).get("chat") or {}).get("id")
+    if chat is None or str(chat).strip() == "":
+        chat = (cb.get("from") or {}).get("id")
+    return "" if chat is None else str(chat).strip()
+
+
+def button_failed_text(data):
+    """Short Tenglish line when a button press crashed (no error details, only the draft number)."""
+    m = re.match(r"^(a|r):(\d{1,9})$", data or "")
+    if m:
+        cmd = "/approve" if m.group(1) == "a" else "/reject"
+        return f"Button pani cheyaledu, robot fix chestundi. Ippudu {cmd} {m.group(2)} ani type cheyandi."
+    return "Button pani cheyaledu, robot fix chestundi. /approve N leda /reject N type cheyandi."
+
+
+def check_bot_identity(me, db_path=None):
+    """Forget the saved update offset when the bot itself changed (new bot made with BotFather).
+
+    Update numbers belong to one bot. An offset saved for an older bot can be far above the new bot's numbers:
+    getUpdates with that offset CONFIRMS (deletes) every waiting update, so all messages and button presses
+    vanished without a trace. Only the numeric bot id is stored, never the token."""
+    bot_id = (me or {}).get("id") if isinstance(me, dict) else None
+    if type(bot_id) is not int:
+        return False
+    saved = get_state("bot_id", None, db_path)
+    changed = bool(saved) and saved != str(bot_id)
+    if changed:
+        set_state("update_offset", "", db_path)
+        print("Telegram: the bot changed, so the old update offset was cleared.")
+    if saved != str(bot_id):
+        set_state("bot_id", str(bot_id), db_path)
+    return changed
+
+
+def _allowed_text(info):
+    allowed = (info or {}).get("allowed_updates") if isinstance(info, dict) else None
+    if allowed is None:
+        return "default (anni types, buttons kuda)", True
+    if not isinstance(allowed, list) or not allowed:
+        return "default (anni types, buttons kuda)", True
+    names = ", ".join(str(x) for x in allowed if isinstance(x, str))
+    return names, "callback_query" in allowed
+
+
+def buttontest_report(token, chat_id, info, stats, db_path=None, now=None):
+    """On the run AFTER /buttontest, tell the owner in Tenglish exactly what happened. Returns the text or None."""
+    sent_at = get_state(BUTTONTEST_PENDING, "", db_path)
+    if not sent_at or stats.get("buttontest_sent"):
+        return None                         # nothing asked, or asked in this very run: report next run
+    pressed_at = get_state(BUTTONTEST_PRESSED, "", db_path)
+    pressed = bool(pressed_at) and pressed_at >= sent_at
+    webhook_set = bool((info or {}).get("url")) if isinstance(info, dict) else False
+    allowed, buttons_allowed = _allowed_text(info)
+    lines = ["\U0001f50e Button test report:",
+             "• Button press: " + ("VACHINDI ✅ (robot ki cherindi)" if pressed
+                                   else "RAALEDU ❌ (test button press robot ki cheraledu)"),
+             "• Webhook: " + ("SET ayyi undi ❌ (polling ni block chestundi)" if webhook_set else "ledu ✅"),
+             "• allowed_updates: " + allowed + (" ✅" if buttons_allowed else " ❌ callback_query ledu, buttons raavu"),
+             f"• Ee run lo: updates={stats.get('received', 0)} buttons={stats.get('button', 0)}"]
+    if not pressed:
+        lines.append("Test button press chesara? Press chesi 1-2 min aagandi, taruvata /buttontest malli pampandi.")
+        if webhook_set:
+            lines.append("Webhook teeseyali (robot-fix-runbook lo deleteWebhook step).")
+        elif not buttons_allowed:
+            lines.append("Vere program ee bot token tho getUpdates chestondi (callback_query lekunda): adi aapandi.")
+        else:
+            lines.append("Press chesina buttons raakapothe: vere program (Mac / app) ee bot token vaadutondemo chudandi.")
+    lines.append("Fallback eppudu pani chestundi: /approve N leda /reject N.")
+    text = "\n".join(lines)
+    if send_text(token, chat_id, text):
+        set_state(BUTTONTEST_PENDING, "", db_path)
+    return text
 
 
 def log_button(db_path=None):
@@ -2053,20 +2148,33 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
             stats["button"] += 1
             # Same rule as typed commands: the press must come from the owner chat. (Before, the presser's
             # personal id also had to equal the chat id, which is never true in a group chat.)
-            cb_chat = str(((cb.get("message") or {}).get("chat") or {}).get("id", ""))
-            if cb_chat != str(owner_chat_id):
+            if callback_chat_id(cb) != str(owner_chat_id).strip():
                 stats["skipped"]["not owner chat"] += 1
                 continue
             log_button(db_path)
+            # Always answer the press (stops the spinning clock on the owner's button). Telegram refuses
+            # answers older than a few minutes; that is harmless, the reply message below still goes out.
             try:
-                _call(token, "answerCallbackQuery", {"callback_query_id": cb.get("id")})
+                _call(token, "answerCallbackQuery", {"callback_query_id": cb.get("id"),
+                                                     "text": "Robot ki vachindi ✓"})
             except Exception:
-                pass  # old button presses can no longer be answered; the reply message still goes out
+                pass
             msg_id = (cb.get("message") or {}).get("message_id")
-            if handle_callback(token, owner_chat_id, cb.get("data", ""), db_path, message_id=msg_id) is not None:
+            data = cb.get("data") if isinstance(cb.get("data"), str) else ""
+            try:
+                reply = handle_callback(token, owner_chat_id, data, db_path, message_id=msg_id)
+            except Exception as exc:
+                # The update is already confirmed on Telegram: a crash here used to stop the whole inbox and
+                # the press was lost without a word. Now the owner hears it and the other updates still run.
+                print(f"Button handling failed: {type(exc).__name__}", file=sys.stderr)
+                send_text(token, owner_chat_id, button_failed_text(data))
+                handled += 1
+                continue
+            if reply is not None:
                 handled += 1
             else:
                 stats["skipped"]["unknown button"] += 1
+                send_text(token, owner_chat_id, UNKNOWN_BUTTON_TEXT)
             continue
         msg = upd.get("message")
         if not msg:
@@ -2300,8 +2408,13 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                 for it in guardrails.pending(db_path)[:10]:
                     send_text(token, owner_chat_id, draft_card(it, db_path=db_path), draft_buttons(it["id"]))
             elif cmd == "buttontest":
-                send_text(token, owner_chat_id, "Press this test button. The reply comes on the next run "
-                          "(about 1-2 minutes with the door bell)." + burst_note, [[("Test button", "t:ping")]])
+                if send_text(token, owner_chat_id, "Press this test button. The reply comes on the next run "
+                             "(about 1-2 minutes with the door bell)." + burst_note, [[("Test button", "t:ping")]]):
+                    # The next run reports what really happened (press received, webhook, allowed_updates).
+                    set_state(BUTTONTEST_PENDING,
+                              datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"), db_path)
+                    set_state(BUTTONTEST_PRESSED, "", db_path)
+                    stats["buttontest_sent"] = True
         handled += 1
     stats["handled"] = handled
     return handled
@@ -2512,15 +2625,25 @@ def _run(db_path=None, recovery=False, stats=None):
         result = _call(token, method, params)
         if not isinstance(result, dict) or result.get("ok") is not True:
             raise RuntimeError("Telegram setup check failed; see safe diagnostics.")
+        if method == "getMe":
+            check_bot_identity(result.get("result"), db_path)
     webhook_result = _call(token, "getWebhookInfo", {})
     info = webhook_result.get("result") if isinstance(webhook_result, dict) else None
     diagnostics.webhook(info)
     if isinstance(info, dict) and info.get("url"):
+        try:   # a waiting /buttontest still gets its answer: the webhook is exactly why buttons are lost
+            buttontest_report(token, chat_id, info, stats if stats is not None else new_stats(), db_path)
+        except Exception as exc:
+            print(f"Button test report skipped: {type(exc).__name__}")
         raise RuntimeError("Telegram webhook blocks polling; see the robot-fix-runbook.")
     if secret_problems and not recovery:   # one message a day (same-error rule), never the values
         send_alert(token, chat_id, diagnostics.secret_problems_text(secret_problems), db_path=db_path)
     stats = stats if stats is not None else new_stats()
     commands = process_updates(token, chat_id, db_path, stats)
+    try:
+        buttontest_report(token, chat_id, info, stats, db_path)
+    except Exception as exc:
+        print(f"Button test report skipped: {type(exc).__name__}")
     if recovery:
         print(stats_line(stats))
         return {"configured": True, "commands": commands, "alerts": 0,
