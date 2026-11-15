@@ -158,7 +158,8 @@ def find_pack_dir(aid: int | str, products_dir: Optional[str | Path] = None) -> 
             search_dirs.append(local_base / "upload")
         search_dirs.append(local_base)
 
-    aid_str = str(aid).strip().lstrip("#")
+    raw_aid_str = str(aid).strip().lstrip("#")
+    aid_str = re.escape(raw_aid_str)
 
     for sdir in search_dirs:
         try:
@@ -171,9 +172,9 @@ def find_pack_dir(aid: int | str, products_dir: Optional[str | Path] = None) -> 
                     continue
                 # Match exact folder name or aid prefix (e.g. 1 or 01 or 01-daily-planner)
                 p_prefix = p.name.split("-")[0].lstrip("0") or "0"
-                target_prefix = aid_str.split("-")[0].lstrip("0") or "0"
+                target_prefix = raw_aid_str.split("-")[0].lstrip("0") or "0"
                 if (
-                    p.name == aid_str
+                    p.name == raw_aid_str
                     or p_prefix == target_prefix
                     or re.match(rf"^0*{aid_str}(?:-.*)?$", p.name)
                 ):

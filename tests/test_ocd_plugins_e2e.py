@@ -373,9 +373,8 @@ class TestPluginBehaviour(PluginMixin, unittest.TestCase):
         quiet, _reason = PLUGIN_MAP["tg_posts"].is_quiet_hours(self.ctx)
         self.assertFalse(quiet)
 
-    @unittest.expectedFailure
-    def test_known_reports_lint_malformed_pack_regex(self):
-        """tg_reports /lint builds an unsanitized regex from a malformed pack argument."""
+    def test_reports_lint_malformed_pack_regex_does_not_crash(self):
+        """tg_reports /lint escapes a malformed pack argument before building a regex."""
         self.rec.clear()
         stderr = io.StringIO()
         with contextlib.redirect_stderr(stderr):

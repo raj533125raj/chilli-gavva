@@ -135,10 +135,7 @@ class TestPluginFuzz(unittest.TestCase):
                  contextlib.redirect_stderr(stderr):
                 handled, result = ti.call_plugins(
                     text, BOT_TOKEN, OWNER, db_path=self.db, now=NOW, plugins=PLUGINS)
-            known_lint_regex_bug = (text == "/lint [[[" and "tg_reports" in stderr.getvalue()
-                                    and "bad character range" in stderr.getvalue())
-            if not known_lint_regex_bug:
-                self.assertNotIn("Plugin error", stderr.getvalue(), repr(text[:200]))
+            self.assertNotIn("Plugin error", stderr.getvalue(), repr(text[:200]))
             self.assertIn(handled, (True, False), repr(text[:200]))
             if isinstance(result, dict):
                 self.assertIsInstance(result.get("text", ""), (str, type(None)),
