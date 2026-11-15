@@ -99,6 +99,11 @@ def handle(text: str, ctx: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if lower == b or lower.startswith(b + " ") or lower.startswith(b + "@"):
             return None
 
+    # Bare "sales" is a declared word: show the default weekly summary instead of returning None.
+    if lower.rstrip("?.! ") == "sales":
+        report = sales_ledger.generate_sales_report(period="week", now=_get_utc_now(ctx), db_path=ctx.get("db_path"))
+        return {"text": report}
+
     # Bare "sale" is a declared word but names no pack, so the ledger parser returned nothing and the
     # owner got "Ardam kaaledu". Say how a sale is recorded instead.
     if lower.rstrip("?.! ") in ("sale", "/sale"):

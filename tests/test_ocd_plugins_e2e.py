@@ -68,13 +68,6 @@ def tearDownModule():
 
 
 KNOWN_UNHANDLED = {
-    ("tg_assets", "asset pampu"): "declared word returns None instead of asking for an asset number",
-    ("tg_assets", "download asset"): "declared word returns None instead of asking for an asset number",
-    ("tg_autoapprove", "auto approve status"): "declared status phrase returns None",
-    ("tg_autoapprove", "autoapprove settings"): "declared settings phrase returns None",
-    ("tg_office", "office lo"): "declared office phrase returns None",
-    ("tg_office", "office choodu"): "declared office phrase returns None",
-    ("tg_sales", "sales"): "declared word returns None; '/sales' works",
 }
 
 
@@ -338,7 +331,6 @@ class TestPluginBehaviour(PluginMixin, unittest.TestCase):
         for plugin, text in (
             ("tg_dbcare", "/dbcare"),
             ("tg_keyboard", "/decide"),
-            ("tg_office", "/office"),
             ("tg_seo", "/seokit 1"),
         ):
             with self.subTest(plugin=plugin):
@@ -645,6 +637,23 @@ class TestPluginBehaviour(PluginMixin, unittest.TestCase):
                 result = self.call_plugin(PLUGIN_MAP["tg_menu"], command)
                 self.assertTrue(result)
                 self.assertTrue(self.rec.texts or result.get("text"))
+
+    def test_fixed_short_phrases_reply_with_real_content(self):
+        cases = (
+            ("tg_assets", "asset pampu", "Asset commands"),
+            ("tg_assets", "download asset", "Asset commands"),
+            ("tg_autoapprove", "auto approve status", "Auto-Approve Settings"),
+            ("tg_autoapprove", "autoapprove settings", "Auto-Approve Settings"),
+            ("tg_office", "office lo", "Binny Mills Office Menu"),
+            ("tg_office", "office choodu", "Binny Mills Office Menu"),
+            ("tg_sales", "sales", "Sales Report"),
+        )
+        for plugin, text, expected in cases:
+            with self.subTest(plugin=plugin, text=text):
+                self.rec.clear()
+                result = self.call_plugin(PLUGIN_MAP[plugin], text)
+                output = (result or {}).get("text", "") + "\n" + self.rec.all_text
+                self.assertIn(expected, output)
 
     def test_talk_examples(self):
         self.rec.clear()

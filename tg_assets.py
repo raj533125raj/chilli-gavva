@@ -341,7 +341,7 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
         return _handle_get_asset(idx_or_id, ctx)
 
     # 6. Generic /asset help if called alone
-    if lower in ("/asset", "asset"):
+    if lower in ("/asset", "asset", "asset pampu", "download asset"):
         return {
             "text": (
                 "📦 Asset commands:\n"

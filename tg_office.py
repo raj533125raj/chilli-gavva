@@ -178,7 +178,8 @@ def handle(text: str, ctx: dict) -> dict | None:
     send_text = ctx.get("send_text")
 
     # 1. /office command or menu word
-    if lower in ("/office", "office", "office menu", "office status", "🏢 office menu"):
+    if lower in ("/office", "office", "office menu", "office status", "office lo", "office choodu",
+                 "🏢 office menu"):
         reply_text = _office_menu_text(db_path=db_path)
         if callable(send_text):
             send_text(reply_text, keyboard=KEYBOARD_OFFICE)

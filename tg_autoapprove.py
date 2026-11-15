@@ -169,7 +169,8 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
 
     # 2. Check for commands intended for this plugin
     # /autoapprove or autoapprove alone -> show status
-    if lower in ("/autoapprove", "autoapprove", "auto approve", "/autoapprove status", "autoapprove status"):
+    if lower in ("/autoapprove", "autoapprove", "auto approve", "/autoapprove status", "autoapprove status",
+                 "auto approve status", "/autoapprove settings", "autoapprove settings", "auto approve settings"):
         status_text = _format_status_text(ctx)
         if callable(send_text):
             send_text(status_text)
