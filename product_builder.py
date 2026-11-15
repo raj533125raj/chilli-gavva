@@ -1997,7 +1997,7 @@ def rebuild_versions(db_path=None, out_dir=None, spec_dir=None, notify_fn=None):
         with open(os.path.join(spec_dir, name), encoding="utf-8") as f:
             spec = json.load(f)
         approval_id, version = int(spec["approval_id"]), spec["version"]
-        if approval_id in OWNER_HOLDS:
+        if approval_id in OWNER_HOLDS or not _rebuild_target_ok(approval_id, spec, db_path):
             continue
         folder = f"{approval_id}-{version}-{spec['short_name']}"
         revision = int(spec.get("revision") or 1)
@@ -2011,6 +2011,19 @@ def rebuild_versions(db_path=None, out_dir=None, spec_dir=None, notify_fn=None):
         verdict = truth_check_folder(approval_id, folder, db_path, out_dir, notify_fn)["verdict"]
         done.append((approval_id, folder, verdict))
     return done
+
+
+def _rebuild_target_ok(approval_id, spec, db_path=None):
+    """A hand-checked spec names its draft by number only. Build it only for that real draft: the draft must
+    be approved and come from the spec's niche agent (or, with no draft row at all, already have a built
+    product to replace). A new or restored database where #<id> is a different or pending draft must never
+    get this product."""
+    item = guardrails.get_approval(approval_id, db_path)
+    if item is None:
+        return any(b["approval_id"] == approval_id and b["folder"] for b in builds(db_path))
+    if item.get("status") != "approved" or item.get("kind") != "public_draft":
+        return False
+    return not spec.get("niche") or niche_of(item.get("title")) == spec["niche"]
 
 
 def _built_revision(db_path, folder):
