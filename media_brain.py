@@ -16,6 +16,7 @@ Safety:
   - Failures produce friendly messages; never crash.
   - Public status exports only item count.
 """
+from __future__ import annotations
 
 import datetime
 import html

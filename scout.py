@@ -8,6 +8,7 @@ NO idea is ever auto-published or auto-built.
 When approved by a human, scout ideas are added to the niche topic list.
 Public status reports only the count of scout ideas, never the unapproved ideas.
 """
+from __future__ import annotations
 import datetime
 import json
 import os

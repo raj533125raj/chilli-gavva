@@ -11,6 +11,7 @@ Provides:
   - Typo tolerance (edit distance 1-2) for command words
   - Unknown text fallback -> 3 closest suggestions instead of raw 'Ardam kaaledu'
 """
+from __future__ import annotations
 import glob
 import importlib
 import os

@@ -11,6 +11,7 @@ Tests:
 8. No money amounts or currency symbols anywhere in code, metadata, or output text
 9. No brand names or clickbait in generated text
 """
+from __future__ import annotations
 
 import json
 import os

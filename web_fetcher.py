@@ -11,6 +11,7 @@ CLI:
   python3 web_fetcher.py <url>          # fetch and print plain text
   python3 web_fetcher.py <url> <words>  # print first N words only
 """
+from __future__ import annotations
 
 import secret_guard
 import html

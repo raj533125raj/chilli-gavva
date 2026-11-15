@@ -26,6 +26,7 @@ doctor.py:
 5. Keeps a doctor log in the database (doctor_cases table); /doctor shows last 10 cases.
 6. Prevents self-loops: max 3 actions per case per day.
 """
+from __future__ import annotations
 
 import datetime
 import json

@@ -16,6 +16,7 @@ A recipe is a YAML file with:
 Each task is enqueued immediately; the worker picks them up on its next cycle.
 Nothing is auto-published — all output goes through the approval queue as usual.
 """
+from __future__ import annotations
 import secret_guard
 import argparse
 import glob

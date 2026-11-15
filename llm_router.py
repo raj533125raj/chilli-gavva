@@ -29,6 +29,8 @@ python3 llm_router.py health probes use the same model caps and breakers as chat
 No provider error messages, response bodies, credentials or prompts are stored
 in health. All runtime calls still obey the global budget and injection guard.
 """
+from __future__ import annotations
+
 import datetime
 import json
 import os
