@@ -333,7 +333,13 @@ class Owner:
         built = [row[0] for row in db_rows(self.paths["code"],
                                            "SELECT approval_id FROM product_builds ORDER BY approval_id")]
         start = run_index * self.per_run
-        for text in self.commands[start:start + self.per_run]:
+        extra_path = self.paths["sim"] / "owner_extra.json"
+        try:
+            extra = json.loads(extra_path.read_text(encoding="utf-8"))
+            extra_path.unlink()
+        except (OSError, ValueError):
+            extra = []
+        for text in extra + self.commands[start:start + self.per_run]:
             if text in NEEDS_ID and built:
                 text = f"{text} {built[0]}"
             updates.append(self._message(text, when))
@@ -369,6 +375,18 @@ def run_step(step: Dict[str, Any], paths: Dict[str, Path], env: Dict[str, str], 
     return {"name": step["name"], "code": code, "output": output, "seconds": round(time.time() - started, 1)}
 
 
+def fresh_runner_temp(folder: Path, keep=("robot-failure-state.json",)) -> None:
+    """A new GitHub job starts with an empty RUNNER_TEMP; agent.yml restores only the failure counter."""
+    folder.mkdir(parents=True, exist_ok=True)
+    for item in folder.iterdir():
+        if item.name in keep:
+            continue
+        if item.is_dir():
+            shutil.rmtree(str(item), ignore_errors=True)
+        else:
+            item.unlink()
+
+
 def seed(paths: Dict[str, Path], env: Dict[str, str], py: str, sim_now: float, timeout: int) -> List[Dict]:
     results = []
     for niche in SEED_NICHES:
@@ -377,12 +395,107 @@ def seed(paths: Dict[str, Path], env: Dict[str, str], py: str, sim_now: float, t
     return results
 
 
+# ---- bad day (CCE-3) ---------------------------------------------------------------------------
+def _faults(paths: Dict[str, Path], rules: List[Dict[str, Any]]) -> None:
+    (paths["sim"] / "faults.json").write_text(json.dumps(rules), encoding="utf-8")
+    (paths["sim"] / "fault_counts.json").write_text("{}", encoding="utf-8")
+
+
+def _half_write(path: Path) -> bool:
+    """Cut a file in the middle, like a run killed while writing it."""
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return False
+    path.write_bytes(data[: max(1, len(data) // 2)])
+    return True
+
+
+def _corrupt_pdf(paths: Dict[str, Path]) -> Optional[str]:
+    pdfs = sorted(glob.glob(str(paths["code"] / "exported_content" / "products" / "*" / "*.pdf")))
+    if not pdfs:
+        return None
+    Path(pdfs[0]).write_bytes(b"%PDF-1.4\n%garbage\x00\xff" + secrets.token_bytes(64))
+    return os.path.relpath(pdfs[0], paths["code"])
+
+
+# (first run index, last run index, name, what happens). The fault is active from `first` to `last`;
+# the run after `last` must recover.
+BAD_DAY = [
+    (2, 2, "telegram_429_500", "Telegram answers 429 (3x) then 500 (2x)"),
+    (5, 6, "ai_down", "every AI provider answers 503 for two runs"),
+    (8, 9, "kv_wrong_id", "Cloudflare KV says namespace not found (404)"),
+    (12, 12, "disk_full", "disk full while writing product files (first build slot of the new UTC day)"),
+    (14, 14, "corrupt_pdf", "a built product PDF is garbage; owner asks /files and /sell for it"),
+    (16, 16, "half_written_state", "state files cut in half (post plan, status.json, failure state, dup report)"),
+    (18, 18, "clock_jump_forward", "clock jumps 2 days forward"),
+    (20, 20, "clock_jump_back", "clock jumps 3 hours back"),
+]
+
+
+def bad_day_events(every: int = 60) -> Dict[int, Callable[[Dict[str, Path], Dict[str, str]], Optional[float]]]:
+    events: Dict[int, Callable] = {}
+
+    def add(index, fn):
+        old = events.get(index)
+        if old:
+            def both(paths, env, a=old, b=fn):
+                first, second = a(paths, env), b(paths, env)
+                return second or first
+            events[index] = both
+        else:
+            events[index] = fn
+
+    def clear(paths, env):
+        _faults(paths, [])
+        return None
+
+    add(2, lambda p, e: _faults(p, [{"service": "telegram", "status": 429, "times": 3, "retry_after": 0},
+                                    {"service": "telegram", "status": 500, "times": 2}]))
+    add(3, clear)
+    add(5, lambda p, e: _faults(p, [{"service": "llm", "status": 503}]))
+    add(7, clear)
+    add(8, lambda p, e: _faults(p, [{"service": "kv", "status": 404}]))
+    add(10, clear)
+    add(12, lambda p, e: _faults(p, [{"service": "disk", "path": os.path.join("exported_content", "products")}]))
+    add(13, clear)
+
+    def corrupt(paths, env):
+        rel = _corrupt_pdf(paths)
+        match = re.search(r"products/(\d+)-", rel or "")
+        if match:   # the owner then asks for exactly that product
+            _owner_extra(paths, [f"/files {match.group(1)}", f"/sell {match.group(1)}", f"/kit {match.group(1)}"])
+        return None
+    add(14, corrupt)
+
+    def half(paths, env):
+        for rel in ("exported_content/post_plan.json", "web/data/status.json",
+                    "exported_content/marketing/dup_report.json"):
+            _half_write(paths["code"] / rel)
+        _half_write(paths["runner"] / "robot-failure-state.json")
+        return None
+    add(16, half)
+
+    add(18, lambda p, e: 2 * 24 * 3600.0)     # an event may return a clock jump in seconds
+    add(20, lambda p, e: -3 * 3600.0)
+    return events
+
+
+def _owner_extra(paths: Dict[str, Path], commands: List[str]) -> None:
+    path = paths["sim"] / "owner_extra.json"
+    try:
+        queued = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        queued = []
+    path.write_text(json.dumps(queued + commands), encoding="utf-8")
+
+
 def simulate(hours: float = 24, every: int = 60, start: str = DEFAULT_START, keep: Optional[str] = None,
              events: Optional[Dict[int, Callable[[Dict[str, Path], Dict[str, str]], Optional[float]]]] = None,
              step_timeout: int = 300, log: Callable[[str], None] = lambda line: None,
-             python: Optional[str] = None) -> Dict[str, Any]:
+             python: Optional[str] = None, scenarios: Optional[List[tuple]] = None) -> Dict[str, Any]:
     """Run the simulated day. `events` (CCE-3): run index -> fn(paths, env) called before that run;
-    it may change faults/files and may return a new simulated epoch (clock jump)."""
+    it may change faults/files and may return a clock jump in seconds (all later runs move with it)."""
     py = python or sys.executable
     if keep:
         base = Path(keep).resolve()
@@ -396,7 +509,7 @@ def simulate(hours: float = 24, every: int = 60, start: str = DEFAULT_START, kee
     try:
         paths = make_sandbox(base)
         env = base_env(paths, fake_secrets())
-        report = _simulate(paths, env, py, hours, every, start, events or {}, step_timeout, log)
+        report = _simulate(paths, env, py, hours, every, start, events or {}, step_timeout, log, scenarios)
         report["sandbox"] = str(base) if keep else "(deleted)"
         return report
     finally:
@@ -404,7 +517,7 @@ def simulate(hours: float = 24, every: int = 60, start: str = DEFAULT_START, kee
             cleanup.cleanup()
 
 
-def _simulate(paths, env, py, hours, every, start, events, step_timeout, log) -> Dict[str, Any]:
+def _simulate(paths, env, py, hours, every, start, events, step_timeout, log, scenarios=None) -> Dict[str, Any]:
     epoch = dt.datetime.strptime(start, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=dt.timezone.utc).timestamp()
     runs = max(1, int(hours * 60 // every))
     owner = Owner(paths, runs)
@@ -419,22 +532,25 @@ def _simulate(paths, env, py, hours, every, start, events, step_timeout, log) ->
         sim_now = epoch + index * every * 60
         event = events.get(index)
         if event:
-            jumped = event(paths, env)
-            if jumped:
-                epoch += jumped - sim_now
-                sim_now = jumped
+            jump = event(paths, env)
+            if jump:
+                epoch += jump
+                sim_now += jump
             timeline.append(f"{_iso(sim_now)} event before run {index + 1}")
         for note in owner.act(index, sim_now):
             timeline.append(f"{_iso(sim_now)} {note}")
         log(f"run {index + 1}/{runs} at {_iso(sim_now)}")
+        fresh_runner_temp(paths["runner"])
         real_start = time.time()
         job_failed = False
+        inbox_started = False
         for step in cycle_steps(py):
             if job_failed and not step.get("always"):
                 continue
             now = sim_now + (time.time() - real_start)
+            inbox_started = inbox_started or step["name"] == "inbox"
             result = run_step(step, paths, env, now, step_timeout, index + 1)
-            steps_run.append(dict(result, run=index + 1, t=_iso(now)))
+            steps_run.append(dict(result, run=index + 1, t=_iso(now), coe=bool(step["coe"])))
             if result["code"] and step["name"] == "gate":
                 job_failed = True
             if result["code"] and not step["coe"]:
@@ -449,12 +565,49 @@ def _simulate(paths, env, py, hours, every, start, events, step_timeout, log) ->
         steps_run.append(dict(result, run=index + 1, t=_iso(now)))
         if job_failed:
             failed_runs += 1
+        if job_failed and not inbox_started:   # agent.yml recovery_inbox: own job, own empty RUNNER_TEMP
+            recovery_temp = paths["base"] / "recovery_temp"
+            fresh_runner_temp(recovery_temp, keep=())
             recovery = {"name": "recovery", "cmd": [py, "run_failure.py", "run", "inbox", "--", "bash", "-c",
                                                     f"set -e\n{py} telegram_inbox.py --recovery\n"
                                                     f"{py} sanitize_state.py\n{py} secret_guard.py agent_data.db\n"]}
-            result = run_step(recovery, paths, env, now, step_timeout, index + 1)
+            result = run_step(recovery, paths, dict(env, RUNNER_TEMP=str(recovery_temp)), now, step_timeout,
+                              index + 1)
             steps_run.append(dict(result, run=index + 1, t=_iso(now)))
-    return build_report(paths, steps_run, timeline, owner, runs, failed_runs)
+    report = build_report(paths, steps_run, timeline, owner, runs, failed_runs)
+    if scenarios:
+        report["scenarios"] = scenario_report(paths, steps_run, scenarios)
+    return report
+
+
+def scenario_report(paths, steps_run, scenarios) -> List[Dict[str, Any]]:
+    """Per injected failure: what the owner got on Telegram while it lasted and in the run after it, every error
+    record from those runs, failed CI steps, and whether the run after the fault was clean (= recovered).
+    Fault index i is run i + 1."""
+    telegram = read_jsonl(paths["sim"] / "telegram_out.jsonl")
+    raw_errors = read_jsonl(paths["sim"] / "errors.jsonl")
+    hits = read_jsonl(paths["sim"] / "faults_hit.jsonl")
+    out = []
+    for first, last, name, what in scenarios:
+        window = {str(r) for r in range(first + 1, last + 3)}
+        stamps = [s["t"] for s in steps_run if str(s.get("run")) in window]
+        start, end = (min(stamps), max(stamps)) if stamps else ("", "")
+        after = [s for s in steps_run if s.get("run") == last + 2 and s.get("name") != "finish"]
+        out.append({
+            "name": name, "what": what, "runs": f"{first + 1}-{last + 1}",
+            "fault_hits": sum(1 for h in hits if start <= str(h.get("t")) <= end + "~"),
+            "errors": [f"[{e.get('kind')}] {e.get('type')} at {e.get('file')}:{e.get('line')} ({e.get('step')})"
+                       for e in raw_errors if str(e.get("run")) in window],
+            "telegram_refused": [m.get("error") for m in telegram if m.get("ok") is False
+                                 and start <= str(m.get("t")) <= end + "~"],
+            "failed_steps": [f"run {s['run']} {s['name']}" for s in steps_run if str(s.get("run")) in window
+                             and s["code"] and not s.get("coe")],
+            "owner_messages": [{"t": m.get("t"), "step": m.get("step"), "text": (m.get("text") or "")[:240]}
+                               for m in telegram if m.get("ok") and str(m.get("method", "")).startswith("send")
+                               and start <= str(m.get("t")) <= end + "~"],
+            "next_run_clean": bool(after) and not any(s["code"] and not s.get("coe") for s in after),
+        })
+    return out
 
 
 # ---- report ------------------------------------------------------------------------------------
@@ -560,6 +713,18 @@ def text_report(report: Dict[str, Any], verbose: bool = False) -> str:
         lines.append("")
         lines.append("Timeline:")
         lines.extend("  " + t for t in report["timeline"])
+    for sc in report.get("scenarios") or []:
+        lines.append("")
+        lines.append(f"BAD DAY {sc['name']} (runs {sc['runs']}): {sc['what']} | fault hits {sc['fault_hits']} | "
+                     f"next run clean: {'YES' if sc['next_run_clean'] else 'NO'}")
+        for item in sc["failed_steps"]:
+            lines.append(f"  failed step: {item}")
+        for item in sc["errors"]:
+            lines.append(f"  error: {item}")
+        for item in sc["telegram_refused"]:
+            lines.append(f"  telegram refused: {item}")
+        for msg in sc["owner_messages"]:
+            lines.append(f"  owner got [{msg['step']}] {msg['text'][:150]!r}")
     lines.append("")
     lines.append("Slowest steps: " + ", ".join(f"{s['name']}#{s['run']} {s['seconds']}s" for s in report["slow_steps"]))
     lines.append("RESULT: " + ("0 errors" if not report["errors"] else f"{len(report['errors'])} error(s)"))
@@ -572,10 +737,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--every", type=int, default=60, help="minutes between runs (alarm clock)")
     parser.add_argument("--start", default=DEFAULT_START, help="simulated UTC start, e.g. 2026-11-16T00:05:00Z")
     parser.add_argument("--keep", default=None, help="keep the sandbox in this folder (outside the repo)")
+    parser.add_argument("--bad", action="store_true", help="bad day: inject the CCE-3 failures (see BAD_DAY)")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("-v", "--verbose", action="store_true", help="tracebacks and timeline")
     args = parser.parse_args(argv)
     report = simulate(args.hours, args.every, args.start, args.keep,
+                      events=bad_day_events() if args.bad else None, scenarios=BAD_DAY if args.bad else None,
                       log=lambda line: print(line, file=sys.stderr, flush=True))
     if args.json:
         print(json.dumps(report, indent=1, default=str))

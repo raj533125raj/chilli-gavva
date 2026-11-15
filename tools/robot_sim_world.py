@@ -752,6 +752,43 @@ def _tee_output():
         pass
 
 
+_REAL_OPEN = builtins.open
+_REAL_OS_OPEN = os.open
+
+
+def _install_disk_full():
+    """faults.json rule {"service": "disk", "path": "exported_content/products"}: writes there fail with
+    ENOSPC for this whole process (the robot sees a full disk; reads still work)."""
+    rules = [r for r in _load("faults.json", []) if r.get("service") == "disk"]
+    if not rules:
+        return
+    marks = [str(r.get("path") or "") for r in rules]
+
+    def blocked(file, writing):
+        if not writing or isinstance(file, int):
+            return False
+        name = os.path.abspath(os.fsdecode(file))
+        return any(mark and mark in name for mark in marks)
+
+    def full():
+        _append("faults_hit.jsonl", {"t": sim_now_iso(), "step": STEP, "service": "disk", "error": "ENOSPC"})
+        return OSError(28, "No space left on device")
+
+    def fake_open(file, mode="r", *args, **kwargs):
+        if blocked(file, any(c in str(mode) for c in "wax+")):
+            raise full()
+        return _REAL_OPEN(file, mode, *args, **kwargs)
+
+    def fake_os_open(path, flags, *args, **kwargs):
+        if blocked(path, bool(flags & (os.O_WRONLY | os.O_RDWR | os.O_CREAT))):
+            raise full()
+        return _REAL_OS_OPEN(path, flags, *args, **kwargs)
+
+    builtins.open = fake_open
+    io.open = fake_open
+    os.open = fake_os_open
+
+
 def install():
     """Called by the sandbox sitecustomize.py. Does nothing unless ROBOT_SIM_DIR is set."""
     global _INSTALLED
@@ -765,4 +802,5 @@ def install():
     socket.socket.connect_ex = _guard_connect(_REAL_CONNECT_EX)
     sys.excepthook = _excepthook
     _tee_output()
+    _install_disk_full()
     builtins.print = _print
