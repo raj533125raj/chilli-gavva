@@ -2249,6 +2249,32 @@ def main(argv=None):
     if rest_window.in_rest_window():
         print("Product Builder: daily rest window, nothing built.")
         return
+    try:
+        _build_all(args)
+    except OSError as exc:
+        if not disk_full(exc):
+            raise
+        # A full disk is not a code problem: no traceback, no red run. One owner line a day (CCD-1 gate in
+        # notify.send); the draft keeps its place and the next run builds it again (CCE-3 bad-day simulator).
+        print("Product Builder: disk full (no space left), nothing more written this run; next run retries.")
+        try:
+            import notify
+            notify.send(DISK_FULL_MESSAGE, db_path=args.db)
+        except Exception as send_exc:
+            print(f"Product Builder: disk full message not sent ({type(send_exc).__name__}).")
+
+
+DISK_FULL_MESSAGE = ("Chilli Gavva: disk full ayyindi, product files raayalekapoyanu. Drafts safe ga unnayi; "
+                     "space free ayyaka next run lo robot malli build chestundi.")
+
+
+def disk_full(exc):
+    """True for 'no space left' style errors (full disk, quota, read-only disk)."""
+    import errno
+    return isinstance(exc, OSError) and exc.errno in (errno.ENOSPC, getattr(errno, "EDQUOT", -1), errno.EROFS)
+
+
+def _build_all(args):
     import product_pipeline
     results = product_pipeline.run_pending(db_path=args.db, max_builds=args.max)
     rebuilt = rebuild_versions(args.db)

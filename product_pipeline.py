@@ -289,6 +289,14 @@ def run_pending(db_path=None, out_dir=None, llm=None, max_builds=DAILY_BUILDS,
             product_builder._record(db_path, aid, "awaiting_encryption", folder, "Truth check READY; awaiting private encryption")
             results.append({"id": aid, "status": "prepared", "folder": folder})
         except Exception as error:
+            if product_builder.disk_full(error):
+                # Not the draft's fault: give back today's slot so the next run builds it again, and stop
+                # this run (nothing more can be written). product_builder.main tells the owner once.
+                with connect(db_path) as conn:
+                    conn.execute("DELETE FROM product_delivery_attempts WHERE day = ? AND approval_id = ?", (day, aid))
+                    conn.execute("UPDATE product_deliveries SET status='retry', reason=?, lease_until=0 "
+                                 "WHERE approval_id=?", (f"Product #{aid}: disk full; retry next run", aid))
+                raise
             results.append(_stuck(aid, stage, f"Stage failed ({type(error).__name__})", db_path))
     # CI supplies DB_KEY only in its separate pack-products step. Prepared packs
     # survive that boundary; encryption failures never become ready receipts.
