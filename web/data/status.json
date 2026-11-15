@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-15T06:55:57Z",
+ "generated_at": "2026-11-15T22:34:31Z",
  "llm": {
-  "calls_today": 7,
+  "calls_today": 45,
   "cap": 500
  },
  "agents": [
@@ -47,7 +47,7 @@
     "research"
    ],
    "state": "idle",
-   "tasks_done": 51
+   "tasks_done": 54
   },
   {
    "name": "Draft Worker",
@@ -58,7 +58,7 @@
     "rewrite"
    ],
    "state": "idle",
-   "tasks_done": 61
+   "tasks_done": 66
   },
   {
    "name": "QA Checker",
@@ -68,7 +68,7 @@
     "review"
    ],
    "state": "idle",
-   "tasks_done": 61
+   "tasks_done": 64
   },
   {
    "name": "Review Worker",
@@ -90,116 +90,117 @@
   }
  ],
  "task_counts": {
-  "done": 173
+  "done": 184,
+  "queued": 2
  },
  "recent_tasks": [
   {
-   "id": 173,
+   "id": 186,
+   "kind": "review",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0,
+   "ts": "2026-11-15T22:34:31.274995",
+   "finished_ts": null
+  },
+  {
+   "id": 185,
+   "kind": "review",
+   "status": "queued",
+   "agent": null,
+   "attempts": 0,
+   "ts": "2026-11-15T22:31:04.182281",
+   "finished_ts": null
+  },
+  {
+   "id": 184,
+   "kind": "rewrite",
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1,
+   "ts": "2026-11-15T22:27:37.637390",
+   "finished_ts": "2026-11-15T22:34:31.276552"
+  },
+  {
+   "id": 183,
+   "kind": "rewrite",
+   "status": "done",
+   "agent": "Draft Worker",
+   "attempts": 1,
+   "ts": "2026-11-15T22:27:19.661088",
+   "finished_ts": "2026-11-15T22:31:04.183842"
+  },
+  {
+   "id": 182,
    "kind": "review",
    "status": "done",
    "agent": "QA Checker",
    "attempts": 1,
-   "ts": "2026-11-06T21:59:56.747643",
-   "finished_ts": "2026-11-06T22:02:32.007830"
+   "ts": "2026-11-15T22:26:43.379792",
+   "finished_ts": "2026-11-15T22:30:13.450320"
   },
   {
-   "id": 172,
+   "id": 181,
    "kind": "review",
    "status": "done",
    "agent": "QA Checker",
    "attempts": 1,
-   "ts": "2026-11-06T21:59:54.344301",
-   "finished_ts": "2026-11-06T22:00:55.160684"
+   "ts": "2026-11-15T22:26:40.507918",
+   "finished_ts": "2026-11-15T22:27:37.640310"
   },
   {
-   "id": 171,
+   "id": 180,
    "kind": "review",
    "status": "done",
    "agent": "QA Checker",
    "attempts": 1,
-   "ts": "2026-11-06T21:59:51.181993",
-   "finished_ts": "2026-11-06T22:00:19.150037"
+   "ts": "2026-11-15T22:26:38.112956",
+   "finished_ts": "2026-11-15T22:27:19.663335"
   },
   {
-   "id": 170,
+   "id": 179,
    "kind": "draft",
    "status": "done",
    "agent": "Draft Worker",
    "attempts": 1,
-   "ts": "2026-11-06T21:59:48.464426",
-   "finished_ts": "2026-11-06T21:59:56.750679"
+   "ts": "2026-11-15T22:26:35.541430",
+   "finished_ts": "2026-11-15T22:26:43.381602"
   },
   {
-   "id": 169,
+   "id": 178,
    "kind": "draft",
    "status": "done",
    "agent": "Draft Worker",
    "attempts": 1,
-   "ts": "2026-11-06T21:59:46.748307",
-   "finished_ts": "2026-11-06T21:59:54.347815"
+   "ts": "2026-11-15T22:26:33.837576",
+   "finished_ts": "2026-11-15T22:26:40.509693"
   },
   {
-   "id": 168,
+   "id": 177,
    "kind": "draft",
    "status": "done",
    "agent": "Draft Worker",
    "attempts": 1,
-   "ts": "2026-11-06T21:59:45.165752",
-   "finished_ts": "2026-11-06T21:59:51.185471"
+   "ts": "2026-11-15T22:26:32.194316",
+   "finished_ts": "2026-11-15T22:26:38.114802"
   },
   {
-   "id": 167,
+   "id": 176,
    "kind": "research",
    "status": "done",
    "agent": "Research Worker",
    "attempts": 1,
-   "ts": "2026-11-06T21:59:42.833933",
-   "finished_ts": "2026-11-06T21:59:48.468440"
+   "ts": "2026-11-15T22:26:29.667789",
+   "finished_ts": "2026-11-15T22:26:35.543883"
   },
   {
-   "id": 166,
+   "id": 175,
    "kind": "research",
    "status": "done",
    "agent": "Research Worker",
    "attempts": 1,
-   "ts": "2026-11-06T21:59:42.832278",
-   "finished_ts": "2026-11-06T21:59:46.752656"
-  },
-  {
-   "id": 165,
-   "kind": "research",
-   "status": "done",
-   "agent": "Research Worker",
-   "attempts": 1,
-   "ts": "2026-11-06T21:59:42.830409",
-   "finished_ts": "2026-11-06T21:59:45.170180"
-  },
-  {
-   "id": 164,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1,
-   "ts": "2026-10-30T22:26:43.187401",
-   "finished_ts": "2026-10-30T22:29:18.715751"
-  },
-  {
-   "id": 163,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1,
-   "ts": "2026-10-30T22:26:40.795110",
-   "finished_ts": "2026-10-30T22:28:34.684947"
-  },
-  {
-   "id": 162,
-   "kind": "review",
-   "status": "done",
-   "agent": "QA Checker",
-   "attempts": 1,
-   "ts": "2026-10-30T22:26:38.805472",
-   "finished_ts": "2026-10-30T22:27:16.202423"
+   "ts": "2026-11-15T22:26:29.667058",
+   "finished_ts": "2026-11-15T22:26:33.840071"
   }
  ],
  "pending_approvals": [
@@ -238,13 +239,62 @@
    "ts": "2026-11-15T06:46:35.965883",
    "kind": "scout_idea",
    "title": "Draft #108"
+  },
+  {
+   "id": 109,
+   "ts": "2026-11-15T22:26:38.111438",
+   "kind": "public_draft",
+   "title": "Draft #109"
+  },
+  {
+   "id": 110,
+   "ts": "2026-11-15T22:26:40.506383",
+   "kind": "public_draft",
+   "title": "Draft #110"
+  },
+  {
+   "id": 111,
+   "ts": "2026-11-15T22:26:43.378258",
+   "kind": "public_draft",
+   "title": "Draft #111"
   }
  ],
  "worker": {
   "running": false,
   "age_seconds": null
  },
- "handoffs": [],
+ "handoffs": [
+  {
+   "from_agent": "Draft Worker",
+   "to_agent": "Content Manager",
+   "item": "draft #110",
+   "at": "2026-11-15T22:34:31Z"
+  },
+  {
+   "from_agent": "Draft Worker",
+   "to_agent": "Content Manager",
+   "item": "draft #109",
+   "at": "2026-11-15T22:31:04Z"
+  },
+  {
+   "from_agent": "Draft Worker",
+   "to_agent": "Content Manager",
+   "item": "draft #111",
+   "at": "2026-11-15T22:26:43Z"
+  },
+  {
+   "from_agent": "Draft Worker",
+   "to_agent": "Content Manager",
+   "item": "draft #110",
+   "at": "2026-11-15T22:26:40Z"
+  },
+  {
+   "from_agent": "Draft Worker",
+   "to_agent": "Content Manager",
+   "item": "draft #109",
+   "at": "2026-11-15T22:26:38Z"
+  }
+ ],
  "office": {
   "agents": [
    {
@@ -255,7 +305,7 @@
    {
     "name": "Draft Worker",
     "team": "Content Department",
-    "activity": "off_duty"
+    "activity": "idle"
    },
    {
     "name": "CEO",
@@ -335,7 +385,7 @@
    {
     "name": "QA Checker",
     "team": "Quality Assurance Department",
-    "activity": "off_duty"
+    "activity": "idle"
    },
    {
     "name": "Review Worker",
@@ -353,44 +403,66 @@
     "activity": "off_duty"
    }
   ],
-  "meetings": [],
+  "meetings": [
+   {
+    "draft_number": 109,
+    "agents": [
+     "Draft Worker",
+     "QA Checker"
+    ]
+   },
+   {
+    "draft_number": 110,
+    "agents": [
+     "Draft Worker",
+     "QA Checker"
+    ]
+   },
+   {
+    "draft_number": 111,
+    "agents": [
+     "Draft Worker",
+     "QA Checker"
+    ]
+   }
+  ],
   "letters": []
  },
  "ai_health": [
   {
    "provider": "Groq",
-   "model": "openai/gpt-oss-120b",
-   "state": "up",
-   "reason": "Latest request succeeded",
-   "checked_at": "2026-11-15T06:55:57Z"
+   "model": "openai/gpt-oss-20b",
+   "state": "down",
+   "reason": "Provider request rate exceeded",
+   "checked_at": "2026-11-15T22:34:31Z"
   },
   {
    "provider": "Gemini",
-   "model": "gemini-3.5-flash",
-   "state": "unknown",
-   "reason": "No recent activity recorded",
-   "checked_at": "2026-11-15T06:55:57Z"
+   "model": "gemini-flash-latest",
+   "state": "down",
+   "reason": "Provider request timed out",
+   "checked_at": "2026-11-15T22:34:31Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
-   "state": "unknown",
-   "reason": "No recent activity recorded",
-   "checked_at": "2026-11-15T06:55:57Z"
+   "state": "down",
+   "reason": "Provider request timed out",
+   "checked_at": "2026-11-15T22:34:31Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-15T06:55:57Z"
+   "checked_at": "2026-11-15T22:34:31Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-15T06:55:57Z"
+   "checked_at": "2026-11-15T22:34:31Z"
   }
  ],
  "minutes": {
@@ -681,28 +753,28 @@
  "reject_reasons": [
   {
    "reason": "Formatting or rubric issue",
-   "count": 103
+   "count": 102
   },
   {
    "reason": "Risky or prohibited claim",
-   "count": 66
+   "count": 68
+  },
+  {
+   "reason": "Target audience unclear",
+   "count": 54
   },
   {
    "reason": "Unclear value over free template",
    "count": 54
   },
   {
-   "reason": "Target audience unclear",
-   "count": 51
-  },
-  {
    "reason": "Product structure incomplete",
-   "count": 38
+   "count": 41
   }
  ],
  "report": {
-  "drafts_made": 1,
-  "drafts_waiting": 6,
+  "drafts_made": 4,
+  "drafts_waiting": 9,
   "drafts_approved": 2,
   "products_built": 0,
   "errors": 0
@@ -736,19 +808,19 @@
    "name": "Research Worker",
    "state": "off",
    "last_action": "Idle",
-   "last_seen": "2026-11-06T21:59:48.468440"
+   "last_seen": "2026-11-15T22:26:35.543883"
   },
   {
    "name": "Draft Worker",
    "state": "off",
    "last_action": "Idle",
-   "last_seen": "2026-11-06T21:59:56.750679"
+   "last_seen": "2026-11-15T22:34:31.276552"
   },
   {
    "name": "QA Checker",
    "state": "off",
    "last_action": "Idle",
-   "last_seen": "2026-11-06T22:02:32.007830"
+   "last_seen": "2026-11-15T22:30:13.450320"
   },
   {
    "name": "Review Worker",
@@ -769,23 +841,23 @@
    "done": 0
   },
   "research": {
-   "plan": 4,
-   "done": 0
+   "plan": 2,
+   "done": 3
   },
   "drafts": {
-   "plan": 3,
-   "done": 0
+   "plan": 2,
+   "done": 5
   },
   "review": {
-   "plan": 3,
-   "done": 0
+   "plan": 2,
+   "done": 3
   },
   "product_builds": {
-   "plan": 2,
+   "plan": 1,
    "done": 0
   },
   "promotion": {
-   "plan": 2,
+   "plan": 1,
    "done": 0
   }
  },
@@ -813,63 +885,63 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 45,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 45,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 45,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 45,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 45,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 45,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 45,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 45,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 45,
    "calls_limit_today": 500,
    "context_percent": null
   }
@@ -1177,6 +1249,84 @@
   }
  ],
  "activity_events": [
+  {
+   "id": "task:184",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-11-15T22:34:31.276552Z"
+  },
+  {
+   "id": "task:186",
+   "agent": "Unknown agent",
+   "label": "Task queued",
+   "at": "2026-11-15T22:34:31.274995Z"
+  },
+  {
+   "id": "task:183",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-11-15T22:31:04.183842Z"
+  },
+  {
+   "id": "task:185",
+   "agent": "Unknown agent",
+   "label": "Task queued",
+   "at": "2026-11-15T22:31:04.182281Z"
+  },
+  {
+   "id": "task:182",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-11-15T22:30:13.450320Z"
+  },
+  {
+   "id": "task:181",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-11-15T22:27:37.640310Z"
+  },
+  {
+   "id": "task:180",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-11-15T22:27:19.663335Z"
+  },
+  {
+   "id": "task:179",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-11-15T22:26:43.381602Z"
+  },
+  {
+   "id": "task:178",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-11-15T22:26:40.509693Z"
+  },
+  {
+   "id": "task:177",
+   "agent": "Draft Worker",
+   "label": "Task completed",
+   "at": "2026-11-15T22:26:38.114802Z"
+  },
+  {
+   "id": "task:176",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-11-15T22:26:35.543883Z"
+  },
+  {
+   "id": "task:175",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-11-15T22:26:33.840071Z"
+  },
+  {
+   "id": "task:174",
+   "agent": "Research Worker",
+   "label": "Task completed",
+   "at": "2026-11-15T22:26:32.197078Z"
+  },
   {
    "id": "task:173",
    "agent": "QA Checker",
@@ -2261,44 +2411,50 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-15T06:55:56Z",
-  "last_run_end": "2026-11-15T06:55:57Z",
+  "last_run_start": "2026-11-15T22:26:29Z",
+  "last_run_end": "2026-11-15T22:34:31Z",
   "runner": "github-actions",
-  "run_id": "43687072764"
+  "run_id": "43768602171"
  },
  "changelog": [
-  "agent: state + content update [skip ci]",
-  "push106: sell-flow e2e tests, plugin bug-hunt tests, Gumroad copy, /launch, daily sell card",
-  "agent: state + content update [skip ci]",
-  "Faster tests, /listed, /sell pictures, Gumroad images, safer sell tools",
-  "agent: owner inbox state [skip ci]",
-  "agent: state + content update [skip ci]",
-  "Sell first: /sell for Gumroad, Tenglish talk, marketing auto-build, Kiro fixes, 3 new product types",
-  "agent: state + content update [skip ci]",
-  "OpenCode OC1/OC2 + Kiro docs: buyer support kit, weekly PDF report, DB care, SEO kit, Gumroad guide",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "Fix the last CI failure and give tests more time",
-  "Fix the 'Python module' test failures and the broken auto-fix",
-  "New product formats really reachable; flashcards builder; FB24, FB27, FB28",
-  "agent: owner inbox state [skip ci]",
-  "Fix CI timeout + Telegram fixes; add Jules W round, OpenCode O14-O17/O19, Freebuff FB18/FB20-FB23",
-  "agent: state + content update [skip ci]",
-  "agent: owner inbox state [skip ci]",
-  "agent: owner inbox state [skip ci]",
-  "agent: state + content update [skip ci]"
+  "Lead fix: robot code imports on the Mac's Python 3.9 too",
+  "Lead fix: /upload zips every listed buyer file; owner-journey tests follow sellable types",
+  "CPD-2 Test Telegram upload flow",
+  "CPD-1 Add Gumroad upload plugin",
+  "CPC-2 Honor authenticated inbox routing",
+  "CPC-2 Add Telegram Gumroad preflight",
+  "CPC-1 Add Gumroad preflight checks",
+  "OCF-3 owner journey for planner habit tracker wall art",
+  "OCF-2 approve button journey expected failure",
+  "OCF-1 owner journey end-to-end test",
+  "OCE-4 tg_reports escape lint pack argument",
+  "OCE-3 short plugin phrases reply",
+  "OCE-2 tg_posts bare posted help",
+  "OCE-1 tg_files bare-word pack hint",
+  "CCC-10 Sell proof for all 12: real path build -> truth check -> upload pack -> /sell",
+  "CCC-8 Premium look: every product PDF is drawn in the pack's theme, images follow the PDF",
+  "CCC-7 Wall art sellable: full-bleed vector art PDFs in A4 and US Letter",
+  "CCC-6 Email signature sellable: printable install guide the checker can prove, honest file list",
+  "CCC-5 Flashcards sellable: real multi-page decks in A4 and US Letter",
+  "CCC-4 Event planner sellable: countdown and day-of pages reach the margin, table headers visible"
  ],
  "daily_report": {
-  "date_ist": "2026-11-15",
-  "summary": "0 tasks completed; 2 approvals reviewed; 0 products built.",
+  "date_ist": "2026-11-16",
+  "summary": "10 tasks completed; 0 approvals reviewed; 0 products built.",
   "items_done": [
-   "Approval reviewed"
+   "Revision completed",
+   "Review completed",
+   "Review completed",
+   "Review completed",
+   "Draft completed",
+   "Draft completed",
+   "Draft completed",
+   "Research completed",
+   "Research completed",
+   "Research completed"
   ]
  },
- "sunday_letter": {
-  "date_ist": "2026-11-15",
-  "summary": "0 tasks completed; 15 approvals reviewed; 0 products built."
- },
+ "sunday_letter": null,
  "cubes": [
   {
    "id": "executive",
