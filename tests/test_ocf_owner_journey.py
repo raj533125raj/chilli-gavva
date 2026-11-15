@@ -4,6 +4,7 @@ import shutil
 import socket
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -25,6 +26,13 @@ import store_kits
 import telegram_inbox
 import truth_check
 from test_launch_pack import fake_spec
+
+try:
+    from test_occ_sell_flow_e2e import build_pack as build_format_pack
+    HAS_IMAGES = True
+except Exception:
+    build_format_pack = None
+    HAS_IMAGES = False
 
 FALLBACK = "ardam kaaledu"
 
@@ -235,3 +243,90 @@ class OwnerJourneyTests(Harness):
         self.assertEqual(status, "approved",
                          "telegram_inbox.handle_callback only understands a:<id>; "
                          "the owner button data approve:<id> is ignored (Claude Code is fixing buttons)")
+
+
+@unittest.skipUnless(HAS_IMAGES and mockups.available(), "needs Pillow, poppler and the OCC pack builder")
+class FormatJourneyTests(Harness):
+    def build_format(self, kind):
+        result = build_format_pack(kind, self.root / "exported_content")
+        aid = result["approval_id"]
+        folder = result["pack"].name
+        title = folder
+        conn = guardrails.connect(self.db)
+        conn.execute("INSERT OR REPLACE INTO approvals "
+                     "(id, ts, kind, title, payload, status, review) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                     (aid, time.strftime("%Y-%m-%dT%H:%M:%S"), "public_draft",
+                      f"Draft: {title}", "PRODUCT NAME: " + title, "pending", ""))
+        conn.commit()
+        conn.close()
+        listed = self.say("/list")
+        self.assertIn(f"#{aid}", listed)
+        approved = self.say(f"/approve {aid}")
+        self.assertIn(f"#{aid}", approved)
+        self.assertEqual(guardrails.get_approval(aid, self.db)["status"], "approved")
+        return aid, folder
+
+    def test_planner_sell_listed_today(self):
+        aid, folder = self.build_format("planner")
+        sell = self.say(f"/sell {aid}")
+        self.assertIn(f"#{aid}", sell)
+        self.assertIn("SELLABLE", sell)
+        self.assertIn("GUMROAD FIELDS", sell)
+        self.assertTrue(self.rec.files or self.rec.photos, "sell sent no product files or images")
+        listed = self.say(f"/listed {aid} https://example.gumroad.com/l/planner")
+        self.assertIn("https://example.gumroad.com/l/planner", listed)
+        self.assertIn("/status", listed)
+        today = self.say("/today")
+        self.assertIn("Today post", today)
+        self.assertIn(folder, today)
+        self.assertIn("posted 1", today)
+
+    def _assert_sell_explains_fix(self, kind):
+        aid, _folder = self.build_format(kind)
+        sell = self.say(f"/sell {aid}")
+        self.assertIn(f"#{aid}", sell)
+        self.assertIn("NOT YET", sell)
+        self.assertTrue("A4" in sell or "Letter" in sell or "truth" in sell.lower(), sell)
+
+    def _assert_listed_and_today(self, kind):
+        aid, folder = self.build_format(kind)
+        listed = self.say(f"/listed {aid} https://example.gumroad.com/l/{kind}")
+        self.assertIn(f"#{aid}", listed)
+        self.assertIn(f"https://example.gumroad.com/l/{kind}", listed)
+        self.assertIn("/status", listed)
+        today = self.say("/today")
+        self.assertIn("Today post", today)
+        self.assertIn(folder, today)
+        self.assertIn("posted 1", today)
+
+    def test_habit_tracker_sell_explains_fix(self):
+        self._assert_sell_explains_fix("habit_tracker")
+
+    @unittest.expectedFailure
+    def test_habit_tracker_sell_reaches_gumroad_fields(self):
+        aid, _folder = self.build_format("habit_tracker")
+        sell = self.say(f"/sell {aid}")
+        self.assertIn("GUMROAD FIELDS", sell,
+                      "habit_tracker /sell is NOT YET: truth_check needs A4/Letter filenames, "
+                      "but the builder names them with an underscore (Claude Code is fixing generators)")
+
+    def test_habit_tracker_listed_and_today(self):
+        self._assert_listed_and_today("habit_tracker")
+
+    def test_wall_art_sell_explains_fix(self):
+        self._assert_sell_explains_fix("wall_art")
+
+    @unittest.expectedFailure
+    def test_wall_art_sell_reaches_gumroad_fields(self):
+        aid, _folder = self.build_format("wall_art")
+        sell = self.say(f"/sell {aid}")
+        self.assertIn("GUMROAD FIELDS", sell,
+                      "wall_art /sell is NOT YET: truth_check flags empty pages and deep QA scores it "
+                      "zero (Claude Code is fixing generators)")
+
+    def test_wall_art_listed_and_today(self):
+        self._assert_listed_and_today("wall_art")
+
+
+if __name__ == "__main__":
+    unittest.main()
