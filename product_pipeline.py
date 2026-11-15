@@ -193,6 +193,71 @@ def pack_text(aid, db_path=None):
     return f"Pack #{aid} — files ready to upload:\n" + "\n".join(names)
 
 
+DAMAGED_TEXT = ("Pack #{aid} lo file paadayyindi ({name}). Ee pack ippudu upload cheyakandi; robot files malli "
+                "build chestundi, ready ayyaka 'Product ready' message vastundi.")
+
+
+def damaged_file(path):
+    """Why a finished product file is unusable ('' when fine). Cheap structural checks only: a PDF must start
+    with %PDF- and end with %%EOF, an Office file or zip must be a readable zip."""
+    import zipfile
+    name = path.lower()
+    try:
+        if name.endswith(".pdf"):
+            with open(path, "rb") as stream:
+                head = stream.read(5)
+                stream.seek(0, os.SEEK_END)
+                stream.seek(max(0, stream.tell() - 1024))
+                tail = stream.read()
+            return "" if head == b"%PDF-" and b"%%EOF" in tail else "broken PDF"
+        if name.endswith((".xlsx", ".docx", ".zip")):
+            if not zipfile.is_zipfile(path):
+                return "broken file"
+            with zipfile.ZipFile(path) as archive:
+                return "" if archive.testzip() is None else "broken file"
+    except (OSError, zipfile.BadZipFile, RuntimeError, ValueError):
+        return "unreadable file"
+    return ""
+
+
+def check_ready_files(db_path=None, out_dir=None, send=None):
+    """A READY pack whose PDF/xlsx/docx/zip got damaged (bad disk, half copy) is taken back: it is no longer
+    offered as ready, the owner gets ONE line, and the pipeline builds every file again (normal build path).
+    Returns [(approval id, file name)]."""
+    out_dir = out_dir or product_builder.PRODUCTS_DIR
+    conn = connect(db_path)
+    rows = conn.execute("SELECT approval_id, folder, files FROM product_deliveries WHERE status='ready'").fetchall()
+    conn.close()
+    damaged = []
+    for aid, folder, files in rows:
+        try:
+            names = [n for n in json.loads(files or "[]") if isinstance(n, str)]
+        except ValueError:
+            names = []
+        base = os.path.join(out_dir, folder or "")
+        if not folder or os.path.basename(folder) != folder or not os.path.isdir(base):
+            continue
+        bad = next((n for n in names if ".." not in n.split("/") and not os.path.isabs(n)
+                    and os.path.isfile(os.path.join(base, n)) and damaged_file(os.path.join(base, n))), None)
+        if not bad:
+            continue
+        reason = f"Product #{aid}: damaged file {bad}; rebuild"
+        with connect(db_path) as conn:
+            conn.execute("UPDATE product_deliveries SET status='retry', reason=?, notified=0, lease_until=0 "
+                         "WHERE approval_id=?", (reason, aid))
+        # 'retry' (not needs_fix): run_pending must NOT reuse this folder as is, it builds all files again.
+        product_builder._record(db_path, aid, "retry", folder, reason)
+        damaged.append((aid, bad))
+        try:
+            if send is None:
+                import notify
+                send = notify.send
+            send(DAMAGED_TEXT.format(aid=aid, name=os.path.basename(bad)))
+        except Exception as exc:
+            print(f"Damaged pack message not sent ({type(exc).__name__}).")
+    return damaged
+
+
 def pending(db_path=None):
     conn = connect(db_path)
     rows = conn.execute("SELECT a.id, a.title, a.payload, a.review FROM approvals a "

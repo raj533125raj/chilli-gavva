@@ -2276,6 +2276,8 @@ def disk_full(exc):
 
 def _build_all(args):
     import product_pipeline
+    for approval_id, name in product_pipeline.check_ready_files(args.db):
+        print(f"Product Builder: pack #{approval_id} has a damaged file ({name}); taken back for a rebuild.")
     results = product_pipeline.run_pending(db_path=args.db, max_builds=args.max)
     rebuilt = rebuild_versions(args.db)
     for approval_id, folder, verdict in rebuilt:

@@ -184,5 +184,66 @@ class AllAiDownTests(unittest.TestCase):
             send.assert_called_once_with(workforce.AI_DOWN_MESSAGE)
 
 
+class DamagedReadyPackTests(unittest.TestCase):
+    """Sim: a READY pack's PDF was replaced with garbage; nothing noticed and the pack stayed 'ready to upload'."""
+
+    def _ready_pack(self, tmp, pdf_bytes):
+        import json
+        import product_pipeline
+        db, out = os.path.join(tmp, "a.db"), os.path.join(tmp, "products")
+        aid = guardrails.request_approval("public_draft", "Draft: [2027 Planners Agent] Planner", "body", db_path=db)
+        guardrails.decide(aid, True, db)
+        folder = f"{aid}-planner-2027"
+        os.makedirs(os.path.join(out, folder))
+        with open(os.path.join(out, folder, "planner-A4.pdf"), "wb") as handle:
+            handle.write(pdf_bytes)
+        with open(os.path.join(out, folder, "README.md"), "w", encoding="utf-8") as handle:
+            handle.write("readme")
+        with product_pipeline.connect(db) as conn:
+            conn.execute("INSERT INTO product_deliveries (approval_id, status, folder, files, notified) "
+                         "VALUES (?, 'ready', ?, ?, 1)", (aid, folder, json.dumps(["README.md", "planner-A4.pdf"])))
+        return db, out, aid
+
+    def test_damaged_pdf_takes_the_pack_back_and_tells_the_owner_once(self):
+        import product_pipeline
+        with tempfile.TemporaryDirectory() as tmp:
+            db, out, aid = self._ready_pack(tmp, b"%PDF-1.4\n%garbage\x00\xff")
+            sent = []
+            self.assertEqual(product_pipeline.check_ready_files(db, out, send=sent.append), [(aid, "planner-A4.pdf")])
+            self.assertEqual(len(sent), 1)
+            self.assertIn(f"Pack #{aid} lo file paadayyindi (planner-A4.pdf)", sent[0])
+            conn = sqlite3.connect(db)
+            row = conn.execute("SELECT status, notified FROM product_deliveries WHERE approval_id=?", (aid,)).fetchone()
+            conn.close()
+            self.assertEqual(row, ("retry", 0))
+            self.assertIn(aid, [item["id"] for item in product_pipeline.pending(db)])     # rebuilt by the pipeline
+            import product_builder
+            self.assertEqual(product_builder.builds(db)[0]["status"], "retry")   # fresh build, not a re-pack
+            self.assertEqual(product_pipeline.check_ready_files(db, out, send=sent.append), [])
+            self.assertEqual(len(sent), 1)
+
+    def test_good_pack_is_left_alone(self):
+        import product_pipeline
+        with tempfile.TemporaryDirectory() as tmp:
+            db, out, aid = self._ready_pack(tmp, b"%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n")
+            sent = []
+            self.assertEqual(product_pipeline.check_ready_files(db, out, send=sent.append), [])
+            self.assertEqual(sent, [])
+            self.assertNotIn(aid, [item["id"] for item in product_pipeline.pending(db)])
+
+    def test_damaged_file_rules(self):
+        import zipfile
+        import product_pipeline
+        with tempfile.TemporaryDirectory() as tmp:
+            good_zip, bad_zip = os.path.join(tmp, "a.xlsx"), os.path.join(tmp, "b.docx")
+            with zipfile.ZipFile(good_zip, "w") as archive:
+                archive.writestr("x.xml", "<x/>")
+            with open(bad_zip, "wb") as handle:
+                handle.write(b"PK\x03\x04 half written")
+            self.assertEqual(product_pipeline.damaged_file(good_zip), "")
+            self.assertEqual(product_pipeline.damaged_file(bad_zip), "broken file")
+            self.assertEqual(product_pipeline.damaged_file(os.path.join(tmp, "notes.txt")), "")
+
+
 if __name__ == "__main__":
     unittest.main()
