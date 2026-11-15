@@ -73,6 +73,7 @@ HELP = ("\U0001f336️ Chilli Gavva approvals\n\n"
         "/pause - emergency brake: stop all AI work and drafts\n"
         "/resume - start work again\n"
         "/buttontest - send a test button (checks that button presses reach the bot)\n"
+        "/errors - errors of today, each sent only once (with how many times it came)\n"
         "/help - this message\n\n"
         "New drafts come with Approve / Reject / View buttons. After Reject, pick a reason.\n"
         "The bot answers buttons and commands on its next run (about every 30 minutes), not instantly.\n\n"
@@ -400,6 +401,20 @@ def edit_text(token, chat_id, message_id, text, buttons=None):
         return isinstance(result, dict) and result.get("ok") is True
     except Exception:
         return False
+
+
+def send_alert(token, chat_id, text, buttons=None, db_path=None, now=None):
+    """Send a message the owner did not ask for (pipeline, auto-fix, plugin crash lines).
+
+    The same error alert goes out at most once per UTC day; repeats are only counted for /errors.
+    Replies to the owner's own commands never come here: those always get an answer."""
+    first_copy, gated = diagnostics.error_gate(text, db_path=db_path, now=now)
+    if not first_copy:
+        return True
+    ok = send_text(token, chat_id, gated, buttons) if buttons else send_text(token, chat_id, gated)
+    if ok:
+        diagnostics.error_sent(text, db_path=db_path, now=now)
+    return ok
 
 
 def draft_buttons(approval_id):
@@ -904,7 +919,7 @@ def plugins_first(text, owner_intent, plugins=None):
 
 
 # ---- command handling --------------------------------------------------------
-_COMMANDS = "status|list|view|approve|reject|packs|pack|marketing|pipeline|pause|resume|buttontest|rules|cubes|doctor|autofix_drill|help|start|today|posted|ab|week"
+_COMMANDS = "status|list|view|approve|reject|packs|pack|marketing|pipeline|pause|resume|buttontest|rules|cubes|doctor|autofix_drill|help|start|today|posted|ab|week|errors"
 # "/approve 4", "/approve" or "/approve@bot 4 5": anything after a real slash command is fine.
 _SLASH_CMD = re.compile(rf"^/({_COMMANDS})(?:@\w+)?(?:\s+(.*))?$", re.IGNORECASE | re.DOTALL)
 # Without a slash only the bare form counts: "approve 4", "approve 4, 5", "list". A normal sentence such as
@@ -1783,6 +1798,8 @@ def handle_command(cmd, ids, db_path=None):
             return "A/B Title Tracking:\nUsage: /ab <pack> (to view) or /ab <pack> <title 1-5> <clicks> (to update)."
     if cmd == "week":
         return week_summary_text(db_path=db_path)
+    if cmd == "errors":
+        return diagnostics.errors_today_text(db_path)
     return HELP
 
 
@@ -2269,6 +2286,7 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                 if (cmd == "help" and message_text.strip().lower().split("@")[0] not in ("/help", "help", "/start")) or \
                    cmd not in ("status", "packs", "pack", "marketing", "list", "view", "approve", "reject",
                                "pipeline", "pause", "resume", "buttontest", "autofix_drill", "today", "posted", "ab", "week", "help", "start",
+                               "errors",
                                "doctor"):   # /doctor is built in: without it tg_menu's "ardam kaaledu" fallback answered
                     plugin_handled, plugin_res = call_plugins(message_text, token, owner_chat_id, db_path=db_path)
                     if plugin_handled:
@@ -2498,10 +2516,10 @@ def _run(db_path=None, recovery=False, stats=None):
         return {"configured": True, "commands": commands, "alerts": 0,
                 "waiting_reminder": False, "daily_report": False}
     import product_pipeline
-    product_pipeline.notify_ready(db_path, lambda text: send_text(token, chat_id, text))
+    product_pipeline.notify_ready(db_path, lambda text: send_alert(token, chat_id, text, db_path=db_path))
     import autofix
     autofix.poll(get_state, set_state,
-                 lambda text, buttons: send_text(token, chat_id, text, buttons), db_path)
+                 lambda text, buttons: send_alert(token, chat_id, text, buttons, db_path=db_path), db_path)
     try:
         import auto_approve
         auto_approve.run_auto_decisions(db_path=db_path, token=token, owner_chat_id=chat_id)

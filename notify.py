@@ -59,8 +59,11 @@ def _scrub_outgoing(text: str) -> str:
     return scrubbed
 
 
-def send(message: str) -> bool:
-    """Send message via Telegram. Returns True on success."""
+def send(message: str, db_path=None, now=None) -> bool:
+    """Send message via Telegram. Returns True on success.
+
+    An error alert that already reached the owner today is not sent again (only counted, see /errors);
+    that also returns True, because the owner already has it."""
     cfg = _cfg()
     configured, token, chat_id = _telegram_configured(cfg)
     if not configured:
@@ -69,6 +72,16 @@ def send(message: str) -> bool:
     if not message:
         diagnostics.record("sendMessage", kind="empty_text")
         return False
+    first_copy, gated = diagnostics.error_gate(message, db_path=db_path, now=now)
+    if not first_copy:
+        return True
+    ok = _post(token, chat_id, gated)
+    if ok:
+        diagnostics.error_sent(message, db_path=db_path, now=now)
+    return ok
+
+
+def _post(token, chat_id, message):
     url = TELEGRAM_API.format(token=token)
     body = json.dumps({"chat_id": chat_id, "text": message, "parse_mode": "HTML"}).encode()
     try:
