@@ -133,7 +133,8 @@ def fake_secrets() -> Dict[str, str]:
         "CF_ACCOUNT_ID": secrets.token_hex(16),
         "CF_KV_NAMESPACE_ID": secrets.token_hex(16),
         "CONTROL_SIGNING_KEY": secrets.token_hex(32),
-        "ALWAYS_ON_URL": "https://alarm.sim.invalid",
+        # random host: a fixed URL in this (copied) file would trip the robot's own secret guard
+        "ALWAYS_ON_URL": "https://alarm-" + secrets.token_hex(4) + ".sim.invalid",
         "ALWAYS_ON_SECRET": secrets.token_hex(16),
         "GITHUB_TOKEN": "ghs_" + secrets.token_hex(18),
         "GITHUB_MODELS_TOKEN": "ghs_" + secrets.token_hex(18),
