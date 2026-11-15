@@ -512,11 +512,6 @@ class TestOcc1EmailSignature(SellFlowMixin, unittest.TestCase):
 class TestOcc1StudyPlanner(SellFlowMixin, unittest.TestCase):
     KIND = "study_planner"
 
-    @unittest.expectedFailure
-    def test_7_tg_sell_reaches_sellable_or_almost(self):
-        """Real gap: truth_check needs A4/Letter filenames and flags empty PDF areas."""
-        super().test_7_tg_sell_reaches_sellable_or_almost()
-
 
 class TestOcc1WallArt(SellFlowMixin, unittest.TestCase):
     KIND = "wall_art"

@@ -140,5 +140,59 @@ class RecipeBookTests(unittest.TestCase):
             self.assertEqual(page_problems(folder), [])
 
 
+@unittest.skipUnless(HAS_PIL, "needs Pillow")
+class StudyPlannerTests(unittest.TestCase):
+    SPEC = {"kind": "study_planner", "title": "Exam Study Planner", "short_name": "study-planner"}
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory(prefix="ccc_study_")
+        cls.addClassCleanup(cls.tmp.cleanup)
+        cls.folder = build_folder("builder_study", cls.SPEC, cls.tmp.name)
+
+    def test_both_paper_sizes_have_standard_names(self):
+        names = sorted(p.name for p in self.folder.glob("*.pdf"))
+        self.assertEqual(names, ["study-planner-A4.pdf", "study-planner-Letter.pdf"])
+
+    def test_no_empty_page_problems(self):
+        self.assertEqual(page_problems(self.folder), [])
+
+    def test_title_page_has_an_exam_plan_per_subject(self):
+        import builder_study
+        norm = builder_study.normalize_spec(self.SPEC)
+        for end in ("-A4.pdf", "-Letter.pdf"):
+            texts, page = page_texts(self.folder, 1, end)
+            self.assertIn("My exam plan", texts)
+            for label in builder_study.PLAN_FIELDS:
+                self.assertIn(label, texts)
+            for subject in norm["subjects"]:
+                self.assertIn(subject, texts)
+            self.assertIn(str(norm["chapters_per_subject"]), texts)
+            self.assertGreaterEqual(page["drawn"], 10 * 5)        # rows x (4 cells + confidence boxes)
+            self.assertLess(page["low"], 0.35 * 842)
+
+    def test_mock_log_rows_reach_the_bottom_margin(self):
+        for end, height in (("-A4.pdf", 842), ("-Letter.pdf", 792)):
+            texts, page = page_texts(self.folder, 4, end)
+            self.assertIn("Mock-Test Log", texts)
+            self.assertLess(page["low"], 0.35 * height)
+            self.assertGreaterEqual(page["drawn"], 5 * 16)        # at least 16 rows of 5 cells
+
+    def test_exam_label_is_written_properly(self):
+        import builder_study
+        self.assertEqual(builder_study.normalize_spec({"exam": "jee"})["exam_label"], "JEE")
+        self.assertEqual(builder_study.normalize_spec({"exam": "10th"})["exam_label"], "Class 10")
+        texts, _page = page_texts(self.folder, 1)
+        self.assertIn("JEE preparation set", texts)
+
+    def test_many_subjects_still_fit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            subjects = [f"Subject {n}" for n in range(1, 13)]
+            folder = build_folder("builder_study", dict(self.SPEC, subjects=subjects), tmp)
+            texts, _page = page_texts(folder, 1)
+            self.assertIn("Subject 12", texts)
+            self.assertEqual(page_problems(folder), [])
+
+
 if __name__ == "__main__":
     unittest.main()

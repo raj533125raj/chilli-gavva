@@ -52,6 +52,7 @@ EXAM_ALIASES = {
     "jee": "jee", "iit": "jee", "jee_main": "jee", "jee_advanced": "jee",
     "neet": "neet", "medical": "neet",
 }
+EXAM_LABELS = {"jee": "JEE", "neet": "NEET", "eamcet": "EAMCET", "class_10": "Class 10", "inter": "Inter"}
 WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 SLOTS = ["Morning", "Afternoon", "Evening"]
 DEFAULT_CHECKLIST = [
@@ -116,7 +117,7 @@ def normalize_spec(spec: Any) -> Dict[str, Any]:
     return {
         "title": title,
         "exam": exam,
-        "exam_label": exam.replace("_", " ").title(),
+        "exam_label": EXAM_LABELS.get(exam, exam.replace("_", " ").title()),
         "subjects": subjects,
         "chapters_per_subject": chapters,
         "pomodoro_cycles": cycles,
@@ -182,7 +183,7 @@ def _heading(pdf: Any, text: str, subtitle: str = "") -> None:
 
 def _title_page(pdf: Any, norm: Dict[str, Any]) -> None:
     lines, size = pdf_design.fit_text(norm["title"], 30, pdf.w - 2 * pdf_design.MARGIN, bold=True, max_lines=3, min_size=16)
-    y = pdf.h / 2 + 95
+    y = pdf.h * 0.82
     for line in lines:
         pdf.text_center(pdf.w / 2, y, line, size, bold=True, color="#1c2d42")
         y -= size * 1.25
@@ -191,6 +192,48 @@ def _title_page(pdf: Any, norm: Dict[str, Any]) -> None:
         pdf.text_center(pdf.w / 2, y - 34, f"Exam date: {norm['exam_date']}", 11, color="#c9853b")
     pdf.text_center(pdf.w / 2, y - 60, "Revision timetable · Chapter tracker · Mock tests · Pomodoro · Checklist", 10, color="#5f6b73")
     pdf.line(pdf.w / 2 - 90, y - 88, pdf.w / 2 + 90, y - 88, color="#2f5d8a", width=1.2)
+    _exam_plan(pdf, norm, y - 116)
+
+
+MOCK_BOTTOM = 76
+PLAN_FIELDS = ["Exam date", "Study hours per day", "My target"]
+PLAN_COLUMNS = [("Subject", 0.30), ("Chapters", 0.14), ("Finish by (date)", 0.28), ("Confidence 1-5", 0.28)]
+
+
+def _exam_plan(pdf: Any, norm: Dict[str, Any], top: float) -> None:
+    """Title page: a 'My exam plan' card - fill-in lines, then one row per subject with its chapter
+    count, a finish-by date to write in and five confidence boxes. Reaches down to the bottom margin."""
+    left = pdf_design.MARGIN
+    right = pdf.w - pdf_design.MARGIN
+    bottom = 72
+    pdf.text(left, top, "My exam plan", 12, bold=True, color="#2f5d8a")
+    y = top - 26
+    field_w = (right - left) / len(PLAN_FIELDS)
+    for index, label in enumerate(PLAN_FIELDS):
+        x = left + index * field_w
+        pdf.text(x, y, label, 8, color="#5f6b73")
+        pdf.line(x, y - 16, x + field_w - 14, y - 16, color="#cad8e6", width=0.6)
+    head_y = y - 42
+    x = left
+    for header, width in PLAN_COLUMNS:
+        pdf.text(x + 4, head_y, header, 8, bold=True, color="#5f6b73")
+        x += (right - left) * width
+    table_top = head_y - 6
+    rows = max(10, len(norm["subjects"]))
+    row_h = (table_top - bottom) / rows
+    box = min(12.0, row_h - 6)
+    for r in range(rows):
+        y = table_top - (r + 1) * row_h
+        x = left
+        for _header, width in PLAN_COLUMNS:
+            pdf.rect(x, y, (right - left) * width, row_h, color="#cad8e6", width=0.4)
+            x += (right - left) * width
+        if r < len(norm["subjects"]):
+            pdf.text(left + 4, y + row_h / 2 - 3, norm["subjects"][r][:26], 9, color="#1c2d42")
+            pdf.text(left + (right - left) * 0.30 + 4, y + row_h / 2 - 3, str(norm["chapters_per_subject"]), 9, color="#1c2d42")
+        conf_x = left + (right - left) * 0.72 + 8
+        for n in range(5):
+            pdf.rect(conf_x + n * (box + 6), y + (row_h - box) / 2, box, box, color="#9fb8b5", width=0.5)
 
 
 def _timetable_page(pdf: Any, norm: Dict[str, Any]) -> None:
@@ -242,8 +285,11 @@ def _mock_page(pdf: Any, norm: Dict[str, Any]) -> None:
     for header, width in zip(headers, widths):
         pdf.text(x + 2, top + 8, header, 8, bold=True, color="#5f6b73")
         x += (right - left) * width
-    row_h = min(34.0, (top - 90) / 12)
-    for r in range(12):
+    # CCC-3: as many log rows as fit down to the bottom margin (no empty area under the table).
+    row_h = 32.0
+    rows = max(12, int((top - MOCK_BOTTOM) // row_h))
+    row_h = (top - MOCK_BOTTOM) / rows
+    for r in range(rows):
         y = top - (r + 1) * row_h
         x = left
         for width in widths:
