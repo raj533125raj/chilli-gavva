@@ -274,6 +274,55 @@ def errors_today(db_path=None, now=None):
     return sorted(out, key=lambda item: (-item[1], item[0]))
 
 
+# ---- Secret format checks (CCD-2) --------------------------------------------------------------
+# Optional GitHub Secrets are checked for their SHAPE only, at the start of a run. A value is never printed,
+# logged, stored or put in a message: only the secret's NAME and a fixed Tenglish fix hint.
+_HEX32 = re.compile(r"[0-9a-fA-F]{32}")
+SECRET_RULES = (
+    ("CF_ACCOUNT_ID", lambda v: bool(_HEX32.fullmatch(v)),
+     "Cloudflare dashboard lo right side unna Account ID (32 letters/numbers) copy chesi pettandi."),
+    ("CF_KV_NAMESPACE_ID", lambda v: bool(_HEX32.fullmatch(v)),
+     "Cloudflare > Storage > KV lo namespace ID (32 letters/numbers) copy chesi pettandi."),
+    # Lenient on purpose: token formats can change, so only clear mistakes count (spaces, "Bearer ", too short).
+    ("CF_API_TOKEN", lambda v: len(v) >= 20 and not re.search(r"\s", v) and not v.lower().startswith("bearer"),
+     "Cloudflare > My Profile > API Tokens lo token matrame ('Bearer' word, spaces lekunda) copy chesi pettandi."),
+    ("ALWAYS_ON_URL", lambda v: bool(re.fullmatch(r"https://[^\s/]+\.[^\s]+", v)),
+     "Cloudflare Worker address (https:// tho start ayyedi, spaces lekunda) pettandi."),
+    ("ALWAYS_ON_SECRET", lambda v: len(v) >= 8 and not re.search(r"\s", v),
+     "Worker lo pettina WORKER_SECRET ne (spaces lekunda, kanisam 8 characters) pettandi."),
+)
+KV_SECRETS = ("CF_ACCOUNT_ID", "CF_KV_NAMESPACE_ID", "CF_API_TOKEN")
+
+
+def secret_problems(env=None):
+    """[(name, Tenglish message)] for optional secrets that are SET but have the wrong shape.
+
+    An empty / missing optional secret only means "that feature is off": no message for it."""
+    import os
+    env = os.environ if env is None else env
+    problems = []
+    for name, ok, hint in SECRET_RULES:
+        value = env.get(name)
+        if not isinstance(value, str) or not value.strip():
+            continue
+        try:
+            good = ok(value.strip())
+        except Exception:
+            good = False
+        if not good:
+            problems.append((name, f"GitHub Secret {name} tappu ga undi: {hint}"))
+    return problems
+
+
+def kv_secrets_ok(problems):
+    """False when the Cloudflare KV step would fail anyway because of a wrongly shaped secret."""
+    return not any(name in KV_SECRETS for name, _ in problems)
+
+
+def secret_problems_text(problems):
+    return "\n".join(message for _, message in problems)
+
+
 def errors_today_text(db_path=None, now=None):
     """Owner view (/errors): every error of today once, with how many times it came."""
     items = errors_today(db_path, now)

@@ -2488,13 +2488,21 @@ def run(db_path=None, recovery=False):
 def _run(db_path=None, recovery=False, stats=None):
     configured, token, chat_id = notify._telegram_configured()
     diagnostics.configuration(configured)
+    # Optional secrets with a wrong shape (for example a KV namespace ID that is not 32 hex characters):
+    # names only, never values. The KV step is skipped quietly instead of failing on every run.
+    secret_problems = diagnostics.secret_problems()
+    for name, _message in secret_problems:
+        print(f"Secret check: {name} has the wrong format (value not shown).")
     # The office is an independent signed inbox. Telegram setup/outages must not block it.
     if not recovery:
-        try:
-            import control_inbox
-            control_inbox.run(db_path)
-        except Exception as exc:
-            print(f"Control inbox skipped: {type(exc).__name__}")
+        if not diagnostics.kv_secrets_ok(secret_problems):
+            print("Control inbox skipped: Cloudflare KV secret format is wrong (see the Telegram message).")
+        else:
+            try:
+                import control_inbox
+                control_inbox.run(db_path)
+            except Exception as exc:
+                print(f"Control inbox skipped: {type(exc).__name__}")
     if not configured:
         print("Telegram not configured: skipping inbox.")
         return {"configured": False, "commands": 0, "alerts": 0}
@@ -2509,6 +2517,8 @@ def _run(db_path=None, recovery=False, stats=None):
     diagnostics.webhook(info)
     if isinstance(info, dict) and info.get("url"):
         raise RuntimeError("Telegram webhook blocks polling; see the robot-fix-runbook.")
+    if secret_problems and not recovery:   # one message a day (same-error rule), never the values
+        send_alert(token, chat_id, diagnostics.secret_problems_text(secret_problems), db_path=db_path)
     stats = stats if stats is not None else new_stats()
     commands = process_updates(token, chat_id, db_path, stats)
     if recovery:
