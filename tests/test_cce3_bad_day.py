@@ -60,5 +60,82 @@ class DiskFullTests(unittest.TestCase):
             self.assertIn(aid, [item["id"] for item in product_pipeline.pending(db)])
 
 
+def _world(sim_dir):
+    import importlib.util
+    from pathlib import Path
+    path = Path(__file__).resolve().parents[1] / "tools" / "robot_sim_world.py"
+    spec = importlib.util.spec_from_file_location("_cce3_world", path)
+    world = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(world)
+    world.SIM_DIR = sim_dir
+    world.OWNER_CHAT = str(int("1234" "5678"))
+    return world
+
+
+class TelegramBusyTests(unittest.TestCase):
+    """Sim: Telegram 429 (3x) then 500 (2x) -> 'Telegram setup check failed' traceback, red inbox step, and a
+    'run FAILED' alert. Now the run is skipped quietly and the next healthy run sends ONE Tenglish line."""
+
+    def setUp(self):
+        import json
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.db = os.path.join(self.tmp.name, "a.db")
+        self.world = _world(self.tmp.name)
+        self.json = json
+        os.environ.setdefault("CHILLI_TEST", "1")
+
+    def faults(self, rules):
+        with open(os.path.join(self.tmp.name, "faults.json"), "w", encoding="utf-8") as handle:
+            handle.write(self.json.dumps(rules))
+        with open(os.path.join(self.tmp.name, "fault_counts.json"), "w", encoding="utf-8") as handle:
+            handle.write("{}")
+
+    def sent_texts(self):
+        path = os.path.join(self.tmp.name, "telegram_out.jsonl")
+        if not os.path.exists(path):
+            return []
+        with open(path, encoding="utf-8") as handle:
+            return [self.json.loads(l)["text"] for l in handle if self.json.loads(l).get("ok")]
+
+    def run_inbox(self):
+        import telegram_inbox
+        token = "123456789:" + "A" * 35
+        with mock.patch("urllib.request.urlopen", side_effect=self.world.fake_urlopen), \
+                mock.patch("notify._telegram_configured", return_value=(True, token, self.world.OWNER_CHAT)), \
+                mock.patch("time.sleep"), \
+                mock.patch("control_inbox.run", return_value={}):
+            return telegram_inbox.run(self.db)
+
+    def test_rate_limit_and_server_errors_skip_quietly_then_one_line(self):
+        import telegram_inbox
+        self.faults([{"service": "telegram", "status": 429, "times": 3, "retry_after": 0},
+                     {"service": "telegram", "status": 500, "times": 2}])
+        result = self.run_inbox()
+        self.assertTrue(result["telegram_busy"])
+        self.assertEqual(telegram_inbox.get_state(telegram_inbox.TELEGRAM_OUTAGE_STATE, db_path=self.db), "1")
+        self.faults([])
+        self.assertFalse(self.run_inbox().get("telegram_busy"))
+        notices = [t for t in self.sent_texts() if "Telegram konchem sepu busy" in t]
+        self.assertEqual(len(notices), 1)
+        self.assertIn("1 run(s)", notices[0])
+        self.run_inbox()
+        self.assertEqual(len([t for t in self.sent_texts() if "Telegram konchem sepu busy" in t]), 1)
+
+    def test_wrong_token_or_chat_still_fails_loudly(self):
+        for status in (401, 403):
+            with self.subTest(status=status):
+                self.faults([{"service": "telegram", "status": status}])
+                with self.assertRaisesRegex(RuntimeError, "setup check failed"):
+                    self.run_inbox()
+
+    def test_other_runtime_errors_are_not_hidden(self):
+        import telegram_inbox
+        self.faults([{"service": "telegram", "status": 429, "times": 1, "retry_after": 0}])
+        with mock.patch.object(telegram_inbox, "process_updates", side_effect=RuntimeError("bug")):
+            with self.assertRaisesRegex(RuntimeError, "bug"):
+                self.run_inbox()
+
+
 if __name__ == "__main__":
     unittest.main()

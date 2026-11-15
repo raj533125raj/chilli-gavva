@@ -2692,6 +2692,49 @@ def daily_waiting_line(db_path=None, now=None):
     return f"Drafts waiting: {len(pending)} (oldest {oldest_hours}h)"
 
 
+# Telegram itself busy or unreachable for a while: not a robot bug, so no red run and no traceback (CCE-3).
+TRANSIENT_KINDS = frozenset({"rate_limit", "server", "network", "timeout"})
+TELEGRAM_OUTAGE_STATE = "telegram_outage_runs"
+_SKIPPABLE = ("Telegram setup check failed", "Telegram updates could not be read",
+              "Telegram acknowledgement failed", "Telegram message delivery failed")
+TELEGRAM_BACK_TEXT = ("Telegram konchem sepu busy ga undi (rate limit / server error), anduke robot {runs} run(s) "
+                      "lo inbox skip chesindi. Ippudu malli pani chestondi: miss ayina buttons unte /list chudandi.")
+
+
+def _only_transient(state):
+    kinds = {kind for kind, count in state["errors"].items() if count}
+    return bool(kinds) and kinds <= TRANSIENT_KINDS
+
+
+def _telegram_busy(state, exc, db_path):
+    """Skip this inbox run quietly when every Telegram error was transient; the next run retries.
+    Updates were not confirmed (offset unchanged), so no owner command or button press is lost."""
+    if not (str(exc).startswith(_SKIPPABLE) and _only_transient(state)):
+        return False
+    try:
+        runs = int(get_state(TELEGRAM_OUTAGE_STATE, 0, db_path) or 0)
+    except (TypeError, ValueError):
+        runs = 0
+    set_state(TELEGRAM_OUTAGE_STATE, runs + 1, db_path)
+    kinds = ",".join(sorted(k for k, c in state["errors"].items() if c))
+    print(f"Telegram busy ({kinds}): inbox skipped this run, nothing lost; the next run retries.")
+    return True
+
+
+def telegram_back_notice(token, chat_id, db_path=None):
+    """First healthy run after a skipped one: ONE Tenglish line (send_alert: at most once per UTC day)."""
+    try:
+        runs = int(get_state(TELEGRAM_OUTAGE_STATE, 0, db_path) or 0)
+    except (TypeError, ValueError):
+        runs = 1
+    if runs <= 0:
+        return False
+    sent = send_alert(token, chat_id, TELEGRAM_BACK_TEXT.format(runs=runs), db_path=db_path)
+    if sent:
+        set_state(TELEGRAM_OUTAGE_STATE, 0, db_path)
+    return sent
+
+
 def run(db_path=None, recovery=False):
     stats = new_stats()
     with diagnostics.session() as state:
@@ -2700,6 +2743,11 @@ def run(db_path=None, recovery=False):
             if state["send_failed"]:
                 raise RuntimeError("Telegram message delivery failed; see safe diagnostics.")
             return result
+        except RuntimeError as exc:
+            if _telegram_busy(state, exc, db_path):
+                return {"configured": True, "commands": 0, "alerts": 0, "telegram_busy": True,
+                        "waiting_reminder": False, "daily_report": False}
+            raise
         finally:
             diagnostics.print_summary(state, stats)
 
@@ -2742,6 +2790,10 @@ def _run(db_path=None, recovery=False, stats=None):
         except Exception as exc:
             print(f"Button test report skipped: {type(exc).__name__}")
         raise RuntimeError("Telegram webhook blocks polling; see the robot-fix-runbook.")
+    try:
+        telegram_back_notice(token, chat_id, db_path)
+    except Exception as exc:
+        print(f"Telegram back notice skipped: {type(exc).__name__}")
     if secret_problems and not recovery:   # one message a day (same-error rule), never the values
         send_alert(token, chat_id, diagnostics.secret_problems_text(secret_problems), db_path=db_path)
     stats = stats if stats is not None else new_stats()
