@@ -1073,7 +1073,9 @@ def _delivery_facts(folder):
         elif ext in (".docx", ".zip") or name in {"README.md", "README.txt", "README", "LICENSE.txt", "HOW_TO_IMPORT.md"}:
             label = {".docx": "Word document", ".zip": "ZIP archive", ".md": "Markdown", ".txt": "plain text"}.get(ext, "plain text")
             contents.append(f"`{name}` — {label}")
-    contents += _proof_lines(folder, facts, counts)
+    # CCC-0: the proven facts get their own "Details" section. "What you get" lists only real files,
+    # because buyers (and the sell-flow check) read every line there as a file name.
+    facts["details"] = _proof_lines(folder, facts, counts)
     facts["contents"] = contents
     facts["pdf_sizes"] = sorted(sizes)
     if counts:
@@ -1144,6 +1146,8 @@ def _listing_md(spec, facts=None):
         f"**Buyer:** {l['buyer']}  ", f"**Platform:** {l['platform']}", "",
         "## Description", "", l["description"], "",
         "## What you get", "", *[f"- {item}" for item in _contents_lines(facts)], "",
+        *(["## Details", "", *[f"- {item}" for item in facts["details"]], ""]
+          if facts and facts.get("details") else []),
         f"## Tags ({len(l['tags'])})", "", *[f"- {t}" for t in l["tags"]], "",
         "## Cover image idea", "", spec["cover_image_idea"] or "A clean flat-lay of the product on a laptop screen.",
         "", "---", (spec.get("source_note") or f"Built by the Product Builder from approved draft #{spec['approval_id']}.")

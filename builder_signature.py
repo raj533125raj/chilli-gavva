@@ -21,6 +21,8 @@ Builds professional, production-ready HTML email signature templates and preview
 - No currency or money amounts anywhere
 """
 
+from __future__ import annotations
+
 import os
 import re
 import tempfile

@@ -53,9 +53,15 @@ def built(kind):
 
 
 def what_you_get(folder):
+    """'What you get' plus the 'Details' section after it (CCC-0 moved the proven facts there)."""
     with open(os.path.join(folder, "listing.md"), encoding="utf-8") as handle:
         body = handle.read()
     return body.split("## What you get", 1)[1].split("## Tags", 1)[0]
+
+
+def files_section(folder):
+    """Only the 'What you get' section: one line per real file."""
+    return what_you_get(folder).split("## Details", 1)[0]
 
 
 def check(folder):
@@ -264,6 +270,23 @@ class FeatureTests(unittest.TestCase):
         if "Charts in the workbook" in text:
             self.assertIn("charts / progress bars", verdict["proven"])
         self.assertEqual(verdict["verdict"], "ready", verdict["problems"])
+
+    def test_what_you_get_names_only_real_files(self):
+        """CCC-0: buyers read each 'What you get' line as a file; the facts live under 'Details'."""
+        for kind in ("sheets", "planner", "habit_tracker"):
+            with self.subTest(kind=kind):
+                folder = built(kind)
+                lines = [line[2:] for line in files_section(folder).splitlines() if line.startswith("- ")]
+                self.assertTrue(lines)
+                for line in lines:
+                    name = line.split(" — ", 1)[0].strip("` ")
+                    self.assertTrue(os.path.isfile(os.path.join(folder, name)), line)
+                self.assertIn("## Details", what_you_get(folder))
+                self.assertNotIn("printable pages in every PDF", files_section(folder))
+        import upload_pack
+        with open(os.path.join(built("planner"), "listing.md"), encoding="utf-8") as handle:
+            listing_txt = upload_pack._listing(handle.read())
+        self.assertNotIn("printable pages in every PDF", listing_txt.split("What you get:", 1)[1])
 
     def test_no_feature_lines_for_a_pdf_only_pack(self):
         text = what_you_get(built("planner"))
