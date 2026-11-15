@@ -1021,6 +1021,27 @@ def _delivery_text(text, spec, facts):
     return text
 
 
+def _verified_pdf(path):
+    """(page count, "A4" | "Letter" | other PAGE_SIZES label | None) read from the PDF itself.
+
+    The size is only given when EVERY page has a MediaBox and all of them are the same known size."""
+    with open(path, "rb") as stream:
+        data = stream.read()
+    count = len(re.findall(rb"/Type\s*/Page\b", data))
+    boxes = re.findall(rb"/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]", data)
+    paper, known_boxes = set(), 0
+    for w, h in boxes:
+        dimensions = sorted((float(w), float(h)))
+        label = next((label for label, dims in PAGE_SIZES.items()
+                      if all(abs(a - b) < 1 for a, b in zip(dimensions, sorted(dims)))), None)
+        if label:
+            paper.add(label)
+            known_boxes += 1
+    # The robot writes a MediaBox on each page. Do not infer missing boxes.
+    verified = paper if count and known_boxes == len(boxes) == count and len(paper) == 1 else set()
+    return count, next(iter(verified), None)
+
+
 def _delivery_facts(folder):
     """Inspect robot-built deliverables; filenames and spec promises are not PDF evidence."""
     import truth_check
@@ -1032,20 +1053,8 @@ def _delivery_facts(folder):
         if not os.path.isfile(path):
             continue
         if ext == ".pdf":
-            with open(path, "rb") as stream:
-                data = stream.read()
-            count = len(re.findall(rb"/Type\s*/Page\b", data))
-            boxes = re.findall(rb"/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]", data)
-            paper, known_boxes = set(), 0
-            for w, h in boxes:
-                dimensions = sorted((float(w), float(h)))
-                label = next((label for label, dims in PAGE_SIZES.items()
-                              if all(abs(a - b) < 1 for a, b in zip(dimensions, sorted(dims)))), None)
-                if label:
-                    paper.add(label)
-                    known_boxes += 1
-            # The robot writes a MediaBox on each page. Do not infer missing boxes.
-            verified = paper if count and known_boxes == len(boxes) == count and len(paper) == 1 else set()
+            count, size = _verified_pdf(path)
+            verified = {size} if size else set()
             sizes.update(verified)
             counts.append(count)
             label = "US Letter" if verified == {"Letter"} else next(iter(verified), "paper size unspecified")
@@ -1064,11 +1073,59 @@ def _delivery_facts(folder):
         elif ext in (".docx", ".zip") or name in {"README.md", "README.txt", "README", "LICENSE.txt", "HOW_TO_IMPORT.md"}:
             label = {".docx": "Word document", ".zip": "ZIP archive", ".md": "Markdown", ".txt": "plain text"}.get(ext, "plain text")
             contents.append(f"`{name}` — {label}")
+    contents += _proof_lines(folder, facts, counts)
     facts["contents"] = contents
     facts["pdf_sizes"] = sorted(sizes)
     if counts:
         facts["pages"] = min(counts)
     return facts
+
+
+# ---- CCB-2: what you get, in words the Truth Checker can verify --------------------------
+# Packs got NEEDS FIX "Score 95+ without enough proof" when the listing named almost nothing the
+# checker can prove (it counts proven promises). These lines state ONLY facts read from the built
+# files - page and sheet counts, tab names, formulas, drop-downs, charts - and each line is written
+# only when the Truth Checker's own reading of the files agrees with it.
+_GENERIC_WORDS = {"database", "page", "sheet", "tab", "tracker", "section", "the", "and"}
+
+
+def _plain_tab_name(tab, kind):
+    """A tab name that can be written as '<Name> tab' and proven by name, or None."""
+    import truth_check
+    if not re.fullmatch(r"[A-Z][A-Za-z]*(?: [A-Z][A-Za-z]*){0,3}", tab or ""):
+        return None
+    low = tab.lower()
+    if any(re.search(rx, low) for _claim, rx in truth_check.CLAIMS):
+        return None                       # e.g. a "Dashboard" or "Charts" tab is a feature claim of its own
+    if kind == "resume" and "dashboard" in low:
+        return None
+    words = [w for w in low.split() if w not in _GENERIC_WORDS]
+    while words and words[0] in truth_check._NOT_NAMES:
+        words = words[1:]
+    return tab if words else None
+
+
+def _proof_lines(folder, facts, counts):
+    lines = []
+    pages = facts.get("pages") or 0                 # the Truth Checker's own page count of the main PDF
+    if counts and pages and min(counts) <= pages and min(counts) <= 99:
+        n = min(counts)
+        lines.append(f"{n} printable pages in every PDF" if len(set(counts)) == 1
+                     else f"At least {n} printable pages in every PDF")
+    sheets = list(facts.get("sheets") or [])
+    if sheets and len(sheets) <= 99:
+        named = [name for name in (_plain_tab_name(tab, facts.get("kind")) for tab in sheets) if name]
+        line = f"{len(sheets)} sheets in the Excel workbook"
+        if named:
+            line += ": " + ", ".join(f"{name} tab" for name in named)
+        lines.append(line)
+    if facts.get("formulas"):
+        lines.append("Formulas built in: totals calculate automatically")
+    if facts.get("validations"):
+        lines.append("Drop-down lists in the workbook")
+    if facts.get("charts"):
+        lines.append("Charts in the workbook")
+    return lines
 
 
 def _contents_lines(facts=None, file_list=()):
@@ -1225,11 +1282,53 @@ def get_builder_dispatch(kind: str):
                 created_files = res if isinstance(res, (list, tuple)) else []
                 instructions = spec.get("instructions", [])
                 how_to = instructions if isinstance(instructions, list) else [str(instructions)]
-                return list(created_files), how_to
+                renamed = standard_pdf_names(folder, spec)
+                files = [renamed.get(os.path.basename(str(name)), name) for name in created_files]
+                return list(files), how_to
             return _adapted_builder
     except Exception:
         pass
     return None
+
+
+def standard_pdf_names(folder, spec):
+    """CCB-2: give a format builder's PDFs the robot's standard name "<short_name>-A4.pdf" /
+    "-Letter.pdf" when every page of the PDF really is that size (MediaBox), so the Truth Checker can
+    prove the paper size the listing states. Text files in the folder that name the old file are
+    updated. A PDF whose size is not proven keeps its name. Returns {old name: new name}."""
+    base = re.sub(r"[^a-z0-9-]+", "-", str(spec.get("short_name") or "product").lower()).strip("-") or "product"
+    renamed = {}
+    pdfs = sorted(n for n in os.listdir(folder) if n.lower().endswith(".pdf"))
+    for name in pdfs:
+        if re.search(r"-(?:A4|Letter)\.pdf$", name):
+            continue
+        _count, size = _verified_pdf(os.path.join(folder, name))
+        if size not in ("A4", "Letter"):
+            continue
+        target = f"{base}-{size}.pdf"
+        number = 2
+        while os.path.exists(os.path.join(folder, target)) or target in renamed.values():
+            target = f"{base}-{number}-{size}.pdf"
+            number += 1
+        os.replace(os.path.join(folder, name), os.path.join(folder, target))
+        renamed[name] = target
+    if renamed:
+        for entry in os.listdir(folder):
+            path = os.path.join(folder, entry)
+            if not os.path.isfile(path) or not entry.lower().endswith((".txt", ".md")):
+                continue
+            try:
+                with open(path, encoding="utf-8") as handle:
+                    text = handle.read()
+            except (OSError, UnicodeError):
+                continue
+            changed = text
+            for old, new in renamed.items():
+                changed = changed.replace(old, new)
+            if changed != text:
+                with open(path, "w", encoding="utf-8") as handle:
+                    handle.write(changed)
+    return renamed
 
 
 def build_product(spec, approval_id, out_dir=None, folder_name=None):
