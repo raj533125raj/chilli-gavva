@@ -187,6 +187,23 @@ def find_marketing_pack_dir(aid: int | str, ctx: Optional[Dict[str, Any]] = None
 # Command Parsing
 # ---------------------------------------------------------------------------
 
+_BARE_ACTION_ALIASES = {
+    "files": "files",
+    "covers": "covers",
+    "cover variants": "covers",
+    "pins": "pins",
+    "pin images": "pins",
+    "carousel": "carousel",
+    "reel": "reel",
+    "reel frames": "reel",
+    "blog": "blog",
+    "blog.md": "blog",
+    "landing": "landing",
+    "landing page": "landing",
+    "launch": "launch",
+    "launch checklist": "launch",
+}
+
 _SUPPORTED_ACTIONS = {
     "files": "files",
     "file": "files",
@@ -256,6 +273,18 @@ def parse_action_and_id(text: str) -> Optional[Tuple[str, Optional[int]]]:
                 return _SUPPORTED_ACTIONS[g2.lower()], int(g1)
             if g2.isdigit() and g1.lower() in _SUPPORTED_ACTIONS:
                 return _SUPPORTED_ACTIONS[g1.lower()], int(g2)
+
+    # Direct command words and phrases without a number: "files", "cover variants", "blog.md".
+    bare = " ".join(raw.lower().split()).rstrip("?.! ")
+    if bare in _BARE_ACTION_ALIASES:
+        return _BARE_ACTION_ALIASES[bare], None
+
+    # Multi-word phrases with a number: "launch checklist 3", "cover variants 3".
+    m_alias = re.match(r"^(?:pack\s+)?(.+?)\s+(?:pack\s+)?(\d+)(?:\s+pampu)?$", raw, re.IGNORECASE)
+    if m_alias:
+        phrase = " ".join(m_alias.group(1).lower().split())
+        if phrase in _BARE_ACTION_ALIASES:
+            return _BARE_ACTION_ALIASES[phrase], int(m_alias.group(2))
 
     # Check for action without a number, e.g. "files pampu", "covers pampu", "pack files"
     no_num_patterns = [
@@ -640,6 +669,32 @@ def _handle_launch(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
     return {"handled": True}
 
 
+def _missing_pack_reply(action: str, ctx: Dict[str, Any]) -> Dict[str, Any]:
+    """Ask which pack and show the last five ready packs with their numbers."""
+    if action == "launch":
+        example = "launch checklist 3 (checklist file) leda /launch 3 (7-day plan)"
+    else:
+        example = f"{action} 3 (leda /{action} 3)"
+
+    packs = []
+    try:
+        import sell_ready
+        products_dir, _marketing_dir = _get_base_dirs(ctx)
+        packs = [item for item in sell_ready.find_all_ready_packs(products_dir) if item[0] is not None]
+    except Exception:
+        packs = []
+
+    lines = [f"Pack number cheppandi. Ye pack? Udaharanaki: {example}."]
+    if packs:
+        lines += ["", "Last 5 ready packs:"]
+        for number, title, _path in packs[-5:]:
+            lines.append(f"• #{number} {str(title)[:50]}")
+        lines += ["", "Anni packs: /packs"]
+    else:
+        lines.append("Ready packs inka levu. /packs tho chudandi.")
+    return {"text": "\n".join(lines)}
+
+
 # ---------------------------------------------------------------------------
 # Plugin Handle Entrypoint
 # ---------------------------------------------------------------------------
@@ -666,7 +721,7 @@ def handle(text: str, ctx: dict) -> dict | None:
     action, pack_id = parsed
 
     if pack_id is None:
-        return {"text": f"Pack number cheppandi (e.g. /{action} 3 leda 'pack 3 {action} pampu')."}
+        return _missing_pack_reply(action, ctx)
 
     if action == "files":
         return _handle_files(pack_id, ctx)

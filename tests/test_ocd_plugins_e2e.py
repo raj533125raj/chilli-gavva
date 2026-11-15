@@ -72,20 +72,6 @@ KNOWN_UNHANDLED = {
     ("tg_assets", "download asset"): "declared word returns None instead of asking for an asset number",
     ("tg_autoapprove", "auto approve status"): "declared status phrase returns None",
     ("tg_autoapprove", "autoapprove settings"): "declared settings phrase returns None",
-    ("tg_files", "files"): "declared word returns None without a pack number",
-    ("tg_files", "covers"): "declared word returns None without a pack number",
-    ("tg_files", "cover variants"): "declared word returns None without a pack number",
-    ("tg_files", "pins"): "declared word returns None without a pack number",
-    ("tg_files", "pin images"): "declared word returns None without a pack number",
-    ("tg_files", "carousel"): "declared word returns None without a pack number",
-    ("tg_files", "reel"): "declared word returns None without a pack number",
-    ("tg_files", "reel frames"): "declared word returns None without a pack number",
-    ("tg_files", "blog"): "declared word returns None without a pack number",
-    ("tg_files", "blog.md"): "declared word returns None without a pack number",
-    ("tg_files", "landing"): "declared word returns None without a pack number",
-    ("tg_files", "landing page"): "declared word returns None without a pack number",
-    ("tg_files", "launch"): "declared word returns None without a pack number",
-    ("tg_files", "launch checklist"): "declared word returns None without a pack number",
     ("tg_office", "office lo"): "declared office phrase returns None",
     ("tg_office", "office choodu"): "declared office phrase returns None",
     ("tg_posts", "/posted"): "declared command returns None; only 'posted N' works",
@@ -497,6 +483,20 @@ class TestPluginBehaviour(PluginMixin, unittest.TestCase):
         self.assertIn("product.zip", names)
         self.assertIn("cover.png", names)
         self.assertIn("listing.txt", names)
+
+    def test_files_bare_words_show_pack_hint_and_last_five_packs(self):
+        for number in range(2, 7):
+            pack = self.products / f"{number}-extra-{number}"
+            pack.mkdir()
+            (pack / "product.zip").write_bytes(b"zip")
+            (pack / "listing.txt").write_text(f"Title: Extra Pack {number}\n", encoding="utf-8")
+        result = self.call_plugin(PLUGIN_MAP["tg_files"], "files")
+        text = result["text"]
+        self.assertIn("Pack number cheppandi", text)
+        self.assertIn("files 3", text)
+        self.assertIn("#6 Extra Pack 6", text)
+        self.assertIn("#2 Extra Pack 2", text)
+        self.assertNotIn("#1 ", text)
 
     def test_cover_variants_are_sent_as_media_group(self):
         self.rec.clear()
