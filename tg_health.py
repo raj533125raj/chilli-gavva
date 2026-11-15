@@ -90,6 +90,7 @@ def handle_logs(text: str, ctx: Dict[str, Any]) -> Dict[str, Any]:
     send_text = ctx.get("send_text")
 
     summary = health_check.get_last_run_summary(db_path=db_path)
+    summary = f"{summary}\n\nNext: /health tho system check chudandi leda /undo tho chivari action revert cheyandi."
 
     if callable(send_text):
         send_text(summary)
@@ -106,7 +107,10 @@ def handle_undo_request(text: str, ctx: Dict[str, Any]) -> Dict[str, Any]:
 
     record, err = health_check.get_last_undoable_action(db_path=db_path, now=now_dt)
     if err or not record:
-        msg = f"❌ {err or 'Undoing kosam emi action dorakaledu.'}"
+        msg = (
+            f"❌ {err or 'Undoing kosam emi action dorakaledu.'}\n"
+            "Next: /health tho system check chudandi leda /post today tho posts chudandi."
+        )
         if callable(send_text):
             send_text(msg)
             return {"handled": True}

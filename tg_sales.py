@@ -123,6 +123,11 @@ def handle(text: str, ctx: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     if intent == "undo":
         undone = sales_ledger.undo_last_sale(db_path=db_path)
         reply_text = sales_ledger.format_undo_confirmation(undone)
+        if not undone:
+            reply_text += (
+                "\nNext: /sales today tho report chudandi leda "
+                "'sale pack 3 Gumroad' ani sale record cheyandi."
+            )
         return {"text": reply_text}
 
     if intent == "report":

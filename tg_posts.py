@@ -628,7 +628,12 @@ def handle_posted_n(n: int, ctx: dict, plan_path: Union[str, Path] = post_planne
 
     plan = post_planner.load_plan(plan_path, products_dir=products_dir)
     if not plan:
-        return {"text": "Post plan ledu. Ee command run cheyadaniki valid plan kavali."}
+        return {
+            "text": (
+                "Post plan ledu. Ee command run cheyadaniki valid plan kavali. "
+                "Next: /post today chudandi (plan ready ayyaka auto plan vastundi)."
+            )
+        }
 
     day_posts = [p for p in plan if p.get("date") == today_str]
     if not day_posts:

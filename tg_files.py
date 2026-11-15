@@ -90,6 +90,13 @@ MAX_FILES_PER_COMMAND = 30
 MAX_ZIP_SIZE_BYTES = 45 * 1024 * 1024  # 45 MB
 
 
+def _next_step(pack_id: int) -> str:
+    return (
+        f"Next: /kit {pack_id} (store listing kit) leda /marketing {pack_id} "
+        "(marketing assets) chudandi."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Path and Pack Discovery
 # ---------------------------------------------------------------------------
@@ -319,6 +326,7 @@ def _handle_files(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
         return {"text": f"Pack #{pack_id} ready pack dorakaledu. /packs tho chudandi."}
 
     sent_count = 0
+    zip_note_sent = False
 
     # 1. product.zip
     zip_path = pack_dir / "product.zip"
@@ -330,8 +338,10 @@ def _handle_files(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
                 if send_txt:
                     send_txt(
                         f"Pack #{pack_id} product.zip chala peddaga undi ({size_mb:.1f} MB > 45 MB). "
-                        f"Telegram limit valla skip chesamu. Mac lo exported_content nundi copy cheyandi."
+                        f"Telegram limit valla skip chesamu. Mac lo exported_content nundi copy cheyandi.\n\n"
+                        f"{_next_step(pack_id)}"
                     )
+                    zip_note_sent = True
             else:
                 if send_doc and _is_safe_exported_path(zip_path, ctx):
                     send_doc(str(zip_path), caption=f"Pack #{pack_id} product.zip")
@@ -354,7 +364,10 @@ def _handle_files(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
             sent_count += 1
 
     if sent_count == 0:
-        return {"text": f"Pack #{pack_id} lo files emi pampadaniki ledu."}
+        return {"text": f"Pack #{pack_id} lo files emi pampadaniki ledu. {_next_step(pack_id)}"}
+
+    if send_txt and not zip_note_sent:
+        send_txt(f"Pack #{pack_id} files sent. {_next_step(pack_id)}")
 
     return {"handled": True}
 
@@ -362,13 +375,14 @@ def _handle_files(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
 def _handle_covers(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
     """Handle /covers N: cover variants as a media group."""
     send_media = ctx.get("send_media_group")
+    send_txt = ctx.get("send_text")
     mktg_pack = find_marketing_pack_dir(pack_id, ctx)
     if not mktg_pack:
         return {"text": f"Pack #{pack_id} ki marketing files inka ledu. /marketing {pack_id} tho chudandi."}
 
     covers_dir = mktg_pack / "covers"
     if not covers_dir.is_dir():
-        return {"text": f"Pack #{pack_id} ki cover variants inka ledu."}
+        return {"text": f"Pack #{pack_id} ki cover variants inka ledu. {_next_step(pack_id)}"}
 
     # Find cover images (e.g. cover_a.png, cover_b.png, cover_c.png)
     cover_files: List[Path] = []
@@ -380,12 +394,14 @@ def _handle_covers(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
     # Exclude non-cover images if any, order deterministically
     cover_files = cover_files[:MAX_FILES_PER_COMMAND]
     if not cover_files:
-        return {"text": f"Pack #{pack_id} covers folder lo images dorakaledu."}
+        return {"text": f"Pack #{pack_id} covers folder lo images dorakaledu. {_next_step(pack_id)}"}
 
     paths = [str(f) for f in cover_files]
     caption = f"Pack #{pack_id} cover variants ({len(paths)})"
     if send_media:
         send_media(paths, caption=caption)
+    if send_txt:
+        send_txt(f"Pack #{pack_id} cover variants sent. {_next_step(pack_id)}")
 
     return {"handled": True}
 
@@ -438,7 +454,7 @@ def _handle_pins(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
 
     pins_dir = mktg_pack / "pins"
     if not pins_dir.is_dir():
-        return {"text": f"Pack #{pack_id} ki pins inka ledu."}
+        return {"text": f"Pack #{pack_id} ki pins inka ledu. {_next_step(pack_id)}"}
 
     pin_files: List[Path] = []
     for ext in (".png", ".jpg", ".jpeg", ".webp"):
@@ -449,7 +465,7 @@ def _handle_pins(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
     pin_files = pin_files[:MAX_FILES_PER_COMMAND]
 
     if not pin_files:
-        return {"text": f"Pack #{pack_id} pins folder lo pin images dorakaledu."}
+        return {"text": f"Pack #{pack_id} pins folder lo pin images dorakaledu. {_next_step(pack_id)}"}
 
     # Send media groups of max 10
     total = len(pin_files)
@@ -469,7 +485,10 @@ def _handle_pins(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
         title_lines = [f"Pack #{pack_id} 5 A/B pin titles:"]
         for idx, t in enumerate(titles, 1):
             title_lines.append(f"{idx}. {t}")
+        title_lines.append(f"\n{_next_step(pack_id)}")
         send_txt("\n".join(title_lines))
+    elif send_txt:
+        send_txt(f"Pack #{pack_id} pins sent. {_next_step(pack_id)}")
 
     return {"handled": True}
 
@@ -486,7 +505,7 @@ def _handle_carousel(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
 
     car_dir = mktg_pack / "carousel"
     if not car_dir.is_dir():
-        return {"text": f"Pack #{pack_id} ki carousel inka ledu."}
+        return {"text": f"Pack #{pack_id} ki carousel inka ledu. {_next_step(pack_id)}"}
 
     # Slides in order (slide-1.png, slide-2.png, ...)
     slide_files: List[Path] = []
@@ -502,7 +521,7 @@ def _handle_carousel(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
 
     slide_files = slide_files[:MAX_FILES_PER_COMMAND]
     if not slide_files:
-        return {"text": f"Pack #{pack_id} carousel slides dorakaledu."}
+        return {"text": f"Pack #{pack_id} carousel slides dorakaledu. {_next_step(pack_id)}"}
 
     # Send media groups of max 10
     total = len(slide_files)
@@ -522,10 +541,14 @@ def _handle_carousel(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
         try:
             caption_content = caption_file.read_text(encoding="utf-8", errors="replace").strip()
             if caption_content:
-                msg = f"Pack #{pack_id} Carousel Caption:\n\n{caption_content}"
+                msg = f"Pack #{pack_id} Carousel Caption:\n\n{caption_content}\n\n{_next_step(pack_id)}"
                 send_txt(msg)
+                return {"handled": True}
         except OSError:
             pass
+
+    if send_txt:
+        send_txt(f"Pack #{pack_id} carousel slides sent. {_next_step(pack_id)}")
 
     return {"handled": True}
 
@@ -542,7 +565,7 @@ def _handle_reel(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
 
     reel_dir = mktg_pack / "reel"
     if not reel_dir.is_dir():
-        return {"text": f"Pack #{pack_id} ki reel inka ledu."}
+        return {"text": f"Pack #{pack_id} ki reel inka ledu. {_next_step(pack_id)}"}
 
     # Reel frames in order
     frame_files: List[Path] = []
@@ -557,7 +580,7 @@ def _handle_reel(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
 
     frame_files = frame_files[:MAX_FILES_PER_COMMAND]
     if not frame_files:
-        return {"text": f"Pack #{pack_id} reel frames dorakaledu."}
+        return {"text": f"Pack #{pack_id} reel frames dorakaledu. {_next_step(pack_id)}"}
 
     # Send media groups of max 10
     total = len(frame_files)
@@ -585,6 +608,7 @@ def _handle_reel(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
     if reel_caption:
         note_lines.append(f"Pack #{pack_id} Reel Caption:\n{reel_caption}\n")
     note_lines.append("make_reel.sh Mac lo run cheyandi (ffmpeg video tayaru chestundi).")
+    note_lines.append(f"\n{_next_step(pack_id)}")
 
     if send_txt:
         send_txt("\n".join(note_lines))
@@ -601,13 +625,16 @@ def _handle_blog(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
 
     blog_file = mktg_pack / "blog.md"
     if not blog_file.is_file():
-        return {"text": f"Pack #{pack_id} ki blog.md inka ledu."}
+        return {"text": f"Pack #{pack_id} ki blog.md inka ledu. {_next_step(pack_id)}"}
 
     if not _is_safe_exported_path(blog_file, ctx):
         return {"text": f"Pack #{pack_id} path safe kaadu."}
 
     if send_doc:
         send_doc(str(blog_file), caption=f"Pack #{pack_id} blog.md")
+    send_txt = ctx.get("send_text")
+    if send_txt:
+        send_txt(f"Pack #{pack_id} blog.md sent. {_next_step(pack_id)}")
 
     return {"handled": True}
 
@@ -621,7 +648,7 @@ def _handle_landing(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
 
     landing_html = mktg_pack / "landing" / "index.html"
     if not landing_html.is_file():
-        return {"text": f"Pack #{pack_id} ki landing page (index.html) inka ledu."}
+        return {"text": f"Pack #{pack_id} ki landing page (index.html) inka ledu. {_next_step(pack_id)}"}
 
     if not _is_safe_exported_path(landing_html, ctx):
         return {"text": f"Pack #{pack_id} path safe kaadu."}
@@ -643,6 +670,9 @@ def _handle_landing(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
 
         if send_doc and _is_safe_exported_path(zip_path, ctx):
             send_doc(str(zip_path), caption=f"Pack #{pack_id} landing page (index.html)")
+        send_txt = ctx.get("send_text")
+        if send_txt:
+            send_txt(f"Pack #{pack_id} landing page sent. {_next_step(pack_id)}")
 
         return {"handled": True}
     except Exception as exc:
@@ -658,13 +688,16 @@ def _handle_launch(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
 
     launch_file = mktg_pack / "LAUNCH.md"
     if not launch_file.is_file():
-        return {"text": f"Pack #{pack_id} ki LAUNCH.md inka ledu."}
+        return {"text": f"Pack #{pack_id} ki LAUNCH.md inka ledu. {_next_step(pack_id)}"}
 
     if not _is_safe_exported_path(launch_file, ctx):
         return {"text": f"Pack #{pack_id} path safe kaadu."}
 
     if send_doc:
         send_doc(str(launch_file), caption=f"Pack #{pack_id} LAUNCH.md checklist")
+    send_txt = ctx.get("send_text")
+    if send_txt:
+        send_txt(f"Pack #{pack_id} LAUNCH.md sent. {_next_step(pack_id)}")
 
     return {"handled": True}
 

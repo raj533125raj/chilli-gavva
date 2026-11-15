@@ -122,6 +122,14 @@ def collect_all_commands():
     return commands
 
 
+def _short_help(text: object, limit: int = 48) -> str:
+    """Keep one-line menu entries inside Telegram's message limit."""
+    clean = " ".join(str(text or "").split())
+    if len(clean) <= limit:
+        return clean
+    return clean[: limit - 3].rstrip() + "..."
+
+
 def format_grouped_menu():
     """Build grouped menu (Drafts, Packs, Posts, Reports, Settings)."""
     commands = collect_all_commands()
@@ -139,7 +147,7 @@ def format_grouped_menu():
             groups[cat] = []
         cmd = item.get("cmd", "")
         help_te = item.get("help_te") or item.get("help_en") or ""
-        groups[cat].append(f"  {cmd} — {help_te}")
+        groups[cat].append(f"  {cmd} — {_short_help(help_te)}")
 
     lines = ["📋 *Chilli Gavva Menu* (Mee robot commands):\n"]
     order = ["Drafts", "Packs", "Posts", "Reports", "Settings"]

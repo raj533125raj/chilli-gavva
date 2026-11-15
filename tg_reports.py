@@ -251,7 +251,10 @@ def handle_dashboard(text: str, ctx: dict) -> dict:
         if not out_file.is_file():
             return {"text": scrub_outgoing("Ops dashboard file generate kaledu.")}
 
-        caption = scrub_outgoing("Private ops dashboard HTML document (no secrets, counts only).")
+        caption = scrub_outgoing(
+            "Private ops dashboard HTML document (no secrets, counts only). "
+            "Next: /ops tho summary chudandi leda /health tho system check cheyandi."
+        )
         send_document(str(out_file), caption=caption)
         return {"handled": True}
     except Exception as exc:
@@ -297,6 +300,10 @@ def handle_seo(text: str, ctx: dict) -> dict:
         else:
             lines.append("\nAnni SEO checks pass ayyayi! Ready to list.")
 
+        lines.append(
+            f"\nNext: /lint {pack_id} tho listing rules chudandi leda "
+            f"/seokit {pack_id} tho keywords tayaru cheyandi."
+        )
         return {"text": scrub_outgoing("\n".join(lines))}
     except Exception as exc:
         return {"text": scrub_outgoing(f"Pack #{pack_id} SEO scoring lo error vachindi: {exc}")}
@@ -338,6 +345,10 @@ def handle_lint(text: str, ctx: dict) -> dict:
             icon = "✅" if status == "PASS" else ("⚠️" if status == "WARN" else "❌")
             lines.append(f"{icon} {rule}: {status} — {msg}")
 
+        lines.append(
+            f"\nNext: /seo {pack_id} tho score chudandi leda "
+            f"/faq {pack_id} tho buyer FAQ tayaru cheyandi."
+        )
         return {"text": scrub_outgoing("\n".join(lines))}
     except Exception as exc:
         return {"text": scrub_outgoing(f"Pack #{pack_id} listing lint lo error vachindi: {exc}")}
@@ -362,8 +373,13 @@ def handle_faq(text: str, ctx: dict) -> dict:
         faq_text = faq_builder.build_faq(pdir)
         scrubbed = scrub_outgoing(faq_text)
 
+        next_line = (
+            f"\n\nNext: /seo {pack_id} tho score chudandi leda "
+            f"/lint {pack_id} tho rules check cheyandi."
+        )
+
         if len(scrubbed) <= 3000:
-            return {"text": scrubbed}
+            return {"text": scrubbed + next_line}
 
         send_document = ctx.get("send_document")
         if send_document:
@@ -371,7 +387,10 @@ def handle_faq(text: str, ctx: dict) -> dict:
                 tf.write(scrubbed)
                 temp_path = tf.name
             try:
-                caption = scrub_outgoing(f"Pack #{pack_id} Buyer FAQ Markdown document.")
+                caption = scrub_outgoing(
+                    f"Pack #{pack_id} Buyer FAQ Markdown document. "
+                    f"Next: /seo {pack_id} tho score chudandi."
+                )
                 send_document(temp_path, caption=caption)
                 return {"handled": True}
             finally:
@@ -424,6 +443,7 @@ def handle_dup(text: str, ctx: dict) -> dict:
         else:
             lines.append("\n0.5 kante ekkuva duplicate unna pairs levu ✓.")
 
+        lines.append("\nNext: /seo 1 tho pack score chudandi leda /boards tho Pinterest plan chudandi.")
         return {"text": scrub_outgoing("\n".join(lines))}
     except Exception as exc:
         return {"text": scrub_outgoing(f"Duplicate check run cheyadam lo error vachindi: {exc}")}
@@ -479,6 +499,7 @@ def handle_keywords(text: str, ctx: dict) -> dict:
     for i, kw in enumerate(top_20, start=1):
         lines.append(f"{i}. {kw}")
 
+    lines.append("\nNext: /seokit 1 tho full SEO kit tayaru cheyandi leda /boards tho Pinterest plan chudandi.")
     return {"text": scrub_outgoing("\n".join(lines))}
 
 
@@ -502,7 +523,10 @@ def handle_calendar(text: str, ctx: dict) -> dict:
         if not ics_path.is_file():
             return {"text": scrub_outgoing("Post plan calendar file (.ics) generate kaledu.")}
 
-        caption = scrub_outgoing("Post plan .ics calendar file (manual posting schedule, RFC 5545).")
+        caption = scrub_outgoing(
+            "Post plan .ics calendar file (manual posting schedule, RFC 5545). "
+            "Next: /post today tho ee roju posts chudandi."
+        )
         send_document(str(ics_path), caption=caption)
         return {"handled": True}
     except Exception as exc:
@@ -552,6 +576,10 @@ def handle_versions(text: str, ctx: dict) -> dict:
         else:
             lines.append("\nFiles lo emi marpulu levu (clean & stable).")
 
+        lines.append(
+            f"\nNext: /seo {pack_id} tho score chudandi leda "
+            f"/preflight {pack_id} tho upload check cheyandi."
+        )
         return {"text": scrub_outgoing("\n".join(lines))}
     except Exception as exc:
         return {"text": scrub_outgoing(f"Pack #{pack_id} version check lo error vachindi: {exc}")}
@@ -596,7 +624,12 @@ def handle_ideas(text: str, ctx: dict) -> dict:
                 pass
 
     if not ideas:
-        return {"text": scrub_outgoing("Scout ideas database lo emi levu. Scout inka ideas search cheyaledu.")}
+        return {
+            "text": scrub_outgoing(
+                "Scout ideas database lo emi levu. Scout inka ideas search cheyaledu. "
+                "Next: /dashboard tho ops status chudandi leda /ops tho summary chudandi."
+            )
+        }
 
     try:
         scored_list = idea_scoring.score_ideas_list(ideas)
@@ -651,6 +684,7 @@ def handle_boards(text: str, ctx: dict) -> dict:
             pins_in_board = len(b.get("pins", []))
             lines.append(f"• {name} ({pins_in_board} pins mapped)")
 
+        lines.append("\nNext: /keywords tho top terms chudandi leda /pins 1 tho pin images pampinchandi.")
         return {"text": scrub_outgoing("\n".join(lines))}
     except Exception as exc:
         return {"text": scrub_outgoing(f"Board plan summary create cheyadam lo error vachindi: {exc}")}

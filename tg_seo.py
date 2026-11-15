@@ -80,7 +80,7 @@ def handle(text: str, ctx: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return None
     pack_number = parse_pack_number(text)
     if not pack_number:
-        return {"text": "Pack number cheppandi (example: /seokit 3)."}
+        return {"text": "Pack number cheppandi (example: /seokit 3). Next: /packs tho ready packs chudandi."}
 
     try:
         output = seo_helper.build_for_pack(pack_number, _products_dir(ctx))
@@ -90,7 +90,11 @@ def handle(text: str, ctx: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     except Exception as exc:  # noqa: BLE001 - owner gets a clear message
         return {"text": f"SEO kit error: {exc}"}
 
-    summary = short_summary(output)
+    summary = (
+        f"{short_summary(output)}\n\n"
+        f"Next: /sell {pack_number} tho sale note record cheyandi leda /preflight {pack_number} "
+        "tho upload check cheyandi."
+    )
     send_document = ctx.get("send_document")
     if not callable(send_document):
         return {"text": document}

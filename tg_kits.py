@@ -248,7 +248,11 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
     chosen_store = store_key if store_key else "gumroad"
     if chosen_store not in store_kits.STORE_LIMITS:
         return {
-            "text": f"Store '{chosen_store}' teliyadu. Ee stores available: {', '.join(store_kits.SUPPORTED_STORES)}."
+            "text": (
+                f"Store '{chosen_store}' teliyadu. Ee stores available: "
+                f"{', '.join(store_kits.SUPPORTED_STORES)}.\n"
+                f"Next: /kit {pack_id} <store> (e.g. /kit {pack_id} gumroad)."
+            )
         }
 
     pack_dir = find_ready_pack_dir(pack_id, ctx)
@@ -269,7 +273,12 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
             return {"text": f"Pack #{pack_id} store kits generate cheyadam lo error vachindi: {exc}"}
 
     if not target_kit_file.is_file():
-        return {"text": f"Pack #{pack_id} {chosen_store} kit file dorakaledu."}
+        return {
+            "text": (
+                f"Pack #{pack_id} {chosen_store} kit file dorakaledu.\n"
+                f"Next: /kit {pack_id} (malli try cheyandi) leda /packs chudandi."
+            )
+        }
 
     if not _is_safe_path(target_kit_file, ctx):
         return {"text": f"Pack #{pack_id} path safe kaadu."}
@@ -280,6 +289,7 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
         summary_msg = f"Pack #{pack_id} ({chosen_store.capitalize()}):\n" + extract_first_3_fields(content)
     except Exception:
         summary_msg = f"Pack #{pack_id} {chosen_store.capitalize()} kit ready!"
+    summary_msg += f"\n\nNext: /seokit {pack_id} (SEO kit) leda /sell {pack_id} (sales note)."
 
     send_txt = ctx.get("send_text")
     send_doc = ctx.get("send_document")
