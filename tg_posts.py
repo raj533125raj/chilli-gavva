@@ -647,6 +647,52 @@ def handle_posted_n(n: int, ctx: dict, plan_path: Union[str, Path] = post_planne
     return {"text": reply}
 
 
+_POSTED_HELP_WORDS = {"/posted", "posted", "post done", "post chesa", "done post"}
+
+
+def handle_posted_help(ctx: dict, plan_path: Union[str, Path] = post_planner.PLAN_PATH,
+                      products_dir: Optional[str] = None) -> dict:
+    """Show unposted items and how to mark one when /posted has no number."""
+    now_utc = ctx.get("now")
+    today_str = _get_ist_datetime(now_utc).date().isoformat()
+    plan = post_planner.load_plan(plan_path, products_dir=products_dir)
+    if not plan:
+        return {"text": "Post plan ledu. Upload packs ready ayyaka robot auto plan chestundi. /post today chudandi."}
+
+    day_posts = [p for p in plan if p.get("date") == today_str]
+    if day_posts:
+        unposted = [(idx, post) for idx, post in enumerate(day_posts, 1) if post.get("status") != "done"]
+        if not unposted:
+            return {"text": f"Ee roju ({today_str}) posts anni done ✓. /post tomorrow tho repati plan chudandi."}
+        lines = [f"Ee roju ({today_str}) unposted posts:"]
+        for idx, post in unposted[:5]:
+            channel = post.get("channel", "post")
+            pack_id = post.get("pack_id", "")
+            lines.append(f"• Post {idx}: {channel} — {pack_id}")
+        if len(unposted) > 5:
+            lines.append(f"... inko {len(unposted) - 5} posts (/post today lo full list).")
+        first = unposted[0][0]
+        lines += ["", f"Mark cheyadaniki: posted {first} (leda 'post chesa {first}')."]
+        lines.append("Phone lo ✅ posted N button tap chesina same pani avutundi.")
+        return {"text": "\n".join(lines)}
+
+    pending = [(post.get("date", ""), idx, post) for idx, post in enumerate(plan, 1)
+               if post.get("status") != "done"]
+    if not pending:
+        return {"text": "Post plan lo unposted items levu. Anni posts done ✓."}
+
+    past = [item for item in pending if item[0] <= today_str]
+    upcoming = [item for item in pending if item[0] > today_str]
+    chosen = (sorted(past, key=lambda item: (item[0], item[1]), reverse=True)[:5]
+              if past else sorted(upcoming, key=lambda item: (item[0], item[1]))[:5])
+    label = "Chivari unposted posts" if past else "Next unposted posts"
+    lines = [f"Ee roju ({today_str}) posts schedule avaledu. {label}:"]
+    for date_str, idx, post in chosen:
+        lines.append(f"• {date_str} Post {idx}: {post.get('channel', 'post')} — {post.get('pack_id', '')}")
+    lines += ["", "Ee roju post chesaka /post today chudandi; appudu posted N tho mark cheyandi."]
+    return {"text": "\n".join(lines)}
+
+
 def handle(text: str, ctx: dict) -> dict | None:
     """Telegram plugin handle entry point.
 
@@ -682,7 +728,11 @@ def handle(text: str, ctx: dict) -> dict | None:
         except Exception:
             pass
 
-    # 2. Check /post commands
+    # 2. /posted or its declared words without a number: show what is still unposted.
+    if norm.rstrip("?.! ") in _POSTED_HELP_WORDS:
+        return handle_posted_help(ctx)
+
+    # 3. Check /post commands
     # Exact triggers or word inclusions
     is_today = bool(re.search(r"\b(today|ee\s*roju|eeroju|today'?s?)\b", norm))
     is_tomorrow = bool(re.search(r"\b(tomorrow|repu|repati)\b", norm))

@@ -74,11 +74,6 @@ KNOWN_UNHANDLED = {
     ("tg_autoapprove", "autoapprove settings"): "declared settings phrase returns None",
     ("tg_office", "office lo"): "declared office phrase returns None",
     ("tg_office", "office choodu"): "declared office phrase returns None",
-    ("tg_posts", "/posted"): "declared command returns None; only 'posted N' works",
-    ("tg_posts", "posted"): "declared word returns None; only 'posted N' works",
-    ("tg_posts", "post done"): "declared word returns None; only 'posted N' works",
-    ("tg_posts", "post chesa"): "declared word returns None; only 'posted N' works",
-    ("tg_posts", "done post"): "declared word returns None; only 'posted N' works",
     ("tg_sales", "sales"): "declared word returns None; '/sales' works",
 }
 
@@ -302,7 +297,6 @@ class TestPluginBehaviour(PluginMixin, unittest.TestCase):
                     self.assertTrue(handled, command)
                     self.assert_safe_output()
 
-    @unittest.expectedFailure
     def test_loader_handles_bare_posted_command(self):
         self.rec.clear()
         handled, _ = self.call_loader("/posted", [PLUGINS[PLUGIN_NAMES.index("tg_posts")]])
@@ -584,6 +578,24 @@ class TestPluginBehaviour(PluginMixin, unittest.TestCase):
                 result = self.call_plugin(PLUGIN_MAP["tg_posts"], command)
                 self.assertTrue(result)
                 self.assertTrue(self.rec.texts or result.get("text"))
+
+    def test_posted_without_number_lists_today_unposted(self):
+        plan_file = Path("exported_content/post_plan.json")
+        plan_file.parent.mkdir(parents=True, exist_ok=True)
+        self.addCleanup(lambda: plan_file.unlink(missing_ok=True))
+        plan_file.write_text(json.dumps([
+            {"day": 1, "date": "2026-11-14", "channel": "pinterest", "pack_id": "1-test",
+             "asset": "pin-1.png", "status": "todo"},
+            {"day": 1, "date": "2026-11-14", "channel": "instagram", "pack_id": "1-test",
+             "asset": "slide-1.png", "status": "done"},
+        ]), encoding="utf-8")
+        for command in ("/posted", "posted", "post done", "post chesa", "done post"):
+            with self.subTest(command=command):
+                self.rec.clear()
+                result = self.call_plugin(PLUGIN_MAP["tg_posts"], command)
+                self.assertIn("Post 1", result["text"])
+                self.assertIn("posted 1", result["text"])
+                self.assertNotIn("Post 2", result["text"])
 
     def test_health_logs_and_undo_cards(self):
         for command in ("/health", "/logs", "/undo"):
