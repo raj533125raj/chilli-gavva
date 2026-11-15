@@ -12,6 +12,11 @@ import export_status
 
 
 def main():
+    try:  # half-written state files and clock jumps: one owner line each, the run goes on
+        import state_guard
+        state_guard.run()
+    except Exception as exc:
+        print(f"State guard skipped: {type(exc).__name__}")
     removed = export_status.purge_simulated()
     if removed:
         print("removed old simulated rows:", removed)

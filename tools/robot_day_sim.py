@@ -590,21 +590,20 @@ def scenario_report(paths, steps_run, scenarios) -> List[Dict[str, Any]]:
     out = []
     for first, last, name, what in scenarios:
         window = {str(r) for r in range(first + 1, last + 3)}
-        stamps = [s["t"] for s in steps_run if str(s.get("run")) in window]
-        start, end = (min(stamps), max(stamps)) if stamps else ("", "")
+        in_window = lambda rec: str(rec.get("run")) in window   # by run number: clock jumps repeat times
         after = [s for s in steps_run if s.get("run") == last + 2 and s.get("name") != "finish"]
         out.append({
             "name": name, "what": what, "runs": f"{first + 1}-{last + 1}",
-            "fault_hits": sum(1 for h in hits if start <= str(h.get("t")) <= end + "~"),
+            "fault_hits": sum(1 for h in hits if in_window(h)),
             "errors": [f"[{e.get('kind')}] {e.get('type')} at {e.get('file')}:{e.get('line')} ({e.get('step')})"
-                       for e in raw_errors if str(e.get("run")) in window],
-            "telegram_refused": [m.get("error") for m in telegram if m.get("ok") is False
-                                 and start <= str(m.get("t")) <= end + "~"],
-            "failed_steps": [f"run {s['run']} {s['name']}" for s in steps_run if str(s.get("run")) in window
+                       for e in raw_errors if in_window(e)],
+            "telegram_refused": [m.get("error") for m in telegram if m.get("ok") is False and in_window(m)],
+            "failed_steps": [f"run {s['run']} {s['name']}" for s in steps_run if in_window(s)
                              and s["code"] and not s.get("coe")],
-            "owner_messages": [{"t": m.get("t"), "step": m.get("step"), "text": (m.get("text") or "")[:240]}
+            "owner_messages": [{"t": m.get("t"), "step": m.get("step"), "run": m.get("run"),
+                                "text": (m.get("text") or "")[:240]}
                                for m in telegram if m.get("ok") and str(m.get("method", "")).startswith("send")
-                               and start <= str(m.get("t")) <= end + "~"],
+                               and in_window(m)],
             "next_run_clean": bool(after) and not any(s["code"] and not s.get("coe") for s in after),
         })
     return out

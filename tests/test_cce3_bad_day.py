@@ -245,5 +245,113 @@ class DamagedReadyPackTests(unittest.TestCase):
             self.assertEqual(product_pipeline.damaged_file(os.path.join(tmp, "notes.txt")), "")
 
 
+class HalfWrittenStateTests(unittest.TestCase):
+    """Sim: post_plan.json / status.json / dup_report.json cut in half by a killed run. Readers each said
+    'no plan' in their own way and the owner was never told."""
+
+    def _root(self, tmp):
+        import json
+        for rel in ("exported_content/marketing", "web/data"):
+            os.makedirs(os.path.join(tmp, rel))
+        good = json.dumps({"days": [{"day": 1, "posts": ["a", "b"]}], "week": "2026-W47"}, indent=2)
+        with open(os.path.join(tmp, "exported_content", "post_plan.json"), "w", encoding="utf-8") as handle:
+            handle.write(good[: len(good) // 2])                       # half written
+        with open(os.path.join(tmp, "web", "data", "status.json"), "w", encoding="utf-8") as handle:
+            handle.write(good)                                         # complete
+        with open(os.path.join(tmp, "exported_content", "marketing", "dup_report.json"), "w") as handle:
+            handle.write("")                                           # killed before the first byte
+        return tmp
+
+    def test_half_written_files_are_removed_and_owner_gets_one_line(self):
+        import state_guard
+        with tempfile.TemporaryDirectory() as tmp:
+            root, sent = self._root(tmp), []
+            removed = state_guard.check_state_files(root=root, send=lambda text: sent.append(text) or True)
+            self.assertEqual(sorted(removed), ["dup_report.json", "post_plan.json"])
+            self.assertEqual(len(sent), 1)
+            self.assertIn("sagam matrame raasi undi", sent[0])
+            self.assertIn("post_plan.json", sent[0])
+            self.assertIn("dup_report.json", sent[0])
+            self.assertNotIn("status.json", sent[0])
+            self.assertFalse(os.path.exists(os.path.join(root, "exported_content", "post_plan.json")))
+            self.assertTrue(os.path.exists(os.path.join(root, "web", "data", "status.json")))   # good file kept
+            self.assertEqual(state_guard.check_state_files(root=root, send=sent.append), [])    # next run: quiet
+            self.assertEqual(len(sent), 1)
+
+    def test_missing_and_good_files_are_not_touched(self):
+        import state_guard
+        with tempfile.TemporaryDirectory() as tmp:
+            sent = []
+            self.assertEqual(state_guard.check_state_files(root=tmp, send=sent.append), [])
+            self.assertEqual(sent, [])
+            self.assertFalse(state_guard.damaged_json(os.path.join(tmp, "nothing.json")))
+
+    def test_the_real_state_files_of_the_repo_are_never_removed_by_a_test_run(self):
+        import state_guard
+        for rel in state_guard.STATE_FILES:
+            path = state_guard.ROOT / rel
+            if path.exists():
+                self.assertFalse(state_guard.damaged_json(path), rel)
+
+    def test_cloud_runner_calls_the_guard_and_survives_its_crash(self):
+        import cloud_runner
+        import state_guard
+        with mock.patch.object(state_guard, "run", side_effect=RuntimeError("boom")) as guard, \
+                mock.patch.object(cloud_runner.export_status, "purge_simulated", return_value=0), \
+                mock.patch.object(cloud_runner.export_status, "write_status"), \
+                mock.patch("qa_checklist.rescore_old_reviews", return_value=0), \
+                mock.patch.object(cloud_runner.guardrails, "is_killed", return_value=True), \
+                mock.patch.object(cloud_runner, "_tell_owner_if_ai_down"):
+            self.assertEqual(cloud_runner.main()["status"], "killed")
+            guard.assert_called_once_with()
+
+
+class ClockJumpTests(unittest.TestCase):
+    """Sim: the clock jumped 2 days forward, later 3 hours back. Nothing crashed, but the owner got no line."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.db = os.path.join(self.tmp.name, "a.db")
+        self.sent = []
+        self.t0 = 1794830700.0     # a fixed UTC time
+
+    def clock(self, now):
+        import state_guard
+        return state_guard.check_clock(db_path=self.db, now=now, send=lambda text: self.sent.append(text) or True)
+
+    def test_normal_runs_say_nothing(self):
+        for hour in range(0, 30):
+            self.assertIsNone(self.clock(self.t0 + hour * 3600))
+        self.assertIsNone(self.clock(self.t0 + 29 * 3600 - 120))      # small correction back: ignored
+        self.assertEqual(self.sent, [])
+
+    def test_jump_forward_gives_one_line_then_quiet(self):
+        self.clock(self.t0)
+        self.assertEqual(self.clock(self.t0 + 2 * 86400 + 3600), "gap")
+        self.assertIsNone(self.clock(self.t0 + 2 * 86400 + 7200))
+        self.assertEqual(len(self.sent), 1)
+        self.assertIn("2 roju(lu) run avvaledu", self.sent[0])
+
+    def test_jump_back_gives_one_line_then_quiet(self):
+        self.clock(self.t0)
+        self.assertEqual(self.clock(self.t0 - 3 * 3600), "back")
+        self.assertIsNone(self.clock(self.t0 - 2 * 3600))
+        self.assertEqual(len(self.sent), 1)
+        self.assertIn("clock venakki velindi (sumaru 3 ganta(lu))", self.sent[0])
+
+    def test_run_never_raises_and_bad_stored_value_is_reset(self):
+        import state_guard
+        conn = guardrails.connect(self.db)
+        conn.execute("CREATE TABLE IF NOT EXISTS telegram_state (key TEXT PRIMARY KEY, value TEXT)")
+        conn.execute("INSERT INTO telegram_state VALUES (?, 'half-writ')", (state_guard.CLOCK_KEY,))
+        conn.commit()
+        conn.close()
+        self.assertIsNone(self.clock(self.t0))
+        with mock.patch.object(state_guard, "check_clock", side_effect=sqlite3.OperationalError("locked")), \
+                mock.patch.object(state_guard, "check_state_files", side_effect=OSError("io")):
+            self.assertEqual(state_guard.run(db_path=self.db, root=self.tmp.name), {"removed": [], "clock": None})
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -81,6 +81,7 @@ def _save(name, data):
 
 def _append(name, record):
     try:
+        record.setdefault("run", RUN)   # clock jumps make times repeat: reports group by run number
         with open(_path(name), "a", encoding="utf-8") as handle:
             handle.write(json.dumps(record, default=str) + "\n")
     except OSError:
