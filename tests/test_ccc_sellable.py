@@ -95,5 +95,50 @@ class HabitTrackerTests(unittest.TestCase):
         self.assertFalse([p for p in verdict["problems"] if "empty" in p], verdict["problems"])
 
 
+@unittest.skipUnless(HAS_PIL, "needs Pillow")
+class RecipeBookTests(unittest.TestCase):
+    SPEC = {"kind": "recipe_book", "title": "Everyday Recipe Book", "short_name": "recipe-book"}
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory(prefix="ccc_recipe_")
+        cls.addClassCleanup(cls.tmp.cleanup)
+        cls.folder = build_folder("builder_recipe", cls.SPEC, cls.tmp.name)
+
+    def test_both_paper_sizes_have_standard_names(self):
+        names = sorted(p.name for p in self.folder.glob("*.pdf"))
+        self.assertEqual(names, ["recipe-book-A4.pdf", "recipe-book-Letter.pdf"])
+
+    def test_no_empty_page_problems(self):
+        self.assertEqual(page_problems(self.folder), [])
+
+    def test_title_page_indexes_every_recipe_card(self):
+        import builder_recipe
+        norm = builder_recipe.normalize_spec(self.SPEC)
+        for end in ("-A4.pdf", "-Letter.pdf"):
+            texts, page = page_texts(self.folder, 1, end)
+            self.assertIn("Recipe index", texts)
+            for number, recipe in enumerate(norm["recipes"], 1):
+                self.assertIn(f"{number:02d}", texts)
+                self.assertIn(recipe["title"], texts)
+                self.assertIn(recipe["prep"], texts)
+            self.assertLess(page["low"], 0.35 * 842)
+
+    def test_index_names_match_the_cards(self):
+        facts = truth_check.facts(str(self.folder))
+        card_titles = set(facts["headings"])
+        import builder_recipe
+        for recipe in builder_recipe.normalize_spec(self.SPEC)["recipes"]:
+            self.assertIn(recipe["title"], card_titles)
+
+    def test_twelve_recipes_still_fit_the_index(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            recipes = [{"title": f"Recipe Number {n}", "category": "Mains"} for n in range(1, 13)]
+            folder = build_folder("builder_recipe", dict(self.SPEC, recipes=recipes), tmp)
+            texts, _page = page_texts(folder, 1)
+            self.assertIn("Recipe Number 12", texts)
+            self.assertEqual(page_problems(folder), [])
+
+
 if __name__ == "__main__":
     unittest.main()

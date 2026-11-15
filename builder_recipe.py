@@ -259,13 +259,46 @@ def _heading(pdf: Any, text: str, subtitle: str = "") -> None:
 
 def _title_page(pdf: Any, norm: Dict[str, Any]) -> None:
     lines, size = pdf_design.fit_text(norm["title"], 30, pdf.w - 2 * pdf_design.MARGIN, bold=True, max_lines=3, min_size=16)
-    y = pdf.h / 2 + 90
+    y = pdf.h * 0.80
     for line in lines:
         pdf.text_center(pdf.w / 2, y, line, size, bold=True, color="#2d2621")
         y -= size * 1.25
     pdf.text_center(pdf.w / 2, y - 10, f"{norm['cuisine'].title()} recipe collection · {len(norm['recipes'])} cards", 16, color="#a35c3a")
     pdf.text_center(pdf.w / 2, y - 40, "Recipe cards · Weekly meal plan · Grocery list by aisle · Pantry inventory", 10, color="#7b6b5f")
     pdf.line(pdf.w / 2 - 90, y - 68, pdf.w / 2 + 90, y - 68, color="#a35c3a", width=1.2)
+    _recipe_index(pdf, norm, y - 96)
+
+
+INDEX_ROWS = 14            # recipe rows plus blank write-in rows for the buyer's own recipes
+INDEX_COLUMNS = [("No.", 0.08), ("Recipe", 0.44), ("Category", 0.22), ("Diet", 0.12), ("Prep", 0.14)]
+
+
+def _recipe_index(pdf: Any, norm: Dict[str, Any], top: float) -> None:
+    """Title page: an index of every recipe card (number, name, category, diet, prep time), then
+    blank rows so the buyer can index recipes they add later. Reaches down to the bottom margin."""
+    left = pdf_design.MARGIN
+    right = pdf.w - pdf_design.MARGIN
+    bottom = 72
+    pdf.text(left, top, "Recipe index", 12, bold=True, color="#a35c3a")
+    head_y = top - 22
+    x = left
+    for header, width in INDEX_COLUMNS:
+        pdf.text(x + 4, head_y, header, 8, bold=True, color="#7b6b5f")
+        x += (right - left) * width
+    table_top = head_y - 6
+    rows = max(INDEX_ROWS, len(norm["recipes"]))
+    row_h = (table_top - bottom) / rows
+    for r in range(rows):
+        y = table_top - (r + 1) * row_h
+        pdf.line(left, y, right, y, color="#e3d5c8", width=0.5)
+        if r < len(norm["recipes"]):
+            recipe = norm["recipes"][r]
+            values = [f"{r + 1:02d}", recipe["title"][:40], recipe["category"][:22], recipe["diet"], recipe["prep"][:10]]
+            x = left
+            for value, (_header, width) in zip(values, INDEX_COLUMNS):
+                pdf.text(x + 4, y + row_h / 2 - 3, value, 8, color="#2d2621")
+                x += (right - left) * width
+    pdf.line(left, table_top, right, table_top, color="#a35c3a", width=0.8)
 
 
 def _recipe_card(pdf: Any, x: float, y: float, w: float, h: float, recipe: Dict[str, Any], number: int) -> None:
