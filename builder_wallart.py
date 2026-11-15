@@ -726,6 +726,172 @@ def build_combined_pdf(a4_image_paths: List[Path], output_pdf_path: Path, title:
     )
 
 
+# --- CCC-7: vector print PDFs (A4 + US Letter) ---
+# Pillow's combined PDF holds each design as one picture. Checkers (and PDF tools) see no text or drawing
+# on those pages. For a sellable pack the same designs are drawn as real vector art: full-bleed
+# background, the motif as shapes, the quote and subtitle as text. Sharp at any print size.
+
+def _pdf_wrap(text: str, size: float, width: float, bold: bool) -> List[str]:
+    import pdf_design
+    lines: List[str] = []
+    line = ""
+    for word in text.split():
+        trial = f"{line} {word}".strip()
+        if line and pdf_design.text_width(trial, size, bold) > width:
+            lines.append(line)
+            line = word
+        else:
+            line = trial
+    if line:
+        lines.append(line)
+    for i in range(len(lines) - 1):          # a 1-2 letter word never ends a line
+        head, _, last = lines[i].rpartition(" ")
+        if head and len(last) <= 2:
+            lines[i], lines[i + 1] = head, f"{last} {lines[i + 1]}"
+    return lines
+
+
+def _pdf_fit(text: str, max_w: float, max_h: float, target: float, min_size: float, bold: bool,
+             max_lines: int) -> Tuple[List[str], float, float]:
+    size = target
+    while True:
+        lines = _pdf_wrap(text, size, max_w, bold)
+        line_h = size * 1.22
+        if (len(lines) <= max_lines and len(lines) * line_h <= max_h) or size <= min_size:
+            return lines, size, line_h
+        size -= 1
+
+
+def _pdf_poly(pdf: Any, points: List[Tuple[float, float]], fill: Optional[str], stroke: Optional[str],
+              width: float) -> None:
+    path = " ".join(f"{x:.1f} {y:.1f} {'m' if i == 0 else 'l'}" for i, (x, y) in enumerate(points)) + " h"
+    pdf._paint(path, fill, stroke, width)
+
+
+def _pdf_motif(pdf: Any, motif: str, cx: float, cy: float, area_w: float, area_h: float,
+               accent: str, light: str, line_w: float) -> None:
+    if motif == "arch":
+        aw = min(area_w * 0.45, area_h * 0.62)
+        ah = aw * 1.3
+        x0, y0 = cx - aw / 2, cy - ah / 2
+        r = aw / 2
+        pts = [(x0, y0), (x0 + aw, y0), (x0 + aw, y0 + ah - r)]
+        pts += [(cx + r * math.cos(math.pi * k / 24), y0 + ah - r + r * math.sin(math.pi * k / 24)) for k in range(1, 24)]
+        pts += [(x0, y0 + ah - r)]
+        _pdf_poly(pdf, pts, light, accent, line_w)
+    elif motif == "sunburst":
+        r = min(area_w * 0.28, area_h * 0.45)
+        base = cy - r * 0.35
+        sun = [(cx + r * 0.32 * math.cos(math.pi * k / 24), base + r * 0.32 * math.sin(math.pi * k / 24))
+               for k in range(25)]
+        _pdf_poly(pdf, sun, light, accent, line_w)              # half sun on the horizon
+        for k in range(13):
+            angle = math.pi * k / 12
+            pdf.line(cx + r * 0.45 * math.cos(angle), base + r * 0.45 * math.sin(angle),
+                     cx + r * math.cos(angle), base + r * math.sin(angle), color=accent, width=line_w)
+        pdf.line(cx - r * 1.1, base, cx + r * 1.1, base, color=accent, width=line_w)
+    elif motif == "minimal_frame":
+        bw = min(area_w * 0.55, area_h * 0.9)
+        bh = bw * 0.75
+        x0, y0 = cx - bw / 2, cy - bh / 2
+        pdf.rect(x0, y0, bw, bh, color=accent, width=line_w)
+        tick = bw * 0.12
+        for (px, py, dx, dy) in ((x0, y0, 1, 1), (x0 + bw, y0, -1, 1), (x0, y0 + bh, 1, -1), (x0 + bw, y0 + bh, -1, -1)):
+            pdf.line(px - dx * 6, py, px + dx * tick, py, color=accent, width=line_w * 2)
+            pdf.line(px, py - dy * 6, px, py + dy * tick, color=accent, width=line_w * 2)
+        pdf.fill(x0 + bw * 0.3, y0 + bh * 0.3, bw * 0.4, bh * 0.4, light)
+    elif motif == "botanical_leaves":
+        stem_h = area_h * 0.85
+        bottom, top = cy - stem_h / 2, cy + stem_h / 2
+        pdf.line(cx, bottom, cx, top, color=accent, width=line_w)
+        for k in range(6):
+            ly = bottom + stem_h * (0.18 + 0.13 * k)
+            side = -1 if k % 2 == 0 else 1
+            length = stem_h * (0.26 - 0.02 * k)
+            angle = math.radians(35) * side
+            leaf = []
+            for t in range(24):
+                a = 2 * math.pi * t / 24
+                lx, ly2 = (length / 2) * (1 + math.cos(a)), (length * 0.18) * math.sin(a)
+                rx = lx * math.cos(angle) * side - ly2 * math.sin(angle)
+                ry = lx * math.sin(abs(angle)) + ly2 * math.cos(angle)
+                leaf.append((cx + rx, ly + ry))
+            _pdf_poly(pdf, leaf, light, accent, line_w * 0.8)
+        pdf.circle(cx, top, line_w * 2.2, fill=accent)
+    elif motif == "rings":
+        max_r = min(area_w * 0.25, area_h * 0.42)
+        for frac in (0.35, 0.65, 1.0):
+            pdf.circle(cx, cy, max_r * frac, stroke=accent, width=line_w)
+        pdf.circle(cx, cy, max_r * 0.12, fill=accent)
+    else:
+        pdf.line(cx - area_w * 0.2, cy, cx + area_w * 0.2, cy, color=accent, width=line_w)
+
+
+def render_art_pdf_page(pdf: Any, design_info: Dict[str, str], palette: Dict[str, str],
+                        design_index: int, total_designs: int) -> None:
+    """One full-bleed vector art page (same layout as render_art_design)."""
+    w, h = pdf.w, pdf.h
+    margin_x, margin_y = w * 0.08, h * 0.09
+    safe_w, safe_h = w - 2 * margin_x, h - 2 * margin_y
+    bg = palette.get("background", "#FDFBF7")
+    primary = ensure_contrast(palette.get("primary", "#1A1A1A"), bg, 4.5)
+    accent = palette.get("accent", "#C47659")
+    secondary = ensure_contrast(palette.get("secondary", "#3B3330"), bg, 4.5)
+    light = palette.get("light_accent", "#F2E6DC")
+    line_w = 1.6
+
+    pdf.fill(0, 0, w, h, bg)                                    # full bleed
+    top = h - margin_y
+    motif_h = safe_h * 0.38
+    _pdf_motif(pdf, design_info.get("motif", "arch"), w / 2, top - motif_h / 2, safe_w, motif_h,
+               accent, light, line_w)
+    divider_y = top - motif_h - 8
+    pdf.line(w / 2 - safe_w * 0.075, divider_y, w / 2 + safe_w * 0.075, divider_y, color=accent, width=1.2)
+
+    quote = design_info.get("quote", "BREATHE IN PEACE").upper()
+    quote_top = divider_y - 20
+    quote_h = safe_h * 0.36
+    lines, size, line_h = _pdf_fit(quote, safe_w, quote_h, 46, 18, True, 5)
+    block = len(lines) * line_h
+    y = quote_top - max(0.0, (quote_h - block) / 2) - size
+    for line in lines:
+        pdf.text_center(w / 2, y, line, size, bold=True, color=primary, spacing=1.2)
+        y -= line_h
+
+    subtitle = design_info.get("sub", "").strip()
+    if subtitle:
+        sub_lines, sub_size, sub_h = _pdf_fit(subtitle, safe_w * 0.85, safe_h * 0.12, 13, 8, False, 3)
+        y -= 10
+        for line in sub_lines:
+            pdf.text_center(w / 2, y, line, sub_size, color=secondary)
+            y -= sub_h
+
+    edition = f"ART PRINT NO. {design_index:02d} / {total_designs:02d}  ·  CHILLI GAVVA ART COLLECTION"
+    pdf.text_center(w / 2, margin_y + 6, edition, 7.5, color=secondary, spacing=0.6)
+    tick = 10
+    for x, y0, dx, dy in ((margin_x, margin_y, 1, 1), (w - margin_x, margin_y, -1, 1),
+                          (margin_x, h - margin_y, 1, -1), (w - margin_x, h - margin_y, -1, -1)):
+        pdf.line(x, y0, x + dx * tick, y0, color=light, width=0.8)
+        pdf.line(x, y0, x, y0 + dy * tick, color=light, width=0.8)
+
+
+def build_vector_pdf(path: Path, size: str, designs: List[Dict[str, str]], palette: Dict[str, str],
+                     title: str) -> int:
+    """The print-ready PDF of the whole set, one full-bleed design per page. Returns the page count."""
+    import pdf_design
+    pdf = pdf_design.Pdf(size)
+    for index, design in enumerate(designs, 1):
+        pdf.new_page()
+        render_art_pdf_page(pdf, design, palette, index, len(designs))
+    pdf.save(str(path), title=title)
+    return len(pdf.pages)
+
+
+def pack_base_name(spec: Dict[str, Any]) -> str:
+    raw = str(spec.get("short_name") or "wall-art").lower()
+    return re.sub(r"[^a-z0-9-]+", "-", raw).strip("-") or "wall-art"
+
+
 # --- Spec Normalization ---
 
 def normalize_spec(spec: Dict[str, Any]) -> Tuple[str, List[Dict[str, str]], Dict[str, str], str]:
@@ -840,14 +1006,32 @@ def build(spec: Dict[str, Any], out_dir: Union[str, Path]) -> Dict[str, Any]:
                 if size_key == "a4":
                     a4_files.append(target_file)
 
-        # 2. Generate combined PDF of A4 versions
-        pdf_name = "wall_art_set_a4_collection.pdf"
-        pdf_path = temp_dir / pdf_name
-        build_combined_pdf(a4_files, pdf_path, title=title)
-        generated_files.append(pdf_path)
+        # 2. PDF. A sellable pack (Product Builder spec, kind = wall_art) gets vector print PDFs in A4
+        #    and US Letter (CCC-7); a bare build keeps the Pillow A4 collection PDF.
+        pack_mode = str(spec.get("kind") or "").lower() == FORMAT
+        if pack_mode:
+            base = pack_base_name(spec)
+            for size in ("A4", "Letter"):
+                vector_path = temp_dir / f"{base}-{size}.pdf"
+                build_vector_pdf(vector_path, size, designs, palette, title)
+                generated_files.append(vector_path)
+            pdf_name = f"{base}-A4.pdf"
+        else:
+            pdf_name = "wall_art_set_a4_collection.pdf"
+            pdf_path = temp_dir / pdf_name
+            build_combined_pdf(a4_files, pdf_path, title=title)
+            generated_files.append(pdf_path)
 
         # 3. Generate PRINTING.txt guide
         printing_text = generate_printing_guide(spec, designs_count=total_designs, palette_name=palette["name"])
+        if pack_mode:
+            printing_text = printing_text.replace(
+                f"  * Combined PDF:        A single multi-page PDF document containing all {total_designs}\n"
+                f"                         designs formatted to A4 size for quick home printing.",
+                f"  * Print PDFs:          {base}-A4.pdf and {base}-Letter.pdf, one full-bleed design\n"
+                f"                         per page ({total_designs} pages), vector art for home printing.").replace(
+                "Use the combined PDF or individual A4 / 8x10 PNG files.",
+                "Use the A4 or US Letter PDF, or the individual A4 / 8x10 PNG files.")
         printing_path = temp_dir / "PRINTING.txt"
         with open(printing_path, "w", encoding="utf-8") as f:
             f.write(printing_text)

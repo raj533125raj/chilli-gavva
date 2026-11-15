@@ -501,11 +501,6 @@ class TestOcc1StudyPlanner(SellFlowMixin, unittest.TestCase):
 class TestOcc1WallArt(SellFlowMixin, unittest.TestCase):
     KIND = "wall_art"
 
-    @unittest.expectedFailure
-    def test_7_tg_sell_reaches_sellable_or_almost(self):
-        """Real gap: truth_check flags empty wall-art PDF pages and deep QA scores it zero."""
-        super().test_7_tg_sell_reaches_sellable_or_almost()
-
 
 if __name__ == "__main__":
     unittest.main()

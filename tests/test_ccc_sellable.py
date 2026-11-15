@@ -413,5 +413,79 @@ class EmailSignatureTests(unittest.TestCase):
             self.assertGreaterEqual(len(verdict["proven"]), truth_check.EXTRA_PROOF_PROMISES)
 
 
+@unittest.skipUnless(HAS_PIL, "needs Pillow")
+class WallArtTests(unittest.TestCase):
+    SPEC = {"kind": "wall_art", "title": "Mindful Wall Art Set", "short_name": "wall-art"}
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory(prefix="ccc_wall_")
+        cls.addClassCleanup(cls.tmp.cleanup)
+        cls.folder = build_folder("builder_wallart", cls.SPEC, cls.tmp.name)
+
+    def test_pack_has_vector_pdfs_in_a4_and_letter(self):
+        names = sorted(p.name for p in self.folder.glob("*.pdf"))
+        self.assertEqual(names, ["wall-art-A4.pdf", "wall-art-Letter.pdf"])
+        facts = truth_check.facts(str(self.folder))
+        self.assertEqual(facts["pages"], 3)
+        self.assertEqual(page_problems(self.folder), [])
+
+    def test_every_page_is_full_bleed_art_with_the_quote(self):
+        import builder_wallart as bw
+        _title, designs, palette, _key = bw.normalize_spec(self.SPEC)
+        for end, (w, h) in (("-A4.pdf", (595.3, 841.9)), ("-Letter.pdf", (612.0, 792.0))):
+            for number, design in enumerate(designs, 1):
+                texts, page = page_texts(self.folder, number, end)
+                joined = " ".join(texts)
+                for word in design["quote"].upper().split():
+                    self.assertIn(word, joined)
+                self.assertIn(f"ART PRINT NO. {number:02d} / {len(designs):02d}", joined)
+                self.assertIn(f"0.0 0.0 {w:.1f} {h:.1f} re f", stream_ops(self.folder, number, end))
+                self.assertGreaterEqual(page["drawn"], 4)
+
+    def test_deep_qa_passes_honestly(self):
+        import product_qa_deep
+        result = product_qa_deep.check_folder(str(self.folder))
+        self.assertGreaterEqual(result["score"], 60, result["problems"])
+        self.assertFalse([p for p in result["problems"] if p["kind"] == "blank_page"])
+
+    def test_all_png_sizes_still_there(self):
+        import builder_wallart as bw
+        for design in range(1, 4):
+            for size in bw.PRINT_SIZES:
+                self.assertTrue((self.folder / f"art_{design:02d}_{size}.png").is_file())
+
+    def test_printing_guide_names_the_real_pdfs(self):
+        text = (self.folder / "PRINTING.txt").read_text(encoding="utf-8")
+        self.assertIn("wall-art-A4.pdf and wall-art-Letter.pdf", text)
+        self.assertNotIn("Combined PDF", text)
+
+    def test_bare_build_keeps_the_old_17_files(self):
+        import builder_wallart as bw
+        with tempfile.TemporaryDirectory() as tmp:
+            result = bw.build({"title": "Bare", "count": 3}, tmp)
+            self.assertEqual(result["total_files"], 17)
+            self.assertTrue(os.path.isfile(os.path.join(tmp, "wall_art_set_a4_collection.pdf")))
+
+    def test_every_motif_and_six_designs_stay_clean(self):
+        import builder_wallart as bw
+        with tempfile.TemporaryDirectory() as tmp:
+            bw.build(dict(self.SPEC, count=6, palette="sage", theme="modern_focus"), tmp)
+            facts = truth_check.facts(tmp)
+            self.assertEqual(facts["pages"], 6)
+            self.assertEqual(truth_check.file_quality(facts), [])
+
+    def test_readme_lists_file_names_not_paths(self):
+        import product_builder as pb
+        with tempfile.TemporaryDirectory() as tmp:
+            spec = dict(self.SPEC, name="Wall Art", cover_image_idea="Prints", instructions=["Print."],
+                        listing={"title": "Wall Art", "buyer": "adults", "platform": "Gumroad",
+                                 "tags": ["wall art"], "description": "Three prints."})
+            folder = Path(tmp) / pb.build_product(spec, 9, out_dir=tmp)
+            readme = (folder / "README.md").read_text(encoding="utf-8")
+            self.assertIn("- `wall-art-A4.pdf`", readme)
+            self.assertNotIn(tmp, readme)
+
+
 if __name__ == "__main__":
     unittest.main()

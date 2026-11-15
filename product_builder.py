@@ -1307,7 +1307,8 @@ def get_builder_dispatch(kind: str):
                 res = reg_build(spec, folder)
                 created_files = res if isinstance(res, (list, tuple)) else []
                 if isinstance(res, dict) and isinstance(res.get("files"), (list, tuple)):
-                    created_files = list(res["files"])        # builders that return a manifest
+                    # builders that return a manifest (some list full paths: keep the file names only)
+                    created_files = [os.path.basename(str(name)) for name in res["files"]]
                 instructions = spec.get("instructions", [])
                 how_to = instructions if isinstance(instructions, list) else [str(instructions)]
                 renamed = standard_pdf_names(folder, spec)
