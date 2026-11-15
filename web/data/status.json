@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-15T22:55:17Z",
+ "generated_at": "2026-11-15T23:35:36Z",
  "llm": {
   "calls_today": 55,
   "cap": 500
@@ -384,7 +384,7 @@
    {
     "name": "QA Checker",
     "team": "Quality Assurance Department",
-    "activity": "idle"
+    "activity": "off_duty"
    },
    {
     "name": "Review Worker",
@@ -433,35 +433,35 @@
    "model": "openai/gpt-oss-20b",
    "state": "down",
    "reason": "Provider request rate exceeded",
-   "checked_at": "2026-11-15T22:55:17Z"
+   "checked_at": "2026-11-15T23:35:36Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-15T22:55:17Z"
+   "checked_at": "2026-11-15T23:35:36Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-15T22:55:17Z"
+   "checked_at": "2026-11-15T23:35:36Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-15T22:55:17Z"
+   "checked_at": "2026-11-15T23:35:36Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-15T22:55:17Z"
+   "checked_at": "2026-11-15T23:35:36Z"
   }
  ],
  "minutes": {
@@ -840,23 +840,23 @@
    "done": 0
   },
   "research": {
-   "plan": 2,
+   "plan": 4,
    "done": 3
   },
   "drafts": {
-   "plan": 2,
+   "plan": 3,
    "done": 5
   },
   "review": {
-   "plan": 2,
+   "plan": 3,
    "done": 5
   },
   "product_builds": {
-   "plan": 1,
+   "plan": 2,
    "done": 0
   },
   "promotion": {
-   "plan": 1,
+   "plan": 2,
    "done": 0
   }
  },
@@ -2410,12 +2410,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-15T22:52:48Z",
-  "last_run_end": "2026-11-15T22:55:17Z",
+  "last_run_start": "2026-11-15T23:35:35Z",
+  "last_run_end": "2026-11-15T23:35:36Z",
   "runner": "github-actions",
-  "run_id": "43771637919"
+  "run_id": "43774957146"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "Lead fix: robot code imports on the Mac's Python 3.9 too",
   "Lead fix: /upload zips every listed buyer file; owner-journey tests follow sellable types",
@@ -2434,8 +2435,7 @@
   "CCC-10 Sell proof for all 12: real path build -> truth check -> upload pack -> /sell",
   "CCC-8 Premium look: every product PDF is drawn in the pack's theme, images follow the PDF",
   "CCC-7 Wall art sellable: full-bleed vector art PDFs in A4 and US Letter",
-  "CCC-6 Email signature sellable: printable install guide the checker can prove, honest file list",
-  "CCC-5 Flashcards sellable: real multi-page decks in A4 and US Letter"
+  "CCC-6 Email signature sellable: printable install guide the checker can prove, honest file list"
  ],
  "daily_report": {
   "date_ist": "2026-11-16",
