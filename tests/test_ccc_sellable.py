@@ -194,5 +194,68 @@ class StudyPlannerTests(unittest.TestCase):
             self.assertEqual(page_problems(folder), [])
 
 
+def stream_ops(folder, number, name_end="-A4.pdf"):
+    """The raw drawing operators of one PDF page (to check fills, not only outlines)."""
+    import re
+    pdf = next(p for p in sorted(Path(folder).glob("*.pdf")) if p.name.endswith(name_end))
+    data = pdf.read_bytes().decode("latin-1")
+    return re.findall(r"stream\n(.*?)\nendstream", data, re.S)[number - 1]
+
+
+@unittest.skipUnless(HAS_PIL, "needs Pillow")
+class EventPlannerTests(unittest.TestCase):
+    SPEC = {"kind": "event_planner", "title": "Wedding Planner", "short_name": "wedding-planner",
+            "event_type": "wedding", "edition": "indian"}
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory(prefix="ccc_event_")
+        cls.addClassCleanup(cls.tmp.cleanup)
+        cls.folder = build_folder("builder_eventplanner", cls.SPEC, cls.tmp.name)
+
+    def test_no_empty_page_problems_in_either_size(self):
+        self.assertEqual(page_problems(self.folder), [])
+        for end, height in (("-A4.pdf", 842), ("-Letter.pdf", 792)):
+            pdf = next(p for p in self.folder.glob("*.pdf") if p.name.endswith(end))
+            for number, page in enumerate(truth_check._pdf_pages(str(pdf)), 1):
+                self.assertLess(page["low"], 0.35 * height, f"{end} page {number}")
+
+    def test_countdown_has_writing_lines_for_every_window(self):
+        import builder_eventplanner
+        texts, page = page_texts(self.folder, 3)
+        milestones = builder_eventplanner.compute_countdown_milestones(None)
+        for m in milestones:
+            self.assertIn(m["window"], texts)
+        # one checkbox per milestone plus at least one tick box + line per milestone for own tasks
+        self.assertGreaterEqual(page["drawn"], len(milestones) * 4)
+
+    def test_schedule_has_blank_rows_to_the_margin(self):
+        texts, page = page_texts(self.folder, 9)
+        self.assertIn("06:00 AM", texts)
+        self.assertIn("11:30 PM", texts)
+        self.assertGreaterEqual(texts.count("__:__"), 5)
+
+    def test_table_headers_are_filled_so_white_names_show(self):
+        ops = stream_ops(self.folder, 9)
+        texts, _page = page_texts(self.folder, 9)
+        for name in ("Time Slot", "Activity / Program Segment", "Location / Area", "Lead Person / Coordinator"):
+            self.assertIn(name, texts)
+        self.assertRegex(ops, r"re f")                     # a real fill, not only an outline
+
+    def test_long_header_title_moves_subtitle_up(self):
+        texts, page = page_texts(self.folder, 10)
+        sub = [y for _f, _s, _x, y, t in page["items"] if t == "Pre-Wedding Traditions"]
+        title = [y for _f, _s, _x, y, t in page["items"] if t.startswith("Indian Wedding Celebrations")]
+        self.assertTrue(sub and title)
+        self.assertGreater(sub[0], title[0] + 10)
+
+    def test_ceremony_cards_have_notes_and_no_edge_text(self):
+        texts, page = page_texts(self.folder, 10)
+        self.assertEqual(texts.count("Notes:"), 3)
+        width = 595.28
+        for _font, size, x, _y, text in page["items"]:
+            self.assertLessEqual(x + len(text) * size * 0.5, width - 14.17, text)
+
+
 if __name__ == "__main__":
     unittest.main()

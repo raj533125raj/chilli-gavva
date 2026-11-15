@@ -299,7 +299,7 @@ class EventPlannerPdfBuilder:
         y_top = self.h - self.margin
         # Background accent bar
         self.pdf.round_rect(self.margin, y_top - 46, self.content_w, 46, 6, fill=self.c_bg_soft, stroke=self.c_line, width=0.8)
-        self.pdf.rect(self.margin, y_top - 46, 6, 46, color=self.c_primary)
+        self.pdf.fill(self.margin, y_top - 46, 6, 46, self.c_primary)
 
         # Header titles
         if category_badge:
@@ -309,15 +309,18 @@ class EventPlannerPdfBuilder:
             self.pdf.text(self.margin + 16, y_top - 28, title, size=16, bold=True, color=self.c_primary)
 
         if subtitle:
-            self.pdf.text_right(self.w - self.margin - 16, y_top - 28, subtitle, size=9, bold=False, color=self.c_muted)
+            # A long title would run into the subtitle: then the subtitle moves up to the badge line.
+            room = self.content_w - 48 - pdf_design.text_width(title, 15, True)
+            sub_y = y_top - 28 if pdf_design.text_width(subtitle, 9) <= room else y_top - 15
+            self.pdf.text_right(self.w - self.margin - 16, sub_y, subtitle, size=9, bold=False, color=self.c_muted)
 
         # Date & Page rule
         self.pdf.line(self.margin, y_top - 54, self.w - self.margin, y_top - 54, color=self.c_line, width=0.6)
         return y_top - 68
 
     def _draw_table_header(self, y: float, columns: List[Tuple[str, float]], height: float = 22.0) -> float:
-        """Draws filled table column header row."""
-        self.pdf.rect(self.margin, y - height, self.content_w, height, color=self.c_primary)
+        """Draws filled table column header row (white names on the primary colour)."""
+        self.pdf.fill(self.margin, y - height, self.content_w, height, self.c_primary)
         curr_x = self.margin
         for col_name, col_w in columns:
             self.pdf.text(curr_x + 8, y - height + 6, col_name, size=9, bold=True, color=(1.0, 1.0, 1.0))
@@ -331,7 +334,7 @@ class EventPlannerPdfBuilder:
                         cell_texts: Optional[List[str]] = None) -> float:
         """Draws a table row with subtle border and optional text."""
         if row_bg:
-            self.pdf.rect(self.margin, y - height, self.content_w, height, color=row_bg)
+            self.pdf.fill(self.margin, y - height, self.content_w, height, row_bg)
         self.pdf.rect(self.margin, y - height, self.content_w, height, color=self.c_line, width=0.5)
 
         curr_x = self.margin
@@ -507,6 +510,10 @@ class EventPlannerPdfBuilder:
 
         milestones = compute_countdown_milestones(self.spec["event_date"])
         row_h = 42.0
+        # CCC-4: the milestones share the whole page down to the bottom margin; the extra room in each
+        # block holds writing lines for the buyer's own tasks in that window.
+        pitch = max(row_h + 8, (y - (self.margin + 20)) / max(1, len(milestones)))
+        extra_lines = max(0, int((pitch - row_h - 8) // 16))
 
         for m in milestones:
             # Checkbox
@@ -522,9 +529,16 @@ class EventPlannerPdfBuilder:
             # Focus description
             self.pdf.text(self.margin + 24, y - 32, m["focus"], size=8, bold=False, color=self.c_muted)
 
+            # My own tasks for this window: small tick box + writing line each
+            for n in range(extra_lines):
+                line_y = y - 32 - 16 * (n + 1)
+                self.pdf.rect(self.margin + 24, line_y - 1, 7, 7, color=self.c_line, width=0.5)
+                self.pdf.line(self.margin + 36, line_y - 1, self.w - self.margin - 10, line_y - 1, color=self.c_line, width=0.4)
+
             # Bottom separator line
-            self.pdf.line(self.margin, y - row_h, self.w - self.margin, y - row_h, color=self.c_line, width=0.4)
-            y -= (row_h + 8)
+            block = row_h + 16 * extra_lines
+            self.pdf.line(self.margin, y - block, self.w - self.margin, y - block, color=self.c_line, width=0.4)
+            y -= pitch
 
     def render_guest_list(self, page_num: int = 1, total_pages: int = 2):
         """Pages 4-5: Guest List & RSVP Tracker with party counts and dietary notes."""
@@ -670,7 +684,7 @@ class EventPlannerPdfBuilder:
         # Summary Total Rows at bottom (Blank lines, no currency)
         y -= 6
         for label in ["TOTAL PLANNED VS ACTUAL", "NET VARIANCE"]:
-            self.pdf.rect(self.margin, y - 20, self.content_w, 20, color=self.c_bg_soft)
+            self.pdf.fill(self.margin, y - 20, self.content_w, 20, self.c_bg_soft)
             self.pdf.rect(self.margin, y - 20, self.content_w, 20, color=self.c_primary, width=0.6)
             self.pdf.text(self.margin + 12, y - 14, label, size=8.5, bold=True, color=self.c_primary)
             self.pdf.line(self.margin + col_cat + col_item, y - 20, self.margin + col_cat + col_item, y, color=self.c_primary, width=0.5)
@@ -780,6 +794,13 @@ class EventPlannerPdfBuilder:
             cell_texts = [t_slot, act, "", ""]
             y = self._draw_table_row(y, columns, height=21.0, row_bg=bg, cell_texts=cell_texts)
 
+        # CCC-4: blank rows down to the bottom margin for the family's own extra time slots
+        idx = len(schedule_slots)
+        while y - 21.0 >= self.margin + 20:
+            bg = self.c_bg_soft if (idx % 2 == 1) else None
+            y = self._draw_table_row(y, columns, height=21.0, row_bg=bg, cell_texts=["__:__", "", "", ""])
+            idx += 1
+
     def render_indian_wedding_ceremonies(self):
         """Page 10: Specific to Indian Weddings (Mehendi, Haldi, Sangeet).
 
@@ -794,19 +815,22 @@ class EventPlannerPdfBuilder:
             ("SANGEET / COCKTAIL NIGHT", "Musical performances, choreographed family dances, DJ night & celebratory feast"),
         ]
 
-        card_h = 175.0
+        # CCC-4: the three cards share the page down to the bottom margin; the room under the details
+        # holds lined notes for each ceremony.
+        card_h = max(175.0, (y - (self.margin + 20) - 2 * 12) / len(rituals))
         for title_rit, desc_rit in rituals:
             self.pdf.round_rect(self.margin, y - card_h, self.content_w, card_h, 6, fill=self.c_bg_soft, stroke=self.c_primary, width=0.8)
 
             # Header bar
             self.pdf.round_rect(self.margin, y - 24, self.content_w, 24, 6, fill=self.c_primary)
             self.pdf.text(self.margin + 12, y - 17, title_rit, size=9.5, bold=True, color=(1.0, 1.0, 1.0))
-            self.pdf.text_right(self.w - self.margin - 12, y - 17, desc_rit, size=7.5, bold=False, color=self.c_bg_soft)
+            # Description on its own line under the bar (it ran into the page edge on the right)
+            self.pdf.text(self.margin + 12, y - 38, desc_rit, size=7.5, bold=False, color=self.c_muted)
 
             # Left column: Details; Right column: Task checklist
             col_half = (self.content_w - 30) / 2.0
             lx = self.margin + 12
-            ly = y - 40
+            ly = y - 58
             self.pdf.text(lx, ly, "Date & Muhurtham / Time: _________________________", size=8, color=self.c_dark)
             ly -= 20
             self.pdf.text(lx, ly, "Venue / Location: _______________________________", size=8, color=self.c_dark)
@@ -819,7 +843,7 @@ class EventPlannerPdfBuilder:
 
             # Right column: Tasks
             rx = self.margin + col_half + 25
-            ry = y - 40
+            ry = y - 58
             tasks = [
                 "[ ] Playlist & sound system checked",
                 "[ ] Ritual materials / puja samagri ready",
@@ -830,6 +854,14 @@ class EventPlannerPdfBuilder:
             for t in tasks:
                 self.pdf.text(rx, ry, t, size=8, color=self.c_dark)
                 ry -= 20
+
+            notes_y = y - 158
+            if notes_y - 18 > y - card_h + 8:
+                self.pdf.text(lx, notes_y, "Notes:", size=8, bold=True, color=self.c_primary)
+                line_y = notes_y - 4
+                while line_y - 18 > y - card_h + 8:
+                    line_y -= 18
+                    self.pdf.line(lx, line_y, self.w - self.margin - 12, line_y, color=self.c_line, width=0.4)
 
             y -= (card_h + 12)
 

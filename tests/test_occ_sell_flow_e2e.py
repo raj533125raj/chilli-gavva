@@ -477,11 +477,6 @@ class TestOcc1DatedPlanner(SellFlowMixin, unittest.TestCase):
 class TestOcc1EventPlanner(SellFlowMixin, unittest.TestCase):
     KIND = "event_planner"
 
-    @unittest.expectedFailure
-    def test_7_tg_sell_reaches_sellable_or_almost(self):
-        """Real gap: truth_check finds empty bottom areas in the event planner PDF."""
-        super().test_7_tg_sell_reaches_sellable_or_almost()
-
 
 class TestOcc1Flashcards(SellFlowMixin, unittest.TestCase):
     KIND = "flashcards"
