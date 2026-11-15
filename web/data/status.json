@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-15T22:34:31Z",
+ "generated_at": "2026-11-15T22:55:17Z",
  "llm": {
-  "calls_today": 45,
+  "calls_today": 55,
   "cap": 500
  },
  "agents": [
@@ -68,7 +68,7 @@
     "review"
    ],
    "state": "idle",
-   "tasks_done": 64
+   "tasks_done": 66
   },
   {
    "name": "Review Worker",
@@ -90,27 +90,26 @@
   }
  ],
  "task_counts": {
-  "done": 184,
-  "queued": 2
+  "done": 186
  },
  "recent_tasks": [
   {
    "id": 186,
    "kind": "review",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0,
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1,
    "ts": "2026-11-15T22:34:31.274995",
-   "finished_ts": null
+   "finished_ts": "2026-11-15T22:55:16.983339"
   },
   {
    "id": 185,
    "kind": "review",
-   "status": "queued",
-   "agent": null,
-   "attempts": 0,
+   "status": "done",
+   "agent": "QA Checker",
+   "attempts": 1,
    "ts": "2026-11-15T22:31:04.182281",
-   "finished_ts": null
+   "finished_ts": "2026-11-15T22:53:57.670831"
   },
   {
    "id": 184,
@@ -305,7 +304,7 @@
    {
     "name": "Draft Worker",
     "team": "Content Department",
-    "activity": "idle"
+    "activity": "off_duty"
    },
    {
     "name": "CEO",
@@ -434,35 +433,35 @@
    "model": "openai/gpt-oss-20b",
    "state": "down",
    "reason": "Provider request rate exceeded",
-   "checked_at": "2026-11-15T22:34:31Z"
+   "checked_at": "2026-11-15T22:55:17Z"
   },
   {
    "provider": "Gemini",
-   "model": "gemini-flash-latest",
-   "state": "down",
-   "reason": "Provider request timed out",
-   "checked_at": "2026-11-15T22:34:31Z"
+   "model": "gemini-3.5-flash",
+   "state": "up",
+   "reason": "Latest request succeeded",
+   "checked_at": "2026-11-15T22:55:17Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
-   "state": "down",
-   "reason": "Provider request timed out",
-   "checked_at": "2026-11-15T22:34:31Z"
+   "state": "up",
+   "reason": "Latest request succeeded",
+   "checked_at": "2026-11-15T22:55:17Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-15T22:34:31Z"
+   "checked_at": "2026-11-15T22:55:17Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-15T22:34:31Z"
+   "checked_at": "2026-11-15T22:55:17Z"
   }
  ],
  "minutes": {
@@ -753,23 +752,23 @@
  "reject_reasons": [
   {
    "reason": "Formatting or rubric issue",
-   "count": 102
+   "count": 105
   },
   {
    "reason": "Risky or prohibited claim",
-   "count": 68
+   "count": 69
   },
   {
    "reason": "Target audience unclear",
-   "count": 54
+   "count": 58
   },
   {
    "reason": "Unclear value over free template",
-   "count": 54
+   "count": 57
   },
   {
    "reason": "Product structure incomplete",
-   "count": 41
+   "count": 42
   }
  ],
  "report": {
@@ -820,7 +819,7 @@
    "name": "QA Checker",
    "state": "off",
    "last_action": "Idle",
-   "last_seen": "2026-11-15T22:30:13.450320"
+   "last_seen": "2026-11-15T22:55:16.983339"
   },
   {
    "name": "Review Worker",
@@ -850,7 +849,7 @@
   },
   "review": {
    "plan": 2,
-   "done": 3
+   "done": 5
   },
   "product_builds": {
    "plan": 1,
@@ -885,63 +884,63 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 45,
+   "calls_used_today": 55,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 45,
+   "calls_used_today": 55,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 45,
+   "calls_used_today": 55,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 45,
+   "calls_used_today": 55,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 45,
+   "calls_used_today": 55,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 45,
+   "calls_used_today": 55,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 45,
+   "calls_used_today": 55,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 45,
+   "calls_used_today": 55,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 45,
+   "calls_used_today": 55,
    "calls_limit_today": 500,
    "context_percent": null
   }
@@ -1250,28 +1249,28 @@
  ],
  "activity_events": [
   {
+   "id": "task:186",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-11-15T22:55:16.983339Z"
+  },
+  {
+   "id": "task:185",
+   "agent": "QA Checker",
+   "label": "Task completed",
+   "at": "2026-11-15T22:53:57.670831Z"
+  },
+  {
    "id": "task:184",
    "agent": "Draft Worker",
    "label": "Task completed",
    "at": "2026-11-15T22:34:31.276552Z"
   },
   {
-   "id": "task:186",
-   "agent": "Unknown agent",
-   "label": "Task queued",
-   "at": "2026-11-15T22:34:31.274995Z"
-  },
-  {
    "id": "task:183",
    "agent": "Draft Worker",
    "label": "Task completed",
    "at": "2026-11-15T22:31:04.183842Z"
-  },
-  {
-   "id": "task:185",
-   "agent": "Unknown agent",
-   "label": "Task queued",
-   "at": "2026-11-15T22:31:04.182281Z"
   },
   {
    "id": "task:182",
@@ -2411,12 +2410,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-15T22:26:29Z",
-  "last_run_end": "2026-11-15T22:34:31Z",
+  "last_run_start": "2026-11-15T22:52:48Z",
+  "last_run_end": "2026-11-15T22:55:17Z",
   "runner": "github-actions",
-  "run_id": "43768602171"
+  "run_id": "43771637919"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "Lead fix: robot code imports on the Mac's Python 3.9 too",
   "Lead fix: /upload zips every listed buyer file; owner-journey tests follow sellable types",
   "CPD-2 Test Telegram upload flow",
@@ -2435,23 +2435,22 @@
   "CCC-8 Premium look: every product PDF is drawn in the pack's theme, images follow the PDF",
   "CCC-7 Wall art sellable: full-bleed vector art PDFs in A4 and US Letter",
   "CCC-6 Email signature sellable: printable install guide the checker can prove, honest file list",
-  "CCC-5 Flashcards sellable: real multi-page decks in A4 and US Letter",
-  "CCC-4 Event planner sellable: countdown and day-of pages reach the margin, table headers visible"
+  "CCC-5 Flashcards sellable: real multi-page decks in A4 and US Letter"
  ],
  "daily_report": {
   "date_ist": "2026-11-16",
-  "summary": "10 tasks completed; 0 approvals reviewed; 0 products built.",
+  "summary": "13 tasks completed; 0 approvals reviewed; 0 products built.",
   "items_done": [
+   "Review completed",
+   "Review completed",
+   "Revision completed",
    "Revision completed",
    "Review completed",
    "Review completed",
    "Review completed",
    "Draft completed",
    "Draft completed",
-   "Draft completed",
-   "Research completed",
-   "Research completed",
-   "Research completed"
+   "Draft completed"
   ]
  },
  "sunday_letter": null,
