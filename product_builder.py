@@ -1091,7 +1091,8 @@ def _listing_md(spec, facts=None):
         "## Cover image idea", "", spec["cover_image_idea"] or "A clean flat-lay of the product on a laptop screen.",
         "", "---", (spec.get("source_note") or f"Built by the Product Builder from approved draft #{spec['approval_id']}.")
         + " "
-        "Check the files, then upload them to the store yourself.", ""])
+        "Check the files, then upload them to the store yourself.",
+        *([f"{DESIGN_THEME_LABEL} {spec['design_theme']}."] if spec.get("design_theme") else []), ""])
     # Narrative, tags and file names can contain money too. Refuse rather than
     # silently changing the owner's text or emitting a priced listing.
     from upload_pack import _check_money
@@ -1265,9 +1266,10 @@ def build_product(spec, approval_id, out_dir=None, folder_name=None):
         f.write(LICENSE_TEXT)
     extra = ["listing.md", "cover_image_idea.txt", "LICENSE.txt"]
     try:  # listing images; a drawing problem never blocks the product files
-        import mockups
-        extra += mockups.write_mockups(folder, spec)
-        extra += mockups.write_pins(folder, spec)      # draft Pinterest pins, only when the spec lists them
+        theme = listing_theme(folder, spec)
+        if theme is not None:
+            spec["design_theme"] = theme["name"]       # written into listing.md so later re-draws match
+        extra += write_listing_images(folder, spec)    # cover, previews, pin, thumbnail in the pack's theme
     except Exception as exc:
         print(f"Product Builder: listing images skipped for #{approval_id}: {type(exc).__name__}", file=sys.stderr)
     with open(os.path.join(folder, "README.md"), "w", encoding="utf-8") as f:
@@ -1275,6 +1277,161 @@ def build_product(spec, approval_id, out_dir=None, folder_name=None):
     with open(os.path.join(folder, "listing.md"), "w", encoding="utf-8") as f:
         f.write(_listing_md(spec, facts=_delivery_facts(folder)))
     return folder_name
+
+
+# ---- CCB-1: listing images in the pack's own theme ---------------------------------------
+# Cover, previews, the Pinterest image and the thumbnail use the SAME pdf_themes theme as the PDF
+# (colours; the images keep the Inter font of mockups.py for every theme, the themes define no font).
+#   - A PDF written with a premium theme decides: the images follow the PDF, always.
+#   - A PDF in the old Style A / B keeps the matching old image colours (nothing changes).
+#   - No themed PDF (spreadsheet, resume, workspace template, builder formats): the theme of the spec,
+#     exactly as _build_planner picks it (spec theme -> niche default -> title hint -> Calm Sage).
+# mockups.py draws; when it has no real pages for a format (flashcards, wall art, email signature,
+# event planner), the same drawing functions are fed the product's REAL image files / PDF pages.
+DESIGN_THEME_LABEL = "Design theme:"
+LISTING_IMAGE_NAMES = ("cover.png", "preview-1.png", "preview-2.png", "preview-3.png", "pinterest.png", "thumbnail.png")
+KIND_LABELS = {"wall_art": "WALL ART PRINT SET", "flashcards": "PRINTABLE FLASHCARDS", "event_planner": "EVENT PLANNER",
+               "email_signature": "EMAIL SIGNATURE TEMPLATES", "habit_tracker": "HABIT TRACKER",
+               "study_planner": "STUDY PLANNER", "recipe_book": "RECIPE BOOK TEMPLATE"}
+
+
+def recorded_theme(folder):
+    """The theme name written into listing.md when the product was built, or None."""
+    try:
+        with open(os.path.join(folder, "listing.md"), encoding="utf-8") as f:
+            match = re.search(r"(?m)^" + re.escape(DESIGN_THEME_LABEL) + r"\s*(.+?)\.?\s*$", f.read())
+    except OSError:
+        return None
+    return match.group(1).strip() if match else None
+
+
+def listing_theme(folder, spec=None):
+    """The pdf_themes theme for this product's listing images, or None to keep the old Style A / B look."""
+    import pdf_design
+    import pdf_themes
+    pdf_themes.register_themes_in_pdf_design()          # so the PDF's own style name is recognised
+    spec = dict(spec or {})
+    try:
+        pdfs = sorted(n for n in os.listdir(folder) if n.lower().endswith(".pdf"))
+    except OSError:
+        pdfs = []
+    for name in sorted(pdfs, key=lambda n: (not n.endswith("-A4.pdf"), n)):
+        style = pdf_design.pdf_style(os.path.join(folder, name))
+        if style:
+            try:
+                return pdf_themes.get_theme(style)       # the images follow the PDF
+            except KeyError:
+                return None                              # old Style A / B: mockups already matches it
+    if not spec.get("theme") and recorded_theme(folder):
+        spec["theme"] = recorded_theme(folder)
+    return pdf_themes.get_theme_for_spec(spec)
+
+
+class _listing_style:
+    """While active, mockups sees `slug` as the product's style (it reads the style from the
+    Truth Checker's image facts). The facts themselves are untouched: only the colour choice changes."""
+
+    def __init__(self, slug):
+        self.slug = slug
+
+    def __enter__(self):
+        import truth_check
+        self.module, self.original = truth_check, truth_check.image_facts
+        if self.slug:
+            def themed(folder, _original=self.original, _slug=self.slug):
+                return dict(_original(folder), style=_slug)
+            truth_check.image_facts = themed
+        return self
+
+    def __exit__(self, *exc):
+        self.module.image_facts = self.original
+        return False
+
+
+def _real_picture_pages(folder, facts):
+    """Pages for formats mockups cannot read: the product's own image files, else its PDF pages."""
+    import mockups
+    from PIL import Image
+    names = sorted(os.listdir(folder))
+    pictures = [n for n in names if n.lower().endswith((".png", ".jpg", ".jpeg"))
+                and n not in LISTING_IMAGE_NAMES and not n.lower().startswith(("cover", "preview-", "pinterest", "thumbnail"))]
+    pages = []
+    for name in pictures[:6]:
+        path = os.path.join(folder, name)
+        try:
+            with Image.open(path) as im:
+                width, height = im.size
+        except Exception:
+            continue
+
+        def picture(h, _path=path):
+            with Image.open(_path) as im:
+                return mockups._fit_height(im.convert("RGB"), h)
+        title = re.sub(r"[_-]+", " ", os.path.splitext(name)[0]).strip().title()
+        pages.append({"title": title, "kind": "page", "number": None, "picture": picture,
+                      "bullets": ["Real file from this pack", f"{width} x {height} px image",
+                                  os.path.splitext(name)[1].lstrip(".").upper() + " file"]})
+    if not pages and facts.get("pdf_path") and mockups.available():
+        total = int(facts.get("pages") or 0)
+        for number in range(1, min(total, 4) + 1):
+            def picture(h, _n=number, _pdf=facts["pdf_path"]):
+                return mockups.render_pdf_page(_pdf, _n, h)
+            sizes = " + ".join("US Letter" if s == "Letter" else s for s in (facts.get("sizes") or []))
+            pages.append({"title": f"Page {number} of the PDF", "kind": "page", "number": number, "picture": picture,
+                          "bullets": [b for b in (f"{total} pages in the PDF", sizes, "Printable PDF") if b]})
+        if len(pages) > 1:
+            pages = pages[1:] + pages[:1]               # show inside pages first, the PDF's own cover last
+    return pages, pictures
+
+
+def _fallback_listing_images(folder, spec, theme):
+    """Cover / previews / pin / thumbnail for a format without mockups pages, drawn by the same mockups
+    functions from real files only. Raises ValueError when the folder has nothing to show."""
+    import mockups
+    import truth_check
+    facts = truth_check.image_facts(folder)
+    pages, pictures = _real_picture_pages(folder, facts)
+    if not pages:
+        raise ValueError("no real pages to show")
+    spec = spec or {}
+    chips = []
+    if pictures:
+        chips.append(f"{len(pictures)} image files")
+    if facts.get("pdf_path"):
+        chips.append(f"{facts['pages']} PDF pages")
+    if facts.get("xlsx"):
+        chips.append("Spreadsheet file (.xlsx)")
+    chips = chips or ["Digital template files"]
+    slug = theme["slug"] if theme else "A"
+    info = {"name": mockups.no_brands(spec.get("name") or spec_from_folder(folder)["name"]) or "Digital template",
+            "label": KIND_LABELS.get(spec.get("kind"), "DIGITAL TEMPLATE"), "kind": facts["kind"],
+            "theme": mockups._theme_for(slug), "chips": chips[:4], "pages": pages, "total": facts.get("pages") or len(pages),
+            "description": mockups._join(chips[:3]) + ", ready to download."}
+    previews = pages[:3]
+    while len(previews) < 3:
+        previews.append(previews[len(previews) % len(pages)])
+    images = {"cover.png": mockups.cover_image(info), "pinterest.png": mockups.pin_image(info)}
+    for index, page in enumerate(previews, 1):
+        images[f"preview-{index}.png"] = mockups.preview_image(info, page)
+    images["thumbnail.png"] = mockups.thumbnail_image(info, images["cover.png"])
+    for name, image in images.items():
+        image.save(os.path.join(folder, name), optimize=True)
+    return list(LISTING_IMAGE_NAMES)
+
+
+def write_listing_images(folder, spec=None):
+    """Write the listing images (and draft pins) of one product folder in its theme. Returns the names."""
+    import mockups
+    spec = spec or {}
+    theme = listing_theme(folder, spec)
+    with _listing_style(theme["slug"] if theme else None):
+        try:
+            names = list(mockups.write_mockups(folder, spec))
+        except ValueError:
+            names = _fallback_listing_images(folder, spec, theme)
+        if spec.get("pins"):
+            names += mockups.write_pins(folder, spec)     # draft Pinterest pins, only when the spec lists them
+    return names
 
 
 # ---- listing images for products built before images existed ---------------------------
@@ -1343,15 +1500,18 @@ def spec_from_folder(folder):
             name = first[2:].strip()
     except OSError:
         pass
+    recorded = recorded_theme(folder)
+    extra = {"theme": recorded} if recorded else {}
     pdfs = [n for n in names if n.endswith(".pdf")]
     if pdfs:
         pdf = next((n for n in pdfs if n.endswith("-A4.pdf")), pdfs[0])
-        return {"kind": "planner", "name": name, "pages": planner_pages_from_pdf(os.path.join(folder, pdf))}
+        return dict({"kind": "planner", "name": name,
+                     "pages": planner_pages_from_pdf(os.path.join(folder, pdf))}, **extra)
     if any(n.endswith("-resume.docx") for n in names):
-        return {"kind": "resume", "name": name, "resume": [], "cover_letter": []}
+        return dict({"kind": "resume", "name": name, "resume": [], "cover_letter": []}, **extra)
     if any(n.endswith("-notion-import.zip") for n in names):
-        return {"kind": "notion", "name": name, "pages": [], "databases": []}
-    return {"kind": "sheets", "name": name, "sheets": []}
+        return dict({"kind": "notion", "name": name, "pages": [], "databases": []}, **extra)
+    return dict({"kind": "sheets", "name": name, "sheets": []}, **extra)
 
 
 def add_missing_images(out_dir=None):
@@ -1371,7 +1531,7 @@ def add_missing_images(out_dir=None):
         if not os.path.exists(os.path.join(folder, "listing.md")):
             continue   # not a finished product folder
         try:
-            mockups.write_mockups(folder, spec_from_folder(folder))
+            write_listing_images(folder, spec_from_folder(folder))
         except Exception as exc:
             print(f"Product Builder: images for {entry} skipped: {type(exc).__name__}", file=sys.stderr)
             continue
