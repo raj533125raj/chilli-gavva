@@ -299,30 +299,24 @@ class FormatJourneyTests(Harness):
         self.assertIn(folder, today)
         self.assertIn("posted 1", today)
 
-    def test_habit_tracker_sell_explains_fix(self):
-        self._assert_sell_explains_fix("habit_tracker")
-
-    @unittest.expectedFailure
     def test_habit_tracker_sell_reaches_gumroad_fields(self):
+        # Claude Code CCC-1 made the habit tracker sellable, so /sell now shows the Gumroad fields.
         aid, _folder = self.build_format("habit_tracker")
         sell = self.say(f"/sell {aid}")
-        self.assertIn("GUMROAD FIELDS", sell,
-                      "habit_tracker /sell is NOT YET: truth_check needs A4/Letter filenames, "
-                      "but the builder names them with an underscore (Claude Code is fixing generators)")
+        self.assertIn(f"#{aid}", sell)
+        self.assertNotIn("NOT YET", sell)
+        self.assertIn("GUMROAD FIELDS", sell)
 
     def test_habit_tracker_listed_and_today(self):
         self._assert_listed_and_today("habit_tracker")
 
-    def test_wall_art_sell_explains_fix(self):
-        self._assert_sell_explains_fix("wall_art")
-
-    @unittest.expectedFailure
     def test_wall_art_sell_reaches_gumroad_fields(self):
+        # Claude Code CCC-7 made the wall art sellable, so /sell now shows the Gumroad fields.
         aid, _folder = self.build_format("wall_art")
         sell = self.say(f"/sell {aid}")
-        self.assertIn("GUMROAD FIELDS", sell,
-                      "wall_art /sell is NOT YET: truth_check flags empty pages and deep QA scores it "
-                      "zero (Claude Code is fixing generators)")
+        self.assertIn(f"#{aid}", sell)
+        self.assertNotIn("NOT YET", sell)
+        self.assertIn("GUMROAD FIELDS", sell)
 
     def test_wall_art_listed_and_today(self):
         self._assert_listed_and_today("wall_art")

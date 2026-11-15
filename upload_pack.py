@@ -203,11 +203,36 @@ def _checklist(has_cover):
             + cover + "\nReview the files and listing before deciding to publish.\n")
 
 
+def _listed_extras(source, listing_md, present):
+    """Buyer files the listing promises under "What you get" in other formats (resume .docx, signature
+    .html, Notion import .zip, art / card PNGs). Without them product.zip lacked what the listing sells
+    (any caller of make(), e.g. /upload, not only product_builder). Only flat, real, non-state files that
+    are named in the listing; never listing pictures (cover, preview, pins ...). Every file was already
+    money-checked by make()."""
+    try:
+        import product_builder
+        wanted = product_builder.listed_files(listing_md)
+        kinds = tuple(product_builder.BUYER_EXTRAS)
+        pictures = tuple(product_builder.LISTING_IMAGE_PREFIXES)
+    except Exception:
+        return []
+    extras = []
+    for name in wanted:
+        path = source / name
+        if (name in present or not name.lower().endswith(kinds) or name.lower().startswith(pictures)
+                or path.parent != source or path.is_symlink() or not path.is_file() or _is_state(path)):
+            continue
+        present.add(name)
+        extras.append(path)
+    return extras
+
+
 def make(product_folder, out_dir):
     """Write out_dir/<folder-name>/ and return its Path; refuse unsafe/unready input.
 
     Existing packs are never overwritten. Validation finishes before output is created.
-    The buyer archive allowlist is PDF, XLSX, LICENSE.txt and README[.md/.txt].
+    The buyer archive holds PDF, XLSX, LICENSE.txt and README[.md/.txt], plus every other buyer file the
+    listing names under "What you get" (see _listed_extras).
     """
     source = Path(product_folder).expanduser()
     if source.is_symlink() or not source.is_dir():
@@ -239,12 +264,14 @@ def make(product_folder, out_dir):
             _scan(path)
     for text in truth_check.image_texts(str(source)):
         _check_money(text, "listing images")
-    listing = _listing((source / "listing.md").read_text(encoding="utf-8-sig"))
+    listing_md = (source / "listing.md").read_text(encoding="utf-8-sig")
+    listing = _listing(listing_md)
     buyers = [p for p in paths if p.is_file() and not _is_state(p)
               and (p.suffix.lower() in {".pdf", ".xlsx"}
                    or p.name in _READMES or p.name == "LICENSE.txt")]
     if not any(p.suffix.lower() in {".pdf", ".xlsx"} for p in buyers):
         raise ValueError("No buyer PDF or XLSX files found.")
+    buyers += _listed_extras(source, listing_md, {p.name for p in buyers})
     images = [p for p in paths if p.is_file() and not _is_state(p)
               and p.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}]
     cover = next((p for p in images if p.name == "cover.png"), images[0] if images else None)
