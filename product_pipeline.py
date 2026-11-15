@@ -142,7 +142,7 @@ def notify_ready(db_path=None, send=None):
     conn.close()
     marketing = _marketing_lines(db_path)   # also backfills older READY packs
     for aid, title in rows:
-        if aid in product_builder.OWNER_HOLDS:
+        if product_builder.is_held(aid, db_path):
             continue
         title = " ".join((title or "Product").split())[:140]
         try:
@@ -180,7 +180,7 @@ def encryption_failed(db_path=None):
 
 def pack_text(aid, db_path=None):
     item = guardrails.get_approval(aid, db_path)
-    if not item or item["status"] != "approved" or aid in product_builder.OWNER_HOLDS:
+    if not item or item["status"] != "approved" or product_builder.is_held(aid, db_path):
         return "No approved upload pack for that ID."
     conn = connect(db_path)
     row = conn.execute("SELECT status, files FROM product_deliveries WHERE approval_id=?", (aid,)).fetchone()
@@ -201,7 +201,7 @@ def pending(db_path=None):
                         "ORDER BY COALESCE((SELECT MAX(day) FROM product_delivery_attempts p WHERE p.approval_id=a.id),''), a.id").fetchall()
     conn.close()
     return [dict(zip(("id", "title", "payload", "review"), row)) for row in rows
-            if row[0] not in product_builder.OWNER_HOLDS]
+            if not product_builder.is_held(row[0], db_path)]
 
 
 def run_pending(db_path=None, out_dir=None, llm=None, max_builds=DAILY_BUILDS,
@@ -219,7 +219,7 @@ def run_pending(db_path=None, out_dir=None, llm=None, max_builds=DAILY_BUILDS,
         aid, title, payload, review = (item[key] for key in ("id", "title", "payload", "review"))
         if len(results) >= max_builds or time.monotonic() - started >= max_time_seconds or not _allowed(db_path):
             break
-        if aid in product_builder.OWNER_HOLDS or not _reserve(aid, day, db_path):
+        if product_builder.is_held(aid, db_path) or not _reserve(aid, day, db_path):
             continue
         stage = "feasibility"
         try:

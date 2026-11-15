@@ -71,7 +71,7 @@ def is_eligible(approval_id: int, db_path=None) -> bool:
     item = guardrails.get_approval(approval_id, db_path)
     summary = product_council.get_council_summary(approval_id, db_path)
     return bool(item and item["status"] == "approved" and item["kind"] == "public_draft"
-                and approval_id not in product_builder.OWNER_HOLDS
+                and not product_builder.is_held(approval_id, db_path)
                 and summary and summary["verdict"] in ("PASS", "APPROVED")
                 and checker.review_passes(item.get("review")))
 

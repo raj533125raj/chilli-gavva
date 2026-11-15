@@ -1894,6 +1894,27 @@ def add_missing_images(out_dir=None):
 # Owner decisions: products that must not be sold, with the reason (the files are kept).
 OWNER_HOLDS = {4: "NOT FOR SALE - files do not match listing",
                6: "NOT FOR SALE - files do not match listing"}   # decided 2026-10-16; Notion niche paused
+# The holds above were decided for the drafts #4 and #6 that existed on that day. A new or restored database
+# reuses those numbers for other drafts, which must not be blocked silently (CCE-2, found by the day simulator).
+DATED_HOLDS = {4: "2026-10-16", 6: "2026-10-16"}
+
+
+def is_held(approval_id, db_path=None):
+    """True when the owner's NOT FOR SALE hold applies to this draft. Unknown date -> held (the safe side)."""
+    if approval_id not in OWNER_HOLDS:
+        return False
+    decided = DATED_HOLDS.get(approval_id)
+    if not decided:
+        return True
+    try:
+        item = guardrails.get_approval(approval_id, db_path)
+    except Exception:
+        return True
+    try:
+        made = datetime.date.fromisoformat(str((item or {}).get("ts") or "")[:10])
+    except ValueError:
+        return True
+    return made <= datetime.date.fromisoformat(decided)
 
 
 def apply_owner_holds(db_path=None, out_dir=None):
@@ -1902,6 +1923,8 @@ def apply_owner_holds(db_path=None, out_dir=None):
     done = []
     conn = connect(db_path)
     for approval_id, reason in OWNER_HOLDS.items():
+        if not is_held(approval_id, db_path):
+            continue
         row = conn.execute("SELECT folder, status FROM product_builds WHERE approval_id = ?", (approval_id,)).fetchone()
         if not row or not row[0]:
             continue
@@ -1943,7 +1966,7 @@ def truth_check_folder(approval_id, folder_name, db_path=None, out_dir=None, not
             complete_buyer_zip(folder, pack_dir)
         except Exception as exc:
             print(f"Upload pack refused: {exc}", file=sys.stderr)
-    held = approval_id in OWNER_HOLDS
+    held = is_held(approval_id, db_path)
     if not held:
         conn.execute("UPDATE product_builds SET status = ?, note = ? WHERE approval_id = ?",
                      (status, ("ready" if status == "built" else "needs fix: " + "; ".join(result["problems"][:2]))[:300],
@@ -1997,7 +2020,7 @@ def rebuild_versions(db_path=None, out_dir=None, spec_dir=None, notify_fn=None):
         with open(os.path.join(spec_dir, name), encoding="utf-8") as f:
             spec = json.load(f)
         approval_id, version = int(spec["approval_id"]), spec["version"]
-        if approval_id in OWNER_HOLDS or not _rebuild_target_ok(approval_id, spec, db_path):
+        if is_held(approval_id, db_path) or not _rebuild_target_ok(approval_id, spec, db_path):
             continue
         folder = f"{approval_id}-{version}-{spec['short_name']}"
         revision = int(spec.get("revision") or 1)

@@ -84,5 +84,48 @@ class RebuildSpecTargetTests(unittest.TestCase):
             build.assert_called_once()
 
 
+class DatedOwnerHoldTests(unittest.TestCase):
+    """Sim: the owner approved a new draft #4 (ADHD planner); OWNER_HOLDS = {4, 6} from 2026-10-16 made the
+    pipeline skip it forever without a word."""
+
+    def _db_with_draft_4(self, tmp, made):
+        db = os.path.join(tmp, "a.db")
+        for n in range(1, 5):
+            aid = guardrails.request_approval("public_draft", f"Draft: [ADHD Planners Agent] Planner {n}", "body",
+                                              db_path=db)
+            guardrails.decide(aid, True, db)
+        conn = sqlite3.connect(db)
+        conn.execute("UPDATE approvals SET ts = ? WHERE id = 4", (made,))
+        conn.commit()
+        conn.close()
+        return db
+
+    def test_new_draft_with_a_held_number_is_built_and_announced(self):
+        import product_builder as pb
+        import product_pipeline
+        with tempfile.TemporaryDirectory() as tmp:
+            db = self._db_with_draft_4(tmp, "2026-11-15T14:05:00")
+            self.assertFalse(pb.is_held(4, db))
+            self.assertIn(4, [item["id"] for item in product_pipeline.pending(db)])
+
+    def test_the_original_held_draft_stays_not_for_sale(self):
+        import product_builder as pb
+        import product_pipeline
+        for made in ("2026-10-12T09:00:00", "", "not a date"):
+            with self.subTest(made=made), tempfile.TemporaryDirectory() as tmp:
+                db = self._db_with_draft_4(tmp, made)
+                self.assertTrue(pb.is_held(4, db))
+                self.assertNotIn(4, [item["id"] for item in product_pipeline.pending(db)])
+                self.assertIn(3, [item["id"] for item in product_pipeline.pending(db)])
+
+    def test_holds_without_a_date_always_apply(self):
+        import product_builder as pb
+        with tempfile.TemporaryDirectory() as tmp:
+            db = self._db_with_draft_4(tmp, "2026-11-15T14:05:00")
+            with mock.patch.dict(pb.OWNER_HOLDS, {3: "Owner hold"}):
+                self.assertTrue(pb.is_held(3, db))
+            self.assertFalse(pb.is_held(2, db))
+
+
 if __name__ == "__main__":
     unittest.main()

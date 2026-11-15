@@ -722,12 +722,12 @@ def run_ready(db_path=None, products_dir: Optional[Path | str] = None, limit: in
     try:
         import product_builder
         base = Path(products_dir or product_builder.PRODUCTS_DIR)
-        holds = getattr(product_builder, "OWNER_HOLDS", {})
+        held = getattr(product_builder, "is_held", lambda aid, db=None: aid in product_builder.OWNER_HOLDS)
         today = _today(now).isoformat()
         built = 0
         for item in ready_packs(db_path):
             aid, folder = item["id"], str(item["folder"])
-            if aid in holds or os.sep in folder or "/" in folder or folder in (".", "..", MARKETING_FOLDER):
+            if held(aid, db_path) or os.sep in folder or "/" in folder or folder in (".", "..", MARKETING_FOLDER):
                 continue
             pack_dir = base / folder
             row = status(folder, db_path)
