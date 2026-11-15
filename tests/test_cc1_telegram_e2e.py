@@ -846,11 +846,14 @@ class RegressionTests(Inbox):
         self.assertEqual([Path(path).name for path in groups[0]["path"]], ["shared_pin.png"])
 
     def test_single_plugin_words_run_the_command(self):
-        for word, command in (("carousel", "/carousel"), ("landing page", "/landing"), ("reel", "/reel"),
-                              ("launch checklist", "/launch")):
+        for word, command in (("carousel", "/carousel"), ("landing page", "/landing"), ("reel", "/reel")):
             _handled, texts = self.say(word)
             _handled, expected = self.say(command)
             self.assertEqual(texts, expected, word)
+        # CCA-3: "/launch" is now the 7-day launch plan (tg_launch). The LAUNCH.md checklist of
+        # tg_files stays on the words "launch checklist".
+        _handled, texts = self.say("launch checklist")
+        self.assertIn("Pack number cheppandi", texts[0])
 
     def test_two_suggestions_question_has_no_ardam_kaaledu(self):
         _handled, texts = self.say("money vishayam")

@@ -315,7 +315,10 @@ class SellFlowTests(Base):
         kit = store_kits.generate_kit_text("gumroad", pack, store_kits.parse_listing_file(pack / "listing.txt"))
         self.assertIn("=== GUMROAD LISTING KIT ===", fields)
         self.assertIn("Title: Focus Planner Printable Pack", fields)
-        self.assertIn(DESCRIPTION, fields)
+        # CCA-2: the Gumroad description opens with the hook (the listing's first sentence) on its own
+        # line; the rest of the listing description follows unchanged.
+        hook, rest = DESCRIPTION.split(". ", 1)
+        self.assertIn(hook + ".\n\n" + rest, fields)
         tag_line = next(line for line in kit.splitlines() if line.startswith("focus planner, "))
         self.assertIn(tag_line, fields)
         self.assertEqual(len(tag_line.split(", ")), 10)

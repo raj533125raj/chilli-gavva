@@ -117,11 +117,10 @@ def _is_safe_exported_path(path: Path | str, ctx: Optional[Dict[str, Any]] = Non
     exported_root = (repo_root / "exported_content").resolve()
 
     allowed_roots = [exported_root]
-    if ctx:
-        if ctx.get("products_dir"):
-            allowed_roots.append(Path(ctx["products_dir"]).resolve())
-        if ctx.get("marketing_dir"):
-            allowed_roots.append(Path(ctx["marketing_dir"]).resolve())
+    # The folders the files are LOOKED UP in (ctx, then CHILLI_PRODUCTS_DIR / CHILLI_MARKETING_DIR) are
+    # safe to send from. Before, folders set through the environment were searched but then refused
+    # with "path safe kaadu" (found by the /launch reachability test).
+    allowed_roots.extend(_get_base_dirs(ctx))
 
     for root in allowed_roots:
         try:

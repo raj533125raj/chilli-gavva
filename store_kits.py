@@ -476,6 +476,500 @@ def format_tags_for_store(raw_tags: str, store_key: str) -> List[str]:
 
 
 # ---------------------------------------------------------------------------
+# Gumroad copy that converts (CCA-2) — used only for the Gumroad kit
+#
+# Everything here is built from what is REALLY in the pack: the files in product.zip and next to
+# it, and the pack's own listing.txt (which already passed the truth check). Nothing is promised
+# that the files do not have: a listing bullet that names a file type the pack does not contain is
+# left out, and no file type, page count or feature is ever invented.
+# ---------------------------------------------------------------------------
+
+GUMROAD_TAG_COUNT = 10
+GUMROAD_HOOK_LIMIT = 140
+GUMROAD_OWNER_FILES = {"listing.txt", "listing.md", "checklist.txt"}
+GUMROAD_SKIP_FOLDERS = {"store-kits", "store_kits", "kits", "support", "gumroad", "gumroad-images",
+                        "gumroad_images", "marketing"}
+# Brand names never go into tags (store rules and house rule).
+GUMROAD_BRAND_WORDS = {
+    "etsy", "amazon", "canva", "notion", "gumroad", "payhip", "kofi", "ko-fi", "topmate", "instamojo",
+    "google", "microsoft", "excel", "powerpoint", "goodnotes", "notability", "ipad", "iphone", "kindle",
+    "pinterest", "instagram", "facebook", "tiktok", "youtube", "adobe", "photoshop", "figma", "airtable",
+    "trello", "shopify", "ikea", "disney", "nike", "whatsapp", "telegram", "chatgpt", "openai", "samsung",
+    "android", "outlook", "gmail", "linkedin", "zoom", "slack", "evernote", "onenote", "clickup", "asana",
+    "obsidian", "remarkable", "cricut",
+}
+
+# One entry per product type the robot can build (format_registry) + "digital_pack" as the fallback.
+GUMROAD_TYPES: Dict[str, Dict[str, Any]] = {
+    "planner": {
+        "label": "printable planner",
+        "audience": ["Anyone who likes to plan the day or week on paper",
+                     "People who want a simple page to fill in, not another app"],
+        "tags": ["printable planner", "daily planner", "weekly planner", "planner pages", "planner pdf",
+                 "desk planner", "to do list", "productivity"],
+    },
+    "dated_planner": {
+        "label": "dated planner",
+        "audience": ["People who want the dates already printed on the page",
+                     "Anyone planning a full year, month by month"],
+        "tags": ["dated planner", "calendar planner", "monthly planner", "yearly planner", "printable calendar",
+                 "planner pdf", "year planner", "organizer"],
+    },
+    "sheets": {
+        "label": "spreadsheet",
+        "audience": ["People who like to track numbers in a spreadsheet",
+                     "Anyone who wants the tabs and formulas set up already"],
+        "tags": ["spreadsheet template", "tracker spreadsheet", "budget spreadsheet", "digital template",
+                 "spreadsheet", "tracker template", "organizer", "calculator sheet"],
+    },
+    "notion": {
+        "label": "workspace template",
+        "audience": ["People who organise their work in a notes workspace",
+                     "Anyone who wants a ready page structure instead of a blank page"],
+        "tags": ["workspace template", "digital planner", "dashboard template", "digital template",
+                 "productivity template", "organizer template", "planner template", "life planner"],
+    },
+    "resume": {
+        "label": "resume template",
+        "audience": ["Job seekers who want a clean, editable resume",
+                     "Anyone updating a CV or cover letter without starting from zero"],
+        "tags": ["resume template", "cv template", "cover letter", "job search", "editable resume",
+                 "professional resume", "career", "job application"],
+    },
+    "habit_tracker": {
+        "label": "habit tracker",
+        "audience": ["Anyone building a daily routine one small habit at a time",
+                     "People who like to tick boxes and see the streak on paper"],
+        "tags": ["habit tracker", "printable tracker", "routine tracker", "daily habits", "goal tracker",
+                 "self care planner", "tracker pdf", "monthly tracker"],
+    },
+    "study_planner": {
+        "label": "study planner",
+        "audience": ["Students planning classes, revision and exams",
+                     "Anyone learning on their own who wants a clear study plan"],
+        "tags": ["study planner", "student planner", "exam planner", "revision planner", "homework planner",
+                 "school planner", "academic planner", "study schedule"],
+    },
+    "recipe_book": {
+        "label": "recipe book template",
+        "audience": ["Home cooks who want their own recipes in one tidy book",
+                     "Families collecting favourite dishes to keep or print"],
+        "tags": ["recipe book", "recipe template", "recipe pages", "printable recipe", "kitchen organizer",
+                 "recipe binder", "recipe cards", "cookbook template"],
+    },
+    "flashcards": {
+        "label": "flashcard set",
+        "audience": ["Learners who remember better with quick question-and-answer cards",
+                     "Parents and teachers who want cards to print and cut"],
+        "tags": ["flashcards", "printable flashcards", "study cards", "learning cards", "revision cards",
+                 "memory cards", "study aid", "teaching resource"],
+    },
+    "event_planner": {
+        "label": "event planner",
+        "audience": ["Anyone organising a party, wedding or other event",
+                     "People who want every task and guest on one checklist"],
+        "tags": ["event planner", "party planner", "event checklist", "event organizer", "guest list",
+                 "planning checklist", "celebration planner", "printable planner"],
+    },
+    "email_signature": {
+        "label": "email signature template",
+        "audience": ["Professionals and freelancers who want a tidy email sign-off",
+                     "Small teams who want every email to look the same"],
+        "tags": ["email signature", "signature template", "business email", "professional signature",
+                 "email template", "branding template", "freelancer tools", "small business"],
+    },
+    "wall_art": {
+        "label": "wall art print set",
+        "audience": ["Anyone decorating a home, desk or office wall",
+                     "People looking for a quick printable gift"],
+        "tags": ["wall art", "printable art", "poster print", "quote print", "home decor", "digital print",
+                 "office decor", "printable poster"],
+    },
+    "digital_pack": {
+        "label": "digital download",
+        "audience": ["Anyone who wants ready-made files to download and use",
+                     "People who prefer a simple tool over a complicated app"],
+        "tags": ["digital download", "printable", "template", "digital template", "organizer",
+                 "instant download", "digital product", "download", "digital files", "printable template"],
+    },
+}
+GUMROAD_PRODUCT_TYPES = tuple(key for key in GUMROAD_TYPES if key != "digital_pack")
+
+_PDF_EXT, _IMAGE_EXTS = ".pdf", {".png", ".jpg", ".jpeg", ".webp"}
+_SHEET_EXTS, _DOC_EXTS, _TEXT_EXTS = {".xlsx", ".xls"}, {".docx", ".doc"}, {".md", ".txt"}
+# File types a product type must really contain; otherwise the type is worked out from the files.
+_TYPE_NEEDS = {
+    "sheets": _SHEET_EXTS | {".csv"},
+    "notion": {".md", ".csv"},
+    "resume": _DOC_EXTS | {_PDF_EXT},
+    "wall_art": _IMAGE_EXTS | {_PDF_EXT},
+    "email_signature": {".html", ".htm", ".txt"} | _IMAGE_EXTS,
+}
+# A listing bullet that uses one of these words is kept only when the pack has such a file.
+_CLAIM_NEEDS = [
+    (r"\bpdfs?\b", {_PDF_EXT}),
+    (r"\b(?:xlsx|excel|spreadsheets?|workbooks?|google\s+sheets?)\b", _SHEET_EXTS | {".csv"}),
+    (r"\bcsv\b", {".csv"}),
+    (r"\b(?:docx|word\s+(?:file|doc|document)s?)\b", _DOC_EXTS),
+    (r"\b(?:png|jpe?g|image\s+files?)\b", _IMAGE_EXTS),
+    (r"\b(?:ics|calendar\s+file)\b", {".ics"}),
+    (r"\bhtml\b", {".html", ".htm"}),
+]
+# Things the robot never ships: a listing bullet that promises one is always left out.
+_NEVER_SHIPPED = re.compile(
+    r"\b(?:canva|figma|psd|photoshop|video|videos|mp4|audio|mp3|course|coaching|community|"
+    r"lifetime\s+updates?|free\s+updates?|24\s*/\s*7|printed\s+copy|physical|shipping|shipped\s+to)\b", re.IGNORECASE)
+
+
+def gumroad_pack_files(pack_dir: Path) -> List[Dict[str, Any]]:
+    """The real buyer files: members of product.zip plus deliverables next to it.
+
+    Owner notes (listing, checklist), cover / preview images and helper folders are not buyer files.
+    Each item: {"name", "ext", "size", "where": "zip" | "folder"}.
+    """
+    import zipfile
+    pack_dir = Path(pack_dir)
+    found: Dict[str, Dict[str, Any]] = {}
+    archive = pack_dir / "product.zip"
+    if archive.is_file():
+        try:
+            with zipfile.ZipFile(archive) as bundle:
+                for info in bundle.infolist():
+                    name = Path(info.filename).name
+                    if info.is_dir() or not name or name.startswith(".") or "__MACOSX" in info.filename:
+                        continue
+                    found.setdefault(name.casefold(), {"name": name, "ext": Path(name).suffix.lower(),
+                                                       "size": int(info.file_size), "where": "zip"})
+        except (OSError, zipfile.BadZipFile):
+            pass
+    if pack_dir.is_dir():
+        for path in sorted(pack_dir.iterdir()):
+            low = path.name.lower()
+            if (not path.is_file() or path.is_symlink() or low.startswith(".") or low in GUMROAD_OWNER_FILES
+                    or low == "product.zip" or low.startswith(("cover", "preview"))):
+                continue
+            if path.suffix.lower() not in {".pdf", ".xlsx", ".xls", ".csv", ".docx", ".doc", ".png", ".jpg",
+                                           ".jpeg", ".webp", ".html", ".htm", ".md", ".txt", ".ics", ".zip"}:
+                continue
+            try:
+                size = path.stat().st_size
+            except OSError:
+                continue
+            found.setdefault(low, {"name": path.name, "ext": path.suffix.lower(), "size": int(size),
+                                   "where": "folder"})
+    return [found[key] for key in sorted(found)]
+
+
+def _is_guide_file(name: str) -> bool:
+    low = name.lower()
+    return low.startswith(("readme", "read-me", "read_me", "license", "licence", "how-to", "how_to"))
+
+
+def gumroad_product_type(pack_dir: Path, listing_info: Dict[str, str],
+                         files: Optional[List[Dict[str, Any]]] = None) -> str:
+    """One of GUMROAD_PRODUCT_TYPES (or "digital_pack"), from the listing words AND the real files."""
+    files = gumroad_pack_files(pack_dir) if files is None else files
+    exts = {item["ext"] for item in files if not _is_guide_file(item["name"])}
+    guess = None
+    try:
+        import format_registry
+        guess = format_registry.classify(" ".join([listing_info.get("title", ""), listing_info.get("tags", "")]))
+    except Exception:
+        guess = None
+    if guess in GUMROAD_TYPES and guess != "digital_pack":
+        needed = _TYPE_NEEDS.get(guess)
+        if needed is None or (exts & needed):
+            return guess
+    if exts & _SHEET_EXTS:
+        return "sheets"
+    if exts & _DOC_EXTS:
+        return "resume"
+    if _PDF_EXT in exts:
+        return "planner"
+    if ".csv" in exts and ".md" in exts:
+        return "notion"
+    if ".csv" in exts:
+        return "sheets"
+    if exts & _IMAGE_EXTS:
+        return "wall_art"
+    return "digital_pack"
+
+
+def _plural(count: int, one: str, many: str) -> str:
+    return f"{count} {one if count == 1 else many}"
+
+
+def _claim_is_backed(line: str, exts: set, names: List[str], fillable: bool = False) -> bool:
+    """True when every file type a listing bullet names is really in the pack."""
+    if _NEVER_SHIPPED.search(line):
+        return False
+    low = line.lower()
+    for pattern, needed in _CLAIM_NEEDS:
+        if re.search(pattern, low) and not (exts & needed):
+            return False
+    joined = " ".join(names)
+    if re.search(r"\ba4\b", low) and "a4" not in joined:
+        return False
+    if re.search(r"\b(?:us\s+)?letter\s+(?:size|pdf|paper|format|version)\b|\bus\s+letter\b", low) and "letter" not in joined:
+        return False
+    if re.search(r"\bfillable\b", low) and not fillable:
+        return False
+    return True
+
+
+def _pack_has_fillable_pdf(pack_dir: Path) -> bool:
+    try:
+        import support_kit
+        return "pdf_fillable" in support_kit.detect_formats(pack_dir)
+    except Exception:
+        return False
+
+
+def gumroad_whats_inside(pack_dir: Path, listing_info: Dict[str, str],
+                         files: Optional[List[Dict[str, Any]]] = None) -> List[str]:
+    """"What's inside" bullets: the listing's own bullets that the files back up, then file facts."""
+    files = gumroad_pack_files(pack_dir) if files is None else files
+    content = [item for item in files if not _is_guide_file(item["name"])]
+    exts = {item["ext"] for item in content}
+    names = [item["name"].lower() for item in files]
+    fillable = _PDF_EXT in exts and _pack_has_fillable_pdf(pack_dir)
+    bullets: List[str] = []
+    seen = set()
+
+    def add(text: str) -> None:
+        text = " ".join(text.split()).strip(" -•*")
+        key = re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+        if text and key and key not in seen and not check_money(text):
+            seen.add(key)
+            bullets.append(text)
+
+    for raw in re.split(r"[\n\r]+", listing_info.get("what_you_get", "") or ""):
+        line = raw.strip().lstrip("-•*0123456789.) ").strip()
+        if 3 <= len(line) <= 160 and _claim_is_backed(line, exts, names, fillable):
+            add(line)
+
+    def count(group) -> int:
+        return sum(1 for item in content if item["ext"] in group)
+
+    pdfs = count({_PDF_EXT})
+    if pdfs:
+        pdf_names = " ".join(item["name"].lower() for item in content if item["ext"] == _PDF_EXT)
+        sizes = "A4 and US Letter sizes" if ("a4" in pdf_names and "letter" in pdf_names) else ""
+        kind = "fillable PDF" if fillable else "printable PDF"
+        add(_plural(pdfs, f"{kind} file", f"{kind} files") + (f" ({sizes})" if sizes else ""))
+    sheets = count(_SHEET_EXTS)
+    if sheets:
+        add(_plural(sheets, "spreadsheet workbook (.xlsx)", "spreadsheet workbooks (.xlsx)"))
+    csvs = count({".csv"})
+    if csvs:
+        add(_plural(csvs, "CSV data file", "CSV data files"))
+    docs = count(_DOC_EXTS)
+    if docs:
+        add(_plural(docs, "editable document (.docx)", "editable documents (.docx)"))
+    images = count(_IMAGE_EXTS)
+    if images:
+        add(_plural(images, "image file", "image files"))
+    pages = count({".html", ".htm"})
+    if pages:
+        add(_plural(pages, "HTML file", "HTML files"))
+    if count({".ics"}):
+        add(_plural(count({".ics"}), "calendar file (.ics)", "calendar files (.ics)"))
+    notes = count(_TEXT_EXTS)
+    if notes:
+        add(_plural(notes, "text / Markdown file", "text / Markdown files"))
+    said = " ".join(bullets).lower()
+    if (any(name.startswith(("readme", "read-me", "read_me", "how-to", "how_to")) for name in names)
+            and not re.search(r"read[\s-]?me|guide", said)):
+        add("A read-me guide to get you started")
+    if any(name.startswith(("license", "licence")) for name in names) and not re.search(r"licen[cs]e", said):
+        add("Personal use licence")
+    return bullets[:12]
+
+
+def gumroad_formats(pack_dir: Path, files: List[Dict[str, Any]]) -> List[str]:
+    """support_kit format ids for the BUYER files only (cover / preview images are not buyer files)."""
+    content = [item for item in files if not _is_guide_file(item["name"])]
+    exts = {item["ext"] for item in content}
+    names = " ".join(item["name"].lower() for item in files)
+    formats = set()
+    if exts & (_SHEET_EXTS | {".csv"}) and "notion" not in names:
+        formats.add("sheets")
+    if _PDF_EXT in exts:
+        formats.add("pdf_fillable" if _pack_has_fillable_pdf(pack_dir) else "pdf")
+    if exts & _DOC_EXTS:
+        formats.add("resume" if re.search(r"resume|cover|cv", names) else "docx")
+    if ".ics" in exts:
+        formats.add("calendar")
+    if exts & _IMAGE_EXTS:
+        formats.add("images")
+    if "notion" in names:
+        formats.add("notion")
+    if not formats and exts & _TEXT_EXTS:
+        formats.add("text")
+    return sorted(formats)
+
+
+def _only_real_files(answer: str, files: List[Dict[str, Any]]) -> str:
+    """Drop every sentence that names a file the buyer does not get."""
+    real = {item["name"].lower() for item in files}
+    kept = []
+    for sentence in re.split(r"(?<=[.!?])\s+", answer):
+        named = re.findall(r"\b[\w-]+\.(?:md|txt|pdf|xlsx|csv|docx|png|jpg|html|ics|zip)\b", sentence, re.IGNORECASE)
+        if not all(name.lower() in real for name in named):
+            break                         # later sentences usually point back at the dropped one ("Read it ...")
+        kept.append(sentence)
+    return " ".join(kept).strip()
+
+
+def gumroad_how_to_use(files: List[Dict[str, Any]]) -> List[str]:
+    """Numbered steps that match the file types really in the pack."""
+    content = [item for item in files if not _is_guide_file(item["name"])]
+    exts = {item["ext"] for item in content}
+    names = [item["name"].lower() for item in files]
+    steps = ["Download the files from your Gumroad receipt or library."]
+    if any(item["where"] == "zip" for item in files):
+        steps.append("Unzip product.zip (double-click it on a computer).")
+    if any(name.startswith(("readme", "read-me", "read_me")) for name in names):
+        steps.append("Open the README first: it lists every file.")
+    if _PDF_EXT in exts:
+        steps.append("Open the PDF in any free PDF reader and print at 100% (\"Actual size\"), "
+                     "or use it on a tablet with a PDF notes app.")
+    if exts & _SHEET_EXTS:
+        steps.append("Open the .xlsx file in your spreadsheet app, save your own copy and fill in the input cells.")
+    if ".csv" in exts:
+        steps.append("Import the .csv file into your spreadsheet or workspace app.")
+    if exts & _DOC_EXTS:
+        steps.append("Open the .docx file in your word processor and replace the sample text with your own.")
+    if exts & {".html", ".htm"}:
+        steps.append("Open the .html file in a browser, then copy it into your email or web tool.")
+    if exts & _IMAGE_EXTS:
+        steps.append("Print the image files at home or at a print shop, or use them on screen.")
+    if ".ics" in exts:
+        steps.append("Import the .ics file into your calendar app.")
+    if exts & _TEXT_EXTS and not (exts - _TEXT_EXTS):
+        steps.append("Open the text files in any editor and follow the notes inside.")
+    steps.append("Keep the original download as a backup so you can start fresh any time.")
+    return steps
+
+
+def gumroad_file_list(files: List[Dict[str, Any]], limit: int = 15) -> List[str]:
+    """Real file names for the "Files you get" block."""
+    lines = [item["name"] for item in files[:limit]]
+    if len(files) > limit:
+        lines.append(f"and {len(files) - limit} more file(s)")
+    return lines
+
+
+def gumroad_faq(pack_dir: Path, files: List[Dict[str, Any]], limit: int = 5) -> List[Tuple[str, str]]:
+    """Questions and answers for buyers: the pack's support/FAQ.md when the support kit made one,
+    else the same answers worked out by support_kit from the real files, else two plain facts."""
+    text = ""
+    faq_file = Path(pack_dir) / "support" / "FAQ.md"
+    try:
+        if faq_file.is_file():
+            text = faq_file.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        text = ""
+    if not text:
+        try:
+            import support_kit
+            text = support_kit._faq(support_kit._display_name(Path(pack_dir)),
+                                    gumroad_formats(Path(pack_dir), files), [{"name": item["name"]} for item in files])
+        except Exception:
+            text = ""
+    pairs: List[Tuple[str, str]] = []
+    for block in re.split(r"(?m)^##\s+", text)[1:]:
+        question, _, answer = block.partition("\n")
+        question = question.strip()
+        answer = " ".join(line.strip() for line in answer.strip().splitlines() if line.strip())
+        if not question or question.lower().startswith(("what is in this pack", "which formats are included")):
+            continue                      # the file list and What's inside have their own blocks
+        answer = _only_real_files(answer, files)
+        if not answer or check_money(question + " " + answer):
+            continue
+        pairs.append((question, trim_to_word_boundary(answer, 300)))
+    if not pairs:
+        pairs = [("Is this a physical product?", "No. It is a digital download; nothing is shipped."),
+                 ("Is this for personal use?", "Yes, the files are for your own personal use.")]
+    return pairs[:limit]
+
+
+def gumroad_tags(raw_tags: str, product_type: str) -> List[str]:
+    """Exactly 10 relevant tags when possible: the listing's tags without brand names, then tags for
+    this product type. Lower case, no duplicates, no money, 30 characters at most."""
+    chosen: List[str] = []
+    seen = set()
+
+    def add(tag: str) -> None:
+        tag = re.sub(r"\s+", " ", re.sub(r"[#\"'`]+", "", tag.lower())).strip(" .,-")
+        if not tag or count_graphemes(tag) > 30 or len(chosen) >= GUMROAD_TAG_COUNT:
+            return
+        tokens = set(re.findall(r"[a-z0-9-]+", tag))
+        if tokens & GUMROAD_BRAND_WORDS or check_money(tag) or tag in seen:
+            return
+        seen.add(tag)
+        chosen.append(tag)
+
+    for tag in re.split(r"[,;\n]+", raw_tags or ""):
+        add(tag)
+    profile = GUMROAD_TYPES.get(product_type, GUMROAD_TYPES["digital_pack"])
+    for tag in list(profile["tags"]) + GUMROAD_TYPES["digital_pack"]["tags"]:
+        add(tag)
+    return chosen
+
+
+def gumroad_hook(title: str, description: str, product_type: str) -> Tuple[str, str]:
+    """(hook line, rest of the description). The hook is the listing's own first sentence when it is a
+    good length; otherwise a plain factual line from the title and the product type."""
+    description = (description or "").strip()
+    match = re.match(r"(.+?[.!?])(?:\s+|$)(.*)", description, re.DOTALL)
+    first, rest = (match.group(1).strip(), match.group(2).strip()) if match else (description, "")
+    first = " ".join(first.split())
+    if 25 <= count_graphemes(first) <= GUMROAD_HOOK_LIMIT:
+        return first, rest
+    label = GUMROAD_TYPES.get(product_type, GUMROAD_TYPES["digital_pack"])["label"]
+    hook = trim_to_word_boundary(f"{title} — a {label} you can download and use today.", GUMROAD_HOOK_LIMIT)
+    return hook, description
+
+
+def gumroad_copy(pack_dir: Path, listing_info: Dict[str, str]) -> Dict[str, Any]:
+    """All parts of the Gumroad description, each built from the real pack."""
+    pack_dir = Path(pack_dir)
+    files = gumroad_pack_files(pack_dir)
+    product_type = gumroad_product_type(pack_dir, listing_info, files)
+    title = listing_info.get("title") or pack_dir.name
+    hook, rest = gumroad_hook(title, listing_info.get("description", ""), product_type)
+    return {
+        "product_type": product_type,
+        "hook": hook,
+        "about": rest,
+        "whats_inside": gumroad_whats_inside(pack_dir, listing_info, files),
+        "who_for": list(GUMROAD_TYPES[product_type]["audience"]),
+        "how_to_use": gumroad_how_to_use(files),
+        "files": gumroad_file_list(files),
+        "faq": gumroad_faq(pack_dir, files),
+        "tags": gumroad_tags(listing_info.get("tags", ""), product_type),
+    }
+
+
+def gumroad_description(copy: Dict[str, Any], limit: int = 10000) -> str:
+    """The long description text, hook first, ready to paste into Gumroad."""
+    blocks: List[str] = [copy["hook"]]
+    if copy["about"]:
+        blocks.append(copy["about"])
+    if copy["whats_inside"]:
+        blocks.append("WHAT'S INSIDE\n" + "\n".join(f"- {line}" for line in copy["whats_inside"]))
+    blocks.append("WHO IT IS FOR\n" + "\n".join(f"- {line}" for line in copy["who_for"]))
+    blocks.append("HOW TO USE\n" + "\n".join(f"{index}. {step}" for index, step in enumerate(copy["how_to_use"], 1)))
+    if copy["files"]:
+        blocks.append(f"FILES YOU GET\n" + "\n".join(f"- {name}" for name in copy["files"]))
+    if copy["faq"]:
+        blocks.append("FAQ\n" + "\n\n".join(f"Q: {question}\nA: {answer}" for question, answer in copy["faq"]))
+    blocks.append("Digital download. Nothing is shipped.")
+    return trim_to_word_boundary("\n\n".join(blocks), limit)
+
+
+# ---------------------------------------------------------------------------
 # Kit Generator Function per Store
 # ---------------------------------------------------------------------------
 
@@ -514,6 +1008,15 @@ def generate_kit_text(
 
     # 4. Tags
     tags_list = format_tags_for_store(raw_tags, store_key)
+
+    # Gumroad only (CCA-2): hook first line, What's inside from the real files, who it is for,
+    # how to use, file list, FAQ and 10 brand-free tags. Other stores keep the plain listing text.
+    if store_key == "gumroad":
+        copy = gumroad_copy(pack_dir, listing_info)
+        if not short_desc.strip():
+            short_desc = trim_to_word_boundary(copy["hook"], short_limit)
+        long_desc = gumroad_description(copy, desc_limit)
+        tags_list = copy["tags"]
     tags_formatted = ", ".join(tags_list)
 
     # 5. Category

@@ -448,9 +448,14 @@ class TestStoreKitsTagFormattingEdges(unittest.TestCase):
             encoding="utf-8",
         )
         kit = store_kits.build(pack)["gumroad"].read_text()
-        m = re.search(r"^Tags \((\d+) tags\):\s*$", kit, re.MULTILINE)
+        m = re.search(r"^Tags \((\d+) tags\):\s*\n(.*)$", kit, re.MULTILINE)
         self.assertIsNotNone(m)
-        self.assertEqual(int(m.group(1)), 2)
+        # CCA-2: the Gumroad kit now fills up to 10 relevant tags (listing tags first, then tags for the
+        # product type), so the count is 10 instead of 2. Duplicates must still be removed.
+        tags = m.group(2).split(", ")
+        self.assertEqual(int(m.group(1)), 10)
+        self.assertEqual(tags[:2], ["planner", "productivity"])
+        self.assertEqual(len(tags), len(set(tags)))
 
     def test_long_tag_trimmed_to_store_char_limit(self) -> None:
         pack = _make_pack_dir(self.tmp, "p1")

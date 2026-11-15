@@ -142,7 +142,8 @@ _SYNONYM_GROUPS = {
     "PENDING": "pending waiting migilina aagina approval",
     "PACK": "pack packs packlu product products",
     "FILE": "file files filelu",
-    "SELL": "sell ammu ammali ammadam ammandi selling",
+    "SELL": "sell ammu ammali ammadam ammandi selling ammadaniki ammataniki",
+    "CARD": "card",
     "GUMROAD": "gumroad",
     "DO": "chey cheyi cheyyi cheyali cheyyali cheddam cheseddam cheyandi cheyadaniki cheyyadaniki "
           "cheyalsindi cheyalsina",
@@ -287,6 +288,10 @@ INTENTS: List[Dict[str, Any]] = [
     {"name": "marketing", "command": "/marketing {n}", "help": "Pack marketing files list",
      "patterns": [(("MARKETING", "FILE"), 0.97), (("MARKETING", "NUM"), 0.92), (("MARKETING", "SHOW"), 0.92),
                   (("MARKETING", "PACK"), 0.92), (("MARKETING",), 0.72)]},
+    # CCA-4: "ee roju ammadaniki em cheyali" -> the daily sell card (what to list, what to post, drafts).
+    {"name": "sellcard", "command": "sellcard", "help": "Ee roju ammadaniki em cheyali (sell card)",
+     "patterns": [(("TODAY", "SELL", "WHAT", "DO"), 0.99), (("TODAY", "SELL", "WHAT"), 0.97),
+                  (("SELL", "CARD"), 0.99), (("TODAY", "SELL", "DO"), 0.93)]},
     {"name": "sell", "command": "/sell {n}", "help": "Gumroad lo pettadaniki anni okesari",
      "patterns": [(("SELL", "WHAT", "DO"), 0.98), (("SELL", "READY", "WHAT"), 0.97), (("SELL", "NUM"), 0.96),
                   (("GUMROAD", "NUM"), 0.96), (("GUMROAD", "WHAT"), 0.9),

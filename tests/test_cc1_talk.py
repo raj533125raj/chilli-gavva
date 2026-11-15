@@ -84,6 +84,9 @@ HAND_WRITTEN = [
     ("pack 2 gumroad lo pettu", "/sell 2"), ("rendo pack ammali", "/sell 2"), ("em sell cheyali", "/sell"),
     ("sell cheyadaniki em ready ga undi", "/sell"), ("gumroad lo em pettali", "/sell"),
     ("edi sell cheyali ippudu", "/sell"), ("pack nalugu ni gumroad lo pettu", "/sell 4"),
+    # CCA-4: the daily sell card
+    ("ee roju ammadaniki em cheyali", "sellcard"), ("ee roju sell ki em cheyali", "sellcard"),
+    ("sell card", "sellcard"), ("ee roju em ammali", "sellcard"), ("what to sell today", "sellcard"),
     ("ready packs enni", "/ready"), ("pack 3 ready aa", "/ready 3"), ("ready list chupinchu", "/ready"),
     ("em ready ga undi", "/ready"), ("sellable packs enni", "/ready"),
     # sales

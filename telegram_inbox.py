@@ -797,6 +797,11 @@ def call_plugins(text, token, chat_id, db_path=None, now=None, plugins=None, mes
     if not plugins:
         return False, None
 
+    # A plugin may set PRIORITY (default 0) to be asked before the others; the order is otherwise
+    # unchanged. tg_launch uses it so "/launch N" shows the 7-day plan instead of the older
+    # LAUNCH.md document of tg_files (still reachable as "launch checklist N").
+    plugins = sorted(plugins, key=lambda plugin: -int(getattr(plugin, "PRIORITY", 0) or 0))
+
     ctx = build_plugin_ctx(token, chat_id, db_path=db_path, now=now, message=message)
     # A "did not understand" suggestion (tg_menu) is only a fallback: a later plugin that really owns
     # the command (for example /ideas in tg_reports) must win.
@@ -2372,6 +2377,49 @@ def send_morning_post_plan(token, owner_chat_id, db_path=None, now=None, plan_pa
     return False
 
 
+MORNING_SELL_CARD_STATE = "last_morning_sell_card_date"
+
+
+def send_morning_sell_card(token, owner_chat_id, db_path=None, now=None):
+    """CCA-4: once per day, on the first robot run after 08:00 India time, send the short sell card
+    ("Ee roju ammadaniki em cheyali": packs to list, listed packs to post, drafts waiting).
+
+    Never at night (22:00-08:00 India time), never inside the owner's quiet hours (tg_settings),
+    never twice a day, and not at all when there is nothing to do. Nothing is listed or posted.
+    """
+    from zoneinfo import ZoneInfo
+    if now is None:
+        now_dt = datetime.datetime.now(datetime.timezone.utc)
+    elif isinstance(now, datetime.datetime):
+        now_dt = now if now.tzinfo is not None else now.replace(tzinfo=datetime.timezone.utc)
+    else:
+        now_dt = datetime.datetime.fromtimestamp(now, tz=datetime.timezone.utc)
+    ist_dt = now_dt.astimezone(ZoneInfo("Asia/Kolkata"))
+    if ist_dt.hour < 8 or ist_dt.hour >= 22:
+        return False
+    try:
+        import tg_settings
+        if tg_settings.is_quiet_hour(ist_dt, db_path):
+            return False
+        if ist_dt.hour < int(tg_settings.get_morning_post_hour(db_path)):
+            return False          # the owner asked for a later morning message
+    except Exception:
+        pass                      # no settings plugin: the fixed night window above still applies
+    ist_date_str = ist_dt.date().isoformat()
+    if get_state(MORNING_SELL_CARD_STATE, None, db_path) == ist_date_str:
+        return False
+    import tg_talk
+    ctx = build_plugin_ctx(token, owner_chat_id, db_path=db_path, now=now_dt)
+    data = tg_talk.sell_card_data(ctx)
+    if not data["has_work"]:
+        set_state(MORNING_SELL_CARD_STATE, ist_date_str, db_path)      # looked today; stay quiet
+        return False
+    if not send_text(token, owner_chat_id, tg_talk.sell_card_text(data, ctx)):
+        return False                                                    # retried on the next run
+    set_state(MORNING_SELL_CARD_STATE, ist_date_str, db_path)
+    return True
+
+
 def remind_waiting_drafts(token, owner_chat_id, db_path=None, now=None):
     """Send one owner reminder for a queue containing a draft older than 12 hours.
 
@@ -2471,6 +2519,13 @@ def _run(db_path=None, recovery=False, stats=None):
     except Exception as exc:
         print(f"Morning post plan skipped: {type(exc).__name__}")
         morning_sent = False
+    try:
+        # Same rule as the post plan: test runs must not read the real packs or send a morning card.
+        sell_card_sent = (False if os.environ.get("CHILLI_TEST") == "1"
+                          else send_morning_sell_card(token, chat_id, db_path=db_path))
+    except Exception as exc:
+        print(f"Morning sell card skipped: {type(exc).__name__}")
+        sell_card_sent = False
     try:  # one short health report a day (first run after 03:30 UTC), weekly letter on Sundays
         import daily_report
         ist_day_str = daily_report.delivery_day()
@@ -2493,10 +2548,11 @@ def _run(db_path=None, recovery=False, stats=None):
         daily = False
     print(f"Telegram inbox: {commands} command(s) handled, {alerts} new draft(s) announced"
           + (", daily report sent." if daily else ".")
-          + (" morning post plan sent." if morning_sent else ""))
+          + (" morning post plan sent." if morning_sent else "")
+          + (" morning sell card sent." if sell_card_sent else ""))
     return {"configured": True, "commands": commands, "alerts": alerts,
             "waiting_reminder": waiting_reminder, "daily_report": daily,
-            "morning_post_plan": morning_sent}
+            "morning_post_plan": morning_sent, "morning_sell_card": sell_card_sent}
 
 
 def main(argv):

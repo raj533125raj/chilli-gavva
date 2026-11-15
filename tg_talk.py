@@ -20,6 +20,7 @@ runs and returns its REAL output. There are no canned answers here.
 """
 from __future__ import annotations
 
+import datetime
 import glob
 import importlib
 import os
@@ -105,6 +106,123 @@ def next_step(ctx: Dict[str, Any]) -> Dict[str, Any]:
                     + _builtin("today", [], ctx)}
 
 
+# ---- CCA-4: the daily sell card ("Ee roju ammadaniki em cheyali") -----------------------
+SELL_CARD_MAX_LINES = 5
+_IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+
+
+def _optional(name: str) -> Optional[Any]:
+    """A sibling plugin when it is installed (tg_sell, tg_listed, tg_launch), else None."""
+    try:
+        return importlib.import_module(name)
+    except Exception:
+        return None
+
+
+def sell_card_data(ctx: Dict[str, Any]) -> Dict[str, Any]:
+    """Real state for the card, read fresh every time:
+
+      to_list  packs that are SELLABLE / ALMOST and not yet listed on Gumroad -> /sell N
+      listed   packs already listed (/listed) with their launch day            -> /launch N
+      drafts   number of drafts waiting for approval                           -> /list
+    """
+    import guardrails
+    import sell_ready
+    ctx = ctx if isinstance(ctx, dict) else {}
+    seller, listed_plugin, launcher = _optional("tg_sell"), _optional("tg_listed"), _optional("tg_launch")
+    if seller is not None:
+        base = seller.products_dir(ctx)
+    else:
+        base = Path(ctx.get("products_dir") or os.environ.get("CHILLI_PRODUCTS_DIR")
+                    or REPO_ROOT / "exported_content" / "products")
+    listed_ids: List[int] = []
+    if listed_plugin is not None:
+        try:
+            listed_ids = list(listed_plugin.listed_ids(ctx.get("db_path")))
+        except Exception:
+            listed_ids = []
+    to_list, listed = [], []
+    for number, title, path in sell_ready.find_all_ready_packs(base):
+        if number is None:
+            continue
+        if number in listed_ids:
+            status, day = ("not_started", None)
+            if launcher is not None:
+                try:
+                    status, day = launcher.launch_status(number, ctx)
+                except Exception:
+                    status, day = ("not_started", None)
+            listed.append({"id": number, "title": title, "launch": status, "day": day})
+            continue
+        try:
+            marketing = seller.marketing_base(Path(path), ctx) if seller is not None else None
+            evaluation = sell_ready.evaluate_pack(path, marketing)
+        except Exception:
+            continue
+        if evaluation.get("status") in (sell_ready.STATUS_SELLABLE, sell_ready.STATUS_ALMOST):
+            to_list.append({"id": number, "title": evaluation.get("title") or title, "status": evaluation["status"]})
+    try:
+        drafts = len(guardrails.pending(ctx.get("db_path")))
+    except Exception:
+        drafts = 0
+    return {"to_list": to_list, "listed": listed, "drafts": drafts,
+            "has_work": bool(to_list or drafts or any(item["launch"] != "done" for item in listed))}
+
+
+def _card_date(ctx: Dict[str, Any]) -> str:
+    now = ctx.get("now") if isinstance(ctx, dict) else None
+    if not isinstance(now, datetime.datetime):
+        now = datetime.datetime.now(datetime.timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=datetime.timezone.utc)
+    return now.astimezone(_IST).strftime("%d %b")
+
+
+def sell_card_text(data: Dict[str, Any], ctx: Optional[Dict[str, Any]] = None) -> str:
+    """The short card. Every line is a real pack or a real count with the command to tap."""
+    lines = [f"🛒 Ee roju ammadaniki em cheyali ({_card_date(ctx or {})})", ""]
+    to_list, listed, drafts = data["to_list"], data["listed"], data["drafts"]
+    if to_list:
+        lines.append(f"1. Gumroad lo pettali — {len(to_list)} pack(s) ready, inka list cheyaledu:")
+        for item in to_list[:SELL_CARD_MAX_LINES]:
+            mark = "🟢" if item["status"] == "SELLABLE" else "🟡"
+            lines.append(f"   {mark} /sell {item['id']} — {str(item['title'])[:50]}")
+        if len(to_list) > SELL_CARD_MAX_LINES:
+            lines.append(f"   ... inko {len(to_list) - SELL_CARD_MAX_LINES} (/sell)")
+    else:
+        lines.append("1. Gumroad lo pettadaniki kotha ready pack ledu.")
+    running = [item for item in listed if item["launch"] == "running"]
+    waiting = [item for item in listed if item["launch"] == "not_started"]
+    done = [item for item in listed if item["launch"] == "done"]
+    if running or waiting:
+        lines.append(f"2. Listed packs — ee roju post ({len(running) + len(waiting)}):")
+        for item in (running + waiting)[:SELL_CARD_MAX_LINES]:
+            state = f"Day {item['day']}/7" if item["launch"] == "running" else "launch plan start cheyandi"
+            lines.append(f"   📌 /launch {item['id']} — {str(item['title'])[:40]} ({state})")
+    elif listed:
+        lines.append(f"2. Listed packs: {len(done)} (launch week aipoyindi) — roju post kosam /today.")
+    else:
+        lines.append("2. Listed packs inka levu. Gumroad lo pettaka: /listed N <link>.")
+    lines.append(f"3. Drafts waiting: {drafts} — /list" if drafts else "3. Drafts waiting: 0.")
+    lines += ["", "Robot edi list / post cheyadu. Anni meere cheyali."]
+    return "\n".join(lines)
+
+
+def sell_card(ctx: Dict[str, Any]) -> Dict[str, Any]:
+    """The card as a plugin reply, with one-tap buttons for the first few commands."""
+    data = sell_card_data(ctx)
+    text = sell_card_text(data, ctx)
+    buttons = [f"/sell {item['id']}" for item in data["to_list"][:3]]
+    buttons += [f"/launch {item['id']}" for item in data["listed"] if item["launch"] != "done"][:3]
+    if data["drafts"]:
+        buttons.append("/list")
+    send_text = ctx.get("send_text") if isinstance(ctx, dict) else None
+    if buttons and callable(send_text):
+        send_text(text, keyboard=[buttons[row:row + 3] for row in range(0, len(buttons), 3)])
+        return {"handled": True}
+    return {"text": text}
+
+
 def run_command(command: str, ctx: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Run one understood command with the real code behind it and return its real reply."""
     if command == "daily":
@@ -112,6 +230,8 @@ def run_command(command: str, ctx: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return {"text": daily_report.report_text(db_path=ctx.get("db_path"))}
     if command == "next":
         return next_step(ctx)
+    if command == "sellcard":
+        return sell_card(ctx)
     word, _, rest = command.partition(" ")
     name = word.lstrip("/").lower()
     ids = [int(number) for number in re.findall(r"\d+", rest)]
@@ -143,7 +263,7 @@ def suggestion_reply(found: Dict[str, Any], ctx: Dict[str, Any]) -> Dict[str, An
     return {"text": text, "keyboard": keyboard}
 
 
-EXAMPLES = ["ee roju em jarigindi", "pending drafts entha", "pack 3 files pampu", "moodo pack sell chey",
+EXAMPLES = ["ee roju ammadaniki em cheyali", "ee roju em jarigindi", "pending drafts entha", "pack 3 files pampu", "moodo pack sell chey",
             "ee roju sales entha", "robot ela undi", "em cheyali ippudu?"]
 
 
@@ -152,7 +272,7 @@ def examples_text() -> str:
     lines = ["Slash lekunda mamulu ga type cheyandi. Udaharanalu:"]
     for phrase in EXAMPLES:
         found = talk_intents.detect(phrase)
-        target = {"daily": "ee roju report", "next": "ippudu cheyalsina pani"}.get(
+        target = {"daily": "ee roju report", "next": "ippudu cheyalsina pani", "sellcard": "ee roju sell card"}.get(
             found["command"], found["command"]) if found else "?"
         lines.append(f"• {phrase}  ->  {target}")
     lines.append("Ardam kakapothe rendu buttons chupistanu; okati tap cheyandi.")
