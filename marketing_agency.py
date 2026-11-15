@@ -81,6 +81,10 @@ def is_paused(db_path: Optional[str] = None) -> bool:
 def _get_ready_products(db_path: Optional[str] = None) -> List[Dict[str, Any]]:
     """Return list of products that are APPROVED in approvals and READY in product_builds."""
     conn = connect(db_path)
+    # A new database has no product_builds table until the first build: no products yet, not an error.
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'product_builds'").fetchone():
+        conn.close()
+        return []
     # Products where approval status = 'approved' and product_builds status = 'built'
     query = """
         SELECT a.id, a.title, a.payload, pb.folder
