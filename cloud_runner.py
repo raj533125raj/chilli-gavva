@@ -47,9 +47,24 @@ def main():
             marketing_agency.process_ready_products()
         except Exception as exc:
             print(f"Marketing agency skipped: {type(exc).__name__}")
+    _tell_owner_if_ai_down()
     export_status.write_status()
     print(result)
     return result
+
+
+def _tell_owner_if_ai_down():
+    """This run asked the AI and not one provider answered: one owner line per UTC day (workforce's own
+    AI-down alert, which also waits for Telegram). Scout/trend/marketing failures alone were silent before."""
+    try:
+        import sys
+        router = sys.modules.get("llm_router")
+        outcomes = router.process_outcomes() if router and hasattr(router, "process_outcomes") else {}
+        if outcomes.get("failed") and not outcomes.get("ok"):
+            print("AI down: no provider answered this run; owner told (once a day).")
+            workforce._alert_ai_down()
+    except Exception as exc:
+        print(f"AI down notice skipped: {type(exc).__name__}")
 
 
 if __name__ == "__main__":

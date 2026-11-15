@@ -197,7 +197,8 @@ class AIUnavailable(Exception):
     """No AI model answered. The task is put back in the queue for a later run (up to MAX_ATTEMPTS)."""
 
 
-AI_DOWN_MESSAGE = "Chilli Gavva: AI is down, will retry later. No placeholder drafts were made."
+AI_DOWN_MESSAGE = ("Chilli Gavva: AI is down, will retry later. No placeholder drafts were made. "
+                   "Free AI providers evvaru javabu ivvatledu; robot next run lo malli try chestundi.")
 
 
 def _alert_ai_down(db_path=None):

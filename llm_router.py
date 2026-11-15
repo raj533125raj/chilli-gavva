@@ -91,6 +91,14 @@ _ROUTER_DB = contextvars.ContextVar("llm_router_db", default=None)
 _TASK = contextvars.ContextVar("llm_router_task", default="general")
 _RETRY_AFTER = contextvars.ContextVar("llm_retry_after", default=5.0)
 _ATTEMPTS = contextvars.ContextVar("llm_provider_attempts", default=0)
+# Real provider answers in this process (not budget refusals): cloud_runner tells the owner once a day when a
+# run made AI calls and none of them worked (CCE-3: all providers down).
+_PROCESS_OUTCOMES = {"ok": 0, "failed": 0}
+
+
+def process_outcomes():
+    """{"ok": n, "failed": n} provider HTTP attempts in this process so far."""
+    return dict(_PROCESS_OUTCOMES)
 _LAST_FAILURE_KIND = contextvars.ContextVar("llm_last_failure_kind", default="")
 _MEMORY_STATE = provider_state._memory
 
@@ -220,6 +228,7 @@ def _request_json(req, provider, model, timeout, parse):
                 _RETRY_AFTER.set(max(0.0, min(float(exc.headers.get("retry-after", "5")), 20.0)))
             except (ValueError, TypeError, AttributeError):
                 _RETRY_AFTER.set(5.0)
+        _PROCESS_OUTCOMES["failed"] += 1
         description = _describe(exc)
         kind = _failure_kind(exc, description)
         _LAST_FAILURE_KIND.set(kind)
@@ -231,6 +240,7 @@ def _request_json(req, provider, model, timeout, parse):
                          db_path=_ROUTER_DB.get())
         _log_fail(provider, model, description)
         return None, getattr(exc, "code", getattr(exc, "status", None))
+    _PROCESS_OUTCOMES["ok"] += 1
     provider_state.observe(provider, model, True, task=_TASK.get(), path=_state_path())
     return text, 200
 

@@ -137,5 +137,52 @@ class TelegramBusyTests(unittest.TestCase):
                 self.run_inbox()
 
 
+class AllAiDownTests(unittest.TestCase):
+    """Sim: every AI provider answered 503 for two runs; scout/trend/marketing calls failed quietly and no draft
+    task ran, so workforce's AI-down alert never fired: the owner heard nothing."""
+
+    def test_router_counts_real_provider_answers(self):
+        import io
+        import urllib.error
+        import urllib.request
+        import llm_router
+        req = urllib.request.Request("https://api.groq.com/openai/v1/chat/completions", data=b"{}")
+        fail = urllib.error.HTTPError(req.full_url, 503, "busy", {}, io.BytesIO(b"{}"))
+        ok_body = io.BytesIO(b'{"choices": [{"message": {"content": "hello"}}]}')
+        before = llm_router.process_outcomes()
+        with mock.patch.object(llm_router.provider_state, "reserve", return_value=True), \
+                mock.patch.object(llm_router.provider_state, "observe"), \
+                mock.patch.object(llm_router, "_log_fail"), \
+                mock.patch.object(llm_router.guardrails, "record_call"), \
+                mock.patch("urllib.request.urlopen", side_effect=[fail, ok_body]):
+            model = "openai/gpt-oss-20b"
+            self.assertEqual(llm_router._request_json(req, "Groq", model, 5, llm_router._chat_parse)[0], None)
+            self.assertEqual(llm_router._request_json(req, "Groq", model, 5, llm_router._chat_parse)[0], "hello")
+        after = llm_router.process_outcomes()
+        self.assertEqual((after["failed"] - before["failed"], after["ok"] - before["ok"]), (1, 1))
+
+    def test_cloud_runner_tells_the_owner_only_when_nothing_answered(self):
+        import cloud_runner
+        import llm_router
+        for outcome, told in (({"ok": 0, "failed": 18}, True), ({"ok": 2, "failed": 18}, False),
+                              ({"ok": 0, "failed": 0}, False)):
+            with self.subTest(outcome=outcome), \
+                    mock.patch.dict(llm_router._PROCESS_OUTCOMES, outcome), \
+                    mock.patch.object(cloud_runner.workforce, "_alert_ai_down") as alert:
+                cloud_runner._tell_owner_if_ai_down()
+            self.assertEqual(alert.called, told)
+
+    def test_ai_down_message_is_tenglish_and_kept_once_a_day(self):
+        import workforce
+        self.assertIn("AI is down, will retry later", workforce.AI_DOWN_MESSAGE)
+        self.assertIn("javabu ivvatledu", workforce.AI_DOWN_MESSAGE)
+        with tempfile.TemporaryDirectory() as tmp:
+            db = os.path.join(tmp, "a.db")
+            with mock.patch("notify.send", return_value=True) as send:
+                self.assertTrue(workforce._alert_ai_down(db))
+                self.assertFalse(workforce._alert_ai_down(db))
+            send.assert_called_once_with(workforce.AI_DOWN_MESSAGE)
+
+
 if __name__ == "__main__":
     unittest.main()
