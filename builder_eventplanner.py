@@ -272,6 +272,34 @@ def compute_countdown_milestones(event_date: Optional[date] = None) -> List[Dict
     return result
 
 
+PALETTE_THEMES = {"royal_marigold": "Festive Marigold", "sage_eucalyptus": "Calm Sage",
+                  "classic_rose": "Terracotta", "festive_indigo": "Midnight Focus"}
+
+
+def _hex_rgb(value: str) -> Tuple[int, int, int]:
+    value = value.lstrip("#")
+    return int(value[0:2], 16), int(value[2:4], 16), int(value[4:6], 16)
+
+
+def _event_theme(raw_spec: Optional[Dict[str, Any]], palette_key: str) -> Optional[Dict[str, Any]]:
+    """The pdf_themes theme for this planner: the spec's own theme, else the one closest to its palette."""
+    try:
+        import pdf_themes
+    except ImportError:
+        return None
+    pdf_themes.register_themes_in_pdf_design()
+    explicit = (raw_spec or {}).get("theme")
+    if explicit:
+        try:
+            return pdf_themes.get_theme(str(explicit))
+        except KeyError:
+            pass
+    try:
+        return pdf_themes.get_theme(PALETTE_THEMES.get(palette_key, "Calm Sage"))
+    except KeyError:
+        return None
+
+
 # --- PDF Generation Engine (Pure pdf_design Primitives) ---
 
 class EventPlannerPdfBuilder:
@@ -280,8 +308,19 @@ class EventPlannerPdfBuilder:
     def __init__(self, spec: Dict[str, Any], page_size_name: str = "A4"):
         self.spec = normalize_event_spec(spec)
         self.page_size_name = page_size_name if page_size_name in PAGE_SIZES else "A4"
-        self.pdf = pdf_design.Pdf(self.page_size_name)
         self.palette = THEME_PALETTES[self.spec["palette"]]
+        # CCC-8: the PDF is drawn in one pdf_themes theme (the spec's theme, else the closest one to the
+        # palette) and records it as its style, so the listing images use exactly the PDF's colours.
+        self.theme = _event_theme(spec, self.spec["palette"])
+        style = None
+        if self.theme is not None:
+            tok = self.theme["tokens"]
+            self.palette = dict(self.palette, name=self.theme["name"],
+                                primary=_hex_rgb(tok["accent"]), accent=_hex_rgb(tok.get("accent_light", tok["accent"])),
+                                bg_soft=_hex_rgb(tok.get("surface_soft", tok["bg"])), line=_hex_rgb(tok["line"]),
+                                text_dark=_hex_rgb(tok["ink"]), text_muted=_hex_rgb(tok["muted"]))
+            style = self.theme["slug"]
+        self.pdf = pdf_design.Pdf(self.page_size_name, style=style)
         self.w, self.h = self.pdf.w, self.pdf.h
         self.margin = 42.0
         self.content_w = self.w - 2 * self.margin
@@ -1425,11 +1464,12 @@ def build(spec: Optional[Dict[str, Any]] = None, out_dir: Optional[Union[str, Pa
     a4_filename = f"{norm['short_name']}-A4.pdf"
     letter_filename = f"{norm['short_name']}-Letter.pdf"
 
-    builder_a4 = EventPlannerPdfBuilder(norm, page_size_name="A4")
+    pdf_spec = dict(norm, theme=spec.get("theme")) if spec.get("theme") else norm   # CCC-8: keep the pack theme
+    builder_a4 = EventPlannerPdfBuilder(pdf_spec, page_size_name="A4")
     builder_a4.build_pdf(out_path / a4_filename)
     created_files.append(a4_filename)
 
-    builder_letter = EventPlannerPdfBuilder(norm, page_size_name="Letter")
+    builder_letter = EventPlannerPdfBuilder(pdf_spec, page_size_name="Letter")
     builder_letter.build_pdf(out_path / letter_filename)
     created_files.append(letter_filename)
 

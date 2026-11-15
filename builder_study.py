@@ -30,6 +30,36 @@ except ImportError:
 
 import pdf_design
 
+
+# CCC-8: the PDF colours come from the pack's pdf_themes theme (set by build()), and the PDF records the
+# theme as its style, so the listing images (cover, previews, pin) use exactly the PDF's colours.
+_DEFAULT_COLOURS = {'ink': '#1c2d42', 'accent': '#2f5d8a', 'muted': '#5f6b73', 'line': '#cad8e6', 'box': '#9fb8b5', 'warm': '#c9853b', 'soft': '#f1f6f6'}
+_COLOURS = dict(_DEFAULT_COLOURS)
+_STYLE = {"name": "A"}
+
+
+def _col(role: str) -> str:
+    return _COLOURS[role]
+
+
+def _use_theme(spec: Any) -> str:
+    """Load the theme for this spec into the PDF colours. Returns the pdf_design style name."""
+    _COLOURS.clear()
+    _COLOURS.update(_DEFAULT_COLOURS)
+    _STYLE["name"] = "A"
+    try:
+        import pdf_themes
+        pdf_themes.register_themes_in_pdf_design()
+        theme = pdf_themes.get_theme_for_spec(dict(spec or {}))
+    except Exception:
+        return _STYLE["name"]
+    tok = theme["tokens"]
+    _COLOURS.update(ink=tok["ink"], accent=tok["accent"], muted=tok["muted"], line=tok["line"],
+                    box=tok.get("border", tok["line"]), soft=tok.get("weekend") or tok.get("surface_soft", "#f4f4f4"),
+                    warm=tok.get("accent_light", tok["accent"]))
+    _STYLE["name"] = theme["slug"]
+    return _STYLE["name"]
+
 FORMAT = "study_planner"
 KEYWORDS = [
     "study planner", "exam planner", "revision timetable", "chapter tracker",
@@ -175,23 +205,23 @@ def _cover_image(path: Path, norm: Dict[str, Any], preview: int = 0) -> None:
 
 
 def _heading(pdf: Any, text: str, subtitle: str = "") -> None:
-    pdf.text(pdf_design.MARGIN, pdf.h - 62, text, 20, bold=True, color="#1c2d42")
+    pdf.text(pdf_design.MARGIN, pdf.h - 62, text, 20, bold=True, color=_col("ink"))
     if subtitle:
-        pdf.text(pdf_design.MARGIN, pdf.h - 84, subtitle, 10, color="#5f6b73")
-    pdf.line(pdf_design.MARGIN, pdf.h - 96, pdf.w - pdf_design.MARGIN, pdf.h - 96, color="#cad8e6")
+        pdf.text(pdf_design.MARGIN, pdf.h - 84, subtitle, 10, color=_col("muted"))
+    pdf.line(pdf_design.MARGIN, pdf.h - 96, pdf.w - pdf_design.MARGIN, pdf.h - 96, color=_col("line"))
 
 
 def _title_page(pdf: Any, norm: Dict[str, Any]) -> None:
     lines, size = pdf_design.fit_text(norm["title"], 30, pdf.w - 2 * pdf_design.MARGIN, bold=True, max_lines=3, min_size=16)
     y = pdf.h * 0.82
     for line in lines:
-        pdf.text_center(pdf.w / 2, y, line, size, bold=True, color="#1c2d42")
+        pdf.text_center(pdf.w / 2, y, line, size, bold=True, color=_col("ink"))
         y -= size * 1.25
-    pdf.text_center(pdf.w / 2, y - 8, f"{norm['exam_label']} preparation set", 17, color="#2f5d8a")
+    pdf.text_center(pdf.w / 2, y - 8, f"{norm['exam_label']} preparation set", 17, color=_col("accent"))
     if norm["exam_date"]:
-        pdf.text_center(pdf.w / 2, y - 34, f"Exam date: {norm['exam_date']}", 11, color="#c9853b")
-    pdf.text_center(pdf.w / 2, y - 60, "Revision timetable · Chapter tracker · Mock tests · Pomodoro · Checklist", 10, color="#5f6b73")
-    pdf.line(pdf.w / 2 - 90, y - 88, pdf.w / 2 + 90, y - 88, color="#2f5d8a", width=1.2)
+        pdf.text_center(pdf.w / 2, y - 34, f"Exam date: {norm['exam_date']}", 11, color=_col("warm"))
+    pdf.text_center(pdf.w / 2, y - 60, "Revision timetable · Chapter tracker · Mock tests · Pomodoro · Checklist", 10, color=_col("muted"))
+    pdf.line(pdf.w / 2 - 90, y - 88, pdf.w / 2 + 90, y - 88, color=_col("accent"), width=1.2)
     _exam_plan(pdf, norm, y - 116)
 
 
@@ -206,17 +236,17 @@ def _exam_plan(pdf: Any, norm: Dict[str, Any], top: float) -> None:
     left = pdf_design.MARGIN
     right = pdf.w - pdf_design.MARGIN
     bottom = 72
-    pdf.text(left, top, "My exam plan", 12, bold=True, color="#2f5d8a")
+    pdf.text(left, top, "My exam plan", 12, bold=True, color=_col("accent"))
     y = top - 26
     field_w = (right - left) / len(PLAN_FIELDS)
     for index, label in enumerate(PLAN_FIELDS):
         x = left + index * field_w
-        pdf.text(x, y, label, 8, color="#5f6b73")
-        pdf.line(x, y - 16, x + field_w - 14, y - 16, color="#cad8e6", width=0.6)
+        pdf.text(x, y, label, 8, color=_col("muted"))
+        pdf.line(x, y - 16, x + field_w - 14, y - 16, color=_col("line"), width=0.6)
     head_y = y - 42
     x = left
     for header, width in PLAN_COLUMNS:
-        pdf.text(x + 4, head_y, header, 8, bold=True, color="#5f6b73")
+        pdf.text(x + 4, head_y, header, 8, bold=True, color=_col("muted"))
         x += (right - left) * width
     table_top = head_y - 6
     rows = max(10, len(norm["subjects"]))
@@ -226,14 +256,14 @@ def _exam_plan(pdf: Any, norm: Dict[str, Any], top: float) -> None:
         y = table_top - (r + 1) * row_h
         x = left
         for _header, width in PLAN_COLUMNS:
-            pdf.rect(x, y, (right - left) * width, row_h, color="#cad8e6", width=0.4)
+            pdf.rect(x, y, (right - left) * width, row_h, color=_col("line"), width=0.4)
             x += (right - left) * width
         if r < len(norm["subjects"]):
-            pdf.text(left + 4, y + row_h / 2 - 3, norm["subjects"][r][:26], 9, color="#1c2d42")
-            pdf.text(left + (right - left) * 0.30 + 4, y + row_h / 2 - 3, str(norm["chapters_per_subject"]), 9, color="#1c2d42")
+            pdf.text(left + 4, y + row_h / 2 - 3, norm["subjects"][r][:26], 9, color=_col("ink"))
+            pdf.text(left + (right - left) * 0.30 + 4, y + row_h / 2 - 3, str(norm["chapters_per_subject"]), 9, color=_col("ink"))
         conf_x = left + (right - left) * 0.72 + 8
         for n in range(5):
-            pdf.rect(conf_x + n * (box + 6), y + (row_h - box) / 2, box, box, color="#9fb8b5", width=0.5)
+            pdf.rect(conf_x + n * (box + 6), y + (row_h - box) / 2, box, box, color=_col("box"), width=0.5)
 
 
 def _timetable_page(pdf: Any, norm: Dict[str, Any]) -> None:
@@ -244,15 +274,15 @@ def _timetable_page(pdf: Any, norm: Dict[str, Any]) -> None:
     label_w = 52
     col_w = (right - left - label_w) / len(SLOTS)
     row_h = min(58.0, (top - 90) / len(WEEK_DAYS))
-    pdf.text(left, top + 8, "Day", 8, bold=True, color="#5f6b73")
+    pdf.text(left, top + 8, "Day", 8, bold=True, color=_col("muted"))
     for i, slot in enumerate(SLOTS):
-        pdf.text_center(left + label_w + i * col_w + col_w / 2, top + 8, slot, 8, bold=True, color="#5f6b73")
+        pdf.text_center(left + label_w + i * col_w + col_w / 2, top + 8, slot, 8, bold=True, color=_col("muted"))
     for r, day in enumerate(WEEK_DAYS):
         y = top - (r + 1) * row_h
-        pdf.text(left + 2, y + row_h / 2 - 4, day, 9, bold=True, color="#1c2d42")
+        pdf.text(left + 2, y + row_h / 2 - 4, day, 9, bold=True, color=_col("ink"))
         for c in range(len(SLOTS)):
-            pdf.rect(left + label_w + c * col_w, y, col_w, row_h, color="#cad8e6", width=0.5)
-    pdf.text(left, 66, "Rule: one focused block at a time. Tick the box when the block is finished.", 9, color="#5f6b73")
+            pdf.rect(left + label_w + c * col_w, y, col_w, row_h, color=_col("line"), width=0.5)
+    pdf.text(left, 66, "Rule: one focused block at a time. Tick the box when the block is finished.", 9, color=_col("muted"))
 
 
 def _chapter_page(pdf: Any, norm: Dict[str, Any]) -> None:
@@ -265,13 +295,13 @@ def _chapter_page(pdf: Any, norm: Dict[str, Any]) -> None:
     cell_w = (right - left - label_w) / chapters
     row_h = min(46.0, (top - 100) / max(1, len(norm["subjects"])))
     for day in range(1, chapters + 1):
-        pdf.text_center(left + label_w + (day - 1) * cell_w + cell_w / 2, top + 10, str(day), 6.5, color="#5f6b73")
+        pdf.text_center(left + label_w + (day - 1) * cell_w + cell_w / 2, top + 10, str(day), 6.5, color=_col("muted"))
     for r, subject in enumerate(norm["subjects"]):
         y = top - (r + 1) * row_h
-        pdf.text(left + 2, y + row_h / 2 - 4, subject[:18], 8.5, color="#1c2d42")
+        pdf.text(left + 2, y + row_h / 2 - 4, subject[:18], 8.5, color=_col("ink"))
         for chapter in range(chapters):
-            pdf.rect(left + label_w + chapter * cell_w, y, cell_w, row_h, color="#cad8e6", width=0.5)
-    pdf.text(left, 66, "Mark each chapter: revised, practised, and confident.", 9, color="#5f6b73")
+            pdf.rect(left + label_w + chapter * cell_w, y, cell_w, row_h, color=_col("line"), width=0.5)
+    pdf.text(left, 66, "Mark each chapter: revised, practised, and confident.", 9, color=_col("muted"))
 
 
 def _mock_page(pdf: Any, norm: Dict[str, Any]) -> None:
@@ -283,7 +313,7 @@ def _mock_page(pdf: Any, norm: Dict[str, Any]) -> None:
     widths = [0.13, 0.22, 0.10, 0.27, 0.28]
     x = left
     for header, width in zip(headers, widths):
-        pdf.text(x + 2, top + 8, header, 8, bold=True, color="#5f6b73")
+        pdf.text(x + 2, top + 8, header, 8, bold=True, color=_col("muted"))
         x += (right - left) * width
     # CCC-3: as many log rows as fit down to the bottom margin (no empty area under the table).
     row_h = 32.0
@@ -293,7 +323,7 @@ def _mock_page(pdf: Any, norm: Dict[str, Any]) -> None:
         y = top - (r + 1) * row_h
         x = left
         for width in widths:
-            pdf.rect(x, y, (right - left) * width, row_h, color="#cad8e6", width=0.4)
+            pdf.rect(x, y, (right - left) * width, row_h, color=_col("line"), width=0.4)
             x += (right - left) * width
 
 
@@ -311,14 +341,14 @@ def _pomodoro_page(pdf: Any, norm: Dict[str, Any]) -> None:
         row = index // cols
         x = left + col * (box_w + gap)
         y = top - (row + 1) * box_h - row * gap
-        pdf.rect(x, y, box_w, box_h, color="#cad8e6", width=0.7)
-        pdf.text(x + 10, y + box_h - 18, f"Cycle {index + 1:02d}", 10, bold=True, color="#2f5d8a")
-        pdf.text(x + 10, y + box_h - 34, "Focus: 25 min", 8, color="#1c2d42")
-        pdf.text(x + 10, y + box_h - 48, "Break: 5 min", 8, color="#1c2d42")
-        pdf.rect(x + box_w - 26, y + 10, 12, 12, color="#9fb8b5", width=0.6)
-    pdf.text(left, 120, "Notes", 10, bold=True, color="#2f5d8a")
+        pdf.rect(x, y, box_w, box_h, color=_col("line"), width=0.7)
+        pdf.text(x + 10, y + box_h - 18, f"Cycle {index + 1:02d}", 10, bold=True, color=_col("accent"))
+        pdf.text(x + 10, y + box_h - 34, "Focus: 25 min", 8, color=_col("ink"))
+        pdf.text(x + 10, y + box_h - 48, "Break: 5 min", 8, color=_col("ink"))
+        pdf.rect(x + box_w - 26, y + 10, 12, 12, color=_col("box"), width=0.6)
+    pdf.text(left, 120, "Notes", 10, bold=True, color=_col("accent"))
     for line in range(3):
-        pdf.line(left, 100 - line * 18, pdf.w - left, 100 - line * 18, color="#d7dfe1")
+        pdf.line(left, 100 - line * 18, pdf.w - left, 100 - line * 18, color=_col("line"))
 
 
 def _checklist_page(pdf: Any, norm: Dict[str, Any]) -> None:
@@ -332,14 +362,14 @@ def _checklist_page(pdf: Any, norm: Dict[str, Any]) -> None:
         row = index // 2
         x = left + col * col_w
         y = top - (row + 1) * row_h
-        pdf.rect(x + 4, y + row_h / 2 - 5, 10, 10, color="#9fb8b5", width=0.7)
-        pdf.text(x + 22, y + row_h / 2 - 4, item[:52], 9, color="#1c2d42")
-    pdf.text(left, 66, "Reach the centre early. Read every instruction twice. Breathe.", 9, color="#5f6b73")
+        pdf.rect(x + 4, y + row_h / 2 - 5, 10, 10, color=_col("box"), width=0.7)
+        pdf.text(x + 22, y + row_h / 2 - 4, item[:52], 9, color=_col("ink"))
+    pdf.text(left, 66, "Reach the centre early. Read every instruction twice. Breathe.", 9, color=_col("muted"))
 
 
 def _build_pdf(path: Path, paper: str, norm: Dict[str, Any]) -> None:
     size = PAPER_SIZES[paper]
-    pdf = pdf_design.Pdf(size, footer=f"{norm['title']} · {norm['exam_label']} Study Planner", style="A")
+    pdf = pdf_design.Pdf(size, footer=f"{norm['title']} · {norm['exam_label']} Study Planner", style=_STYLE["name"])
     for page_fn in (_title_page, _timetable_page, _chapter_page, _mock_page, _pomodoro_page, _checklist_page):
         pdf.new_page()
         page_fn(pdf, norm)
@@ -393,6 +423,7 @@ def build(spec: Dict[str, Any], out_dir: Union[str, Path]) -> List[str]:
     if not HAS_PILLOW:
         raise RuntimeError("Pillow is required for the study planner builder")
     norm = normalize_spec(spec)
+    _use_theme(spec)
     out_path = Path(out_dir).resolve()
     temp_dir = Path(tempfile.mkdtemp(prefix="study_build_"))
     names: List[str] = []

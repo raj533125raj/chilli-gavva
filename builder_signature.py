@@ -848,7 +848,13 @@ def build_install_guide(path: str, size: str, title: str, spec: dict | None = No
     """The printable install guide. Returns the page count."""
     import pdf_design
     spec = spec or {}
-    pdf = pdf_design.Pdf(size, footer=f"{title} · install guide", style="A")
+    try:   # CCC-8: the guide uses the pack's theme, so the PDF and the listing images share one look
+        import pdf_themes
+        pdf_themes.register_themes_in_pdf_design()
+        style = pdf_themes.get_theme_for_spec(dict(spec))["slug"]
+    except Exception:
+        style = "A"
+    pdf = pdf_design.Pdf(size, footer=f"{title} · install guide", style=style)
     left, right = pdf_design.MARGIN, pdf.w - pdf_design.MARGIN
 
     # Page 1: what is inside, placeholders and a details sheet

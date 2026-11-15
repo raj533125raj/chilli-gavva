@@ -36,8 +36,9 @@ BUILTIN = {"sheets": "Budget Sheets Agent", "planner": "ADHD Planners Agent", "d
 REGISTERED = ("habit_tracker", "study_planner", "recipe_book", "flashcards", "event_planner", "email_signature",
               "wall_art")
 ALL_KINDS = tuple(BUILTIN) + REGISTERED
-# These three builders write their PDF in the old Style A; the images must then match THAT PDF.
-STYLE_A_PDF = ("habit_tracker", "study_planner", "recipe_book")
+# CCC-8: no builder writes its PDF in the old Style A any more - every type uses the pack's theme.
+# (Kept as an empty tuple: if a builder ever falls back to Style A, the images must match THAT PDF.)
+STYLE_A_PDF = ()
 SIZES = {"cover.png": (1280, 720), "preview-1.png": (1280, 720), "preview-2.png": (1280, 720),
          "preview-3.png": (1280, 720), "pinterest.png": (1000, 1500), "thumbnail.png": (600, 600)}
 _BUILT = {}

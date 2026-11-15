@@ -385,14 +385,27 @@ def _deck_how_to_page(pdf, title, topic, cards, cards_per_page, sheets):
     _ = pdf_design  # text widths come from pdf_design via _pdf_fit
 
 
-def build_deck_pdf(path: Path, size: str, title: str, topic: str, cards_per_page: int) -> int:
+def theme_style(spec: Optional[dict]) -> str:
+    """The pack's pdf_themes theme as a pdf_design style (CCC-8: PDF and listing images share one look).
+    Falls back to the plain Style A when the themes module is unavailable."""
+    try:
+        import pdf_themes
+        pdf_themes.register_themes_in_pdf_design()
+        return pdf_themes.get_theme_for_spec(dict(spec or {}))["slug"]
+    except Exception:
+        return "A"
+
+
+def build_deck_pdf(path: Path, size: str, title: str, topic: str, cards_per_page: int,
+                   spec: Optional[dict] = None) -> int:
     """One printable deck: a how-to page, then for every sheet a fronts page and its mirrored backs
     page, with dashed cut lines. Returns the page count."""
     import pdf_design
     cards = deck_cards(topic)
     cols, rows = _grid(cards_per_page)
     sheets = _sheets(cards, cols * rows)
-    pdf = pdf_design.Pdf(size, footer=f"{title} · print double-sided, flip on the long edge", style="A")
+    pdf = pdf_design.Pdf(size, footer=f"{title} · print double-sided, flip on the long edge",
+                         style=theme_style(spec))
     pdf.new_page()
     _deck_how_to_page(pdf, title, topic, cards, cards_per_page, len(sheets))
     left = PDF_LEFT
@@ -570,7 +583,7 @@ def build(spec: dict, out_dir: str) -> List[str]:
         base = deck_base_name(spec, topic)
         for size in ("A4", "Letter"):
             name = f"{base}-{size}.pdf"
-            build_deck_pdf(output_dir / name, size, title, topic, cards_per_page)
+            build_deck_pdf(output_dir / name, size, title, topic, cards_per_page, spec)
             created_files.append(name)
         _generate_deck_previews(output_dir, created_files, topic, cards_per_page)
     elif kind == "worksheets":

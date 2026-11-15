@@ -31,6 +31,36 @@ except ImportError:
 
 import pdf_design
 
+
+# CCC-8: the PDF colours come from the pack's pdf_themes theme (set by build()), and the PDF records the
+# theme as its style, so the listing images (cover, previews, pin) use exactly the PDF's colours.
+_DEFAULT_COLOURS = {'ink': '#1f2933', 'accent': '#2f7d78', 'muted': '#5f6b73', 'line': '#c9d3d6', 'box': '#9fb8b5', 'soft': '#f1f6f6', 'warm': '#2f7d78'}
+_COLOURS = dict(_DEFAULT_COLOURS)
+_STYLE = {"name": "A"}
+
+
+def _col(role: str) -> str:
+    return _COLOURS[role]
+
+
+def _use_theme(spec: Any) -> str:
+    """Load the theme for this spec into the PDF colours. Returns the pdf_design style name."""
+    _COLOURS.clear()
+    _COLOURS.update(_DEFAULT_COLOURS)
+    _STYLE["name"] = "A"
+    try:
+        import pdf_themes
+        pdf_themes.register_themes_in_pdf_design()
+        theme = pdf_themes.get_theme_for_spec(dict(spec or {}))
+    except Exception:
+        return _STYLE["name"]
+    tok = theme["tokens"]
+    _COLOURS.update(ink=tok["ink"], accent=tok["accent"], muted=tok["muted"], line=tok["line"],
+                    box=tok.get("border", tok["line"]), soft=tok.get("weekend") or tok.get("surface_soft", "#f4f4f4"),
+                    warm=tok.get("accent_light", tok["accent"]))
+    _STYLE["name"] = theme["slug"]
+    return _STYLE["name"]
+
 FORMAT = "habit_tracker"
 KEYWORDS = [
     "habit tracker", "mood tracker", "habit and mood", "monthly habit tracker",
@@ -187,25 +217,26 @@ def _cover_image(path: Path, norm: Dict[str, Any], preview: int = 0) -> None:
 
 
 def _heading(pdf: Any, text: str, subtitle: str = "") -> None:
-    pdf.text(pdf_design.MARGIN, pdf.h - 62, text, 20, bold=True, color="#1f2933")
+    pdf.text(pdf_design.MARGIN, pdf.h - 62, text, 20, bold=True, color=_col("ink"))
     if subtitle:
-        pdf.text(pdf_design.MARGIN, pdf.h - 84, subtitle, 10, color="#5f6b73")
-    pdf.line(pdf_design.MARGIN, pdf.h - 96, pdf.w - pdf_design.MARGIN, pdf.h - 96, color="#c9d3d6")
+        pdf.text(pdf_design.MARGIN, pdf.h - 84, subtitle, 10, color=_col("muted"))
+    pdf.line(pdf_design.MARGIN, pdf.h - 96, pdf.w - pdf_design.MARGIN, pdf.h - 96, color=_col("line"))
 
 
 def _title_page(pdf: Any, norm: Dict[str, Any]) -> None:
     lines, size = pdf_design.fit_text(norm["title"], 30, pdf.w - 2 * pdf_design.MARGIN, bold=True, max_lines=3, min_size=16)
     y = pdf.h * 0.66
     for line in lines:
-        pdf.text_center(pdf.w / 2, y, line, size, bold=True, color="#1f2933")
+        pdf.text_center(pdf.w / 2, y, line, size, bold=True, color=_col("ink"))
         y -= size * 1.25
-    pdf.text_center(pdf.w / 2, y - 18, f"{norm['month_name']} {norm['year']}", 18, color="#2f7d78")
-    pdf.text_center(pdf.w / 2, y - 48, "Habit grid · Streak boxes · Mood log · Reflection · Year overview", 10, color="#5f6b73")
-    pdf.line(pdf.w / 2 - 80, y - 76, pdf.w / 2 + 80, y - 76, color="#2f7d78", width=1.2)
+    pdf.text_center(pdf.w / 2, y - 18, f"{norm['month_name']} {norm['year']}", 18, color=_col("accent"))
+    pdf.text_center(pdf.w / 2, y - 48, "Habit grid · Streak boxes · Mood log · Reflection · Year overview", 10, color=_col("muted"))
+    pdf.line(pdf.w / 2 - 80, y - 76, pdf.w / 2 + 80, y - 76, color=_col("accent"), width=1.2)
     _start_here_box(pdf, norm, y - 106)
 
 
-START_HERE_FIELDS = ["My top habit this month", "Why it matters to me", "Start date", "My reward at the end"]
+TRACKER_ROWS = 10
+START_HERE_FIELDS =["My top habit this month", "Why it matters to me", "Start date", "My reward at the end"]
 PAGE_GUIDE = [
     ("Habit Tracker", "one row per habit, one box per day"),
     ("Mood Log", "colour one mood box each day, plus a streak row"),
@@ -220,21 +251,21 @@ def _start_here_box(pdf: Any, norm: Dict[str, Any], top: float) -> None:
     right = pdf.w - pdf_design.MARGIN
     bottom = 76
     top = max(top, bottom + 230)
-    pdf.rect(left, bottom, right - left, top - bottom, color="#c9d3d6", width=0.8)
-    pdf.text(left + 14, top - 22, "Start here", 12, bold=True, color="#2f7d78")
+    pdf.rect(left, bottom, right - left, top - bottom, color=_col("line"), width=0.8)
+    pdf.text(left + 14, top - 22, "Start here", 12, bold=True, color=_col("accent"))
     y = top - 48
     field_gap = (top - bottom - 150) / len(START_HERE_FIELDS)
     for label in START_HERE_FIELDS:
-        pdf.text(left + 14, y, label, 9, color="#1f2933")
-        pdf.line(left + 150, y - 2, right - 14, y - 2, color="#c9d3d6", width=0.6)
+        pdf.text(left + 14, y, label, 9, color=_col("ink"))
+        pdf.line(left + 150, y - 2, right - 14, y - 2, color=_col("line"), width=0.6)
         y -= max(22.0, field_gap)
-    pdf.text(left + 14, bottom + 74, "Inside this pack", 9, bold=True, color="#2f7d78")
+    pdf.text(left + 14, bottom + 74, "Inside this pack", 9, bold=True, color=_col("accent"))
     col_w = (right - left - 28) / 2
     for index, (page, note) in enumerate(PAGE_GUIDE):
         x = left + 14 + (index % 2) * col_w
         row_y = bottom + 54 - (index // 2) * 26
-        pdf.text(x, row_y, page, 8.5, bold=True, color="#1f2933")
-        pdf.text(x, row_y - 11, note, 7.5, color="#5f6b73")
+        pdf.text(x, row_y, page, 8.5, bold=True, color=_col("ink"))
+        pdf.text(x, row_y - 11, note, 7.5, color=_col("muted"))
 
 
 def _tracker_page(pdf: Any, norm: Dict[str, Any]) -> None:
@@ -246,24 +277,29 @@ def _tracker_page(pdf: Any, norm: Dict[str, Any]) -> None:
     top = pdf.h - 128
     label_w = 126
     day_w = (right - left - label_w) / days
-    row_h = min(38.0, (top - 120) / max(1, len(habits)))
+    # The named habits, then blank rows (up to TRACKER_ROWS) for habits the buyer adds by hand
+    rows = list(habits) + [""] * max(0, TRACKER_ROWS - len(habits))
+    row_h = min(48.0, (top - 120) / max(1, len(rows)))
 
-    pdf.text(left, top + 8, "Habit", 8, bold=True, color="#5f6b73")
+    pdf.text(left, top + 8, "Habit", 8, bold=True, color=_col("muted"))
     for day in range(1, days + 1):
         x = left + label_w + (day - 1) * day_w
         weekday = (norm["first_weekday"] + day - 1) % 7
         if weekday >= 5:
-            pdf.fill(x, top - row_h * len(habits), day_w, row_h * len(habits), "#f1f6f6")
-        pdf.text_center(x + day_w / 2, top + 8, str(day), 6.5, color="#5f6b73")
+            pdf.fill(x, top - row_h * len(rows), day_w, row_h * len(rows), _col("soft"))
+        pdf.text_center(x + day_w / 2, top + 8, str(day), 6.5, color=_col("muted"))
 
-    for r, habit in enumerate(habits):
+    for r, habit in enumerate(rows):
         y = top - (r + 1) * row_h
-        pdf.text(left + 2, y + row_h / 2 - 4, habit[:24], 8.5, color="#1f2933")
+        if habit:
+            pdf.text(left + 2, y + row_h / 2 - 4, habit[:24], 8.5, color=_col("ink"))
+        else:
+            pdf.line(left + 2, y + row_h / 2 - 6, left + label_w - 10, y + row_h / 2 - 6, color=_col("line"), width=0.5)
         for day in range(1, days + 1):
             x = left + label_w + (day - 1) * day_w
-            pdf.rect(x, y, day_w, row_h, color="#c9d3d6", width=0.4)
+            pdf.rect(x, y, day_w, row_h, color=_col("line"), width=0.4)
 
-    pdf.text(left, 96, "Streak tip: colour the small boxes on the mood page for every day you keep your top habit.", 9, color="#5f6b73")
+    pdf.text(left, 96, "Streak tip: colour the small boxes on the mood page for every day you keep your top habit.", 9, color=_col("muted"))
 
 
 def _mood_page(pdf: Any, norm: Dict[str, Any]) -> None:
@@ -274,7 +310,7 @@ def _mood_page(pdf: Any, norm: Dict[str, Any]) -> None:
     for i, (name, color) in enumerate(MOODS[:5]):
         label = norm["moods"][i] if i < len(norm["moods"]) else name
         pdf.circle(x + 8 + i * 96, y + 4, 5, fill=color)
-        pdf.text(x + 18 + i * 96, y, label, 9, color="#1f2933")
+        pdf.text(x + 18 + i * 96, y, label, 9, color=_col("ink"))
 
     top = pdf.h - 190
     columns = 2
@@ -286,25 +322,25 @@ def _mood_page(pdf: Any, norm: Dict[str, Any]) -> None:
         row = index % rows
         cx = pdf_design.MARGIN + col * col_w
         cy = top - (row + 1) * row_h
-        pdf.text(cx, cy + 4, f"{index + 1:02d}", 7, color="#5f6b73")
+        pdf.text(cx, cy + 4, f"{index + 1:02d}", 7, color=_col("muted"))
         for m in range(5):
             bx = cx + 24 + m * (col_w - 34) / 5
-            pdf.rect(bx, cy, (col_w - 34) / 5 - 3, row_h - 2, color="#c9d3d6", width=0.5)
+            pdf.rect(bx, cy, (col_w - 34) / 5 - 3, row_h - 2, color=_col("line"), width=0.5)
 
-    pdf.text(pdf_design.MARGIN, 130, "Streak challenge — one box per day", 10, bold=True, color="#2f7d78")
+    pdf.text(pdf_design.MARGIN, 130, "Streak challenge — one box per day", 10, bold=True, color=_col("accent"))
     box_w = (pdf.w - 2 * pdf_design.MARGIN) / days
     for day in range(days):
-        pdf.rect(pdf_design.MARGIN + day * box_w, 104, box_w - 1.5, box_w - 1.5, color="#9fb8b5", width=0.5)
+        pdf.rect(pdf_design.MARGIN + day * box_w, 104, box_w - 1.5, box_w - 1.5, color=_col("box"), width=0.5)
 
 
 def _reflection_page(pdf: Any, norm: Dict[str, Any]) -> None:
     _heading(pdf, "Monthly Reflection", "Five quiet minutes to close the month honestly.")
     y = pdf.h - 140
     for prompt in REFLECTION_PROMPTS:
-        pdf.text(pdf_design.MARGIN, y, prompt, 11, bold=True, color="#1f2933")
+        pdf.text(pdf_design.MARGIN, y, prompt, 11, bold=True, color=_col("ink"))
         y -= 20
         for _ in range(7):
-            pdf.line(pdf_design.MARGIN, y, pdf.w - pdf_design.MARGIN, y, color="#d7dfe1")
+            pdf.line(pdf_design.MARGIN, y, pdf.w - pdf_design.MARGIN, y, color=_col("line"))
             y -= 25
         y -= 20
 
@@ -322,8 +358,8 @@ def _year_page(pdf: Any, norm: Dict[str, Any]) -> None:
         row = (month - 1) // 4
         x = left + col * (col_w + gap)
         y = top - (row + 1) * row_h - row * gap
-        pdf.rect(x, y, col_w, row_h, color="#c9d3d6", width=0.6)
-        pdf.text(x + 6, y + row_h - 14, calendar.month_abbr[month], 9, bold=True, color="#2f7d78")
+        pdf.rect(x, y, col_w, row_h, color=_col("line"), width=0.6)
+        pdf.text(x + 6, y + row_h - 14, calendar.month_abbr[month], 9, bold=True, color=_col("accent"))
         weeks = cal.monthdayscalendar(norm["year"], month)
         cell_w = (col_w - 12) / 7
         cell_h = (row_h - 26) / 6
@@ -331,12 +367,12 @@ def _year_page(pdf: Any, norm: Dict[str, Any]) -> None:
             for di, day in enumerate(week):
                 if day:
                     pdf.text_center(x + 6 + di * cell_w + cell_w / 2,
-                                    y + row_h - 28 - wi * cell_h, str(day), 5.2, color="#5f6b73")
+                                    y + row_h - 28 - wi * cell_h, str(day), 5.2, color=_col("muted"))
 
 
 def _build_pdf(path: Path, paper: str, norm: Dict[str, Any]) -> None:
     size = PAPER_SIZES[paper]
-    pdf = pdf_design.Pdf(size, footer=f"{norm['title']} · {norm['month_name']} {norm['year']}", style="A")
+    pdf = pdf_design.Pdf(size, footer=f"{norm['title']} · {norm['month_name']} {norm['year']}", style=_STYLE["name"])
     for page_fn in (_title_page, _tracker_page, _mood_page, _reflection_page, _year_page):
         pdf.new_page()
         page_fn(pdf, norm)
@@ -392,6 +428,7 @@ def build(spec: Dict[str, Any], out_dir: Union[str, Path]) -> List[str]:
     if not HAS_PILLOW:
         raise RuntimeError("Pillow is required for the habit tracker builder")
     norm = normalize_spec(spec)
+    _use_theme(spec)
     out_path = Path(out_dir).resolve()
     temp_dir = Path(tempfile.mkdtemp(prefix="habit_build_"))
     names: List[str] = []

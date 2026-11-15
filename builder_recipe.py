@@ -30,6 +30,36 @@ except ImportError:
 
 import pdf_design
 
+
+# CCC-8: the PDF colours come from the pack's pdf_themes theme (set by build()), and the PDF records the
+# theme as its style, so the listing images (cover, previews, pin) use exactly the PDF's colours.
+_DEFAULT_COLOURS = {'ink': '#2d2621', 'accent': '#a35c3a', 'muted': '#7b6b5f', 'line': '#d8c5b5', 'box': '#9fb8b5', 'warm': '#58705a', 'soft': '#f1f6f6'}
+_COLOURS = dict(_DEFAULT_COLOURS)
+_STYLE = {"name": "A"}
+
+
+def _col(role: str) -> str:
+    return _COLOURS[role]
+
+
+def _use_theme(spec: Any) -> str:
+    """Load the theme for this spec into the PDF colours. Returns the pdf_design style name."""
+    _COLOURS.clear()
+    _COLOURS.update(_DEFAULT_COLOURS)
+    _STYLE["name"] = "A"
+    try:
+        import pdf_themes
+        pdf_themes.register_themes_in_pdf_design()
+        theme = pdf_themes.get_theme_for_spec(dict(spec or {}))
+    except Exception:
+        return _STYLE["name"]
+    tok = theme["tokens"]
+    _COLOURS.update(ink=tok["ink"], accent=tok["accent"], muted=tok["muted"], line=tok["line"],
+                    box=tok.get("border", tok["line"]), soft=tok.get("weekend") or tok.get("surface_soft", "#f4f4f4"),
+                    warm=tok.get("accent_light", tok["accent"]))
+    _STYLE["name"] = theme["slug"]
+    return _STYLE["name"]
+
 FORMAT = "recipe_book"
 KEYWORDS = [
     "recipe book", "recipe cards", "meal planner", "grocery list",
@@ -251,21 +281,21 @@ def _cover_image(path: Path, norm: Dict[str, Any], preview: int = 0) -> None:
 
 
 def _heading(pdf: Any, text: str, subtitle: str = "") -> None:
-    pdf.text(pdf_design.MARGIN, pdf.h - 62, text, 20, bold=True, color="#2d2621")
+    pdf.text(pdf_design.MARGIN, pdf.h - 62, text, 20, bold=True, color=_col("ink"))
     if subtitle:
-        pdf.text(pdf_design.MARGIN, pdf.h - 84, subtitle, 10, color="#7b6b5f")
-    pdf.line(pdf_design.MARGIN, pdf.h - 96, pdf.w - pdf_design.MARGIN, pdf.h - 96, color="#d8c5b5")
+        pdf.text(pdf_design.MARGIN, pdf.h - 84, subtitle, 10, color=_col("muted"))
+    pdf.line(pdf_design.MARGIN, pdf.h - 96, pdf.w - pdf_design.MARGIN, pdf.h - 96, color=_col("line"))
 
 
 def _title_page(pdf: Any, norm: Dict[str, Any]) -> None:
     lines, size = pdf_design.fit_text(norm["title"], 30, pdf.w - 2 * pdf_design.MARGIN, bold=True, max_lines=3, min_size=16)
     y = pdf.h * 0.80
     for line in lines:
-        pdf.text_center(pdf.w / 2, y, line, size, bold=True, color="#2d2621")
+        pdf.text_center(pdf.w / 2, y, line, size, bold=True, color=_col("ink"))
         y -= size * 1.25
-    pdf.text_center(pdf.w / 2, y - 10, f"{norm['cuisine'].title()} recipe collection · {len(norm['recipes'])} cards", 16, color="#a35c3a")
-    pdf.text_center(pdf.w / 2, y - 40, "Recipe cards · Weekly meal plan · Grocery list by aisle · Pantry inventory", 10, color="#7b6b5f")
-    pdf.line(pdf.w / 2 - 90, y - 68, pdf.w / 2 + 90, y - 68, color="#a35c3a", width=1.2)
+    pdf.text_center(pdf.w / 2, y - 10, f"{norm['cuisine'].title()} recipe collection · {len(norm['recipes'])} cards", 16, color=_col("accent"))
+    pdf.text_center(pdf.w / 2, y - 40, "Recipe cards · Weekly meal plan · Grocery list by aisle · Pantry inventory", 10, color=_col("muted"))
+    pdf.line(pdf.w / 2 - 90, y - 68, pdf.w / 2 + 90, y - 68, color=_col("accent"), width=1.2)
     _recipe_index(pdf, norm, y - 96)
 
 
@@ -279,44 +309,44 @@ def _recipe_index(pdf: Any, norm: Dict[str, Any], top: float) -> None:
     left = pdf_design.MARGIN
     right = pdf.w - pdf_design.MARGIN
     bottom = 72
-    pdf.text(left, top, "Recipe index", 12, bold=True, color="#a35c3a")
+    pdf.text(left, top, "Recipe index", 12, bold=True, color=_col("accent"))
     head_y = top - 22
     x = left
     for header, width in INDEX_COLUMNS:
-        pdf.text(x + 4, head_y, header, 8, bold=True, color="#7b6b5f")
+        pdf.text(x + 4, head_y, header, 8, bold=True, color=_col("muted"))
         x += (right - left) * width
     table_top = head_y - 6
     rows = max(INDEX_ROWS, len(norm["recipes"]))
     row_h = (table_top - bottom) / rows
     for r in range(rows):
         y = table_top - (r + 1) * row_h
-        pdf.line(left, y, right, y, color="#e3d5c8", width=0.5)
+        pdf.line(left, y, right, y, color=_col("line"), width=0.5)
         if r < len(norm["recipes"]):
             recipe = norm["recipes"][r]
             values = [f"{r + 1:02d}", recipe["title"][:40], recipe["category"][:22], recipe["diet"], recipe["prep"][:10]]
             x = left
             for value, (_header, width) in zip(values, INDEX_COLUMNS):
-                pdf.text(x + 4, y + row_h / 2 - 3, value, 8, color="#2d2621")
+                pdf.text(x + 4, y + row_h / 2 - 3, value, 8, color=_col("ink"))
                 x += (right - left) * width
-    pdf.line(left, table_top, right, table_top, color="#a35c3a", width=0.8)
+    pdf.line(left, table_top, right, table_top, color=_col("accent"), width=0.8)
 
 
 def _recipe_card(pdf: Any, x: float, y: float, w: float, h: float, recipe: Dict[str, Any], number: int) -> None:
-    pdf.rect(x, y, w, h, color="#d8c5b5", width=0.8)
-    pdf.text(x + 10, y + h - 20, recipe["title"][:52], 13, bold=True, color="#2d2621")
-    pdf.text(x + 10, y + h - 36, f"{recipe['category']} · {recipe['diet']} · {recipe['prep']}", 7.5, color="#a35c3a")
-    pdf.text(x + 10, y + h - 54, "Ingredients", 8, bold=True, color="#58705a")
+    pdf.rect(x, y, w, h, color=_col("line"), width=0.8)
+    pdf.text(x + 10, y + h - 20, recipe["title"][:52], 13, bold=True, color=_col("ink"))
+    pdf.text(x + 10, y + h - 36, f"{recipe['category']} · {recipe['diet']} · {recipe['prep']}", 7.5, color=_col("accent"))
+    pdf.text(x + 10, y + h - 54, "Ingredients", 8, bold=True, color=_col("warm"))
     line_y = y + h - 68
     for ingredient in recipe["ingredients"][:6]:
-        pdf.text(x + 12, line_y, f"• {ingredient[:42]}", 7, color="#2d2621")
+        pdf.text(x + 12, line_y, f"• {ingredient[:42]}", 7, color=_col("ink"))
         line_y -= 10
     method_y = line_y - 6
-    pdf.text(x + 10, method_y, "Method", 8, bold=True, color="#58705a")
+    pdf.text(x + 10, method_y, "Method", 8, bold=True, color=_col("warm"))
     method_y -= 14
     for step in recipe["method"][:5]:
-        pdf.text(x + 12, method_y, f"{step[:56]}", 7, color="#2d2621")
+        pdf.text(x + 12, method_y, f"{step[:56]}", 7, color=_col("ink"))
         method_y -= 10
-    pdf.text(x + w - 42, y + 8, f"No. {number:02d}", 7, color="#7b6b5f")
+    pdf.text(x + w - 42, y + 8, f"No. {number:02d}", 7, color=_col("muted"))
 
 
 def _recipe_pages(pdf: Any, norm: Dict[str, Any]) -> None:
@@ -357,15 +387,15 @@ def _meal_plan_page(pdf: Any, norm: Dict[str, Any]) -> None:
     label_w = 88
     col_w = (right - left - label_w) / len(MEALS)
     row_h = min(54.0, (top - 80) / len(WEEK_DAYS))
-    pdf.text(left, top + 8, "Day", 8, bold=True, color="#7b6b5f")
+    pdf.text(left, top + 8, "Day", 8, bold=True, color=_col("muted"))
     for i, meal in enumerate(MEALS):
-        pdf.text_center(left + label_w + i * col_w + col_w / 2, top + 8, meal, 8, bold=True, color="#7b6b5f")
+        pdf.text_center(left + label_w + i * col_w + col_w / 2, top + 8, meal, 8, bold=True, color=_col("muted"))
     for r, day in enumerate(WEEK_DAYS):
         y = top - (r + 1) * row_h
-        pdf.text(left + 2, y + row_h / 2 - 4, day, 9, bold=True, color="#2d2621")
+        pdf.text(left + 2, y + row_h / 2 - 4, day, 9, bold=True, color=_col("ink"))
         for c in range(len(MEALS)):
-            pdf.rect(left + label_w + c * col_w, y, col_w, row_h, color="#d8c5b5", width=0.5)
-    pdf.text(left, 64, "Tip: repeat one trusted meal each week to save planning time.", 9, color="#7b6b5f")
+            pdf.rect(left + label_w + c * col_w, y, col_w, row_h, color=_col("line"), width=0.5)
+    pdf.text(left, 64, "Tip: repeat one trusted meal each week to save planning time.", 9, color=_col("muted"))
 
 
 def _grocery_page(pdf: Any, norm: Dict[str, Any]) -> None:
@@ -383,11 +413,11 @@ def _grocery_page(pdf: Any, norm: Dict[str, Any]) -> None:
         row = index // cols
         x = left + col * (box_w + gap)
         y = top - (row + 1) * box_h - row * gap
-        pdf.rect(x, y, box_w, box_h, color="#d8c5b5", width=0.7)
-        pdf.text(x + 8, y + box_h - 16, aisle, 10, bold=True, color="#a35c3a")
+        pdf.rect(x, y, box_w, box_h, color=_col("line"), width=0.7)
+        pdf.text(x + 8, y + box_h - 16, aisle, 10, bold=True, color=_col("accent"))
         for line in range(max(0, int((box_h - 30) // 15))):
-            pdf.line(x + 20, y + box_h - 30 - line * 15, x + box_w - 8, y + box_h - 30 - line * 15, color="#e3d5c8")
-            pdf.rect(x + 8, y + box_h - 34 - line * 15, 6, 6, color="#9fb8b5", width=0.4)
+            pdf.line(x + 20, y + box_h - 30 - line * 15, x + box_w - 8, y + box_h - 30 - line * 15, color=_col("line"))
+            pdf.rect(x + 8, y + box_h - 34 - line * 15, 6, 6, color=_col("box"), width=0.4)
 
 
 def _pantry_page(pdf: Any, norm: Dict[str, Any]) -> None:
@@ -400,7 +430,7 @@ def _pantry_page(pdf: Any, norm: Dict[str, Any]) -> None:
     widths = [0.42, 0.16, 0.18, 0.24]
     x = left
     for header, width in zip(headers, widths):
-        pdf.text(x + 2, top + 8, header, 8, bold=True, color="#7b6b5f")
+        pdf.text(x + 2, top + 8, header, 8, bold=True, color=_col("muted"))
         x += (right - left) * width
     row_h = min(28.0, (top - 80) / 16)
     items = norm["pantry_items"] + [""] * max(0, 16 - len(norm["pantry_items"]))
@@ -408,15 +438,15 @@ def _pantry_page(pdf: Any, norm: Dict[str, Any]) -> None:
         y = top - (r + 1) * row_h
         x = left
         for width in widths:
-            pdf.rect(x, y, (right - left) * width, row_h, color="#d8c5b5", width=0.4)
+            pdf.rect(x, y, (right - left) * width, row_h, color=_col("line"), width=0.4)
             x += (right - left) * width
         if item:
-            pdf.text(left + 4, y + row_h / 2 - 4, item[:40], 8, color="#2d2621")
+            pdf.text(left + 4, y + row_h / 2 - 4, item[:40], 8, color=_col("ink"))
 
 
 def _build_pdf(path: Path, paper: str, norm: Dict[str, Any]) -> None:
     size = PAPER_SIZES[paper]
-    pdf = pdf_design.Pdf(size, footer=f"{norm['title']} · Recipe & Meal Planner", style="A")
+    pdf = pdf_design.Pdf(size, footer=f"{norm['title']} · Recipe & Meal Planner", style=_STYLE["name"])
     pdf.new_page()
     _title_page(pdf, norm)
     _recipe_pages(pdf, norm)
@@ -472,6 +502,7 @@ def build(spec: Dict[str, Any], out_dir: Union[str, Path]) -> List[str]:
     if not HAS_PILLOW:
         raise RuntimeError("Pillow is required for the recipe book builder")
     norm = normalize_spec(spec)
+    _use_theme(spec)
     out_path = Path(out_dir).resolve()
     temp_dir = Path(tempfile.mkdtemp(prefix="recipe_build_"))
     names: List[str] = []

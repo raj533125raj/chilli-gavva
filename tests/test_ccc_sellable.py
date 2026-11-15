@@ -487,5 +487,55 @@ class WallArtTests(unittest.TestCase):
             self.assertNotIn(tmp, readme)
 
 
+@unittest.skipUnless(HAS_PIL, "needs Pillow")
+class PackThemeTests(unittest.TestCase):
+    """CCC-8: every builder that writes a PDF writes it in the pack's pdf_themes theme."""
+
+    BUILDERS = {"habit_tracker": "builder_habit", "study_planner": "builder_study", "recipe_book": "builder_recipe",
+                "event_planner": "builder_eventplanner", "flashcards": "builder_flashcards",
+                "email_signature": "builder_signature"}
+
+    def test_pdf_records_the_theme_given_in_the_spec(self):
+        import pdf_design
+        import pdf_themes
+        for theme in ("Ocean", "Terracotta"):
+            slug = pdf_themes.get_theme(theme)["slug"]
+            for kind, module in self.BUILDERS.items():
+                with self.subTest(kind=kind, theme=theme), tempfile.TemporaryDirectory() as tmp:
+                    spec = {"kind": kind, "title": "Theme Test", "short_name": "theme-test", "theme": theme}
+                    folder = build_folder(module, spec, tmp)
+                    pdf = next(p for p in sorted(folder.glob("*.pdf")) if p.name.endswith("-A4.pdf"))
+                    self.assertEqual(pdf_design.pdf_style(str(pdf)), slug)
+                    self.assertEqual(page_problems(folder), [])
+
+    def test_theme_colours_are_used_on_the_page(self):
+        import pdf_design
+        import pdf_themes
+        accent = pdf_themes.get_theme("Ocean")["tokens"]["accent"]
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = build_folder("builder_study", {"kind": "study_planner", "theme": "Ocean",
+                                                    "short_name": "study-planner"}, tmp)
+            self.assertIn(pdf_design._c(accent), stream_ops(folder, 1))
+
+    def test_event_palette_maps_to_the_closest_theme_without_a_spec_theme(self):
+        import builder_eventplanner as be
+        import pdf_design
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = build_folder("builder_eventplanner", {"kind": "event_planner", "short_name": "wedding",
+                                                           "event_type": "wedding", "edition": "indian"}, tmp)
+            self.assertEqual(pdf_design.pdf_style(str(folder / "wedding-A4.pdf")), "festive_marigold")
+        self.assertEqual(set(be.PALETTE_THEMES), set(be.THEME_PALETTES))
+
+    def test_habit_grid_has_blank_rows_for_own_habits(self):
+        import builder_habit
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = build_folder("builder_habit", {"kind": "habit_tracker", "short_name": "habit-tracker",
+                                                    "habits": ["Walk", "Read"]}, tmp)
+            texts, page = page_texts(folder, 2)
+            self.assertIn("Walk", texts)
+            self.assertGreaterEqual(page["drawn"], builder_habit.TRACKER_ROWS * 28)
+            self.assertLess(page["low"], 0.35 * 842)
+
+
 if __name__ == "__main__":
     unittest.main()
