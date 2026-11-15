@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-15T06:46:38Z",
+ "generated_at": "2026-11-15T06:55:57Z",
  "llm": {
-  "calls_today": 1,
+  "calls_today": 7,
   "cap": 500
  },
  "agents": [
@@ -204,18 +204,6 @@
  ],
  "pending_approvals": [
   {
-   "id": 101,
-   "ts": "2026-11-11T06:31:04.892836",
-   "kind": "scout_idea",
-   "title": "Draft #101"
-  },
-  {
-   "id": 102,
-   "ts": "2026-11-12T00:47:29.438035",
-   "kind": "scout_idea",
-   "title": "Draft #102"
-  },
-  {
    "id": 103,
    "ts": "2026-11-12T00:47:29.440652",
    "kind": "scout_idea",
@@ -371,38 +359,38 @@
  "ai_health": [
   {
    "provider": "Groq",
-   "model": "openai/gpt-oss-20b",
+   "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-15T06:46:38Z"
+   "checked_at": "2026-11-15T06:55:57Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
    "state": "unknown",
    "reason": "No recent activity recorded",
-   "checked_at": "2026-11-15T06:46:38Z"
+   "checked_at": "2026-11-15T06:55:57Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "unknown",
    "reason": "No recent activity recorded",
-   "checked_at": "2026-11-15T06:46:38Z"
+   "checked_at": "2026-11-15T06:55:57Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-15T06:46:38Z"
+   "checked_at": "2026-11-15T06:55:57Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-15T06:46:38Z"
+   "checked_at": "2026-11-15T06:55:57Z"
   }
  ],
  "minutes": {
@@ -693,29 +681,29 @@
  "reject_reasons": [
   {
    "reason": "Formatting or rubric issue",
-   "count": 101
+   "count": 103
   },
   {
    "reason": "Risky or prohibited claim",
-   "count": 62
+   "count": 66
   },
   {
    "reason": "Unclear value over free template",
-   "count": 53
+   "count": 54
   },
   {
    "reason": "Target audience unclear",
-   "count": 47
+   "count": 51
   },
   {
    "reason": "Product structure incomplete",
-   "count": 36
+   "count": 38
   }
  ],
  "report": {
   "drafts_made": 1,
-  "drafts_waiting": 8,
-  "drafts_approved": 0,
+  "drafts_waiting": 6,
+  "drafts_approved": 2,
   "products_built": 0,
   "errors": 0
  },
@@ -825,68 +813,92 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 7,
    "calls_limit_today": 500,
    "context_percent": null
   }
  ],
  "loop_events": [
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-15T06:55:57Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-15T06:55:57Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-15T06:47:00Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-15T06:46:57Z"
+  },
   {
    "agent": "Unknown agent",
    "kind": "error",
@@ -1162,30 +1174,6 @@
    "kind": "error",
    "label": "Recovery check",
    "at": "2026-11-05T01:29:51Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-05T01:29:34Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-05T01:29:34Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-05T01:29:34Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-05T01:29:34Z"
   }
  ],
  "activity_events": [
@@ -2273,12 +2261,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-15T06:46:32Z",
-  "last_run_end": "2026-11-15T06:46:38Z",
+  "last_run_start": "2026-11-15T06:55:56Z",
+  "last_run_end": "2026-11-15T06:55:57Z",
   "runner": "github-actions",
-  "run_id": "43686412481"
+  "run_id": "43687072764"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "push106: sell-flow e2e tests, plugin bug-hunt tests, Gumroad copy, /launch, daily sell card",
   "agent: state + content update [skip ci]",
   "Faster tests, /listed, /sell pictures, Gumroad images, safer sell tools",
@@ -2297,17 +2286,18 @@
   "agent: state + content update [skip ci]",
   "agent: owner inbox state [skip ci]",
   "agent: owner inbox state [skip ci]",
-  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]"
  ],
  "daily_report": {
   "date_ist": "2026-11-15",
-  "summary": "No completed work recorded.",
-  "items_done": []
+  "summary": "0 tasks completed; 2 approvals reviewed; 0 products built.",
+  "items_done": [
+   "Approval reviewed"
+  ]
  },
  "sunday_letter": {
   "date_ist": "2026-11-15",
-  "summary": "0 tasks completed; 13 approvals reviewed; 0 products built."
+  "summary": "0 tasks completed; 15 approvals reviewed; 0 products built."
  },
  "cubes": [
   {
@@ -2661,8 +2651,8 @@
  "office_requests": [],
  "scout_ideas_count": {
   "total": 57,
-  "pending": 8,
-  "approved": 49
+  "pending": 6,
+  "approved": 51
  },
  "trend_items_count": {
   "total": 160,
