@@ -639,10 +639,140 @@ def _alarm(path):
 MAIN_SHA = "5" * 40
 
 
+# ---- GitHub pull requests for the auto-fix drill (tools/autofix_drill.py, CCF-1) -------------------
+# Only active when ROBOT_SIM_DIR/github_hub.json exists. The pull requests are REAL branches in a bare
+# git repo inside the sandbox (hub["git_dir"]): head SHAs, changed files and patches come from git.
+def _hub_git(hub, *args):
+    import subprocess
+    try:
+        done = subprocess.run(["git", "--git-dir", str(hub.get("git_dir", "")), *args], stdout=subprocess.PIPE,
+                              stderr=subprocess.DEVNULL, text=True, errors="replace", check=False)
+    except OSError:
+        return ""
+    return done.stdout if done.returncode == 0 else ""
+
+
+def _hub_pull(hub, pr, repo):
+    ref = str(pr.get("head_ref", ""))
+    sha = _hub_git(hub, "rev-parse", "--verify", "-q", "refs/heads/" + ref).strip() or pr.get("head_sha", "")
+    return {"number": pr["number"], "title": pr.get("title", ""), "body": pr.get("body", ""),
+            "state": pr.get("state", "open"), "draft": False, "merged": pr.get("merged") is True,
+            "user": {"login": pr.get("user", "github-actions[bot]")}, "base": {"ref": pr.get("base", "main")},
+            "mergeable_state": pr.get("mergeable_state", "clean"),
+            "head": {"ref": ref, "sha": sha, "repo": {"full_name": repo}}}
+
+
+def _hub_files(hub, pr):
+    span = "main..." + str(pr.get("head_ref", ""))
+    rows = []
+    for line in _hub_git(hub, "diff", "--name-status", "-M", span).splitlines():
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        row = {"filename": parts[-1], "status": parts[0][:1],
+               "patch": _hub_git(hub, "diff", span, "--", parts[-1])}
+        if parts[0].startswith("R") and len(parts) == 3:
+            row["previous_filename"] = parts[1]
+        rows.append(row)
+    return rows
+
+
+def _hub(hub, req, url, method, path, repo):
+    """Answer one GitHub call from the hub file. Returns None when the call is not a hub call."""
+    def body():
+        try:
+            data = json.loads(_body(req).decode("utf-8") or "{}")
+        except ValueError:
+            data = {}
+        return data if isinstance(data, dict) else {}
+
+    def note(call, **more):
+        _append("github_log.jsonl", dict({"t": sim_now_iso(), "step": STEP, "call": call}, **more))
+
+    pulls = hub.setdefault("pulls", {})
+    if path == "/pulls" and method == "GET":
+        return [_hub_pull(hub, pr, repo) for pr in pulls.values() if pr.get("state") == "open"]
+    if path == "/pulls" and method == "POST":
+        data = body()
+        ref = str(data.get("head", ""))
+        sha = _hub_git(hub, "rev-parse", "--verify", "-q", "refs/heads/" + ref).strip()
+        if not sha or ref == "main" or data.get("base") != "main":
+            raise _http_error(url, 422, {"message": "Validation Failed"})
+        number = int(hub.get("next_pull", 1))
+        hub["next_pull"] = number + 1
+        # the workflow token always acts as github-actions[bot]
+        pulls[str(number)] = {"number": number, "title": str(data.get("title", "")), "state": "open",
+                              "body": str(data.get("body", "")), "head_ref": ref, "head_sha": sha, "base": "main",
+                              "user": "github-actions[bot]"}
+        _save("github_hub.json", hub)
+        note("open pull request", number=number, ref=ref)
+        return _hub_pull(hub, pulls[str(number)], repo)
+    match = re.fullmatch(r"/pulls/(\d+)(/files|/merge)?", path)
+    if match:
+        pr = pulls.get(match.group(1))
+        if pr is None:
+            raise _http_error(url, 404, {"message": "Not Found"})
+        if match.group(2) == "/files" and method == "GET":
+            return _hub_files(hub, pr)
+        if match.group(2) == "/merge" and method == "PUT":
+            current = _hub_pull(hub, pr, repo)
+            if pr.get("state") != "open" or body().get("sha") != current["head"]["sha"]:
+                raise _http_error(url, 409, {"message": "Head branch was modified. Review and try the merge again."})
+            pr.update(state="closed", merged=True, head_sha=current["head"]["sha"])
+            hub.setdefault("merged", []).append({"number": pr["number"], "sha": current["head"]["sha"],
+                                                 "ref": pr.get("head_ref", ""), "done": False})
+            _save("github_hub.json", hub)
+            note("merge pull request", number=pr["number"])
+            return {"merged": True, "sha": current["head"]["sha"]}
+        if match.group(2) is None and method == "PATCH":
+            if body().get("state") == "closed":
+                pr["state"] = "closed"
+                hub.setdefault("closed", []).append(pr["number"])
+                _save("github_hub.json", hub)
+                note("close pull request", number=pr["number"])
+            return _hub_pull(hub, pr, repo)
+        if match.group(2) is None and method == "GET":
+            return _hub_pull(hub, pr, repo)
+    match = re.fullmatch(r"/commits/([0-9a-f]{40})/(check-runs|status)", path)
+    if match and method == "GET":
+        if match.group(2) == "status":
+            return {"state": "success", "statuses": list((hub.get("statuses") or {}).get(match.group(1), []))}
+        runs = list((hub.get("check_runs") or {}).get(match.group(1), []))
+        return {"total_count": len(runs), "check_runs": runs}
+    match = re.fullmatch(r"/actions/workflows/([\w.-]+)/dispatches", path)
+    if match and method == "POST":
+        data = body()
+        hub.setdefault("dispatches", []).append({"workflow": match.group(1), "ref": data.get("ref", ""),
+                                                 "inputs": data.get("inputs") or {}, "t": sim_now_iso()})
+        _save("github_hub.json", hub)
+        note("dispatch", path=path)
+        return b""
+    match = re.fullmatch(r"/actions/runs/(\d+)(/artifacts)?", path)
+    if match and method == "GET" and match.group(1) in (hub.get("runs") or {}):
+        if match.group(2):
+            rows = list((hub.get("artifacts") or {}).get(match.group(1), []))
+            return {"total_count": len(rows), "artifacts": rows}
+        return dict(hub["runs"][match.group(1)])
+    match = re.fullmatch(r"/actions/artifacts/(\d+)/zip", path)
+    if match and method == "GET":
+        try:
+            with open(str((hub.get("artifact_files") or {})[match.group(1)]), "rb") as handle:
+                return handle.read()
+        except (KeyError, OSError):
+            raise _http_error(url, 404, {"message": "Not Found"})
+    return None
+
+
 def _github(req, url, path):
     """The few GitHub REST calls the robot makes: refs (daily report receipt), workflow dispatch, runs, PRs."""
     method = req.get_method()
+    repo = "/".join(path.split("/")[2:4]) if path.startswith("/repos/") else ""
     path = re.sub(r"^/repos/[^/]+/[^/]+", "", path)
+    hub = _load("github_hub.json", None)
+    if isinstance(hub, dict):
+        reply = _hub(hub, req, url, method, path, repo)
+        if reply is not None:
+            return reply
     if path == "/git/ref/heads/main" and method == "GET":
         return {"ref": "refs/heads/main", "object": {"sha": MAIN_SHA, "type": "commit"}}
     if path == "/git/refs" and method == "POST":
