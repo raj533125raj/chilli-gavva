@@ -53,10 +53,55 @@ SETUP_TOOLS = {"pdftoppm", "pdftocairo", "poppler-utils", "Pillow", "apt-get",
                "python3", "bash", "git", "openssl", "required file or tool", "Python module"}
 SETUP_PROBLEMS = {"setup problem: " + tool for tool in SETUP_TOOLS}
 AUTOFIX_STARTED = "Auto-fix: started"
+# A test FILE (not one test) that could not be imported, or that was still running at the time limit.
+# ... or whose shared setup (setUpClass / setUpModule) crashed before any of its tests could run.
+LOAD_SUFFIX = " (could not load)"
+TIMEOUT_SUFFIX = " (timed out)"
+SETUP_SUFFIX = " (setup failed)"
+FILE_SUFFIXES = (LOAD_SUFFIX, TIMEOUT_SUFFIX, SETUP_SUFFIX)
+FIXTURES = ("setUpClass", "tearDownClass", "setUpModule", "tearDownModule")
 
 
 def autofix_not_started(reason):
     return "Auto-fix: not started — " + reason
+
+
+# One plain Tenglish line per auto-fix message, so the owner knows what to do (or that there is
+# nothing to do). Fixed wording only; chosen from the fixed English text, never from private details.
+TENGLISH_STARTED = ("Meeru ippudu emi cheyakkarledu: robot fix try chestondi. "
+                    "Fix ready ayyaka Merge button pampistundi.")
+TENGLISH_SETUP = "Idi setup/workflow problem, robot tanantata fix cheyadu. Meeru runbook chusi fix cheyali."
+TENGLISH_TRIED = "Robot ee roju already okasari auto-fix try chesindi. Meeru runbook chudandi."
+TENGLISH_NOT_STARTED = "Auto-fix start avvaledu. Meeru runbook chudandi."
+TENGLISH_LINES = (
+    ("Auto-fix ready: ", "Fix ready ga undi, tests pass ayyayi. Merge tap cheste fix robot lo kalustundi; "
+                         "vaddu ante Close tap cheyandi."),
+    ("Auto-fix didn't work", "Auto-fix pani cheyaledu. Meeru runbook chudandi."),
+    ("Auto-fix tried 3 times", "AI servers busy ga unnayi, robot 3 sarlu try chesindi. Meeru runbook chudandi."),
+    ("Auto-fix gave up", "Robot ee sari fix cheyalekapoyindi. Meeru runbook chudandi."),
+    ("This auto-fix button is no longer current", "Ee button paathadi. Kotha message vache varaku wait cheyandi."),
+    ("This auto-fix request is no longer open", "Ee fix already close leda merge ayyindi. Meeru emi cheyakkarledu."),
+)
+
+
+def owner_text(text):
+    """The same auto-fix message plus its Tenglish line. Other messages come back unchanged."""
+    text = str(text or "")
+    line = ""
+    if text.startswith("Chilli Gavva: run FAILED"):
+        last = text.rstrip().splitlines()[-1]
+        line = (TENGLISH_STARTED if last == AUTOFIX_STARTED else
+                TENGLISH_SETUP if last == autofix_not_started("setup/workflow problem needs a human") else
+                TENGLISH_TRIED if last == autofix_not_started("already tried in the last 24 h") else
+                TENGLISH_NOT_STARTED)
+    else:
+        line = next((tenglish for start, tenglish in TENGLISH_LINES if text.startswith(start)), "")
+    return text + "\n" + line if line and line not in text else text
+
+
+def owner_send(message):
+    """What the workflow commands use to reach the owner: Telegram, with the Tenglish line."""
+    return notify.send(owner_text(message))
 
 
 def setup_problem(output):
@@ -73,7 +118,10 @@ def setup_problem(output):
         if re.search(r"(?:apt(?:-get)?:.*(?:fail|error)|E: (?:Unable to|Failed to|Could not)|"
                      r"(?:apt|apt-get).*?(?:failed|exit (?:code|status) [1-9]))", line, re.I):
             return "setup problem: apt-get"
-    if re.search(r"FileNotFoundError:|command not found|missing tool", output, re.I):
+    # "python3: can't open file '...': [Errno 2] No such file or directory": the command line itself
+    # (a workflow step) names a file that is not there. The interpreter's name differs per machine.
+    if re.search(r"FileNotFoundError:|command not found|missing tool|"
+                 r"can't open file .*No such file or directory", output, re.I):
         return "setup problem: required file or tool"
     if "ModuleNotFoundError:" in output:
         return "setup problem: Python module"
@@ -99,10 +147,76 @@ PREFIX_MAP = {
 }
 
 
+def split_test_name(name):
+    """('test_x.Class.test_y', '') or ('test_x', ' (could not load)' / ' (timed out)' / ' (setup failed)')."""
+    for suffix in FILE_SUFFIXES:
+        if isinstance(name, str) and name.endswith(suffix):
+            return name[:-len(suffix)], suffix
+    return name, ""
+
+
+def repo_file(path):
+    """A path from a traceback as a repo file name ('state_guard.py'), or None. Only names of files
+    that exist in this repo (never tests, hidden folders, private products) may reach an alert."""
+    try:
+        candidate = Path(str(path))
+        if candidate.is_absolute():
+            candidate = Path(os.path.realpath(str(candidate))).relative_to(Path(os.path.realpath(str(ROOT))))
+        name = candidate.as_posix()
+        parts = candidate.parts
+        if (not parts or len(name) > 120 or not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_./-]*\.py", name)
+                or ".." in parts or parts[0] in ("tests", "exported_content")
+                or any(part.startswith(".") for part in parts)
+                or not (ROOT / candidate).is_file() or secret_guard.scan_text(name, env_secrets=[])):
+            return None
+        return name
+    except (OSError, ValueError):
+        return None
+
+
+def likely_file_from_output(output):
+    """The repo file the errors point at: the deepest repo (non-test) file of each traceback, the most
+    frequent one wins. None when no traceback reaches product code (a plain failed assertion)."""
+    counts, last = {}, None
+    output = str(output)
+    dump = output.rfind("Fatal Python error")
+    if dump >= 0:
+        # The stack printed when a chunk hit its time limit ("most recent call first", no error line):
+        # the first repo file in it is where the code was stuck.
+        stuck = next((name for name in (repo_file(path) for path in
+                                        re.findall(r'File "([^"\n]+\.py)", line [0-9]+ in ', output[dump:]))
+                      if name), None)
+        if stuck:
+            counts[stuck] = 1
+        output = output[:dump]
+    for line in output.splitlines():
+        if "Traceback (most recent call last)" in line:
+            last = None
+            continue
+        frame = re.search(r'File "([^"]+\.py)", line [0-9]+', line)
+        if frame:
+            last = repo_file(frame.group(1)) or last
+        elif last and re.match(r"^(?:[\w.]+\.)?[A-Za-z]+(?:Error|Exception)\b", line.strip()):
+            counts[last] = counts.get(last, 0) + 1
+            last = None
+    return max(counts, key=counts.get) if counts else None
+
+
+def read_likely_file(path):
+    """The 'Likely file:' line a failed step saved next to its summary (checked again here)."""
+    try:
+        lines = Path(path).read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError):
+        return None
+    return next((name for name in (repo_file(line[13:].strip()) for line in lines
+                                   if line.startswith("Likely file: ")) if name), None)
+
+
 def likely_file_for_test(test_name):
     """Infer the likely repository source file under test from a test name."""
     if not test_name or not isinstance(test_name, str):
         return None
+    test_name = split_test_name(test_name)[0]
     module = test_name.split(".")[0]
     name = module.removeprefix("test_")
 
@@ -188,7 +302,10 @@ def safe_test_names(names, env=None):
     allowed = known_tests()
     result = []
     for name in names:
-        if (name in allowed and len(name) <= 180 and name not in result
+        base, suffix = split_test_name(name)
+        known = (name in allowed if not suffix else
+                 re.fullmatch(r"test_\w+", base) is not None and (ROOT / "tests" / f"{base}.py").is_file())
+        if (known and len(name) <= 180 and name not in result
                 and not any(value in name for value in secrets)
                 and not secret_guard.scan_text(name, env_secrets=[])):
             result.append(name)
@@ -202,8 +319,19 @@ def problem(output, env=None):
     if setup:
         return setup
     names = []
-    for method, location in re.findall(r"^(?:FAIL|ERROR): (test_\w+) \(([\w.]+)\)", output, re.MULTILINE):
-        names.append(location if location.endswith("." + method) else location + "." + method)
+    # unittest prints "test_x.Class" under "discover -s tests" and "tests.test_x.Class" under the
+    # chunked runner ("python3 -m unittest tests.test_x"); both mean the same test.
+    for method, location in re.findall(r"^(?:FAIL|ERROR): ((?:tests\.)?test_\w+|" + "|".join(FIXTURES)
+                                       + r") \(([\w.]+)\)", output, re.MULTILINE):
+        method, location = method.removeprefix("tests."), location.removeprefix("tests.")
+        if method in FIXTURES:
+            names.append(location.split(".")[0] + SETUP_SUFFIX)   # "ERROR: setUpClass (test_x.Class)"
+        elif location.startswith("unittest.loader._FailedTest"):
+            names.append(method + LOAD_SUFFIX)           # the test file itself could not be imported
+        elif method == "test_chunk_timeout" and location.endswith(".TimeoutError"):
+            names.append(location[:-len(".TimeoutError")] + TIMEOUT_SUFFIX)   # chunked runner's time limit
+        else:
+            names.append(location if location.endswith("." + method) else location + "." + method)
     names = safe_test_names(names, env)
     if names:
         return "Failed tests: " + ", ".join(names)
@@ -219,10 +347,12 @@ def problem(output, env=None):
     return UNKNOWN
 
 
-def write_summary(path, step, detail, workflow_file=False):
+def write_summary(path, step, detail, workflow_file=False, likely_file=None):
     text = f"Step: {STEPS.get(step, STEPS['workflow'])}\nProblem: {detail}\n"
     if workflow_file:
         text += "Workflow-file failure: yes\n"
+    if likely_file:
+        text += f"Likely file: {likely_file}\n"
     Path(path).write_text(text, encoding="utf-8")
 
 
@@ -266,7 +396,7 @@ def run_step(step, command, summary_path):
     if status:
         workflow_file = any(name in output.lower() for name in
                             (".github/workflows/", "agent.yml", "autofix.yml"))
-        write_summary(summary_path, step, detail, workflow_file)
+        write_summary(summary_path, step, detail, workflow_file, likely_file_from_output(output))
         # Keep the fixed-wording summary for alerts, but expose the real command failure in CI.
         # Prefix each line so untrusted output cannot inject GitHub workflow commands.
         for line in secret_guard.scrub_text(output).splitlines():
@@ -308,7 +438,8 @@ def workflow_failure(path, summary):
     except (OSError, UnicodeError):
         raw = ""
     # A product test can mention "workflow" in its method name without testing a workflow file.
-    modules = re.findall(r"\b(test_\w+)\.\w+\.test_\w+", summary)
+    modules = (re.findall(r"\b(test_\w+)\.\w+\.test_\w+", summary)
+               + re.findall(r"\b(test_\w+) \((?:could not load|timed out|setup failed)\)", summary))
     return ("Workflow-file failure: yes".lower() in raw
             or any(name in raw for name in (".github/workflows/", "agent.yml", "autofix.yml"))
             or any("workflow" in module or module == "test_ci_parity" for module in modules)
@@ -456,12 +587,16 @@ def finish(status, state_path, summary_path, send=None, env=None, dispatch=None,
         count_display = repeat_count if repeat_count > 2 else count
 
         extra_detail = ""
+        # A file the tracebacks really point at beats a guess from the test's name.
+        likely_file = read_likely_file(summary_path)
+        detail_lines = []
         if failed_tests:
             first_three = failed_tests[:3]
-            likely_file = likely_file_for_test(first_three[0])
-            detail_lines = ["Failing tests: " + ", ".join(first_three)]
-            if likely_file:
-                detail_lines.append(f"Likely file: {likely_file}")
+            likely_file = likely_file or likely_file_for_test(first_three[0])
+            detail_lines.append("Failing tests: " + ", ".join(first_three))
+        if likely_file:
+            detail_lines.append(f"Likely file: {likely_file}")
+        if detail_lines:
             extra_detail = "\n" + "\n".join(detail_lines)
 
         message = (f"Chilli Gavva: run FAILED {count_display} times in a row.\n"
@@ -513,7 +648,7 @@ def main(argv=None):
     status = os.environ.get("RUN_STATUS", "failure")
     if status == "success" and os.environ.get("ROBOT_RAN") == "false":
         status = "cancelled"
-    finish(status, directory / "robot-failure-state.json", summary)
+    finish(status, directory / "robot-failure-state.json", summary, send=owner_send)
     return 0
 
 

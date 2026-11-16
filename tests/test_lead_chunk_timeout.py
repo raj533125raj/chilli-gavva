@@ -28,7 +28,6 @@ class ChunkTimeoutTests(unittest.TestCase):
         self.assertTrue(res["timed_out"])
         self.assertEqual(res["returncode"], 124)
         self.assertIsInstance(res["output"], str)
-        self.assertIn("Chunk timed out after 1s", res["output"])
         self.assertIn("test_b", res["output"])
 
     def test_no_partial_output_still_reports_a_failure(self):

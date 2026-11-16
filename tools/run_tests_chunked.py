@@ -18,6 +18,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -28,6 +29,7 @@ DEFAULT_CHUNK_SIZE = 20
 DEFAULT_TIMEOUT_PER_CHUNK = 900  # 15 min per chunk: the product-builder chunk took 246 s on a fast machine (2026-11-16), GitHub is ~2x slower
 MAX_JOBS = 4  # most chunk processes side by side
 JOBS_ENV = "CHILLI_TEST_JOBS"
+TIMEOUT_ENV = "CHILLI_TEST_CHUNK_TIMEOUT"
 
 
 def default_jobs(env=None, cpu_count=None):
@@ -114,7 +116,9 @@ def parse_unittest_output(output):
                 res["skipped"] = int(part.split("=")[1])
 
     # Match FAIL/ERROR lines: FAIL: test_foo (tests.test_bar.BarTest)
-    for match in re.finditer(r"^(FAIL|ERROR):\s+(test_\w+)\s+\(([\w.]+)\)", output, re.MULTILINE):
+    # ... and a crashed shared setup: ERROR: setUpClass (tests.test_bar.BarTest)
+    for match in re.finditer(r"^(FAIL|ERROR):\s+(test_\w+|setUpClass|tearDownClass|setUpModule|tearDownModule)"
+                             r"\s+\(([\w.]+)\)", output, re.MULTILINE):
         kind, method, loc = match.groups()
         res["failing_tests"].append(f"{kind}: {method} ({loc})")
 
@@ -143,6 +147,57 @@ def run_single_module(module, timeout=30, env=None, runner=subprocess.run):
         return (-1, 0.0, str(e))
 
 
+STACK_WAIT = 10  # seconds a stopped chunk gets to print its stack before it is killed
+
+
+def run_with_stack_on_timeout(cmd, timeout, env=None):
+    """Run one chunk. At the time limit ask Python for its stack first (SIGABRT with the fault handler
+    on prints every thread's "File ..., line N in test_x" lines), then kill it. Without this a hung
+    test leaves no trace of WHICH test hung.
+
+    Returns (returncode, output, timed_out)."""
+    run_env = dict(os.environ if env is None else env)
+    run_env.setdefault("PYTHONFAULTHANDLER", "1")
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                               errors="replace", env=run_env)
+    try:
+        output, _ = process.communicate(timeout=timeout)
+        return process.returncode, output or "", False
+    except subprocess.TimeoutExpired:
+        pass
+    output = ""
+    try:
+        process.send_signal(signal.SIGABRT if hasattr(signal, "SIGABRT") else signal.SIGTERM)
+        output, _ = process.communicate(timeout=STACK_WAIT)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    if process.poll() is None:
+        process.kill()
+    try:
+        late, _ = process.communicate(timeout=STACK_WAIT)
+        output = late or output
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        pass   # a grandchild still holds the pipe: keep what was read, never wait for ever
+    return 124, output or "", True
+
+
+def stuck_test(output):
+    """(test file, function) the chunk was inside when it was stopped, from the fault handler's stack
+    (most recent call first: the first frame inside tests/test_*.py is the test that hung)."""
+    marker = str(output).rfind("Fatal Python error")
+    if marker < 0:
+        return None
+    match = re.search(r'File "[^"\n]*[/\\]tests[/\\](test_\w+)\.py", line \d+ in (\w+)', str(output)[marker:])
+    return (match.group(1), match.group(2)) if match else None
+
+
+def timeout_from_env(env=None, default=DEFAULT_TIMEOUT_PER_CHUNK):
+    """CHILLI_TEST_CHUNK_TIMEOUT (whole seconds, 1..3600) or the default. Lets a drill use a short limit
+    without changing the workflow's command line."""
+    raw = str((os.environ if env is None else env).get(TIMEOUT_ENV, "")).strip()
+    return int(raw) if raw.isdigit() and 1 <= int(raw) <= 3600 else default
+
+
 def run_chunk(
     modules,
     timeout=DEFAULT_TIMEOUT_PER_CHUNK,
@@ -169,41 +224,47 @@ def run_chunk(
     rc = 0
 
     try:
-        res = runner(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            timeout=timeout,
-            env=env,
-            check=False,
-        )
+        if runner is subprocess.run:
+            rc, output, timed_out = run_with_stack_on_timeout(cmd, timeout, env)
+        else:
+            res = runner(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                timeout=timeout,
+                env=env,
+                check=False,
+            )
+            rc = res.returncode
+            output = res.stdout or ""
         elapsed = round(time.time() - t0, 3)
-        rc = res.returncode
-        output = res.stdout or ""
     except subprocess.TimeoutExpired as e:
         timed_out = True
         rc = 124
         elapsed = round(time.time() - t0, 3)
-        partial = getattr(e, "stdout", None) or getattr(e, "output", None)
-        if isinstance(partial, (bytes, bytearray)):
-            # subprocess gives the partial output of a timed-out child as BYTES even with text=True;
-            # before this, re.search crashed with "cannot use a string pattern on a bytes-like object"
-            # and the real reason (a chunk took too long) was hidden (agent-cycle #951-#953, 16 Nov 2026).
-            partial = partial.decode("utf-8", errors="replace")
-        output = (partial or "") + f"\nChunk timed out after {timeout}s"
+        output = e.stdout if hasattr(e, "stdout") and e.stdout else ""
+        if isinstance(output, bytes):   # what was printed before the limit arrives as bytes
+            output = output.decode("utf-8", "replace")
     except OSError as e:
         rc = 1
         elapsed = round(time.time() - t0, 3)
         output = f"OSError: {e}"
+    if timed_out and not output:
+        output = f"Chunk timed out after {timeout}s"
 
     parsed = parse_unittest_output(output)
-    if timed_out and not parsed["failing_tests"]:
-        # Synthesize a failure for run_failure to pick up
-        first_mod = modules[0] if modules else "test_chunk"
-        synth = f"ERROR: test_chunk_timeout ({first_mod}.TimeoutError)"
-        parsed["failing_tests"].append(synth)
-        parsed["errors"] += 1
+    if timed_out:
+        # Synthesize a failure for run_failure to pick up. Name the test file that was really running
+        # at the limit (from the stack Python printed); only without that, the first file of the chunk.
+        stuck = stuck_test(output)
+        if stuck:
+            log_func(f"[run_tests_chunked] At the time limit the chunk was inside tests/{stuck[0]}.py ({stuck[1]}).")
+        hung_mod = f"tests.{stuck[0]}" if stuck else (modules[0] if modules else "test_chunk")
+        synth = f"ERROR: test_chunk_timeout ({hung_mod}.TimeoutError)"
+        if synth not in parsed["failing_tests"]:
+            parsed["failing_tests"].append(synth)
+            parsed["errors"] += 1
 
     return {
         "modules": modules,
@@ -223,8 +284,11 @@ def format_summary(
     total_time,
     chunk_timings,
     all_failing_tests,
+    failed=False,
 ):
-    """Format the final chunked runner summary string."""
+    """Format the final chunked runner summary string.
+
+    failed: a chunk failed even though no single test could be named (never print PASSED then)."""
     lines = []
     lines.append("=" * 70)
     lines.append("CHUNKED TEST RUNNER SUMMARY")
@@ -252,6 +316,8 @@ def format_summary(
         for fail_line in all_failing_tests:
             lines.append(f"  {fail_line}")
         lines.append("-" * 70)
+        lines.append("RESULT: FAILED")
+    elif failed or total_failures or total_errors:
         lines.append("RESULT: FAILED")
     else:
         lines.append("RESULT: PASSED")
@@ -384,6 +450,7 @@ def run_all_chunked(
         total_time=total_elapsed,
         chunk_timings=chunk_timings,
         all_failing_tests=all_failing_tests,
+        failed=any_failed,
     )
     log_func(summary_text)
 
@@ -411,8 +478,8 @@ def main(argv=None):
     parser.add_argument(
         "--timeout",
         type=int,
-        default=DEFAULT_TIMEOUT_PER_CHUNK,
-        help=f"Per-chunk timeout in seconds (default: {DEFAULT_TIMEOUT_PER_CHUNK})",
+        default=timeout_from_env(),
+        help=f"Per-chunk timeout in seconds (default: {DEFAULT_TIMEOUT_PER_CHUNK}, or ${TIMEOUT_ENV})",
     )
     parser.add_argument(
         "--jobs",

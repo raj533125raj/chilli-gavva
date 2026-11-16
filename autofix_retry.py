@@ -228,7 +228,8 @@ def main(argv=None):
             record_result(os.environ, Path(os.environ["RUNNER_TEMP"]) / FILENAME)
         elif argv == ["receive"]:
             event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
-            receive_result(Path(os.environ["RUNNER_TEMP"]) / "robot-failure-state.json", event, os.environ)
+            receive_result(Path(os.environ["RUNNER_TEMP"]) / "robot-failure-state.json", event, os.environ,
+                           send=run_failure.owner_send)
         else:
             return 2
         return 0

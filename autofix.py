@@ -681,8 +681,7 @@ def main(argv=None):
         elif argv == ["validate-checks"]:
             validate_check_request(os.environ.get("PR_NUMBER", ""), os.environ.get("PR_SHA", ""))
         elif argv == ["failed"]:
-            import notify
-            notify.send(FAILED)
+            run_failure.owner_send(FAILED)
         else:
             return 2
         return 0

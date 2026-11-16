@@ -283,13 +283,13 @@ class FailureSummaryTests(Base):
         self.failing_step(["FAIL: test_not_real (test_nothing.Nope.test_not_real)", "AssertionError: x"])
         self.assertIn(run_failure.ERRORS["AssertionError"], self.summary.read_text(encoding="utf-8"))
 
-    def test_chunked_runner_names_lose_the_test_name_known_gap(self):
-        """Known gap (run_failure.py is not this task's file): the chunked CI runner prints names with a
-        'tests.' prefix, which the summary does not recognise, so only the generic sentence is kept."""
+    def test_chunked_runner_names_keep_the_test_name(self):
+        """The chunked CI runner prints names with a 'tests.' prefix. This was a known gap (only the
+        generic sentence was kept); closed in CCF-2: the summary names the test."""
         method = KNOWN_TEST.rsplit(".", 1)[1]
         self.failing_step([f"FAIL: {method} (tests.{KNOWN_TEST})", "AssertionError: boom"])
         self.assertEqual(self.summary.read_text(encoding="utf-8"),
-                         f"Step: {STEP}\nProblem: {run_failure.ERRORS['AssertionError']}\n")
+                         f"Step: {STEP}\nProblem: Failed tests: {KNOWN_TEST}\n")
 
     def test_a_passing_step_leaves_no_summary(self):
         with contextlib.redirect_stdout(io.StringIO()):

@@ -1958,7 +1958,7 @@ def handle_callback(token, owner_chat_id, data, db_path=None, message_id=None):
         import autofix
         if autofix.CALLBACK.fullmatch(data):
             reply = autofix.decide(data, get_state, set_state, db_path)
-            send_text(token, owner_chat_id, reply)
+            send_text(token, owner_chat_id, autofix.run_failure.owner_text(reply))
             return reply
     if data and data.startswith("imp:"):
         import improver_loop
@@ -2802,15 +2802,27 @@ def _run(db_path=None, recovery=False, stats=None):
         buttontest_report(token, chat_id, info, stats, db_path)
     except Exception as exc:
         print(f"Button test report skipped: {type(exc).__name__}")
+    import autofix
+
+    # the auto-fix result, with its Tenglish line
+    autofix_send = lambda text, buttons: send_alert(  # noqa: E731
+        token, chat_id, autofix.run_failure.owner_text(text), buttons, db_path=db_path)
+
     if recovery:
+        # While main is broken the cycle never reaches its own inbox step, and the run that follows
+        # "Robot auto-fix checks" is a recovery run too: this is the ONLY place the owner can get the
+        # "Auto-fix ready" message with its Merge / Close buttons. No other automatic message is sent.
+        try:
+            autofix_alerts = autofix.poll(get_state, set_state, autofix_send, db_path)
+        except Exception as exc:
+            print(f"Auto-fix status skipped: {type(exc).__name__}")
+            autofix_alerts = 0
         print(stats_line(stats))
-        return {"configured": True, "commands": commands, "alerts": 0,
+        return {"configured": True, "commands": commands, "alerts": autofix_alerts,
                 "waiting_reminder": False, "daily_report": False}
     import product_pipeline
     product_pipeline.notify_ready(db_path, lambda text: send_alert(token, chat_id, text, db_path=db_path))
-    import autofix
-    autofix.poll(get_state, set_state,
-                 lambda text, buttons: send_alert(token, chat_id, text, buttons, db_path=db_path), db_path)
+    autofix.poll(get_state, set_state, autofix_send, db_path)
     try:
         import auto_approve
         auto_approve.run_auto_decisions(db_path=db_path, token=token, owner_chat_id=chat_id)

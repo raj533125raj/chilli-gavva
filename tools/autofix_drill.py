@@ -21,8 +21,8 @@ regression test, pushed as a branch and opened as a pull request, the way the re
 No network, no real token, nothing written outside the temp folder.
 
 Scaled down so a drill takes seconds: the copy holds only the test files a drill needs (--full
-copies all tests), the "Run tests first" step limit is 20 s instead of 28 min and the test runner's
-chunk limit is 6 s instead of 8 min. The state-restore lines of two steps (they need the encrypted
+copies all tests), and the test runner's chunk limit is short (CHILLI_TEST_CHUNK_TIMEOUT: 3 s in
+the drill whose test never ends, instead of 8 min). The state-restore lines of two steps (they need the encrypted
 database) are left out; the drill database is a fresh one.
 
 Report, one row per drill:
@@ -68,8 +68,9 @@ import robot_day_sim as sim   # noqa: E402  (sandbox helpers: fake secrets, json
 REPO = "sim/robot"
 START = "2026-11-16T06:05:00Z"          # a Monday morning (UTC)
 NEVER_COPIED = {"agent_data.db", "agent_data.db.enc", "products.tar.gz.enc", "config.json", ".env"}
-QUICK_STEP_TIMEOUT = 20                 # seconds; the real "Run tests first" limit is 28 minutes
-QUICK_CHUNK_TIMEOUT = 6                 # seconds; the real chunk limit is 8 minutes
+QUICK_STEP_TIMEOUT = 240                # seconds; the real "Run tests first" limit is 28 minutes
+QUICK_CHUNK_TIMEOUT = 120               # seconds; the real chunk limit is 8 minutes
+HANG_CHUNK_TIMEOUT = 3                 # the drill whose test never ends: do not wait 2 minutes for it
 FULL_STEP_TIMEOUT = 28 * 60
 TENGLISH = re.compile(r"(?i)\b(cheyandi|chestondi|chestundi|chesindi|ayyindi|kavali|meeru|vaddu|undi|chudandi|"
                       r"kaaledu|avutundi|cheyakkarledu|cheyali|ledu|vachindi|pampistundi)\b")
@@ -161,8 +162,9 @@ SCENARIOS: List[Dict[str, Any]] = [
                     "    removed = []\n    while root:\n        time.sleep(0.5)\n    for rel in files:")],
         "tests": ["test_cce3_bad_day"],
         "steps": ["tests"],
+        "chunk_timeout": HANG_CHUNK_TIMEOUT,
         "expect": "autofix",
-        "found": r"test_cce3_bad_day",
+        "found": r"test_cce3_bad_day \(timed out\)",
         "answer": {
             "edits": [("state_guard.py", "    while root:\n        time.sleep(0.5)\n", "")],
             "files": _regression("test_autofix_state_files_end", (
@@ -577,6 +579,7 @@ class Drill:
             "HOME": str(self.home), "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "TZ": "UTC",
             "PYTHONDONTWRITEBYTECODE": "1", "PYTHONIOENCODING": "utf-8",
             "TMPDIR": str(temp), "RUNNER_TEMP": str(temp),
+            "AUTOFIX_DRILL": "1",          # a test that itself starts drills skips inside a drill
             "GITHUB_ACTIONS": "true", "GITHUB_REPOSITORY": REPO,
             "GITHUB_SERVER_URL": "https://github.sim.invalid", "GITHUB_RUN_ID": str(self.run_id),
             "GITHUB_OUTPUT": str(temp / "github_output.txt"), "GITHUB_ENV": str(temp / "github_env.txt"),
@@ -683,8 +686,7 @@ class Drill:
     # -- agent.yml --
     def tests_script(self, workflow: str) -> str:
         script = workflow_step_script(workflow, AGENT_STEPS["tests"])
-        return script if self.full and False else keep_heredoc_lines(
-            script, "ROBOT_STEP", ("python3 tools/run_tests_chunked.py",))
+        return keep_heredoc_lines(script, "ROBOT_STEP", ("python3 tools/run_tests_chunked.py",))
 
     def agent_run(self) -> Dict[str, Any]:
         """One run of the `cycle` job of agent.yml (only the steps this drill needs), then the
@@ -700,7 +702,7 @@ class Drill:
             if step == "tests":
                 extra = {"CHILLI_TEST": "1"}
                 if not self.full:
-                    extra["CHILLI_TEST_CHUNK_TIMEOUT"] = str(QUICK_CHUNK_TIMEOUT)
+                    extra["CHILLI_TEST_CHUNK_TIMEOUT"] = str(self.s.get("chunk_timeout", QUICK_CHUNK_TIMEOUT))
                 proc = self.run_script(self.tests_script(workflow), code,
                                        self.env(temp, world=False, extra=extra), AGENT_STEPS[step],
                                        timeout=self.step_timeout)
