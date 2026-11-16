@@ -25,7 +25,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CHUNK_SIZE = 20
-DEFAULT_TIMEOUT_PER_CHUNK = 480  # 8 minutes per chunk (a GitHub chunk took 217 s on 2026-11-13)
+DEFAULT_TIMEOUT_PER_CHUNK = 900  # 15 min per chunk: the product-builder chunk took 246 s on a fast machine (2026-11-16), GitHub is ~2x slower
 MAX_JOBS = 4  # most chunk processes side by side
 JOBS_ENV = "CHILLI_TEST_JOBS"
 
@@ -185,7 +185,13 @@ def run_chunk(
         timed_out = True
         rc = 124
         elapsed = round(time.time() - t0, 3)
-        output = (e.stdout or "") if hasattr(e, "stdout") and e.stdout else f"Chunk timed out after {timeout}s"
+        partial = getattr(e, "stdout", None) or getattr(e, "output", None)
+        if isinstance(partial, (bytes, bytearray)):
+            # subprocess gives the partial output of a timed-out child as BYTES even with text=True;
+            # before this, re.search crashed with "cannot use a string pattern on a bytes-like object"
+            # and the real reason (a chunk took too long) was hidden (agent-cycle #951-#953, 16 Nov 2026).
+            partial = partial.decode("utf-8", errors="replace")
+        output = (partial or "") + f"\nChunk timed out after {timeout}s"
     except OSError as e:
         rc = 1
         elapsed = round(time.time() - t0, 3)
