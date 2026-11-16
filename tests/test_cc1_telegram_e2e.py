@@ -18,6 +18,7 @@ import glob
 import importlib
 import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -212,7 +213,10 @@ for _name in BUILTIN:
 class BuiltInBehaviourTests(Inbox):
     def test_status_is_the_real_status(self):
         _handled, texts = self.say("/status")
-        self.assertEqual(texts, [telegram_inbox.status_text(self.db)])
+        # The status ends with the current clock ("Last run: ... HH:MM:SS"); when the second ticks between
+        # the two calls the texts differ only there, so compare without that line (flaky before).
+        no_clock = lambda text: re.sub(r"(?m)^Last run:.*$", "Last run: <time>", text)
+        self.assertEqual([no_clock(t) for t in texts], [no_clock(telegram_inbox.status_text(self.db))])
 
     def test_list_shows_drafts_with_buttons(self):
         aid = self.add_draft()
