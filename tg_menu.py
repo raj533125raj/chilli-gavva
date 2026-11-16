@@ -66,6 +66,62 @@ BUILTIN_COMMANDS = [
     {"cmd": "/cubes", "words": ["cubes"], "category": "Settings", "help_en": "Department cubes status", "help_te": "Department cubes status choodandi"},
 ]
 
+GROUP_ORDER = ["Sell", "Packs", "Reports", "Settings", "Drafts", "Posts"]
+
+# Plugin commands declare their own category when they have one. Older plugins
+# did not, so these names keep the owner-facing menu useful without touching
+# every plugin just to add metadata.
+CATEGORY_OVERRIDES = {
+    "/sell": "Sell",
+    "/ready": "Sell",
+    "/preflight": "Sell",
+    "/upload": "Sell",
+    "/bundle": "Sell",
+    "/office": "Sell",
+    "/decide": "Sell",
+    "/assets": "Packs",
+    "/asset": "Packs",
+    "/files": "Packs",
+    "/covers": "Packs",
+    "/pins": "Packs",
+    "/carousel": "Packs",
+    "/reel": "Packs",
+    "/blog": "Packs",
+    "/landing": "Packs",
+    "/launch": "Packs",
+    "/kit": "Packs",
+    "/listed": "Packs",
+    "/seokit": "Packs",
+    "/versions": "Packs",
+    "/lint": "Packs",
+    "/faq": "Packs",
+    "/boards": "Packs",
+    "/ops": "Reports",
+    "/dashboard": "Reports",
+    "/seo": "Reports",
+    "/dup": "Reports",
+    "/keywords": "Reports",
+    "/calendar": "Reports",
+    "/ideas": "Reports",
+    "/sales": "Reports",
+    "/health": "Reports",
+    "/logs": "Reports",
+    "/reportpdf": "Reports",
+    "/menu": "Settings",
+    "/help": "Settings",
+    "/pause": "Settings",
+    "/resume": "Settings",
+    "/rules": "Settings",
+    "/cubes": "Settings",
+    "/undo": "Settings",
+    "/settings": "Settings",
+    "/autoapprove": "Settings",
+    "/dbcare": "Settings",
+    "/talk": "Settings",
+    "/post": "Posts",
+    "/posted": "Posts",
+}
+
 GREETING_WORDS = {"hi", "hello", "namaste", "hii", "em chestunnav"}
 
 
@@ -114,8 +170,9 @@ def collect_all_commands():
                         if cmd_clean not in seen_cmds:
                             seen_cmds.add(cmd_clean)
                             entry_copy = dict(cmd_entry)
-                            if "category" not in entry_copy:
-                                entry_copy["category"] = "Settings"
+                            entry_copy["category"] = CATEGORY_OVERRIDES.get(
+                                cmd_clean, entry_copy.get("category", "Settings")
+                            )
                             commands.append(entry_copy)
         except Exception:
             continue
@@ -131,15 +188,9 @@ def _short_help(text: object, limit: int = 48) -> str:
 
 
 def format_grouped_menu():
-    """Build grouped menu (Drafts, Packs, Posts, Reports, Settings)."""
+    """Build one grouped menu (Sell, Packs, Reports, Settings, plus owner shortcuts)."""
     commands = collect_all_commands()
-    groups = {
-        "Drafts": [],
-        "Packs": [],
-        "Posts": [],
-        "Reports": [],
-        "Settings": [],
-    }
+    groups = {name: [] for name in GROUP_ORDER}
 
     for item in commands:
         cat = item.get("category", "Settings")
@@ -150,7 +201,7 @@ def format_grouped_menu():
         groups[cat].append(f"  {cmd} — {_short_help(help_te)}")
 
     lines = ["📋 *Chilli Gavva Menu* (Mee robot commands):\n"]
-    order = ["Drafts", "Packs", "Posts", "Reports", "Settings"]
+    order = GROUP_ORDER + [cat for cat in groups if cat not in GROUP_ORDER]
     for cat in order:
         cmd_lines = groups.get(cat, [])
         if cmd_lines:
