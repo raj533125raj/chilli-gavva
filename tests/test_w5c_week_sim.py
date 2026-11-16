@@ -613,7 +613,9 @@ class TestW5COneWeekSimulation(unittest.TestCase):
         self.bot.enqueue_owner_message("/week")
         telegram_inbox._run(db_path=self.db_path)
 
-        replies = [m["text"] for m in self.bot.sent_messages if "vaaram" in m["text"].lower() or "week" in m["text"].lower()]
+        # Count only the /week answer itself. On a Sunday the same run also sends the weekly improver
+        # proposals (they mention "week" too), which made this test red on CI every Sunday.
+        replies = [m["text"] for m in self.bot.sent_messages if "vaaram summary" in m["text"].lower()]
         self.assertEqual(len(replies), 1)
 
     def test_29_today_posts_command(self):
