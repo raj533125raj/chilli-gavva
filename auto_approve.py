@@ -36,6 +36,47 @@ MAX_SHINGLE_SIMILARITY = 0.45
 # Backwards compatibility constant (legacy tests expect 70 when unconfigured)
 SCORE_THRESHOLD = 70
 
+# CCG-2: only product drafts are auto-decided and use the daily limit. Everything else that waits in /list
+# (Scout ideas, Trend proposals, code patches, tool drafts, media tasks) is a PROPOSAL: the owner decides it,
+# it never takes an auto-approve slot or a product build slot, and reports show it on its own line.
+PRODUCT_KINDS = ("public_draft",)
+_CHECKER_VERDICT = re.compile(r"CHECKER:\s*(PASS|APPROVE|REVISE|REJECT|UNAVAILABLE)\b", re.IGNORECASE)
+
+
+def is_product_draft(item) -> bool:
+    """True for a product draft (kind public_draft); False for proposals and other approval items."""
+    return (item or {}).get("kind") in PRODUCT_KINDS
+
+
+def split_waiting(db_path=None):
+    """(product drafts, proposals) waiting for the owner. Self-Improvement Proposals live in learned_rules and
+    are counted by waiting_rule_proposals()."""
+    items = guardrails.pending(db_path)
+    return [i for i in items if is_product_draft(i)], [i for i in items if not is_product_draft(i)]
+
+
+def waiting_rule_proposals(db_path=None) -> int:
+    """Self-Improvement Proposals (improver_loop learned_rules, status 'proposed') waiting for the owner."""
+    try:
+        conn = guardrails.connect(db_path)
+        try:
+            row = conn.execute("SELECT COUNT(*) FROM learned_rules WHERE status = 'proposed'").fetchone()
+        finally:
+            conn.close()
+        return int(row[0]) if row else 0
+    except sqlite3.Error:
+        return 0   # table not made yet on a fresh database
+
+
+def checker_blocks(review) -> bool:
+    """True when the checker gave a verdict that the product builder will refuse (REVISE / REJECT / UNAVAILABLE).
+
+    The builder needs 'CHECKER: PASS/APPROVE' (product_pipeline -> checker.review_passes). Auto-approving such a
+    draft makes an approval that can never become a product and wastes a daily slot. A review with no verdict at
+    all (older drafts) is judged on its score, as before; the builder checks it again itself."""
+    match = _CHECKER_VERDICT.search(review or "")
+    return bool(match and match.group(1).upper() not in ("PASS", "APPROVE"))
+
 
 def _state_conn(db_path=None):
     """Obtain db connection ensuring telegram_state table exists."""
@@ -289,8 +330,9 @@ def count_auto_approvals_today(db_path=None, now=None) -> int:
     try:
         conn = guardrails.connect(db_path)
         row = conn.execute(
+            # Only the robot's own decisions: an owner button approval has no reason and must not use a slot.
             "SELECT COUNT(*) FROM approvals WHERE status = 'approved' "
-            "AND (reason = 'auto-approved' OR reason IS NULL) AND decided_ts >= ? AND decided_ts < ?",
+            "AND reason = 'auto-approved' AND decided_ts >= ? AND decided_ts < ?",
             (day_start, day_end),
         ).fetchone()
         conn.close()
@@ -324,7 +366,7 @@ def morning_digest_line(db_path=None, now=None) -> str:
         conn = guardrails.connect(db_path)
         rows = conn.execute(
             "SELECT id, title FROM approvals WHERE status = 'approved' "
-            "AND (reason = 'auto-approved' OR reason IS NULL) AND decided_ts >= ? AND decided_ts <= ? "
+            "AND reason = 'auto-approved' AND decided_ts >= ? AND decided_ts <= ? "
             "ORDER BY id ASC",
             (yesterday_start, yesterday_end),
         ).fetchall()
@@ -396,6 +438,8 @@ def auto_decide_drafts(db_path=None, now=None):
         current = guardrails.get_approval(approval_id, db_path)
         if not current or current.get("status") != "pending":
             continue
+        if not is_product_draft(current):
+            continue   # proposals: the owner decides (never auto-approved, never auto-rejected)
 
         item_dt = _parse_item_time(current.get("ts"))
         if not item_dt:
@@ -420,6 +464,10 @@ def auto_decide_drafts(db_path=None, now=None):
 
             # Check broken checker signal
             if broken_checker:
+                continue
+
+            # The checker said REVISE/REJECT: the builder would refuse it, so it waits for the owner
+            if checker_blocks(current.get("review")):
                 continue
 
             # Check similarity to approved/rejected drafts of the last 30 days

@@ -70,8 +70,10 @@ def _stuck(aid, stage, reason, db_path, folder=""):
     reason = f"Product #{aid}: {stage}: {reason}"
     with connect(db_path) as conn:
         old = conn.execute("SELECT reason FROM product_deliveries WHERE approval_id=?", (aid,)).fetchone()
-        conn.execute("UPDATE product_deliveries SET status='retry', reason=?, folder=?, lease_until=0 WHERE approval_id=?",
-                     (reason, folder, aid))
+        # Upsert: a draft stopped before a daily slot was reserved (CCG-2) still shows its reason in /doctor.
+        conn.execute("INSERT INTO product_deliveries (approval_id, status, reason, folder, lease_until) "
+                     "VALUES (?, 'retry', ?, ?, 0) ON CONFLICT(approval_id) DO UPDATE SET status='retry', "
+                     "reason=excluded.reason, folder=excluded.folder, lease_until=0", (aid, reason, folder))
     product_builder._record(db_path, aid, "needs_fix" if folder else "retry", folder, reason)
     if not old or old[0] != reason:
         facts = doctor.collect_facts("Product Builder", f"product_{aid}_{stage}", reason, db_path=db_path)
@@ -263,10 +265,22 @@ def pending(db_path=None):
     rows = conn.execute("SELECT a.id, a.title, a.payload, a.review FROM approvals a "
                         "LEFT JOIN product_deliveries d ON d.approval_id=a.id "
                         "WHERE a.status='approved' AND a.kind='public_draft' AND COALESCE(d.status,'') NOT IN ('ready','prepared') "
-                        "ORDER BY COALESCE((SELECT MAX(day) FROM product_delivery_attempts p WHERE p.approval_id=a.id),''), a.id").fetchall()
+                        # CCG-2: never tried first; then the owner's own approvals before auto-approved ones
+                        "ORDER BY COALESCE((SELECT MAX(day) FROM product_delivery_attempts p WHERE p.approval_id=a.id),''), "
+                        "COALESCE(a.reason,'') = 'auto-approved', a.id").fetchall()
     conn.close()
     return [dict(zip(("id", "title", "payload", "review"), row)) for row in rows
             if not product_builder.is_held(row[0], db_path)]
+
+
+def buildable(title, payload):
+    """True when a builder can make this approved draft (niche agent kind, or a format found in the text)."""
+    niche = product_builder.niche_of(title)
+    if niche and niche in product_builder.NICHES:
+        if format_registry.can_build({"kind": product_builder.NICHES[niche].get("kind")}):
+            return True
+    fmt = format_registry.classify(f"{title}\n{payload}")
+    return bool(fmt and format_registry.can_build({"kind": fmt}))
 
 
 def run_pending(db_path=None, out_dir=None, llm=None, max_builds=DAILY_BUILDS,
@@ -280,40 +294,45 @@ def run_pending(db_path=None, out_dir=None, llm=None, max_builds=DAILY_BUILDS,
     day = day or datetime.datetime.now(datetime.timezone.utc).date().isoformat()
     started = time.monotonic()
     results = []
+    attempts = 0   # CCG-2: only reserved build attempts count against max_builds, not skipped drafts
     for item in pending(db_path):
         aid, title, payload, review = (item[key] for key in ("id", "title", "payload", "review"))
-        if len(results) >= max_builds or time.monotonic() - started >= max_time_seconds or not _allowed(db_path):
+        if attempts >= max_builds or time.monotonic() - started >= max_time_seconds or not _allowed(db_path):
             break
-        if product_builder.is_held(aid, db_path) or not _reserve(aid, day, db_path):
+        if product_builder.is_held(aid, db_path):
             continue
-        stage = "feasibility"
+        # BINNY-V4A: Feasibility check before build. If no builder can make the idea,
+        # mark the draft 'needs_owner' with a Tenglish reason (never build a fake product).
+        # CCG-2: checked BEFORE a daily slot is reserved (no AI, no files), so a draft that is not a
+        # buildable product never takes one of the DAILY_BUILDS slots from a real product draft.
         try:
-            # BINNY-V4A: Feasibility check before build. If no builder can make the idea,
-            # mark the draft 'needs_owner' with a Tenglish reason (never build a fake product).
-            niche = product_builder.niche_of(title)
-            can_make = False
-            if niche and niche in product_builder.NICHES:
-                kind = product_builder.NICHES[niche].get("kind")
-                if format_registry.can_build({"kind": kind}):
-                    can_make = True
-            if not can_make:
-                combined_text = f"{title}\n{payload}"
-                fmt = format_registry.classify(combined_text)
-                if fmt and format_registry.can_build({"kind": fmt}):
-                    can_make = True
-
-            if not can_make:
-                tenglish_reason = format_registry.get_tenglish_unbuildable_reason(payload)
-                with guardrails.connect(db_path) as conn:
-                    conn.execute("UPDATE approvals SET status='needs_owner', reason=? WHERE id=?",
-                                 (tenglish_reason, aid))
-                results.append(_stuck(aid, "feasibility", tenglish_reason, db_path))
-                continue
-
-            stage = "council"
-            if not product_builder.niche_of(title):
-                results.append(_stuck(aid, "niche", "Unsupported product niche", db_path))
-                continue
+            can_make = buildable(title, payload)
+        except Exception as error:
+            if product_builder.disk_full(error):
+                # Nothing reserved yet; the draft keeps its place and the next run tries again.
+                with connect(db_path) as conn:
+                    conn.execute("INSERT INTO product_deliveries (approval_id, status, reason, lease_until) "
+                                 "VALUES (?, 'retry', ?, 0) ON CONFLICT(approval_id) DO UPDATE SET "
+                                 "status='retry', reason=excluded.reason, lease_until=0",
+                                 (aid, f"Product #{aid}: disk full; retry next run"))
+                raise
+            results.append(_stuck(aid, "feasibility", f"Stage failed ({type(error).__name__})", db_path))
+            continue
+        if not can_make:
+            tenglish_reason = format_registry.get_tenglish_unbuildable_reason(payload)
+            with guardrails.connect(db_path) as conn:
+                conn.execute("UPDATE approvals SET status='needs_owner', reason=? WHERE id=?",
+                             (tenglish_reason, aid))
+            results.append(_stuck(aid, "feasibility", tenglish_reason, db_path))
+            continue
+        if not product_builder.niche_of(title):
+            results.append(_stuck(aid, "niche", "Unsupported product niche", db_path))
+            continue
+        if not _reserve(aid, day, db_path):
+            continue
+        attempts += 1
+        stage = "council"
+        try:
             summary = product_council.get_council_summary(aid, db_path)
             if not summary or summary["verdict"] not in ("PASS", "APPROVED"):
                 summary = product_council.run_council(aid, payload, title, ctx={"llm": llm},
