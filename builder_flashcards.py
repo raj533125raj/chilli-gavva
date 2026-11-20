@@ -551,7 +551,7 @@ def build(spec: dict, out_dir: str) -> List[str]:
         raise ValueError("Missing required parameter: kind. Must be 'flashcards' or 'worksheets'.")
     elif spec["kind"].lower() not in ("flashcards", "worksheets"):
         raise ValueError(f"Invalid kind: {spec['kind']}. Must be 'flashcards' or 'worksheets'.")
-    kind = spec["kind"].lower()
+    kind = "worksheets" if is_worksheets(spec) else spec["kind"].lower()
     topic = spec.get("topic", "alphabet").lower()
     paper_size = spec.get("paper_size", DEFAULT_PAPER_SIZE).lower()
     cards_per_page = int(spec.get("cards_per_page", DEFAULT_CARDS_PER_PAGE))
@@ -587,13 +587,15 @@ def build(spec: dict, out_dir: str) -> List[str]:
             created_files.append(name)
         _generate_deck_previews(output_dir, created_files, topic, cards_per_page)
     elif kind == "worksheets":
-        _build_worksheets(topic, activity, paper_size, width_px, height_px, output_dir, created_files)
-        # Generate 3 preview images
-        _generate_previews(output_dir, created_files)
+        # CCG-5: real worksheet pages in the pack theme (PDF A4 + Letter, PNG pages, 1200 x 1600 previews)
+        _build_worksheet_set(dict(spec, topic=topic, activity=activity), paper_size, width_px, height_px,
+                             output_dir, created_files)
+        if not HAS_PILLOW:
+            _generate_previews(output_dir, created_files)
 
     # Write README
     readme_path = output_dir / "README-HOW-TO-INSTALL.txt"
-    readme_text = _make_tenglish_readme(kind, topic, paper_size, cards_per_page)
+    readme_text = _make_tenglish_readme(kind, topic, paper_size, cards_per_page, activity)
     readme_path.write_text(readme_text, encoding="utf-8")
     created_files.append("README-HOW-TO-INSTALL.txt")
 
@@ -605,7 +607,11 @@ def build(spec: dict, out_dir: str) -> List[str]:
 
     # Write cover page
     cover_path = output_dir / "cover.pdf"
-    _build_cover_pdf(cover_path, f"{kind.title()} - {topic.title()}", paper_size)
+    cover_title = f"{kind.title()} - {topic.title()}"
+    if kind == "worksheets":
+        cover_title = " ".join(str(spec.get("title") or "").split()) or \
+            f"{TOPIC_NAMES.get(topic, topic.title())} {ACTIVITY_NAMES[activity]}"
+    _build_cover_pdf(cover_path, cover_title, paper_size)
     created_files.append("cover.pdf")
 
     return created_files
@@ -692,6 +698,9 @@ def _build_flashcards(
         created_files.append(f"flashcards_{topic}_page_{page_idx + 1}_manifest.json")
 
 
+# Legacy element layouts (BINNY-W2A). build() no longer uses them: since CCG-5 the worksheets option is made by
+# _build_worksheet_set below. Kept only because tests/test_oc3_flashcards.py (another worker's test) checks the
+# trace layout geometry; they can go together with that test.
 def _build_worksheets(
     topic: str, activity: str, paper_size: str,
     width_px: int, height_px: int,
@@ -864,11 +873,404 @@ def _build_worksheet_simple_math(topic: str, characters: List[str], width_px: in
     created_files.append(f"worksheet_simple_math_{topic}_manifest.json")
 
 
+# ── Kids worksheets in the pack theme (CCG-5) ─────────────────────────
+# One page model (PDF points, y grows upwards, text y = baseline) is drawn twice: into the A4 / Letter PDFs
+# with pdf_design and into PNG pages / 1200 x 1600 previews with Pillow, so the PNGs and previews show
+# exactly the pages the buyer prints, in the colours of the pack theme.
+
+ACTIVITY_NAMES = {"trace": "Trace and Write", "match": "Match the Pairs", "count_colour": "Count and Colour",
+                  "simple_math": "Simple Addition"}
+WS_MARGIN = 48.0
+PREVIEW_SIZE = (1200, 1600)        # the same size as the flashcard deck previews
+_FALLBACK_TOKENS = {"accent": ACCENT, "accent_soft": "#dbeceb", "ink": INK, "muted": MUTED, "faded": "#b7c0c6",
+                    "line": CUT, "surface_soft": "#eef4f3", "page": "#ffffff"}
+
+
+def theme_tokens(spec: Optional[dict]) -> Dict[str, str]:
+    """Colours of the pack theme (pdf_themes), with the builder's own colours as a fallback."""
+    tokens = dict(_FALLBACK_TOKENS)
+    try:
+        import pdf_themes
+        theme = pdf_themes.get_theme_for_spec(dict(spec or {}))
+        tokens.update({k: v for k, v in (theme.get("tokens") or {}).items() if isinstance(v, str)})
+    except Exception:
+        pass
+    return tokens
+
+
+def is_worksheets(spec: dict) -> bool:
+    """The worksheets option: kind 'worksheets', or a flashcards spec with set 'worksheets' (the form the
+    product builder sends, because the registered format is 'flashcards')."""
+    return (str(spec.get("kind") or "").lower() == "worksheets"
+            or str(spec.get("set") or "").lower() == "worksheets")
+
+
+def _ws_title_block(ops, w, h, title, subtitle, tok):
+    ops.append(("rect", WS_MARGIN, h - 92, w - 2 * WS_MARGIN, 52, None, tok["accent_soft"], 0, 8))
+    ops.append(("text", WS_MARGIN + 16, h - 64, title, 18, True, tok["ink"], "l"))
+    ops.append(("text", WS_MARGIN + 16, h - 82, subtitle, 9, False, tok["muted"], "l"))
+    ops.append(("text", w - WS_MARGIN - 16, h - 64, "Name: ______________", 9, False, tok["ink"], "r"))
+    ops.append(("text", w - WS_MARGIN - 16, h - 82, "Date: ______________", 9, False, tok["ink"], "r"))
+    return h - 116          # first free y below the block
+
+
+def _fit(text: str, size: float, width: float, bold: bool = True) -> float:
+    import pdf_design
+    while size > 6 and pdf_design.text_width(text, size, bold) > width:
+        size *= 0.92
+    return size
+
+
+def _ws_trace_pages(w, h, cards, tok, title):
+    pages, per = [], 6
+    chunks = [cards[i:i + per] for i in range(0, len(cards), per)]
+    for n, chunk in enumerate(chunks, 1):
+        ops = []
+        top = _ws_title_block(ops, w, h, title, f"Trace the grey letters, then write your own · page {n} of "
+                                                f"{len(chunks)}", tok)
+        row_h = (top - WS_MARGIN - 10) / per
+        for i, card in enumerate(chunk + [None] * (per - len(chunk))):
+            base = top - (i + 1) * row_h + row_h * 0.28
+            size = row_h * 0.55 if card is None else 0
+            if card is not None:
+                glyph = card["character"] if card["topic"] in ("alphabet", "numbers", "telugu") else card["back"]
+                size = _fit(glyph, row_h * 0.55, w * 0.28)
+            ops.append(("line", WS_MARGIN, base, w - WS_MARGIN, base, tok["line"], 1.0, 0))
+            ops.append(("line", WS_MARGIN, base + size * 0.72, w - WS_MARGIN, base + size * 0.72, tok["line"], 0.6, 4))
+            ops.append(("line", WS_MARGIN, base + size * 0.36, w - WS_MARGIN, base + size * 0.36, tok["faded"], 0.5, 2))
+            if card is None:      # the last page: free practice rows instead of an empty half page
+                ops.append(("text", WS_MARGIN, base + row_h * 0.62, "Your turn: write your favourite ones here", 8,
+                            False, tok["muted"], "l"))
+                continue
+            slot = (w - 2 * WS_MARGIN) / (5 if len(glyph) <= 2 else 3)
+            copies = int((w - 2 * WS_MARGIN) // slot)
+            for c in range(copies):
+                colour = tok["ink"] if c == 0 else (tok["faded"] if c < copies - 1 else None)
+                if colour:
+                    ops.append(("text", WS_MARGIN + slot * (c + 0.5), base, glyph, size, c == 0, colour, "c"))
+            ops.append(("text", WS_MARGIN, base + row_h * 0.62, f"{card['number']:02d}  {card['prompt']}", 8,
+                        False, tok["muted"], "l"))
+        pages.append(ops)
+    return pages, []
+
+
+def _ws_left_art(ops, card, cx, cy, size, tok):
+    if card["topic"] == "shapes":
+        ops.append(("poly", shape_points(card["character"], cx, cy, size), tok["accent"], None))
+    elif card["topic"] == "colours":
+        ops.append(("rect", cx - size / 2, cy - size / 2, size, size, tok["ink"],
+                    COLOUR_HEX.get(card["character"], "#cccccc"), 0.8, 6))
+    else:
+        ops.append(("text", cx, cy - size * 0.3, card["character"], _fit(card["character"], size * 0.8, size * 1.6),
+                    True, tok["ink"], "c"))
+
+
+def _ws_match_pages(w, h, cards, tok, title):
+    rng = random.Random(SEED)
+    pages, key, per = [], [], 6
+    chunks = [cards[i:i + per] for i in range(0, len(cards), per)][:3]
+    for n, chunk in enumerate(chunks, 1):
+        ops = []
+        top = _ws_title_block(ops, w, h, title, f"Draw a line from each picture to its word · page {n} of "
+                                                f"{len(chunks)}", tok)
+        words = [c["back"] for c in chunk]
+        rng.shuffle(words)
+        row_h = (top - WS_MARGIN - 10) / per
+        for i, card in enumerate(chunk):
+            cy = top - (i + 0.5) * row_h
+            ops.append(("rect", WS_MARGIN, cy - row_h * 0.4, row_h * 0.8, row_h * 0.8, tok["line"],
+                        tok["surface_soft"], 0.8, 8))
+            _ws_left_art(ops, card, WS_MARGIN + row_h * 0.4, cy, row_h * 0.5, tok)
+            ops.append(("circle", WS_MARGIN + row_h * 0.8 + 18, cy, 4, None, tok["accent"], 0))
+            ops.append(("circle", w - WS_MARGIN - 170, cy, 4, None, tok["accent"], 0))
+            ops.append(("text", w - WS_MARGIN - 155, cy - 6, words[i], _fit(words[i], 18, 150), True, tok["ink"], "l"))
+            key.append(f"{card['front']}  ->  {card['back']}")
+        pages.append(ops)
+    return pages, key
+
+
+def _ws_count_pages(w, h, cards, tok, title):
+    shape = "star" if cards and cards[0]["topic"] != "shapes" else "circle"
+    counts = list(range(1, 11))
+    pages, key, per = [], [], 5
+    chunks = [counts[i:i + per] for i in range(0, len(counts), per)]
+    for n, chunk in enumerate(chunks, 1):
+        ops = []
+        top = _ws_title_block(ops, w, h, title, f"Count, write the number, then colour them · page {n} of "
+                                                f"{len(chunks)}", tok)
+        row_h = (top - WS_MARGIN - 10) / per
+        for i, count in enumerate(chunk):
+            cy = top - (i + 0.5) * row_h
+            area = w - 2 * WS_MARGIN - 90
+            size = min(row_h * 0.38, area / 5 / 1.25)
+            for k in range(count):
+                row, col = divmod(k, 5)
+                cx = WS_MARGIN + size * 0.7 + col * size * 1.25
+                ycen = cy + (size * 0.6 if count > 5 and row == 0 else (-size * 0.6 if count > 5 else 0))
+                ops.append(("poly", shape_points(shape, cx, ycen, size), None, tok["ink"]))
+            ops.append(("text", w - WS_MARGIN - 80, cy + row_h * 0.22, "How many?", 9, False, tok["muted"], "l"))
+            ops.append(("rect", w - WS_MARGIN - 70, cy - 24, 56, 44, tok["accent"], None, 1.2, 8))
+            ops.append(("line", WS_MARGIN, cy - row_h / 2, w - WS_MARGIN, cy - row_h / 2, tok["line"], 0.5, 3))
+            key.append(f"Row {len(key) + 1}: {count}")
+        pages.append(ops)
+    return pages, key
+
+
+def _ws_math_pages(w, h, cards, tok, title):
+    rng = random.Random(SEED)
+    problems = []
+    while len(problems) < 24:
+        a, b = rng.randint(0, 9), rng.randint(0, 9)
+        if a + b <= 10 and (a, b) not in problems:
+            problems.append((a, b))
+    pages, key, per = [], [], 12
+    chunks = [problems[i:i + per] for i in range(0, len(problems), per)]
+    for n, chunk in enumerate(chunks, 1):
+        ops = []
+        top = _ws_title_block(ops, w, h, title, f"Add the dots, write the answer · page {n} of {len(chunks)}", tok)
+        rows, colw = per // 2, (w - 2 * WS_MARGIN) / 2
+        row_h = (top - WS_MARGIN - 10) / rows
+        for i, (a, b) in enumerate(chunk):
+            col, row = divmod(i, rows)
+            x, cy = WS_MARGIN + col * colw, top - (row + 0.5) * row_h
+            ops.append(("rect", x + 4, cy - row_h * 0.42, colw - 8, row_h * 0.84, tok["line"], tok["surface_soft"],
+                        0.6, 8))
+            ops.append(("text", x + 18, cy + 2, f"{a} + {b} =", 20, True, tok["ink"], "l"))
+            ops.append(("line", x + 110, cy, x + 160, cy, tok["ink"], 1.0, 0))
+            for k in range(a + b):
+                ops.append(("circle", x + 18 + k * 13 + (6 if k >= a else 0), cy - 20, 4.5,
+                            None, tok["accent"] if k < a else tok["faded"], 0))
+            key.append(f"{len(key) + 1}. {a} + {b} = {a + b}")
+        pages.append(ops)
+    return pages, key
+
+
+def _ws_notes(ops, w, y, label, tok):
+    """Ruled lines from y down to the bottom margin: a page is never half empty (the truth check refuses that)."""
+    y -= 30
+    ops.append(("text", WS_MARGIN + 8, y, label, 12, True, tok["accent"], "l"))
+    y -= 30
+    while y >= WS_MARGIN + 10:
+        ops.append(("line", WS_MARGIN + 8, y, w - WS_MARGIN - 8, y, tok["line"], 0.6, 0))
+        y -= 26
+
+
+def _ws_key_page(w, h, key, tok, title):
+    ops = []
+    top = _ws_title_block(ops, w, h, f"{title} - Answer Key", "For the grown-up: check together and give a star",
+                          tok)
+    cols = 2 if len(key) > 14 else 1
+    per_col = math.ceil(len(key) / cols)
+    for i, line in enumerate(key):
+        col, row = divmod(i, per_col)
+        ops.append(("text", WS_MARGIN + 8 + col * (w - 2 * WS_MARGIN) / cols, top - 10 - row * 22, line, 11, False,
+                    tok["ink"], "l"))
+    _ws_notes(ops, w, top - 10 - per_col * 22, "Notes: what was easy, what to practise again", tok)
+    return ops
+
+
+def _ws_how_to_page(w, h, title, activity, topic, n_pages, has_key, tok):
+    ops = []
+    top = _ws_title_block(ops, w, h, title, f"Kids worksheets · {ACTIVITY_NAMES[activity]} · "
+                                            f"{TOPIC_NAMES.get(topic, topic.title())}", tok)
+    lines = [("What is inside", True),
+             (f"- {n_pages} activity page(s): {ACTIVITY_NAMES[activity].lower()}", False),
+             ("- an answer key page for the grown-up" if has_key else "- tracing rows with a model letter", False),
+             ("How to print", True),
+             ("1. Print at 100% scale (Actual Size), single-sided.", False),
+             ("2. Use the A4 file or the US Letter file for your paper.", False),
+             ("3. Optional: laminate the pages and use a dry-erase marker again and again.", False),
+             ("Tips for the grown-up", True),
+             ("- Short sessions work best: one page, then a break.", False),
+             ("- Say each letter, number or word out loud together.", False)]
+    y = top - 10
+    for text, head in lines:
+        y -= 26 if head else 18
+        ops.append(("text", WS_MARGIN + 8, y, text, 13 if head else 11, head, tok["accent"] if head else tok["ink"],
+                    "l"))
+    y -= 40
+    ops.append(("text", WS_MARGIN + 8, y, "My stars (colour one for every page you finish)", 12, True, tok["accent"],
+                "l"))
+    for i in range(min(10, n_pages + 4)):
+        ops.append(("poly", shape_points("star", WS_MARGIN + 30 + i * 46, y - 36, 34), None, tok["accent"]))
+    _ws_notes(ops, w, y - 60, "Practice log (date and page)", tok)
+    return ops
+
+
+def worksheet_pages(spec: dict, size: str) -> Tuple[float, float, List[list]]:
+    """(width, height, pages) of the whole worksheet PDF for one paper size: how-to page, activity pages and,
+    for match / count / maths, an answer key."""
+    import pdf_design
+    topic = str(spec.get("topic", "alphabet")).lower()
+    activity = str(spec.get("activity", DEFAULT_WORKSHEET_ACTIVITY)).lower()
+    tok = theme_tokens(spec)
+    w, h = pdf_design.PAGE_SIZES[size]
+    title = " ".join(str(spec.get("title") or "").split()) or \
+        f"{TOPIC_NAMES.get(topic, topic.title())} {ACTIVITY_NAMES[activity]}"
+    make = {"trace": _ws_trace_pages, "match": _ws_match_pages, "count_colour": _ws_count_pages,
+            "simple_math": _ws_math_pages}[activity]
+    pages, key = make(w, h, deck_cards(topic), tok, title)
+    out = [_ws_how_to_page(w, h, title, activity, topic, len(pages), bool(key), tok)] + pages
+    if key:
+        out.append(_ws_key_page(w, h, key, tok, title))
+    return w, h, out
+
+
+def _draw_pdf_ops(pdf, ops) -> None:
+    for op in ops:
+        kind = op[0]
+        if kind == "text":
+            _, x, y, s, size, bold, color, align = op
+            {"l": pdf.text, "c": pdf.text_center, "r": pdf.text_right}[align](x, y, s, size, bold=bold, color=color)
+        elif kind == "line":
+            _, x1, y1, x2, y2, color, width, dash = op
+            if not dash:
+                pdf.line(x1, y1, x2, y2, color=color, width=width)
+                continue
+            length = math.hypot(x2 - x1, y2 - y1) or 1.0
+            step = 0.0
+            while step < length:
+                end = min(step + dash, length)
+                pdf.line(x1 + (x2 - x1) * step / length, y1 + (y2 - y1) * step / length,
+                         x1 + (x2 - x1) * end / length, y1 + (y2 - y1) * end / length, color=color, width=width)
+                step += 2 * dash
+        elif kind == "rect":
+            _, x, y, rw, rh, stroke, fill, width, radius = op
+            pdf.round_rect(x, y, rw, rh, radius, fill=fill, stroke=stroke, width=width or 0.8)
+        elif kind == "circle":
+            _, cx, cy, r, stroke, fill, width = op
+            pdf.circle(cx, cy, r, fill=fill, stroke=stroke, width=width or 0.8)
+        elif kind == "poly":
+            _, points, fill, stroke = op
+            _pdf_poly(pdf, points, fill, stroke)
+
+
+def build_worksheet_pdf(path: Path, size: str, spec: dict) -> int:
+    """The worksheet PDF for one paper size in the pack theme. Returns the page count."""
+    import pdf_design
+    title = " ".join(str(spec.get("title") or "").split()) or "Kids Worksheets"
+    _w, _h, pages = worksheet_pages(spec, size)
+    pdf = pdf_design.Pdf(size, footer=f"{title} · print at 100%", style=theme_style(spec))
+    for ops in pages:
+        pdf.new_page()
+        _draw_pdf_ops(pdf, ops)
+    pdf.save(str(path), title=title)
+    return len(pdf.pages)
+
+
+def render_page_png(ops, w: float, h: float, width_px: int, height_px: int, page_colour: str = "#ffffff"):
+    """Draw one page model into a Pillow image of width_px x height_px (the page is scaled to fit, centred)."""
+    scale = min(width_px / w, height_px / h)
+    off_x, off_y = (width_px - w * scale) / 2, (height_px - h * scale) / 2
+    img = Image.new("RGB", (width_px, height_px), "white")
+    draw = ImageDraw.Draw(img)
+    draw.rectangle([off_x, off_y, off_x + w * scale, off_y + h * scale], fill=page_colour)
+
+    def pt(x, y):
+        return off_x + x * scale, off_y + (h - y) * scale
+
+    for op in ops:
+        kind = op[0]
+        if kind == "text":
+            _, x, y, s, size, bold, color, align = op
+            font = _png_font(max(8, int(size * scale)), bold)
+            px, py = pt(x, y)
+            try:
+                draw.text((px, py), s, fill=color, font=font, anchor={"l": "ls", "c": "ms", "r": "rs"}[align])
+            except (ValueError, TypeError):   # bitmap font without anchors
+                width = draw.textlength(s, font=font)
+                px -= {"l": 0, "c": width / 2, "r": width}[align]
+                draw.text((px, py - size * scale * 0.8), s, fill=color, font=font)
+        elif kind == "line":
+            _, x1, y1, x2, y2, color, width, dash = op
+            a, b = pt(x1, y1), pt(x2, y2)
+            lw = max(1, int(width * scale))
+            if not dash:
+                draw.line([a, b], fill=color, width=lw)
+                continue
+            length = math.hypot(b[0] - a[0], b[1] - a[1]) or 1.0
+            d, step = dash * scale, 0.0
+            while step < length:
+                end = min(step + d, length)
+                draw.line([(a[0] + (b[0] - a[0]) * step / length, a[1] + (b[1] - a[1]) * step / length),
+                           (a[0] + (b[0] - a[0]) * end / length, a[1] + (b[1] - a[1]) * end / length)],
+                          fill=color, width=lw)
+                step += 2 * d
+        elif kind == "rect":
+            _, x, y, rw, rh, stroke, fill, width, radius = op
+            (x0, y1p), (x1p, y0) = pt(x, y), pt(x + rw, y + rh)
+            draw.rounded_rectangle([x0, y0, x1p, y1p], radius=int(radius * scale), fill=fill, outline=stroke,
+                                   width=max(1, int((width or 0.8) * scale)) if stroke else 0)
+        elif kind == "circle":
+            _, cx, cy, r, stroke, fill, width = op
+            px, py = pt(cx, cy)
+            draw.ellipse([px - r * scale, py - r * scale, px + r * scale, py + r * scale], fill=fill, outline=stroke,
+                         width=max(1, int((width or 0.8) * scale)) if stroke else 0)
+        elif kind == "poly":
+            _, points, fill, stroke = op
+            draw.polygon([pt(x, y) for x, y in points], fill=fill, outline=stroke,
+                         width=max(1, int(0.8 * scale)) if stroke else 1)
+    return img
+
+
+def _build_worksheet_set(spec: dict, paper_size: str, width_px: int, height_px: int, out: Path,
+                         created_files: List[str]) -> None:
+    """The real worksheet product: A4 + Letter PDFs, PNG pages for the chosen paper, one manifest and three
+    1200 x 1600 previews of the real pages - all in the pack theme."""
+    topic = str(spec.get("topic", "alphabet")).lower()
+    activity = str(spec.get("activity", DEFAULT_WORKSHEET_ACTIVITY)).lower()
+    import re
+    base = re.sub(r"[^a-z0-9-]+", "-", str(spec.get("short_name") or f"{topic}-{activity}-worksheets").lower())
+    base = base.strip("-") or "worksheets"
+    for size in ("A4", "Letter"):
+        name = f"{base}-{size}.pdf"
+        build_worksheet_pdf(out / name, size, spec)
+        created_files.append(name)
+    chosen = "A4" if paper_size == "a4" else "Letter"
+    w, h, pages = worksheet_pages(spec, chosen)
+    page_colour = theme_tokens(spec).get("page") or "#ffffff"
+    names = []
+    if HAS_PILLOW:
+        for number, ops in enumerate(pages[1:], 1):        # the activity pages and the answer key
+            name = f"worksheet_{activity}_{topic}_page_{number}.png"
+            _save_png(render_page_png(ops, w, h, width_px, height_px, page_colour), out / name)
+            created_files.append(name)
+            names.append(name)
+        picks = [pages[1], pages[2] if len(pages) > 2 else pages[-1], pages[0]]
+        for i, ops in enumerate(picks, 1):
+            _save_png(render_page_png(ops, w, h, *PREVIEW_SIZE, page_colour=page_colour), out / f"preview_{i}.png")
+            created_files.append(f"preview_{i}.png")
+    manifest = {"activity": activity, "topic": topic, "pages": len(pages), "png_pages": names,
+                "pdfs": [f"{base}-A4.pdf", f"{base}-Letter.pdf"], "paper_size": chosen,
+                "instruction": ACTIVITY_NAMES[activity]}
+    (out / f"worksheet_{activity}_{topic}_manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    created_files.append(f"worksheet_{activity}_{topic}_manifest.json")
+
+
 # ── Tenglish Helper Functions ──────────────────────────────────────────
 
-def _make_tenglish_readme(kind: str, topic: str, paper_size: str, cards_per_page: int) -> str:
+def _make_tenglish_readme(kind: str, topic: str, paper_size: str, cards_per_page: int,
+                          activity: str = DEFAULT_WORKSHEET_ACTIVITY) -> str:
     paper_name = "A4" if paper_size == "a4" else "Letter"
     card_str = f"{cards_per_page} per page" if cards_per_page == 8 else "12 per page"
+    if kind == "worksheets":
+        name = ACTIVITY_NAMES.get(activity, "Worksheets")
+        return "\n".join([
+            f"Worksheets - {TOPIC_NAMES.get(topic, topic.title())} - {name}",
+            "=" * 40, "",
+            "WHAT IS INSIDE",
+            "- The worksheet PDF in A4 and in US Letter: page 1 explains printing, then the activity pages"
+            + (" and an answer key." if activity != "trace" else "."),
+            f"- PNG copies of the activity pages ({paper_name}).",
+            "- A one-page folder / envelope label PDF.", "",
+            "HOW TO PRINT", "------------", "",
+            "1. Print the PDF for your paper (A4 or US Letter) at 100% scale (Actual Size), single-sided.",
+            "2. Give the child one page at a time; the grown-up keeps the answer key.",
+            "3. Laminate for reuse with dry-erase markers (optional).", "",
+            "LICENSE", "-------", "",
+            "Personal use only: print as many copies as you need for your own home or class.",
+            "Do not resell or share the files.", "",
+            "Happy learning!"])
     if kind == "flashcards":
         files = [
             "- The deck PDF in A4 and in US Letter: page 1 explains printing and lists every card,",
