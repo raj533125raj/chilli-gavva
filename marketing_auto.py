@@ -562,8 +562,10 @@ def all_status(db_path=None) -> List[Dict[str, Any]]:
 def build_for_pack(pack_dir: Path | str, db_path=None, *, products_dir: Optional[Path | str] = None,
                    force: bool = False, modules: Optional[Dict[str, Any]] = None,
                    now: Optional[datetime.datetime] = None, timeout: float = STEP_TIMEOUT,
-                   save: bool = True, pack_digest: str = "") -> Dict[str, Any]:
+                   save: bool = True, pack_digest: str = "", social: bool = True) -> Dict[str, Any]:
     """Make (or refresh) all marketing files of one pack. Never raises.
+
+    social=True also makes the ready-to-post Pins (CCH-2) when the pack is SELLABLE (see build_social).
 
     Returns {"pack", "status" ready|partial|failed, "line", "parts", "built" [parts rebuilt],
              "files" count, "changed" bool, "marketing_dir", "manifest", "error"}.
@@ -589,6 +591,9 @@ def build_for_pack(pack_dir: Path | str, db_path=None, *, products_dir: Optional
         result["marketing_dir"] = str(out)
         result["manifest"] = str(out / MANIFEST_NAME)
         _build(pack_path, root, out, result, force, resolve_modules(modules), now, timeout)
+        if social:
+            base = Path(products_dir) if products_dir else products_dir_of(pack_path)
+            result["social"] = build_social(pack_path, root, out, base, now=now, force=force, timeout=timeout)
     except Exception as error:   # never stop the product build
         result["error"] = clean_error(f"{type(error).__name__}: {error}")
         log.warning("marketing_auto: %s: %s", result["pack"], result["error"])
@@ -648,9 +653,13 @@ def _build(pack_path: Path, root: Path, out: Path, result: Dict[str, Any], force
     all_files: Dict[str, str] = {}
     for part in PARTS:
         all_files.update(parts[part].get("files") or {})
+    if isinstance(old.get("social"), dict):     # CCH-2/3 files are kept by build_social, not by the parts
+        all_files.update(social_files(out))
     manifest = {"version": FORMAT_VERSION, "pack": pack_path.name, "status": overall_status(parts),
                 "line": line, "parts": parts, "files": all_files,
                 "note": "Private marketing files. The owner reviews and posts by hand."}
+    if isinstance(old.get("social"), dict):
+        manifest["social"] = old["social"]
     comparable = {key: value for key, value in old.items() if key != "updated_at"} if old else None
     if comparable != manifest:
         manifest_out = dict(manifest)
@@ -662,6 +671,149 @@ def _build(pack_path: Path, root: Path, out: Path, result: Dict[str, Any], force
                   parts={part: {"status": parts[part]["status"], "built": part in result["built"],
                                 "error": parts[part].get("error", ""), "meta": parts[part].get("meta", {}),
                                 "files": len(parts[part].get("files") or {})} for part in PARTS})
+
+
+# ---- CCH-2/3: ready-to-post social files, only for SELLABLE packs --------------------
+# State lives in manifest.json under "social" ({part: entry}); the files are listed in manifest["files"].
+SOCIAL_PARTS = ("pinterest",)
+SOCIAL_MODULES = {"pinterest": ("pin_ready", "mockups_v2")}
+SOCIAL_FOLDERS = {"pinterest": "pinterest"}
+
+
+def sell_pack_dir(pack_path: Path, products_dir: Path) -> Path:
+    """The pack /sell judges: the upload pack (<products>/upload/<folder>) when there is one."""
+    if pack_path.parent.name == "upload":
+        return pack_path
+    upload = Path(products_dir) / "upload" / pack_path.name
+    return upload if upload.is_dir() else pack_path
+
+
+def sellable(pack_path: Path, root: Path, products_dir: Path) -> Tuple[bool, str]:
+    """(SELLABLE?, short reason) from sell_ready.evaluate_pack, the same judge as /sell."""
+    pack = sell_pack_dir(pack_path, products_dir)
+    if not (pack / "product.zip").is_file() or not (pack / "listing.txt").is_file():
+        return False, "no upload pack (product.zip + listing.txt) yet"
+    import sell_ready
+    evaluation = sell_ready.evaluate_pack(pack, root)
+    status_word = evaluation.get("status")
+    return status_word == sell_ready.STATUS_SELLABLE, f"{status_word} {evaluation.get('score')}"
+
+
+def sell_key(pack_path: Path, out: Path, products_dir: Path) -> str:
+    """Changes whenever anything the SELLABLE judge reads may have changed (pack, upload pack, marketing parts)."""
+    pack = sell_pack_dir(pack_path, products_dir)
+    marketing = {}
+    for part in PARTS:
+        marketing.update(part_files(out, part))
+    kits = sorted(p.relative_to(pack).as_posix() for p in pack.rglob("*") if p.is_file()) if pack.is_dir() else []
+    return _sha_json([source_hashes(pack_path), source_hashes(pack) if pack.is_dir() else {}, kits, marketing])
+
+
+def _social_maker(part: str):
+    if part == "pinterest":
+        import pin_ready
+        return pin_ready.make_pins, pin_ready.check_pins
+    raise KeyError(part)
+
+
+def social_files(out: Path) -> Dict[str, str]:
+    found: Dict[str, str] = {}
+    for part in SOCIAL_PARTS:
+        folder = out / SOCIAL_FOLDERS[part]
+        if folder.is_dir():
+            for path in sorted(folder.rglob("*")):
+                if path.is_file() and not path.is_symlink():
+                    found[path.relative_to(out).as_posix()] = _sha_file(path)
+    return found
+
+
+def social_fingerprint(part: str, pack_path: Path) -> str:
+    sources = source_hashes(pack_path)
+    mods = [make_marketing.load_module(name) for name in SOCIAL_MODULES[part]]
+    return _sha_json([FORMAT_VERSION, part, sources.get("listing", ""), sources.get("images", ""),
+                      [module_signature(m) for m in mods]])
+
+
+def _social_keep(entry: Dict[str, Any], part: str, pack_path: Path, out: Path, products_dir: Path,
+                 today: str, checker=None) -> bool:
+    """True when a part needs no work this run."""
+    status_word = entry.get("status")
+    if status_word == "ok":
+        if entry.get("fingerprint") != social_fingerprint(part, pack_path):
+            return False
+        return not checker(out / SOCIAL_FOLDERS[part]) if checker else True
+    if status_word == "skipped":
+        return entry.get("sell_key") == sell_key(pack_path, out, products_dir)
+    if status_word == "failed":
+        return entry.get("day") == today and entry.get("fingerprint") == social_fingerprint(part, pack_path)
+    return False
+
+
+def social_due(pack_path: Path, out: Path, products_dir: Path, today: str) -> bool:
+    """A READY pack whose ready-to-post files may need work (cheap: the checker does not run here)."""
+    social = load_manifest(out).get("social")
+    if not isinstance(social, dict):
+        return True
+    for part in SOCIAL_PARTS:
+        entry = social.get(part)
+        if not isinstance(entry, dict) or not _social_keep(entry, part, pack_path, out, products_dir, today):
+            return True
+    return False
+
+
+def build_social(pack_path: Path, root: Path, out: Path, products_dir: Path, now=None, force: bool = False,
+                 timeout: float = STEP_TIMEOUT) -> Dict[str, Any]:
+    """Make the ready-to-post files of a SELLABLE pack (Pins in pinterest/). Never raises.
+
+    ok part      kept while its sources and maker are the same and its checker finds nothing
+    skipped part (pack not SELLABLE) judged again only when the pack or its marketing files change
+    failed part  tried again the next day (or at once when its sources change)
+    Returns {part: {"status", "built", "problems", "reason"}}.
+    """
+    today = _today(now).isoformat()
+    manifest = load_manifest(out)
+    if not manifest:
+        return {part: {"status": "failed", "built": False, "problems": ["marketing manifest missing"],
+                       "reason": "no manifest"} for part in SOCIAL_PARTS}
+    social = dict(manifest.get("social") or {})
+    verdict: Optional[Tuple[bool, str]] = None
+    report: Dict[str, Any] = {}
+    for part in SOCIAL_PARTS:
+        folder = out / SOCIAL_FOLDERS[part]
+        entry = social.get(part) if isinstance(social.get(part), dict) else {}
+        try:
+            maker, checker = _social_maker(part)
+            if not force and entry and _social_keep(entry, part, pack_path, out, products_dir, today, checker):
+                report[part] = {"status": entry["status"], "built": False, "problems": entry.get("problems", []),
+                                "reason": entry.get("reason", "unchanged")}
+                continue
+            if verdict is None:
+                verdict = sellable(pack_path, root, products_dir)
+            fingerprint = social_fingerprint(part, pack_path)
+            if not verdict[0]:
+                new = {"status": "skipped", "sell_key": sell_key(pack_path, out, products_dir), "problems": [],
+                       "reason": f"not SELLABLE: {verdict[1]}"}
+            else:
+                data, error = _call(maker, timeout, pack_path, folder, now)
+                problems = [clean_error(error)] if error else list((data or {}).get("check", {}).get("problems") or [])
+                new = {"status": "failed" if problems else "ok", "fingerprint": fingerprint,
+                       "problems": problems[:10], "reason": "made" if not error else "maker failed", "day": today}
+            social[part] = new
+            report[part] = {"status": new["status"], "built": new["reason"] == "made",
+                            "problems": new["problems"], "reason": new["reason"]}
+        except Exception as error:
+            report[part] = {"status": "failed", "built": False, "problems": [clean_error(error)], "reason": "error"}
+            log.warning("marketing_auto: %s: %s failed: %s", pack_path.name, part, clean_error(error))
+    files = {k: v for k, v in (manifest.get("files") or {}).items()
+             if not any(k.startswith(SOCIAL_FOLDERS[p] + "/") for p in SOCIAL_PARTS)}
+    files.update(social_files(out))
+    updated = dict(manifest, social=social, files=files)
+    updated.pop("updated_at", None)
+    old = {k: v for k, v in manifest.items() if k != "updated_at"}
+    if updated != old:
+        updated["updated_at"] = (now or datetime.datetime.now(datetime.timezone.utc)).isoformat(timespec="seconds")
+        make_marketing.atomic_write_json(out / MANIFEST_NAME, updated)
+    return report
 
 
 def run_for_pack(pack_dir: Path | str, db_path=None, **options: Any) -> str:
@@ -738,6 +890,12 @@ def run_ready(db_path=None, products_dir: Optional[Path | str] = None, limit: in
                 result = build_for_pack(pack_dir, db_path, products_dir=base, modules=modules, now=now,
                                         pack_digest=item.get("digest") or "")
                 row = {"line": result.get("line", ""), "pack_digest": item.get("digest") or ""}
+            elif (built < max(0, int(limit)) and row and row.get("status") in ("ready", "partial")
+                  and social_due(pack_dir, marketing_root(base) / folder, base, today)
+                  and pack_dir.is_dir() and not pack_dir.is_symlink()
+                  and _pack_matches_receipt(pack_dir, item.get("digest") or "")):
+                built += 1      # CCH-2 backfill: READY packs made before the ready-to-post files existed
+                build_social(pack_dir, marketing_root(base), marketing_root(base) / folder, base, now=now)
             if row and row.get("line") and row.get("pack_digest") == (item.get("digest") or ""):
                 lines[aid] = row["line"]
     except Exception as error:
