@@ -9,7 +9,8 @@ Sources
              PNG files present); post plan rows with channel "pinterest"
   Instagram  ready carousels: <products>/marketing/<pack>/carousel/carousel.json (checker ok, slides
              present); post plan rows with channel "carousel" / "instagram" / "reel"
-  Marketing  the post plan (exported_content/post_plan.json): posts planned / posted by hand ("/posted N"),
+  Marketing  the post plan (exported_content/products/post_plan.json): posts planned / posted by hand
+             ("/posted N"); rows the owner did not post in time are "missed" (counted as due, not done),
              marketing_ready rows (packs with marketing files)
   Product    product_builds (built / needs fix), approvals kind public_draft (drafts waiting for the owner)
   Research   scout_ideas rows, proposals (approvals that are not product drafts)
@@ -32,7 +33,7 @@ from typing import Any, Dict, List, Optional
 
 REPO_ROOT = Path(__file__).resolve().parent
 PRODUCTS_DIR = REPO_ROOT / "exported_content" / "products"
-PLAN_PATH = REPO_ROOT / "exported_content" / "post_plan.json"
+PLAN_PATH = PRODUCTS_DIR / "post_plan.json"     # post_planner.PLAN_PATH (CCH-4: saved with the products)
 DAYS = 7
 TEAMS = ("pinterest", "instagram", "marketing", "product", "research")
 TEAM_LABELS = {"pinterest": "Pinterest", "instagram": "Instagram", "marketing": "Marketing",
@@ -173,7 +174,7 @@ def plan_numbers(plan: List[Dict[str, Any]], channels: Optional[tuple], now: dat
             out["planned"] += 1
         if not done and day == today:
             out["today_todo"] += 1
-        if not done and day < today:
+        if row.get("status") == "todo" and day < today:
             out["overdue"] += 1
         if first_due <= day <= today:
             out["due"] += 1

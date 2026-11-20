@@ -1449,7 +1449,10 @@ def today_posts_text(plan_path=None, products_dir=None, date=None):
     import post_planner
     plan_file = plan_path or post_planner.PLAN_PATH
     prod_dir = products_dir or "exported_content/products"
-    plan = post_planner.load_plan(plan_file, products_dir=prod_dir)
+    # CCH-4: the plan holds ready posts only (checked Pins / carousels); it is refreshed, never rebuilt from
+    # plain pack images
+    post_planner.refresh_ready_plan(prod_dir, plan_path=plan_file)
+    plan = post_planner.load_plan(plan_file)
     return post_planner.today_text(plan, date=date)
 
 
@@ -1466,8 +1469,7 @@ def mark_post_done_text(n, plan_path=None, products_dir=None, date=None):
     """Mark post N as done, atomically save plan, and return confirmation + week summary."""
     import post_planner
     plan_file = plan_path or post_planner.PLAN_PATH
-    prod_dir = products_dir or "exported_content/products"
-    plan = post_planner.load_plan(plan_file, products_dir=prod_dir)
+    plan = post_planner.load_plan(plan_file)      # CCH-4: never rebuilt here, so marks go to the real plan
 
     if n is None or n < 1:
         return "Please specify a valid post number: /posted <number> (e.g. /posted 1)"

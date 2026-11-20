@@ -36,7 +36,9 @@ _MONEY_PATTERN = re.compile(
 )
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
-PLAN_PATH = os.path.join("exported_content", "post_plan.json")
+# CCH-4: the plan lives inside exported_content/products/, which travels in the encrypted products archive, so
+# "/posted N" marks survive between cloud runs (exported_content/post_plan.json was never saved).
+PLAN_PATH = os.path.join("exported_content", "products", "post_plan.json")
 
 
 _BRAND_PATTERN = re.compile(
@@ -583,7 +585,7 @@ def today_text(plan: List[Dict[str, Any]], date: Optional[Union[datetime.date, s
         return f"No posts scheduled for {target_date}."
 
     pin_count = sum(1 for p in day_posts if p.get("channel") == "pinterest")
-    ig_count = sum(1 for p in day_posts if p.get("channel") == "instagram")
+    ig_count = sum(1 for p in day_posts if p.get("channel") in ("instagram", "carousel", "reel"))
 
     lines = [f"Today post ({pin_count} pins, {ig_count} Instagram):"]
 
@@ -594,6 +596,8 @@ def today_text(plan: List[Dict[str, Any]], date: Optional[Union[datetime.date, s
         # Strip any directory path outside pack
         clean_asset = Path(asset).name if "/" not in asset and "\\" not in asset else asset
         clean_asset = clean_asset.replace("\\", "/")
+        if post.get("ready"):      # CCH-4 ready rows: the file name only, the board for Pins
+            clean_asset = Path(clean_asset).name + (f" [board: {post['board']}]" if post.get("board") else "")
         channel = post.get("channel", "")
         caption = post.get("caption_short", "")
         tags = " ".join(f"#{t}" for t in post.get("hashtags", []))
@@ -624,8 +628,9 @@ def mark_posted(
     plan: List[Dict[str, Any]],
     date: Optional[Union[datetime.date, str]] = None,
     n: int = 1,
+    now: Optional[datetime.datetime] = None,
 ) -> bool:
-    """Mark the n-th post (1-indexed) of given date as status='done'."""
+    """Mark the n-th post (1-indexed) of given date as status='done' and remember when (posted_at, UTC)."""
     if date is None:
         target_date = datetime.date.today().isoformat()
     elif isinstance(date, datetime.date):
@@ -638,6 +643,10 @@ def mark_posted(
         return False
 
     day_posts[n - 1]["status"] = "done"
+    stamp = now or datetime.datetime.now(datetime.timezone.utc)
+    if stamp.tzinfo is not None:
+        stamp = stamp.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+    day_posts[n - 1].setdefault("posted_at", stamp.isoformat(timespec="seconds"))
     return True
 
 
@@ -673,6 +682,199 @@ def week_summary(
     return f"This week: {done} of {total} posts done"
 
 
+# ==============================================================================
+# CCH-4: the 30-day plan the owner follows by hand, built ONLY from ready posts
+# ==============================================================================
+# Ready posts = Pins in <products>/marketing/<pack>/pinterest/ whose checker (pin_ready.check_pins) passes and
+# carousels in <products>/marketing/<pack>/carousel/ whose checker (carousel_maker.check_ready_carousel) passes.
+# Nothing posts by itself: the owner posts and sends "/posted N"; mark_posted keeps status + posted_at.
+READY_PINS_PER_DAY = 3
+READY_CAROUSELS_PER_DAY = 1
+READY_DAYS = 30
+MISSED = "missed"
+_IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+
+
+def plan_path_for(products_dir: Union[str, Path]) -> Path:
+    """The plan file of a products folder (inside it, so it is saved with the encrypted products)."""
+    return Path(products_dir) / "post_plan.json"
+
+
+def owner_today(now: Optional[datetime.datetime] = None) -> datetime.date:
+    """The owner's calendar day (India time), the same day /post today and /posted N use."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=datetime.timezone.utc)
+    return now.astimezone(_IST).date()
+
+
+def _rel_asset(path: Path) -> str:
+    """Asset path for the plan: relative to the robot folder when inside it (the robot runs from there)."""
+    root = Path(__file__).resolve().parent
+    try:
+        return path.resolve().relative_to(root).as_posix()
+    except ValueError:
+        return str(path.resolve())
+
+
+def ready_items(products_dir: Union[str, Path]) -> List[Dict[str, Any]]:
+    """Every ready post in the private marketing folder, checked again now. Pins first per pack, then carousel."""
+    root = Path(products_dir) / "marketing"
+    items: List[Dict[str, Any]] = []
+    if not root.is_dir():
+        return items
+    try:
+        import pin_ready
+        import carousel_maker
+    except Exception:
+        return items
+    for pack in sorted(p for p in root.iterdir() if p.is_dir() and not p.name.startswith(".")):
+        pins_dir = pack / "pinterest"
+        if (pins_dir / pin_ready.META_FILE).is_file() and not pin_ready.check_pins(pins_dir):
+            data = json.loads((pins_dir / pin_ready.META_FILE).read_text(encoding="utf-8"))
+            for pin in data.get("pins") or []:
+                items.append({"post_id": f"{pack.name}:pinterest:{pin['file']}", "channel": "pinterest",
+                              "pack_id": pack.name, "asset": _rel_asset(pins_dir / pin["file"]),
+                              "caption_short": clean_caption(pin["title"], 100), "title": pin["title"],
+                              "description": pin["description"], "board": pin["board"], "link": pin["link"],
+                              "hashtags": [], "ready": True})
+        car_dir = pack / "carousel"
+        if (car_dir / carousel_maker.READY_FILE).is_file() and not carousel_maker.check_ready_carousel(car_dir):
+            data = json.loads((car_dir / carousel_maker.READY_FILE).read_text(encoding="utf-8"))
+            slides = data.get("slides") or []
+            items.append({"post_id": f"{pack.name}:carousel", "channel": "carousel", "pack_id": pack.name,
+                          "asset": _rel_asset(car_dir / slides[0]["file"]),
+                          "slides": [_rel_asset(car_dir / s["file"]) for s in slides],
+                          "caption_short": clean_caption(str(data.get("caption") or "").splitlines()[0], 100),
+                          "caption_file": _rel_asset(car_dir / "caption.txt"),
+                          "hashtags": [t.lstrip("#") for t in data.get("hashtags") or []][:30], "ready": True})
+    return items
+
+
+def _interleave(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Round-robin by pack so one pack's posts are not all in a row."""
+    by_pack: Dict[str, List[Dict[str, Any]]] = {}
+    for item in items:
+        by_pack.setdefault(item["pack_id"], []).append(item)
+    out: List[Dict[str, Any]] = []
+    while any(by_pack.values()):
+        for pack in sorted(by_pack):
+            if by_pack[pack]:
+                out.append(by_pack[pack].pop(0))
+    return out
+
+
+def _place(items: List[Dict[str, Any]], first_day: datetime.date, last_day: datetime.date, per_day: int,
+           used: Dict[str, Dict[str, set]], channel: str) -> List[Tuple[datetime.date, Dict[str, Any]]]:
+    """Spread items evenly from first_day to last_day; max per_day of this channel and one post per pack per day."""
+    span = (last_day - first_day).days + 1
+    if span <= 0 or not items:
+        return []
+    step = max(1.0, span / float(len(items)))
+    placed: List[Tuple[datetime.date, Dict[str, Any]]] = []
+    for index, item in enumerate(items):
+        day = first_day + datetime.timedelta(days=int(index * step))
+        while day <= last_day:
+            slots = used.setdefault(day.isoformat(), {}).setdefault(channel, set())
+            packs = used[day.isoformat()].setdefault(channel + ":packs", set())
+            if len(slots) < per_day and item["pack_id"] not in packs:
+                slots.add(item["post_id"])
+                packs.add(item["pack_id"])
+                placed.append((day, item))
+                break
+            day += datetime.timedelta(days=1)
+    return placed
+
+
+def build_ready_plan(products_dir: Union[str, Path], old_plan: Optional[List[Dict[str, Any]]] = None,
+                     now: Optional[datetime.datetime] = None, days: int = READY_DAYS,
+                     items: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
+    """The 30-day plan from ready posts only, keeping the owner's history.
+
+    - done rows are kept (history for /teams and the week summary) and never planned again
+    - today's rows are kept as they are, so the numbers of "/posted N" do not change during the day
+    - past rows that were not posted become status "missed" and their post is planned again
+    - future rows whose post is still ready keep their day; new ready posts fill the free days, spread evenly
+      (max 3 Pins + 1 carousel a day, one post per pack per channel a day)
+    - posts that are not ready (old rows from pack images, files gone, checker failing) are not planned
+    """
+    today = owner_today(now)
+    last_day = today + datetime.timedelta(days=max(1, days) - 1)
+    items = ready_items(products_dir) if items is None else items
+    by_id = {item["post_id"]: item for item in items}
+    old_plan = [row for row in (old_plan or []) if isinstance(row, dict)]
+    kept: List[Dict[str, Any]] = []
+    done_ids, taken = set(), set()
+    used: Dict[str, Dict[str, set]] = {}
+    for row in old_plan:
+        date = str(row.get("date") or "")
+        pid = row.get("post_id")
+        if row.get("status") == "done":
+            kept.append(row)
+            if pid:
+                done_ids.add(pid)
+        elif date < today.isoformat():
+            if row.get("ready"):
+                kept.append(dict(row, status=MISSED))      # honest history: planned, not posted
+        elif date == today.isoformat() and (row.get("ready") and pid in by_id):
+            kept.append(row)
+            taken.add(pid)
+        elif date > today.isoformat() and pid in by_id and date <= last_day.isoformat():
+            kept.append(row)
+            taken.add(pid)
+    for row in kept:
+        if row.get("status") == MISSED:
+            continue
+        slot = used.setdefault(str(row.get("date")), {})
+        channel = "pinterest" if row.get("channel") == "pinterest" else "carousel"
+        slot.setdefault(channel, set()).add(row.get("post_id") or id(row))
+        slot.setdefault(channel + ":packs", set()).add(row.get("pack_id"))
+    todays = [r for r in kept if r.get("date") == today.isoformat()]
+    first_free = today if not todays else today + datetime.timedelta(days=1)
+    fresh = [item for item in items if item["post_id"] not in done_ids and item["post_id"] not in taken]
+    placed = _place(_interleave([i for i in fresh if i["channel"] == "pinterest"]), first_free, last_day,
+                    READY_PINS_PER_DAY, used, "pinterest")
+    placed += _place(_interleave([i for i in fresh if i["channel"] == "carousel"]), first_free, last_day,
+                     READY_CAROUSELS_PER_DAY, used, "carousel")
+    for day, item in placed:
+        kept.append(dict(item, date=day.isoformat(), status="todo"))
+    order = {"pinterest": 0, "carousel": 1}
+    kept.sort(key=lambda r: (str(r.get("date")), order.get(str(r.get("channel")), 2), str(r.get("post_id") or "")))
+    # today's rows keep their order (the owner may already be using their numbers)
+    today_rows = [r for r in old_plan if r in kept and r.get("date") == today.isoformat()]
+    if today_rows:
+        others = [r for r in kept if r.get("date") != today.isoformat()]
+        new_today = [r for r in kept if r.get("date") == today.isoformat() and r not in today_rows]
+        before = [r for r in others if str(r.get("date")) < today.isoformat()]
+        after = [r for r in others if str(r.get("date")) > today.isoformat()]
+        kept = before + today_rows + new_today + after
+    start = datetime.date.fromisoformat(str(kept[0]["date"])) if kept else today
+    for row in kept:
+        row["day"] = (datetime.date.fromisoformat(str(row["date"])) - start).days + 1
+    return kept
+
+
+def refresh_ready_plan(products_dir: Union[str, Path], plan_path: Optional[Union[str, Path]] = None,
+                       now: Optional[datetime.datetime] = None) -> Dict[str, Any]:
+    """Rebuild the plan file from ready posts (keeping history) and save it only when it changed.
+
+    Returns {"changed", "posts" (rows planned today or later, not done), "ready" (ready posts found)}.
+    Never writes while nothing is ready and the plan has no ready rows (an empty or hand-made plan stays as it is).
+    """
+    path = Path(plan_path) if plan_path else plan_path_for(products_dir)
+    old = load_plan(path) if path.is_file() else []
+    items = ready_items(products_dir)
+    if not items and not any(row.get("ready") for row in old):
+        return {"changed": False, "posts": 0, "ready": 0}
+    plan = build_ready_plan(products_dir, old, now=now, items=items)
+    today = owner_today(now).isoformat()
+    upcoming = sum(1 for r in plan if str(r.get("date")) >= today and r.get("status") == "todo")
+    changed = plan != old
+    if changed:
+        save_plan(plan, path)
+    return {"changed": changed, "posts": upcoming, "ready": len(items)}
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="30-day post planner + what to post today.")
     group = parser.add_mutually_exclusive_group(required=True)
@@ -680,6 +882,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     group.add_argument("--today", action="store_true", help="Print today's scheduled posts.")
     group.add_argument("--posted", type=int, metavar="N", help="Mark post N of today as done.")
     group.add_argument("--week", action="store_true", help="Print this week's progress summary.")
+    group.add_argument("--refresh", action="store_true",
+                       help="CCH-4: rebuild the plan from ready Pins / carousels only (keeps posted history).")
 
     parser.add_argument("--products-dir", default="exported_content/products", help="Products directory.")
     parser.add_argument("--marketing-dir", default=None, help="Marketing assets directory.")
@@ -692,6 +896,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     prod_dir = args.products_dir
     mkt_dir = args.marketing_dir
     target_date = args.date or datetime.date.today().isoformat()
+
+    if args.refresh:
+        result = refresh_ready_plan(prod_dir, plan_path=plan_file)
+        print(f"Ready posts: {result['ready']}, planned from today: {result['posts']}, "
+              f"plan {'saved' if result['changed'] else 'unchanged'} ({plan_file}).")
+        return 0
 
     if args.build:
         plan = build_plan(prod_dir, start_date=target_date, marketing_dir=mkt_dir)
