@@ -18,6 +18,7 @@ Nothing is posted. The owner uploads the Pins by hand and replaces the link plac
 from __future__ import annotations
 
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -189,7 +190,16 @@ def pack_images(pack_dir: Path) -> List[Path]:
         if folder.is_dir():
             previews += sorted(p for p in folder.glob("preview*.png") if p.is_file())
             covers += sorted(p for p in folder.glob("cover*.png") if p.is_file())
-    return previews + covers
+    seen, unique = set(), []
+    for path in previews + covers:            # the same picture twice is shown once
+        try:
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        except OSError:
+            continue
+        if digest not in seen:
+            seen.add(digest)
+            unique.append(path)
+    return unique
 
 
 def pick_board(listing: Dict[str, Any]) -> str:
@@ -342,6 +352,7 @@ class Canvas:
         from PIL import Image, ImageFilter, ImageOps
         x0, y0, x1, y1 = box
         bw, bh = x1 - x0, y1 - y0
+        cx, cy = x0 + bw // 2, y0 + bh // 2          # the page sits in the middle of its box
         inner = None
         if img_path is not None:
             try:
@@ -360,7 +371,6 @@ class Canvas:
         shade = Image.new("RGBA", sheet.size, tuple(shadow[:3]) + (0,))
         shade.putalpha(sheet.getchannel("A").point(lambda a: 70 if a else 0))
         shade = shade.filter(ImageFilter.GaussianBlur(10))
-        cx, cy = x0 + bw // 2, y0 + bh // 2
         px, py = cx - sheet.width // 2, cy - sheet.height // 2
         self.image.paste(shade, (px + 8, py + 12), shade)
         self.image.paste(sheet, (px, py), sheet)

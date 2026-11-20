@@ -565,7 +565,8 @@ def build_for_pack(pack_dir: Path | str, db_path=None, *, products_dir: Optional
                    save: bool = True, pack_digest: str = "", social: bool = True) -> Dict[str, Any]:
     """Make (or refresh) all marketing files of one pack. Never raises.
 
-    social=True also makes the ready-to-post Pins (CCH-2) when the pack is SELLABLE (see build_social).
+    social=True also makes the ready-to-post Pins (CCH-2) and Instagram carousel (CCH-3) when the pack is
+    SELLABLE (see build_social).
 
     Returns {"pack", "status" ready|partial|failed, "line", "parts", "built" [parts rebuilt],
              "files" count, "changed" bool, "marketing_dir", "manifest", "error"}.
@@ -675,9 +676,9 @@ def _build(pack_path: Path, root: Path, out: Path, result: Dict[str, Any], force
 
 # ---- CCH-2/3: ready-to-post social files, only for SELLABLE packs --------------------
 # State lives in manifest.json under "social" ({part: entry}); the files are listed in manifest["files"].
-SOCIAL_PARTS = ("pinterest",)
-SOCIAL_MODULES = {"pinterest": ("pin_ready", "mockups_v2")}
-SOCIAL_FOLDERS = {"pinterest": "pinterest"}
+SOCIAL_PARTS = ("pinterest", "carousel")
+SOCIAL_MODULES = {"pinterest": ("pin_ready", "mockups_v2"), "carousel": ("carousel_maker", "pin_ready", "mockups_v2")}
+SOCIAL_FOLDERS = {"pinterest": "pinterest", "carousel": "carousel"}
 
 
 def sell_pack_dir(pack_path: Path, products_dir: Path) -> Path:
@@ -713,6 +714,9 @@ def _social_maker(part: str):
     if part == "pinterest":
         import pin_ready
         return pin_ready.make_pins, pin_ready.check_pins
+    if part == "carousel":
+        import carousel_maker
+        return carousel_maker.make_ready_carousel, carousel_maker.check_ready_carousel
     raise KeyError(part)
 
 
@@ -763,7 +767,8 @@ def social_due(pack_path: Path, out: Path, products_dir: Path, today: str) -> bo
 
 def build_social(pack_path: Path, root: Path, out: Path, products_dir: Path, now=None, force: bool = False,
                  timeout: float = STEP_TIMEOUT) -> Dict[str, Any]:
-    """Make the ready-to-post files of a SELLABLE pack (Pins in pinterest/). Never raises.
+    """Make the ready-to-post files of a SELLABLE pack (Pins in pinterest/, Instagram carousel in carousel/).
+    Never raises.
 
     ok part      kept while its sources and maker are the same and its checker finds nothing
     skipped part (pack not SELLABLE) judged again only when the pack or its marketing files change

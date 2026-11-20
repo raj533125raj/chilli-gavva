@@ -899,5 +899,246 @@ def main(argv: Optional[List[str]] = None) -> int:
     return 0
 
 
+# ==============================================================================
+# CCH-3: Instagram carousel READY TO POST (SELLABLE packs, via marketing_auto)
+# ==============================================================================
+# One carousel of 5-8 slides (1080 x 1350) in the pack theme, drawn with pin_ready's layout model so the same
+# checker can re-measure every text line; caption <= 2,200 chars with <= 30 hashtags; alt text per slide.
+# Output: <pack marketing folder>/carousel/ slide-1.png.., caption.txt, alt.txt, carousel.json.
+READY_W, READY_H = 1080, 1350
+READY_MIN_SLIDES, READY_MAX_SLIDES = 5, 8
+CAPTION_MAX = 2200
+HASHTAG_MAX = 30
+ALT_MAX = 100
+READY_FILE = "carousel.json"
+READY_VERSION = 1
+
+
+def ready_hashtags(listing: Dict[str, Any], limit: int = 20) -> List[str]:
+    """Hashtags from the listing's own tags and title words only (no brands, no money, no made-up topics)."""
+    import pin_ready
+    out: List[str] = []
+    title = pin_ready.clean(listing.get("title") or "")
+    words = list(listing.get("tags") or []) + [title] + [w for w in title.split() if len(w) > 4]
+    for raw in words:
+        text = pin_ready.clean(raw).lower()
+        slug = "".join(re.findall(r"[a-z0-9]+", text))
+        if len(slug) < 3 or len(slug) > 40 or slug.isdigit():
+            continue
+        tag = "#" + slug
+        if tag not in out:
+            out.append(tag)
+        if len(out) >= min(limit, HASHTAG_MAX):
+            break
+    return out
+
+
+def ready_caption(listing: Dict[str, Any], items: List[str], steps: List[str], tags: List[str]) -> str:
+    import pin_ready
+    title = pin_ready.clean(listing.get("title") or "") or "Printable pack"
+    desc = pin_ready.cut(pin_ready.clean(listing.get("description") or ""), 900)
+    parts = [title, ""]
+    if desc:
+        parts += [desc, ""]
+    if items:
+        parts += ["What you get:"] + ["- " + item for item in items] + [""]
+    parts += ["How it works:"] + [f"{i}. {step}" for i, step in enumerate(steps, 1)] + [""]
+    parts += ["Instant digital download for personal use.", "Link in bio to find it in the shop.", ""]
+    hashtags = " ".join(tags)
+    body = "\n".join(parts)
+    if len(body) + len(hashtags) > CAPTION_MAX:        # keep the hashtags, shorten the description
+        over = len(body) + len(hashtags) - CAPTION_MAX
+        body = body.replace(desc, pin_ready.cut(desc, max(80, len(desc) - over - 10)), 1)
+    return (body + hashtags).strip()
+
+
+def _ready_slides(listing: Dict[str, Any], pack_dir: Path) -> List[Dict[str, Any]]:
+    """The slide plan: cover, what's inside, 1-3 real page previews, how it works, a quote, call to action."""
+    import pin_ready
+    images = pin_ready.pack_images(pack_dir)
+    previews = [p for p in images if p.name.lower().startswith("preview")][:3] or images[:1]
+    title = pin_ready.cut(pin_ready.clean(listing.get("title") or ""), 100) or "Printable pack"
+    word = pin_ready.page_word(listing)
+    slides: List[Dict[str, Any]] = [
+        {"design": "cover", "title": title, "image": images[0] if images else None,
+         "alt": f"Cover slide with the title {title} and a page preview."},
+        {"design": "inside", "title": "What's inside", "items": pin_ready.buyer_items(listing, 5),
+         "image": images[-1] if len(images) > 1 else None, "alt": f"List of the files inside the {title}."}]
+    for i, img in enumerate(previews, 1):
+        slides.append({"design": "page", "title": f"{word} preview {i}", "image": img,
+                       "alt": f"{word} preview {i} of the {title}."})
+    slides.append({"design": "steps", "title": "How it works", "steps": pin_ready.use_steps(listing),
+                   "alt": "Three numbered steps: download, use the files, use them again."})
+    quote = pin_ready.first_sentence(listing.get("description") or "", 150)
+    if quote:
+        slides.append({"design": "quote", "title": quote, "alt": "Quote slide: " + quote})
+    cta = {"design": "cta", "title": title, "alt": f"Last slide: {title}, link in bio to find it in the shop."}
+    slides = slides[:READY_MAX_SLIDES - 1] + [cta]
+    for slide in slides:
+        slide["alt"] = pin_ready.cut(pin_ready.clean(slide["alt"]), ALT_MAX)
+    return slides
+
+
+def _draw_ready_slide(slide: Dict[str, Any], th: Dict[str, Any], index: int, total: int) -> Any:
+    import pin_ready
+    W, H = READY_W, READY_H
+    cv = pin_ready.Canvas(W, H, th["bg"])
+    on_accent = pin_ready._mv().contrast_text(th["accent"])
+    design = slide["design"]
+    if design == "cover":
+        cv.rect((0, 0, W, 470), th["accent"])
+        cv.text("title", slide["title"], 100, 110, W - 200, "bold", (80, 72, 64, 56, 50, 44), 4, on_accent,
+                th["accent"], align="center")
+        cv.page(slide.get("image"), (130, 540, W - 130, H - 150), th["paper"], th["shadow"])
+        cv.text("hint", "Swipe to see inside", 100, H - 120, W - 380, "semibold", (34, 30), 1, th["body"],
+                th["bg"], align="center")
+    elif design == "inside":
+        y = cv.text("title", slide["title"], 100, 120, W - 200, "bold", (72, 64), 1, th["ink"], th["bg"],
+                    align="center")
+        items = ["- " + item for item in (slide.get("items") or ["Ready-to-use files"])]
+        top = y + 50
+        inner = sum(pin_ready.block_height(t, "regular", W - 300, 2, (40, 36, 32)) + 30 for t in items)
+        bottom = top + 50 + inner + 20
+        cv.rect((100, top, W - 100, bottom), th["paper"], radius=22)
+        iy = top + 50
+        for i, item in enumerate(items, 1):
+            iy = cv.text(f"item{i}", item, 150, iy, W - 300, "regular", (40, 36, 32), 2, th["ink"], th["paper"]) + 30
+        if slide.get("image") is not None and bottom + 60 < H - 450:
+            cv.page(slide["image"], (200, bottom + 60, W - 200, H - 150), th["paper"], th["shadow"])
+    elif design == "page":
+        cv.text("title", slide["title"], 100, 90, W - 200, "bold", (56, 50), 1, th["accent"], th["bg"],
+                align="center")
+        cv.page(slide.get("image"), (90, 200, W - 90, H - 140), th["paper"], th["shadow"])
+    elif design == "steps":
+        start = max(120, (H - (pin_ready.line_height(72) + 60 + 230 * len(slide.get("steps") or []))) // 2)
+        y = cv.text("title", slide["title"], 100, start, W - 200, "bold", (72, 64), 1, th["ink"], th["bg"],
+                    align="center") + 60
+        for i, step in enumerate(slide.get("steps") or [], 1):
+            cv.rect((100, y, W - 100, y + 190), th["paper"], radius=22)
+            cv.rect((140, y + 50, 230, y + 140), th["accent"], radius=45)
+            cv.text(f"num{i}", str(i), 140, y + 63, 90, "bold", (50,), 1, on_accent, th["accent"], align="center")
+            cv.text(f"step{i}", step, 270, y + 45, W - 100 - 270 - 40, "semibold", (40, 36, 32), 2, th["ink"],
+                    th["paper"])
+            y += 230
+    elif design == "quote":
+        text_h = pin_ready.block_height(slide["title"], "bold", W - 330, 7, (64, 58, 52, 46, 40))
+        top = max(120, (H - text_h - 200) // 2)
+        cv.rect((90, top, W - 90, top + text_h + 200), th["paper"], radius=26)
+        cv.rect((90, top, 108, top + text_h + 200), th["accent"])
+        cv.text("quote", slide["title"], 160, top + 100, W - 330, "bold", (64, 58, 52, 46, 40), 7, th["ink"],
+                th["paper"])
+    else:  # cta
+        cv.rect((0, 0, W, H), th["accent"])
+        y = cv.text("title", slide["title"], 100, 380, W - 200, "bold", (76, 68, 60, 52, 46), 4, on_accent,
+                    th["accent"], align="center")
+        cv.text("cta", "Link in bio to find it in the shop", 100, y + 60, W - 200, "semibold", (44, 40, 36), 2,
+                on_accent, th["accent"], align="center")
+        cv.text("note", "Instant digital download - personal use", 100, H - 200, W - 200, "regular", (34, 30), 1,
+                on_accent, th["accent"], align="center")
+    if design != "cta":
+        cv.text("count", f"{index} / {total}", W - 260, H - 110, 180, "semibold", (28,), 1, th["body"], th["bg"],
+                align="center")
+    return cv
+
+
+def make_ready_carousel(pack_dir: Path, out_dir: Path, now: Any = None) -> Dict[str, Any]:
+    """Make the ready carousel of one pack into `out_dir` (the pack's carousel folder), check it and return the
+    carousel.json data. The folder is replaced atomically; the pack folder is only read. Nothing is posted."""
+    import datetime as _dt
+    import json as _json
+    import shutil
+    import pin_ready
+    pack_dir, out_dir = Path(pack_dir), Path(out_dir)
+    listing = pin_ready.read_listing(pack_dir)
+    th = pin_ready._theme(pack_dir)
+    plan = _ready_slides(listing, pack_dir)
+    tags = ready_hashtags(listing)
+    caption = ready_caption(listing, pin_ready.buyer_items(listing, 8), pin_ready.use_steps(listing), tags)
+    out_dir.parent.mkdir(parents=True, exist_ok=True)
+    stage = Path(tempfile.mkdtemp(prefix=".carousel-", dir=str(out_dir.parent)))
+    try:
+        slides = []
+        for index, slide in enumerate(plan, 1):
+            cv = _draw_ready_slide(slide, th, index, len(plan))
+            name = f"slide-{index}.png"
+            cv.image.save(stage / name, "PNG", optimize=True)
+            slides.append({"file": name, "design": slide["design"], "alt": slide["alt"], "width": READY_W,
+                           "height": READY_H, "layout": cv.blocks})
+        (stage / "caption.txt").write_text(caption + "\n", encoding="utf-8")
+        (stage / "alt.txt").write_text("".join(f"Slide {i}: {s['alt']}\n" for i, s in enumerate(slides, 1)),
+                                       encoding="utf-8")
+        stamp = (now or _dt.datetime.now(_dt.timezone.utc)).astimezone(_dt.timezone.utc).replace(tzinfo=None)
+        data = {"version": READY_VERSION, "pack": pack_dir.name, "made_at": stamp.isoformat(timespec="seconds"),
+                "caption": caption, "hashtags": tags, "theme": {k: pin_ready.hex_of(v) for k, v in th.items()},
+                "note": "Ready to post by hand on Instagram. Nothing auto-posts.", "slides": slides}
+        (stage / READY_FILE).write_text(_json.dumps(data, indent=2), encoding="utf-8")
+        problems = check_ready_carousel(stage)
+        data["check"] = {"ok": not problems, "problems": problems}
+        (stage / READY_FILE).write_text(_json.dumps(data, indent=2), encoding="utf-8")
+        if out_dir.exists():
+            old = out_dir.parent / f".carousel-old-{os.getpid()}"
+            out_dir.rename(old)
+            stage.rename(out_dir)
+            shutil.rmtree(old, ignore_errors=True)
+        else:
+            stage.rename(out_dir)
+    except Exception:
+        shutil.rmtree(stage, ignore_errors=True)
+        raise
+    return data
+
+
+def check_ready_carousel(folder: Path) -> List[str]:
+    """The carousel checker. [] means the carousel is ready to post."""
+    import json as _json
+    import pin_ready
+    folder = Path(folder)
+    try:
+        data = _json.loads((folder / READY_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return [f"{READY_FILE} missing or broken"]
+    slides = data.get("slides") if isinstance(data, dict) else None
+    count = len(slides) if isinstance(slides, list) else 0
+    if not READY_MIN_SLIDES <= count <= READY_MAX_SLIDES:
+        return [f"need {READY_MIN_SLIDES}-{READY_MAX_SLIDES} slides, found {count}"]
+    if Image is None:
+        return ["Pillow missing: cannot check the images"]
+    problems: List[str] = []
+    for i, slide in enumerate(slides, 1):
+        label = f"Slide {i}"
+        path = folder / str(slide.get("file") or "")
+        if not slide.get("file") or not path.is_file():
+            problems.append(f"{label}: image file missing")
+            continue
+        try:
+            with Image.open(path) as im:
+                size = im.size
+        except Exception:
+            problems.append(f"{label}: image does not open")
+            continue
+        if size != (READY_W, READY_H):
+            problems.append(f"{label}: size {size[0]}x{size[1]} (need {READY_W}x{READY_H})")
+        problems += pin_ready.text_problems(slide.get("alt"), f"{label} alt text", ALT_MAX)
+        problems += pin_ready.check_layout(slide.get("layout") or [], READY_W, READY_H, label)
+    caption = str(data.get("caption") or "")
+    problems += pin_ready.text_problems(caption, "Caption", CAPTION_MAX)
+    tags = re.findall(r"(?<![\w#])#\w+", caption)
+    if len(tags) > HASHTAG_MAX:
+        problems.append(f"Caption: {len(tags)} hashtags (max {HASHTAG_MAX})")
+    try:
+        on_disk = (folder / "caption.txt").read_text(encoding="utf-8").strip()
+    except OSError:
+        on_disk = None
+    if on_disk != caption.strip():
+        problems.append("caption.txt missing or not the checked caption")
+    try:
+        alt_lines = [x for x in (folder / "alt.txt").read_text(encoding="utf-8").splitlines() if x.strip()]
+    except OSError:
+        alt_lines = []
+    if len(alt_lines) != count:
+        problems.append(f"alt.txt: {len(alt_lines)} lines for {count} slides")
+    return problems
+
+
 if __name__ == "__main__":
     sys.exit(main())
