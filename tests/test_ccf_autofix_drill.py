@@ -12,6 +12,7 @@ import contextlib
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -578,6 +579,45 @@ class OwnerWordingTests(unittest.TestCase):
         self.assertIn(f"Failing tests: {KNOWN_TEST}", texts[0])
         self.assertTrue(texts[0].endswith(run_failure.TENGLISH_NOT_STARTED))   # no GitHub token in this test
         self.assertEqual(texts[1], run_failure.owner_text(autofix.FAILED))
+
+
+# ---- the owner guide (docs/AUTOFIX-TENGLISH.md) cannot drift from the drill kit --------------------
+class OwnerGuideDrillTableTests(unittest.TestCase):
+    WHO = {"autofix": "**Robot**", "owner": "**Meeru**", "retry": "**Evaru vaddu**"}
+
+    @classmethod
+    def setUpClass(cls):
+        import autofix_drill
+        cls.scenarios = autofix_drill.SCENARIOS
+        cls.text = (ROOT / "docs" / "AUTOFIX-TENGLISH.md").read_text(encoding="utf-8")
+
+    def test_every_drill_has_a_row_with_the_right_fixer(self):
+        self.assertEqual(len(self.scenarios), 10)
+        for number, scenario in enumerate(self.scenarios, 1):
+            with self.subTest(drill=scenario["key"]):
+                rows = [line for line in self.text.splitlines()
+                        if line.startswith(f"| {number} | `{scenario['key']}` |")]
+                self.assertEqual(len(rows), 1)
+                self.assertIn(self.WHO[scenario["expect"]], rows[0])
+                for other in set(self.WHO.values()) - {self.WHO[scenario["expect"]]}:
+                    self.assertNotIn(other, rows[0])
+
+    def test_guide_quotes_the_real_tenglish_lines(self):
+        lines = [run_failure.TENGLISH_STARTED, run_failure.TENGLISH_SETUP, run_failure.TENGLISH_TRIED,
+                 run_failure.TENGLISH_NOT_STARTED]
+        lines += [tenglish for start, tenglish in run_failure.TENGLISH_LINES
+                  if start.startswith(("Auto-fix ready", "Auto-fix didn't", "Auto-fix tried",
+                                       "This auto-fix button"))]
+        self.assertEqual(len(lines), 8)
+        for line in lines:
+            with self.subTest(line=line):
+                self.assertIn(line, self.text)
+
+    def test_guide_no_longer_calls_the_test_name_gap_open(self):
+        self.assertNotIn("known gap", self.text)
+        self.assertIn("python3.11 tools/autofix_drill.py", self.text)
+        self.assertIn("Robot tanantata merge cheyadu", self.text)
+        self.assertIsNone(re.search(r"[$₹€£]\s?\d", self.text))
 
 
 # ---- the ten real drills ---------------------------------------------------------------------------

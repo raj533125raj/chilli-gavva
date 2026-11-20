@@ -132,9 +132,68 @@ Asalu GitHub meeda oka practice run kavalante Telegram lo `/autofix_drill` undi 
 
 ---
 
-## 8. Telisina lopam (known gap)
+## 8. Drill table — robot tanantata em fix chestundi, deeniki meeru kavali
 
-GitHub lo tests "chunked runner" tho run avutayi. Adi fail ayina test perlu `tests.` ane mundu maata tho print
-chestundi, aa perlu summary ki ardham kaavu. Anduke asalu run lo alert `Problem: AssertionError: a check failed.`
-ani matrame cheppochu (test peru lekunda). Auto-fix appudu kuda start avutundi, kani AI ki test peru teliyadu.
-Idi `run_failure.py` lo chinna fix; lead ki report chesanu.
+`tools/autofix_drill.py` robot code ni oka temporary copy lo 10 rakaluga kavalani paadu chestundi, tarvata asalu
+auto-fix flow ni internet lekunda (offline) nadipistundi: 2 fail ayina runs → alert → AI fix → tests → Merge
+button → tarvata run. Telegram, GitHub, AI fake; robot code matram asalu code. AI javabu "recorded" (mundu rasi
+pettina sari ayina fix), kabatti ee drill AI telivini kaadu, **robot flow ni** test chestundi.
+
+Result (2026-11-16): **10 lo 10 anukunnatte ayyayi.**
+
+| # | Drill (code peru) | Em paadu chesam | Robot kanipettinda? | Evaru fix chestaru | Meeku Telegram lo |
+|---|-------------------|-----------------|---------------------|--------------------|-------------------|
+| 1 | `import_error` | Oka file leni peru ni import chestundi | Avunu: `test_... (could not load)` | **Robot** (AI fix + meeru Merge) | Alert + `Auto-fix: started`, tarvata Merge / Close buttons |
+| 2 | `failing_test` | Product code lo oka tappu number, test fail | Avunu: test peru tho | **Robot** (AI fix + meeru Merge) | Alert + `Auto-fix: started`, tarvata buttons |
+| 3 | `timeout` | Code aagipoyindi, test eppatiki ayipodu | Avunu: `test_... (timed out)` | **Robot** (AI fix + meeru Merge) | Alert + `Auto-fix: started`, tarvata buttons |
+| 4 | `syntax_error` | Product file lo syntax tappu | Avunu: test peru + `Likely file:` | **Robot** (AI fix + meeru Merge) | Alert + `Auto-fix: started`, tarvata buttons |
+| 5 | `control_copy` | Auto-fix copy list lo oka file missing | Avunu | **Meeru** (runbook) | Alert + `Auto-fix: not started — setup/workflow problem needs a human` |
+| 6 | `bad_workflow_step` | Workflow step leni file ni run chestundi | Avunu: step peru tho | **Meeru** (runbook) | Alert + `Auto-fix: not started — setup/workflow problem needs a human` |
+| 7 | `flaky_test` | Test okasari fail, tarvata run lo pass | Avunu (okka fail, silent ga) | **Evaru vaddu** (robot malli try chestundi) | Emi raadu |
+| 8 | `money_string` | Public file (README) lo money amount | Avunu: test peru tho | **Robot** (AI fix + meeru Merge) | Alert + `Auto-fix: started`, tarvata buttons (amount eppudu message lo raadu) |
+| 9 | `broken_builder` | Habit tracker builder crash | Avunu: `test_... (setup failed)` + `Likely file:` | **Robot** (AI fix + meeru Merge) | Alert + `Auto-fix: started`, tarvata buttons |
+| 10 | `plugin_none` | Telegram plugin tana command ki javabu ivvadu | Avunu: test peru + `Likely file:` | **Robot** (AI fix + meeru Merge) | Alert + `Auto-fix: started`, tarvata buttons |
+
+Simple ga:
+
+- **Robot tanantata fix chesevi (7):** code lo tappulu — import, fail ayina test, timeout, syntax, money string,
+  builder crash, plugin javabu. Ikkada kuda chivari Merge tap **meeru** cheyali. Robot tanantata merge cheyadu.
+- **Meeru kavalsinavi (2):** workflow files (`.github/workflows/`) mariyu auto-fix copy list. AI ee files ni
+  muttukokudadu (safety), anduke robot AI ni start cheyadu. `docs/robot-fix-runbook.md` chudandi.
+- **Evaru emi cheyakkarlenidi (1):** okasari matrame fail ayye (flaky) test. Tarvata run pass aithe message raadu.
+
+Mac lo ee drill ni malli run cheyadaniki (sumaru 2 nimishalu):
+
+```
+python3.11 tools/autofix_drill.py
+```
+
+Gurthunchukondi: asalu AI ichhe fix prati sari sari kakapovachu. Appudu `Auto-fix didn't work` vastundi, meeru
+runbook follow avvali. Drill cheppedi: problem kanipettadam, sari ayina dari (robot / meeru), tests, buttons,
+messages anni pani chestunnayi ani.
+
+---
+
+## 9. Prati auto-fix message lo oka Tenglish line
+
+Auto-fix messages English lo unnayi (code vatini alage compare chestundi). Ippudu prati message chivarlo oka
+Tenglish line vastundi — meeru em cheyalo, leda emi cheyakkarledu ani:
+
+| Message | Chivarlo vache Tenglish line |
+|---------|------------------------------|
+| Alert + `Auto-fix: started` | Meeru ippudu emi cheyakkarledu: robot fix try chestondi. Fix ready ayyaka Merge button pampistundi. |
+| Alert + `setup/workflow problem needs a human` | Idi setup/workflow problem, robot tanantata fix cheyadu. Meeru runbook chusi fix cheyali. |
+| Alert + `already tried in the last 24 h` | Robot ee roju already okasari auto-fix try chesindi. Meeru runbook chudandi. |
+| Alert + vere `not started` karanam | Auto-fix start avvaledu. Meeru runbook chudandi. |
+| `Auto-fix ready: ...` | Fix ready ga undi, tests pass ayyayi. Merge tap cheste fix robot lo kalustundi; vaddu ante Close tap cheyandi. |
+| `Auto-fix didn't work ...` | Auto-fix pani cheyaledu. Meeru runbook chudandi. |
+| `Auto-fix tried 3 times ...` | AI servers busy ga unnayi, robot 3 sarlu try chesindi. Meeru runbook chudandi. |
+| Paatha button | Ee button paathadi. Kotha message vache varaku wait cheyandi. |
+
+---
+
+## 10. Paatha lopam — ippudu fix ayyindi
+
+Mundu GitHub lo fail ayina test perlu alert lo raaledu (`Problem: AssertionError: a check failed.` matrame).
+Ippudu alert lo test peru vastundi, mariyu veelaithe `Likely file:` (e product file lo tappu undochu) kuda.
+Inko fix: main paadayinappudu `Auto-fix ready` message + Merge / Close buttons raaledu; ippudu vastayi.
