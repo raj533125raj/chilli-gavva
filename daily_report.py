@@ -11,6 +11,7 @@ Nothing here is sent to an AI model.
 import datetime
 import os
 import pathlib
+import re
 import sqlite3
 from zoneinfo import ZoneInfo
 
@@ -107,13 +108,78 @@ def upload_packs_line(products_dir=None):
     return "Upload packs ready: 0"
 
 
+PRODUCT = "kind = 'public_draft'"   # product drafts; every other kind is a proposal (CCG-4)
+_STUCK_PREFIX = re.compile(r"^(?:Product #\d+:\s*)?(?:needs fix:\s*)?")
+
+
+def _hours_since(ts, now):
+    try:
+        then = datetime.datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if then.tzinfo is not None:
+        then = then.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+    return max(0, int((now - then).total_seconds() // 3600))
+
+
+def product_path(db_path=None, now=None):
+    """The product path in numbers for the last 24 hours (CCG-4): product drafts waiting (oldest hours), proposals
+    waiting (Scout / Trend / code patch / tool / media + Self-Improvement Proposals), product drafts approved
+    (owner / auto), products built, needs-fix with the top reason. Proposals are never counted as product drafts."""
+    now = now or _now()
+    if now.tzinfo is not None:
+        now = now.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+    since = (now - datetime.timedelta(days=1)).isoformat()
+    conn = guardrails.connect(db_path)
+    try:
+        waiting_ts = [r[0] for r in _q(conn, f"SELECT ts FROM approvals WHERE status = 'pending' AND {PRODUCT}")]
+        proposals = _count(conn, f"SELECT COUNT(*) FROM approvals WHERE status = 'pending' AND NOT ({PRODUCT})")
+        rules = _count(conn, "SELECT COUNT(*) FROM learned_rules WHERE status = 'proposed'")
+        auto = _count(conn, f"SELECT COUNT(*) FROM approvals WHERE status = 'approved' AND {PRODUCT} "
+                            "AND decided_ts >= ? AND reason = 'auto-approved'", (since,))
+        approved = _count(conn, f"SELECT COUNT(*) FROM approvals WHERE status = 'approved' AND {PRODUCT} "
+                                "AND decided_ts >= ?", (since,))
+        built = _count(conn, "SELECT COUNT(*) FROM product_builds WHERE status = 'built' AND ts >= ?", (since,))
+        fix_notes = [r[0] or "" for r in _q(conn, "SELECT note FROM product_builds WHERE status IN "
+                                                  "('needs_fix', 'retry', 'failed') AND ts >= ?", (since,))]
+    finally:
+        conn.close()
+    ages = [h for h in (_hours_since(ts, now) for ts in waiting_ts) if h is not None]
+    reasons = {}
+    for note in fix_notes:
+        reason = _STUCK_PREFIX.sub("", note).strip()[:80] or "reason not saved"
+        reasons[reason] = reasons.get(reason, 0) + 1
+    top = sorted(reasons.items(), key=lambda kv: (-kv[1], kv[0]))[0][0] if reasons else ""
+    return {"drafts_waiting": len(waiting_ts), "oldest_hours": max(ages) if ages else 0,
+            "proposals_waiting": proposals, "rule_proposals": rules, "approved": approved,
+            "approved_auto": auto, "approved_owner": approved - auto, "built": built,
+            "needs_fix": len(fix_notes), "top_reason": top}
+
+
+def product_path_lines(db_path=None, now=None, include_built=True):
+    """Owner lines (Tenglish, no amounts) for the daily report and /today. The daily report already has its
+    'Products built' line, so it passes include_built=False."""
+    p = product_path(db_path, now)
+    lines = [f"Product drafts waiting: {p['drafts_waiting']}"
+             + (f" (oldest {p['oldest_hours']}h; enduku: /autoapprove status)" if p["drafts_waiting"] else ""),
+             f"Proposals waiting: {p['proposals_waiting']} + {p['rule_proposals']} Self-Improvement "
+             "(product drafts kaadu, meere decide)",
+             f"Approved today: {p['approved']} (owner {p['approved_owner']}, auto {p['approved_auto']})"]
+    if include_built:
+        lines.append(f"Built today: {p['built']}")
+    lines.append(f"Needs fix today: {p['needs_fix']}" + (f" (top: {p['top_reason']})" if p["needs_fix"] else ""))
+    return lines
+
+
 def daily_text(db_path=None, now=None, status_fn=None, products_dir=None):
     now = now or _now()
     since = (now - datetime.timedelta(days=1)).isoformat()
     conn = guardrails.connect(db_path)
-    made = _count(conn, "SELECT COUNT(*) FROM approvals WHERE ts >= ?", (since,))
-    waiting = _count(conn, "SELECT COUNT(*) FROM approvals WHERE status = 'pending'")
-    approved = _count(conn, "SELECT COUNT(*) FROM approvals WHERE status = 'approved' AND decided_ts >= ?", (since,))
+    # CCG-4: "Drafts" are product drafts only; proposals have their own line (product_path_lines)
+    made = _count(conn, f"SELECT COUNT(*) FROM approvals WHERE ts >= ? AND {PRODUCT}", (since,))
+    waiting = _count(conn, f"SELECT COUNT(*) FROM approvals WHERE status = 'pending' AND {PRODUCT}")
+    approved = _count(conn, f"SELECT COUNT(*) FROM approvals WHERE status = 'approved' AND decided_ts >= ? "
+                            f"AND {PRODUCT}", (since,))
     built = _count(conn, "SELECT COUNT(*) FROM product_builds WHERE status = 'built' AND ts >= ?", (since,))
     failed = _count(conn, "SELECT COUNT(*) FROM tasks WHERE status = 'failed' AND finished_ts >= ?", (since,))
     retries = _count(conn, "SELECT COUNT(*) FROM tasks WHERE status = 'queued' AND error IS NOT NULL")
@@ -121,8 +187,9 @@ def daily_text(db_path=None, now=None, status_fn=None, products_dir=None):
     buttons = _count(conn, "SELECT COUNT(*) FROM button_log WHERE ts >= ?", (since,))
     auto_rejected = _count(conn, "SELECT COUNT(*) FROM approvals WHERE status = 'rejected' AND decided_ts >= ? "
                                  "AND reason = 'Low score (auto)'", (since,))
+    # Only the robot's own decisions: the owner's button approvals have no reason (CCG-1 cause 4)
     auto_approved = _count(conn, "SELECT COUNT(*) FROM approvals WHERE status = 'approved' AND decided_ts >= ? "
-                                 "AND (reason = 'auto-approved' OR reason IS NULL)", (since,))
+                                 "AND reason = 'auto-approved'", (since,))
     built_rows = _q(conn, "SELECT pb.approval_id, pb.folder, a.title, a.status "
                           "FROM product_builds pb LEFT JOIN approvals a ON a.id = pb.approval_id "
                           "WHERE pb.status = 'built' AND pb.ts >= ? "
@@ -159,6 +226,7 @@ def daily_text(db_path=None, now=None, status_fn=None, products_dir=None):
              f"Auto-decided (last 24h): {auto_approved} approved, {auto_rejected} rejected",
              f"Products built: {built}",
              built_line,
+             *product_path_lines(db_path, now, include_built=False),
              upload_packs_line(products_dir=products_dir),
              _minutes(reply=clock),
              door_bell_line(clock),

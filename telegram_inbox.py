@@ -1453,6 +1453,15 @@ def today_posts_text(plan_path=None, products_dir=None, date=None):
     return post_planner.today_text(plan, date=date)
 
 
+def today_product_text(db_path=None, now=None):
+    """CCG-4: the product path under /today (last 24 h): drafts waiting, proposals, approved, built, needs fix."""
+    try:
+        import daily_report
+        return "Product path (last 24h):\n" + "\n".join(daily_report.product_path_lines(db_path, now))
+    except Exception as exc:   # the post plan must still show
+        return f"Product path: chupinchalekapoyanu ({type(exc).__name__})"
+
+
 def mark_post_done_text(n, plan_path=None, products_dir=None, date=None):
     """Mark post N as done, atomically save plan, and return confirmation + week summary."""
     import post_planner
@@ -1890,7 +1899,7 @@ def handle_command(cmd, ids, db_path=None):
         res = autofix.run_drill()
         return f"Auto-fix drill: {res['verdict']}\n{res['summary']}"
     if cmd == "today":
-        return today_posts_text()
+        return today_posts_text() + "\n\n" + today_product_text(db_path)
     if cmd == "posted":
         n = ids[0] if ids else None
         return mark_post_done_text(n)
@@ -2685,11 +2694,16 @@ def remind_waiting_drafts(token, owner_chat_id, db_path=None, now=None):
 def daily_waiting_line(db_path=None, now=None):
     """The queue-age line appended to the owner-only daily Telegram report."""
     now = time.time() if now is None else now
-    pending = guardrails.pending(db_path)
+    everything = guardrails.pending(db_path)
+    # CCG-4: product drafts only; proposals (Scout / Trend / code patch ...) are counted on their own
+    pending = [item for item in everything if item.get("kind") == "public_draft"]
     times = [stamp for stamp in (_approval_time(item.get("ts")) for item in pending)
              if stamp is not None]
     oldest_hours = max(0, int((now - min(times)) // 3600)) if times else 0
-    return f"Drafts waiting: {len(pending)} (oldest {oldest_hours}h)"
+    line = f"Drafts waiting: {len(pending)} (oldest {oldest_hours}h)"
+    if len(everything) > len(pending):
+        line += f"; proposals waiting: {len(everything) - len(pending)}"
+    return line
 
 
 # Telegram itself busy or unreachable for a while: not a robot bug, so no red run and no traceback (CCE-3).
