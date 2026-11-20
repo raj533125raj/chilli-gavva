@@ -1,7 +1,9 @@
 """tg_autoapprove.py — Telegram plugin for Safe Auto-Approve settings (BINNY-V3C).
 
 Provides owner commands for managing auto-approve behavior:
-  - /autoapprove (or 'autoapprove'): displays current status, threshold, daily limit, today's count
+  - /autoapprove (or 'autoapprove'): displays current settings, today's count and the command help
+  - /autoapprove status (CCG-3): every waiting draft with hours waited and WHY it still waits; proposals apart
+  - /autoapprove limit N (CCG-3): saves the owner's daily auto-approve limit (1-20) at once
   - 'autoapprove on': enables auto-approval (requires Yes/No confirmation)
   - 'autoapprove off': disables auto-approval (requires Yes/No confirmation)
   - 'autoapprove <score>': updates score threshold e.g. 'autoapprove 80' (requires Yes/No confirmation)
@@ -37,8 +39,10 @@ COMMANDS = [
             "auto approve status",
             "autoapprove settings",
         ],
-        "help_en": "View or configure safe auto-approval settings (threshold, limit, on/off)",
-        "help_te": "Auto-approve settings choodandi leda on/off/threshold marchandi",
+        "help_en": "Auto-approve: '/autoapprove status' shows waiting drafts and why; "
+                   "'/autoapprove limit N' sets the daily limit (1-20); settings on/off/threshold",
+        "help_te": "Auto-approve: '/autoapprove status' waiting drafts enduku wait chestunnayo chupistundi; "
+                   "'/autoapprove limit N' daily limit (1-20) save chestundi",
     }
 ]
 
@@ -107,12 +111,43 @@ def _format_status_text(ctx: Dict) -> str:
         checker_alert,
         "",
         "Commands:",
+        "• `/autoapprove status` — Waiting drafts, enni ganta, enduku inka wait",
+        f"• `/autoapprove limit N` — Daily limit save cheyandi ({auto_approve.MIN_DAILY_LIMIT}-"
+        f"{auto_approve.MAX_DAILY_LIMIT})",
         "• `autoapprove on` — Auto-approval on cheyandi",
         "• `autoapprove off` — Auto-approval aapandi",
         "• `autoapprove <score>` — Threshold marchandi (e.g. `autoapprove 80`)",
         "• `autoapprove limit <n>` — Daily limit marchandi (e.g. `autoapprove limit 1`)",
     ]
     return "\n".join(l for l in lines if l is not None).strip()
+
+
+LIMIT_RANGE_TEXT = (f"Daily limit {auto_approve.MIN_DAILY_LIMIT} nundi {auto_approve.MAX_DAILY_LIMIT} madhya "
+                    f"number undali. Example: /autoapprove limit 3")
+
+
+def _reply(ctx: Dict, text: str) -> dict:
+    send_text = ctx.get("send_text")
+    if callable(send_text):
+        send_text(text)
+        return {"handled": True}
+    return {"text": text}
+
+
+def _set_limit(ctx: Dict, raw: str) -> str:
+    """Save the owner's daily auto-approve limit (1-20). The score threshold and on/off stay as they are."""
+    try:
+        settings = auto_approve.set_daily_limit(int(raw), db_path=ctx.get("db_path"))
+    except ValueError:
+        return LIMIT_RANGE_TEXT
+    except OSError:
+        return "Limit save kaaledu (database problem). Konchem tarvata malli try cheyandi."
+    state_set = ctx.get("state_set")
+    if callable(state_set):   # same telegram_state key the settings page reads
+        state_set(auto_approve.STATE_SETTINGS_KEY, json.dumps(settings, sort_keys=True))
+    return (f"✅ Sare, daily auto-approve limit ippudu {settings['daily_limit']} drafts per day. "
+            f"24 ganta wait chesina product drafts lo roju ki {settings['daily_limit']} varaku robot approve "
+            f"chestundi. Choodataniki: /autoapprove status")
 
 
 def handle(text: str, ctx: dict) -> Optional[dict]:
@@ -168,9 +203,18 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
             state_set(STATE_PENDING_KEY, "")
 
     # 2. Check for commands intended for this plugin
-    # /autoapprove or autoapprove alone -> show status
-    if lower in ("/autoapprove", "autoapprove", "auto approve", "/autoapprove status", "autoapprove status",
-                 "auto approve status", "/autoapprove settings", "autoapprove settings", "auto approve settings"):
+    # CCG-3: '/autoapprove status' -> every waiting draft with hours waited and WHY it still waits
+    if re.match(r"^/?auto\s*approve\s+status$", lower):
+        return _reply(ctx, auto_approve.waiting_report_text(db_path=ctx.get("db_path"), now=now_dt))
+
+    # CCG-3: '/autoapprove limit N' saves the owner's daily limit (1-20) straight away
+    m_slash_limit = re.match(r"^/auto\s*approve\s+limit\s+(\S+)$", lower)
+    if m_slash_limit:
+        return _reply(ctx, _set_limit(ctx, m_slash_limit.group(1)))
+
+    # /autoapprove or autoapprove alone -> settings and help
+    if lower in ("/autoapprove", "autoapprove", "auto approve", "/autoapprove settings", "autoapprove settings",
+                 "auto approve settings"):
         status_text = _format_status_text(ctx)
         if callable(send_text):
             send_text(status_text)
@@ -213,6 +257,8 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
     m_limit = re.match(r"^/?auto\s*approve\s+limit\s+(\d+)$", lower)
     if m_limit:
         new_lim = int(m_limit.group(1))
+        if not auto_approve.MIN_DAILY_LIMIT <= new_lim <= auto_approve.MAX_DAILY_LIMIT:
+            return _reply(ctx, LIMIT_RANGE_TEXT)
         proposed_settings["daily_limit"] = new_lim
         summary_text = f"Daily limit: {new_lim} drafts per day"
 

@@ -28,7 +28,8 @@ import telegram_inbox
 AUTO_APPROVE_HOURS = 24
 DEFAULT_SCORE_THRESHOLD = 75
 LEGACY_DEFAULT_THRESHOLD = 70
-DEFAULT_DAILY_LIMIT = 2
+DEFAULT_DAILY_LIMIT = 2          # the OWNER chooses the number: /autoapprove limit N
+MIN_DAILY_LIMIT, MAX_DAILY_LIMIT = 1, 20
 AUTO_REJECT_REASON = "Low score (auto)"
 STATE_SETTINGS_KEY = "auto_approve_settings"
 MAX_SHINGLE_SIMILARITY = 0.45
@@ -383,6 +384,112 @@ def morning_digest_line(db_path=None, now=None) -> str:
         return "Auto-approved yesterday: None."
 
 
+def _as_utc(now=None) -> datetime.datetime:
+    if isinstance(now, (int, float)):
+        return datetime.datetime.fromtimestamp(now, tz=datetime.timezone.utc)
+    if isinstance(now, datetime.datetime):
+        return now if now.tzinfo is not None else now.replace(tzinfo=datetime.timezone.utc)
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def effective_settings(db_path=None) -> Dict:
+    """The settings auto_decide_drafts really uses. With no owner setting stored: threshold SCORE_THRESHOLD (70,
+    legacy) and daily limit DEFAULT_DAILY_LIMIT (2). The owner changes the limit with /autoapprove limit N."""
+    conn_state = _state_conn(db_path)
+    state_row = conn_state.execute("SELECT value FROM telegram_state WHERE key = ?", (STATE_SETTINGS_KEY,)).fetchone()
+    conn_state.close()
+    if state_row and state_row[0]:
+        return get_settings(db_path, default_threshold=DEFAULT_SCORE_THRESHOLD)
+    return {"enabled": True, "threshold": SCORE_THRESHOLD, "daily_limit": DEFAULT_DAILY_LIMIT}
+
+
+def set_daily_limit(limit: int, db_path=None) -> Dict:
+    """Owner setting (CCG-3): save a daily auto-approve limit of 1..MAX_DAILY_LIMIT, keep the other settings."""
+    limit = int(limit)
+    if not MIN_DAILY_LIMIT <= limit <= MAX_DAILY_LIMIT:
+        raise ValueError(f"daily limit must be {MIN_DAILY_LIMIT}-{MAX_DAILY_LIMIT}")
+    settings = dict(effective_settings(db_path), daily_limit=limit)
+    if not save_settings(settings, db_path):
+        raise OSError("auto-approve settings not saved")
+    return settings
+
+
+def _plan(db_path=None, now=None, settings=None) -> List[Dict]:
+    """What the 24-hour rule does with every waiting item right now, oldest first (nothing is changed).
+
+    Each entry: id, kind, title, hours, product (bool), score, action ("approve" | "reject" | "wait") and why
+    (a WHY_TEXT code; 'match' for a similar draft). auto_decide_drafts acts on this plan and waiting_report
+    shows it, so the report can never disagree with what the robot does."""
+    settings = settings or effective_settings(db_path)
+    enabled = settings.get("enabled", True)
+    threshold = settings.get("threshold", DEFAULT_SCORE_THRESHOLD)
+    daily_limit = settings.get("daily_limit", DEFAULT_DAILY_LIMIT)
+    now_dt = _as_utc(now)
+    stopped = guardrails.is_paused(db_path) or guardrails.is_killed()
+    broken_checker = None   # checked once, only when a draft gets that far
+    approved_today = count_auto_approvals_today(db_path, now=now_dt)
+    decided: List[Tuple[int, Set[str]]] = []   # (id, shingles) approved/rejected earlier in this pass
+    plan = []
+    for item in guardrails.pending(db_path):
+        current = guardrails.get_approval(item["id"], db_path)
+        if not current or current.get("status") != "pending":
+            continue   # the owner's decision always wins
+        item_dt = _parse_item_time(current.get("ts"))
+        hours = int((now_dt - item_dt).total_seconds() // 3600) if item_dt else 0
+        entry = {"id": current["id"], "kind": current.get("kind") or "", "title": current.get("title") or "",
+                 "hours": hours, "product": is_product_draft(current), "score": None, "action": "wait"}
+        plan.append(entry)
+        if not entry["product"]:
+            entry["why"] = "proposal"
+        elif stopped:
+            entry["why"] = "paused"
+        elif not item_dt:
+            entry["why"] = "no_time"
+        elif (now_dt - item_dt).total_seconds() < AUTO_APPROVE_HOURS * 3600:
+            entry["why"] = "under_24h"
+        else:
+            text = f"{current.get('title') or ''} {current.get('payload') or ''}"
+            entry["score"] = get_draft_score(current, db_path=db_path)
+            if entry["score"] < threshold:
+                entry["action"], entry["why"] = "reject", "low_score"
+                decided.append((current["id"], _shingles(text)))
+            elif not enabled:
+                entry["why"] = "off"
+            elif approved_today >= daily_limit:
+                entry["why"] = "daily_limit"
+            else:
+                if broken_checker is None:
+                    broken_checker = has_broken_checker_signal(db_path)
+                if broken_checker:
+                    entry["why"] = "checker_signal"
+                elif checker_blocks(current.get("review")):
+                    entry["why"] = "checker_revise"
+                else:
+                    is_sim, _, matched_id = is_similar_to_recent_draft(
+                        text, candidate_id=current["id"], db_path=db_path, now=now_dt, days=30,
+                        threshold=MAX_SHINGLE_SIMILARITY)
+                    if not is_sim:   # decisions earlier in this same pass count like decided drafts
+                        mine = _shingles(text)
+                        matched_id = next((aid for aid, other in decided
+                                           if jaccard_similarity(mine, other) > MAX_SHINGLE_SIMILARITY), None)
+                        is_sim = matched_id is not None
+                    if is_sim:
+                        entry["why"], entry["match"] = "similar", matched_id
+                    else:
+                        entry["action"], entry["why"] = "approve", "ready"
+                        approved_today += 1   # the next draft sees this slot as used
+                        decided.append((current["id"], _shingles(text)))
+    return plan
+
+
+def _shingles(text: str) -> Set[str]:
+    """5-word shingles exactly like is_similar_to_recent_draft (leading 'draft' dropped)."""
+    words = tokenize_words(text)
+    if words and words[0] == "draft":
+        words = words[1:]
+    return get_word_shingles(words, k=5)
+
+
 def auto_decide_drafts(db_path=None, now=None):
     """Examine pending drafts waiting > 24 hours and apply auto-decisions.
 
@@ -391,126 +498,81 @@ def auto_decide_drafts(db_path=None, now=None):
     """
     if guardrails.is_paused(db_path) or guardrails.is_killed():
         return []
-
-    # Check if explicit settings exist in state
-    conn_state = _state_conn(db_path)
-    state_row = conn_state.execute("SELECT value FROM telegram_state WHERE key = ?", (STATE_SETTINGS_KEY,)).fetchone()
-    conn_state.close()
-
-    if state_row and state_row[0]:
-        settings = get_settings(db_path, default_threshold=DEFAULT_SCORE_THRESHOLD)
-    else:
-        # If no owner setting stored, default threshold is 75 per BINNY-V3C specs,
-        # but to support legacy test expectations where unconfigured threshold was 70,
-        # we check SCORE_THRESHOLD module variable or use LEGACY_DEFAULT_THRESHOLD if SCORE_THRESHOLD was set to 70.
-        settings = {
-            "enabled": True,
-            "threshold": SCORE_THRESHOLD,
-            "daily_limit": DEFAULT_DAILY_LIMIT,
-        }
-
-    enabled = settings.get("enabled", True)
+    settings = effective_settings(db_path)
     threshold = settings.get("threshold", DEFAULT_SCORE_THRESHOLD)
-    daily_limit = settings.get("daily_limit", DEFAULT_DAILY_LIMIT)
-
-    if now is None:
-        now_dt = datetime.datetime.now(datetime.timezone.utc)
-    elif isinstance(now, (int, float)):
-        now_dt = datetime.datetime.fromtimestamp(now, tz=datetime.timezone.utc)
-    elif isinstance(now, datetime.datetime):
-        now_dt = now if now.tzinfo is not None else now.replace(tzinfo=datetime.timezone.utc)
-    else:
-        now_dt = datetime.datetime.now(datetime.timezone.utc)
-
-    cutoff_seconds = AUTO_APPROVE_HOURS * 3600
-    pending_items = guardrails.pending(db_path)
     decisions = []
-
-    # Check broken checker signal once before evaluating approvals
-    broken_checker = has_broken_checker_signal(db_path)
-
-    # Auto-approvals already done today
-    approved_today_count = count_auto_approvals_today(db_path, now=now_dt)
-
-    for item in pending_items:
-        approval_id = item["id"]
-        # Owner's decision always wins: verify current status from db is still pending
-        current = guardrails.get_approval(approval_id, db_path)
-        if not current or current.get("status") != "pending":
-            continue
-        if not is_product_draft(current):
-            continue   # proposals: the owner decides (never auto-approved, never auto-rejected)
-
-        item_dt = _parse_item_time(current.get("ts"))
-        if not item_dt:
-            continue
-
-        waiting_seconds = (now_dt - item_dt).total_seconds()
-        if waiting_seconds < cutoff_seconds:
-            continue
-
-        score = get_draft_score(current, db_path=db_path)
-        title = (current.get("title") or "")[:50]
-        full_text = f"{current.get('title') or ''} {current.get('payload') or ''}"
-
-        if score >= threshold:
-            # Check if auto-approve is disabled by owner setting
-            if not enabled:
-                continue
-
-            # Check daily auto-approval limit
-            if approved_today_count >= daily_limit:
-                continue
-
-            # Check broken checker signal
-            if broken_checker:
-                continue
-
-            # The checker said REVISE/REJECT: the builder would refuse it, so it waits for the owner
-            if checker_blocks(current.get("review")):
-                continue
-
-            # Check similarity to approved/rejected drafts of the last 30 days
-            is_sim, sim_val, matched_id = is_similar_to_recent_draft(
-                full_text,
-                candidate_id=approval_id,
-                db_path=db_path,
-                now=now_dt,
-                days=30,
-                threshold=MAX_SHINGLE_SIMILARITY,
-            )
-            if is_sim:
-                # Block auto-approval due to similarity to recent draft
-                continue
-
-            # All safe auto-approve checks passed!
-            changed = guardrails.decide(approval_id, True, db_path, reason="auto-approved")
-            if changed:
-                approved_today_count += 1
-                line = f"Draft #{approval_id} auto-approved (score {score}/100 >= {threshold}): {title}"
-                decisions.append({
-                    "id": approval_id,
-                    "action": "approved",
-                    "title": title,
-                    "score": score,
-                    "line": line,
-                })
-        else:
-            # Auto-reject with reason "Low score (auto)"
-            changed = guardrails.decide(approval_id, False, db_path, reason=AUTO_REJECT_REASON)
-            if changed:
+    for entry in _plan(db_path, now, settings):
+        approval_id, score, title = entry["id"], entry["score"], entry["title"][:50]
+        if entry["action"] == "approve":
+            if guardrails.decide(approval_id, True, db_path, reason="auto-approved"):
+                decisions.append({"id": approval_id, "action": "approved", "title": title, "score": score,
+                                  "line": f"Draft #{approval_id} auto-approved (score {score}/100 >= {threshold}): "
+                                          f"{title}"})
+        elif entry["action"] == "reject":
+            if guardrails.decide(approval_id, False, db_path, reason=AUTO_REJECT_REASON):
                 # Also ensure reason is saved in case decide() didn't record it directly
                 guardrails.set_reason(approval_id, AUTO_REJECT_REASON, db_path)
-                line = f"Draft #{approval_id} auto-rejected (score {score}/100 < {threshold}, Low score (auto)): {title}"
-                decisions.append({
-                    "id": approval_id,
-                    "action": "rejected",
-                    "title": title,
-                    "score": score,
-                    "line": line,
-                })
-
+                decisions.append({"id": approval_id, "action": "rejected", "title": title, "score": score,
+                                  "line": f"Draft #{approval_id} auto-rejected (score {score}/100 < {threshold}, "
+                                          f"Low score (auto)): {title}"})
     return decisions
+
+
+# Why a draft is still waiting, in the owner's Tenglish (CCG-3).
+WHY_TEXT = {
+    "under_24h": "inka 24 ganta kaaledu ({left}h migilindi)",
+    "daily_limit": "ee roju daily limit ({limit}) aipoyindi; repu run lo vastundi",
+    "similar": "recent draft #{match} laaga undi; meere choodandi",
+    "checker_signal": "checker signal paadu (last 5 scores okate); auto-approve aagindi",
+    "checker_revise": "Checker REVISE annadi; builder build cheyadu, meere decide cheyandi",
+    "off": "auto-approve OFF lo undi",
+    "paused": "robot pause lo undi",
+    "no_time": "draft time teliyadu; meere decide cheyandi",
+    "low_score": "score {score}/100 threshold {threshold} kanna takkuva; next run lo auto-reject",
+    "ready": "next run lo auto-approve avutundi",
+    "proposal": "proposal: meere decide cheyali (auto-approve cheyadu)",
+}
+KIND_LABEL = {"scout_idea": "Scout idea", "trend_proposal": "Trend", "code_patch": "Code patch",
+              "tool_draft": "Tool", "media_task": "Media"}
+
+
+def waiting_report(db_path=None, now=None) -> Dict:
+    """Every waiting item with hours waited and WHY it is still waiting (CCG-3).
+
+    Returns {"settings", "approved_today", "drafts": [...], "proposals": [...], "rule_proposals": int}; each item
+    has id, kind, title, hours, why (code) and why_text (Tenglish). Proposals are never counted as product drafts."""
+    settings = effective_settings(db_path)
+    out = {"settings": settings, "approved_today": count_auto_approvals_today(db_path, now=_as_utc(now)),
+           "drafts": [], "proposals": [], "rule_proposals": waiting_rule_proposals(db_path)}
+    for entry in _plan(db_path, now, settings):
+        entry["why_text"] = WHY_TEXT[entry["why"]].format(
+            left=max(1, AUTO_APPROVE_HOURS - entry["hours"]), limit=settings.get("daily_limit"),
+            match=entry.get("match"), score=entry.get("score"), threshold=settings.get("threshold"))
+        out["drafts" if entry["product"] else "proposals"].append(entry)
+    return out
+
+
+def waiting_report_text(db_path=None, now=None, max_lines: int = 12) -> str:
+    """The waiting report for Telegram, in Tenglish. No amounts, no secrets."""
+    report = waiting_report(db_path, now)
+    settings, drafts, proposals = report["settings"], report["drafts"], report["proposals"]
+    oldest = max((d["hours"] for d in drafts), default=0)
+    lines = ["Auto-approve status (24 ganta rule)",
+             f"Auto-Approve Settings: {'ON' if settings.get('enabled', True) else 'OFF'}, threshold {settings.get('threshold')}"
+             f"/100, daily limit {settings.get('daily_limit')} (ee roju auto-approved: {report['approved_today']})",
+             f"Product drafts waiting: {len(drafts)}" + (f" (oldest {oldest}h)" if drafts else "")]
+    for d in drafts[:max_lines]:
+        lines.append(f"#{d['id']} {d['hours']}h: {d['why_text']} | {d['title'][:45]}")
+    if len(drafts) > max_lines:
+        lines.append(f"... inka {len(drafts) - max_lines} drafts (/list)")
+    lines.append(f"Proposals waiting: {len(proposals)} (product drafts kaadu; meere decide cheyali)")
+    for p in proposals[:max_lines]:
+        lines.append(f"#{p['id']} {p['hours']}h {KIND_LABEL.get(p['kind'], p['kind'])} | {p['title'][:45]}")
+    if len(proposals) > max_lines:
+        lines.append(f"... inka {len(proposals) - max_lines} proposals")
+    lines.append(f"Self-Improvement Proposals waiting: {report['rule_proposals']}")
+    lines.append(f"Limit marchadaniki: /autoapprove limit N ({MIN_DAILY_LIMIT}-{MAX_DAILY_LIMIT})")
+    return "\n".join(lines)
 
 
 def run_auto_decisions(db_path=None, token=None, owner_chat_id=None, now=None):
