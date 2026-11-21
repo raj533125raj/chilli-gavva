@@ -26,6 +26,11 @@ DOCS_DIR = ROOT / "docs"
 ALLOWED_MISSING = {
     "config.json": "owner's local settings file, git-ignored on purpose "
                    "(CLAUDE.md: config.json is local and never committed)",
+    # CCI-2: the robot's state database. The plaintext file is git-ignored on purpose (.gitignore: "the
+    # plaintext database never goes into git"); only its encrypted copy agent_data.db.enc is committed.
+    # Docs name it as the runtime file the robot uses, so it is not a missing repo file.
+    "agent_data.db": "runtime state database (plaintext copy git-ignored on purpose; "
+                     "the encrypted copy agent_data.db.enc is committed)",
     # The next group are runtime output files that live inside upload packs,
     # export folders or marketing folders, not in the repo itself.
     "listing.txt": "generated per-pack listing file inside upload packs",
