@@ -419,13 +419,14 @@ def _collect_reel_assets(pack_id: str, post: Dict[str, Any], mkt_dir: Optional[P
     return frames, _scrub_text(caption)
 
 
-def handle_post_today(ctx: dict, plan_path: Union[str, Path] = post_planner.PLAN_PATH, products_dir: Optional[str] = None) -> dict:
+def handle_post_today(ctx: dict, plan_path: Optional[Union[str, Path]] = None, products_dir: Optional[str] = None) -> dict:
     """Send today's planned items ready for the owner to repost.
 
     Pins: photo + caption + reply keyboard.
     Carousels: media group + caption text + reply keyboard.
     Reels: frames media group (or photos) + caption text + reply keyboard.
     """
+    plan_path = plan_path or post_planner.PLAN_PATH   # read at call time (tests patch it)
     now_utc = ctx.get("now")
     ist_dt = _get_ist_datetime(now_utc)
     today_str = ist_dt.date().isoformat()
@@ -556,8 +557,9 @@ def handle_post_today(ctx: dict, plan_path: Union[str, Path] = post_planner.PLAN
     return {"handled": True}
 
 
-def handle_post_tomorrow(ctx: dict, plan_path: Union[str, Path] = post_planner.PLAN_PATH, products_dir: Optional[str] = None) -> dict:
+def handle_post_tomorrow(ctx: dict, plan_path: Optional[Union[str, Path]] = None, products_dir: Optional[str] = None) -> dict:
     """Preview-only text list of tomorrow's scheduled posts."""
+    plan_path = plan_path or post_planner.PLAN_PATH   # read at call time (tests patch it)
     now_utc = ctx.get("now")
     ist_dt = _get_ist_datetime(now_utc)
     tomorrow_dt = ist_dt.date() + datetime.timedelta(days=1)
@@ -587,8 +589,9 @@ def handle_post_tomorrow(ctx: dict, plan_path: Union[str, Path] = post_planner.P
     return {"text": "\n".join(lines)}
 
 
-def handle_post_week(ctx: dict, plan_path: Union[str, Path] = post_planner.PLAN_PATH, products_dir: Optional[str] = None) -> dict:
+def handle_post_week(ctx: dict, plan_path: Optional[Union[str, Path]] = None, products_dir: Optional[str] = None) -> dict:
     """Show weekly overview and post schedule."""
+    plan_path = plan_path or post_planner.PLAN_PATH   # read at call time (tests patch it)
     now_utc = ctx.get("now")
     ist_dt = _get_ist_datetime(now_utc)
     cur_date = ist_dt.date()
@@ -620,8 +623,9 @@ def handle_post_week(ctx: dict, plan_path: Union[str, Path] = post_planner.PLAN_
     return {"text": "\n".join(lines)}
 
 
-def handle_posted_n(n: int, ctx: dict, plan_path: Union[str, Path] = post_planner.PLAN_PATH, products_dir: Optional[str] = None) -> dict:
+def handle_posted_n(n: int, ctx: dict, plan_path: Optional[Union[str, Path]] = None, products_dir: Optional[str] = None) -> dict:
     """Mark post N of today as done."""
+    plan_path = plan_path or post_planner.PLAN_PATH   # read at call time (tests patch it)
     now_utc = ctx.get("now")
     ist_dt = _get_ist_datetime(now_utc)
     today_str = ist_dt.date().isoformat()
@@ -655,9 +659,10 @@ def handle_posted_n(n: int, ctx: dict, plan_path: Union[str, Path] = post_planne
 _POSTED_HELP_WORDS = {"/posted", "posted", "post done", "post chesa", "done post"}
 
 
-def handle_posted_help(ctx: dict, plan_path: Union[str, Path] = post_planner.PLAN_PATH,
+def handle_posted_help(ctx: dict, plan_path: Optional[Union[str, Path]] = None,
                       products_dir: Optional[str] = None) -> dict:
     """Show unposted items and how to mark one when /posted has no number."""
+    plan_path = plan_path or post_planner.PLAN_PATH   # read at call time (tests patch it)
     now_utc = ctx.get("now")
     today_str = _get_ist_datetime(now_utc).date().isoformat()
     plan = post_planner.load_plan(plan_path, products_dir=products_dir)

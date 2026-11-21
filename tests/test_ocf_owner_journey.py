@@ -14,7 +14,9 @@ os.environ["CHILLI_TEST"] = "1"
 os.environ["DB_KEY"] = ""
 
 import guardrails
+import marketing_auto
 import mockups
+import product_pipeline
 import notify
 import post_planner
 import product_builder
@@ -187,7 +189,26 @@ class Harness(unittest.TestCase):
                                                      notify_fn=lambda text: False)
         self.assertEqual(report.get("verdict"), "ready", report)
         self._complete_upload_pack(self.products / folder, folder)
+        self.run_marketing_step(aid, folder)
         return folder
+
+    def run_marketing_step(self, aid, folder):
+        """The robot's marketing step after a pack is READY: Pins / carousel for /today.
+
+        Encryption (DB_KEY) cannot run in tests, so the READY receipt is written the same way
+        mark_encrypted writes it, then marketing_auto.run_ready makes the files exactly as the cycle does.
+        """
+        digest = product_pipeline._inventory(str(self.products / folder))[1]
+        conn = product_pipeline.connect(self.db)
+        conn.execute("INSERT INTO product_deliveries (approval_id, status, reason, folder, files, digest, "
+                     "notified, lease_until) VALUES (?, 'ready', '', ?, '[]', ?, 0, 0) "
+                     "ON CONFLICT(approval_id) DO UPDATE SET status='ready', reason='', folder=excluded.folder, "
+                     "digest=excluded.digest, lease_until=0", (aid, folder, digest))
+        conn.commit()
+        conn.close()
+        marketing_auto.run_ready(self.db, str(self.products))
+        self.assertTrue((marketing_auto.marketing_root(self.products) / folder).is_dir(),
+                        "marketing step made no files for the READY pack")
 
     def _complete_upload_pack(self, source, folder):
         pack = self.products / "upload" / folder
@@ -264,6 +285,7 @@ class FormatJourneyTests(Harness):
         approved = self.say(f"/approve {aid}")
         self.assertIn(f"#{aid}", approved)
         self.assertEqual(guardrails.get_approval(aid, self.db)["status"], "approved")
+        self.run_marketing_step(aid, folder)
         return aid, folder
 
     def test_planner_sell_listed_today(self):
