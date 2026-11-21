@@ -571,9 +571,17 @@ class TestPluginBehaviour(PluginMixin, unittest.TestCase):
                 self.assertTrue(self.rec.texts or result.get("text"))
 
     def test_posted_without_number_lists_today_unposted(self):
-        plan_file = Path("exported_content/post_plan.json")
+        # The plan lives at post_planner.PLAN_PATH (exported_content/products/post_plan.json since CCH-4).
+        # Work in a temp folder so the test never writes into the repo.
+        import tempfile
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        old_cwd = os.getcwd()
+        os.chdir(tmp.name)
+        self.addCleanup(os.chdir, old_cwd)
+        import post_planner
+        plan_file = Path(post_planner.PLAN_PATH)
         plan_file.parent.mkdir(parents=True, exist_ok=True)
-        self.addCleanup(lambda: plan_file.unlink(missing_ok=True))
         plan_file.write_text(json.dumps([
             {"day": 1, "date": "2026-11-14", "channel": "pinterest", "pack_id": "1-test",
              "asset": "pin-1.png", "status": "todo"},

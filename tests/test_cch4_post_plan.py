@@ -181,7 +181,7 @@ class PostedTests(Base):
         plan = self.plan()
         row = [r for r in plan if r["date"] == "2026-11-20"][0]
         self.assertEqual(row["status"], "done")
-        self.assertTrue(row["posted_at"].startswith("2026-11-"))
+        self.assertRegex(row["posted_at"], r"^\d{4}-\d{2}-\d{2}")   # real clock time of the /posted press
         # the next robot cycle keeps the mark and does not plan that post again
         self.refresh(NOW + datetime.timedelta(days=1))
         plan = self.plan()
@@ -209,6 +209,7 @@ class PostedTests(Base):
 
     def test_today_text_shows_ready_posts_only(self):
         make_ready(self.products, "calm-week", (40, 90, 150))
+        self.refresh()   # build the plan with the test clock (NOW), not the real date (failed from 21 Nov)
         text = self.inbox.today_posts_text(plan_path=str(self.plan_path), products_dir=str(self.products),
                                            date="2026-11-20")
         self.assertIn("Today post (1 pins, 1 Instagram):", text)
