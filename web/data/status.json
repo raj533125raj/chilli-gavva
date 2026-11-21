@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-15T23:35:36Z",
+ "generated_at": "2026-11-21T18:08:39Z",
  "llm": {
-  "calls_today": 55,
+  "calls_today": 1,
   "cap": 500
  },
  "agents": [
@@ -256,44 +256,31 @@
    "ts": "2026-11-15T22:26:43.378258",
    "kind": "public_draft",
    "title": "Draft #111"
+  },
+  {
+   "id": 112,
+   "ts": "2026-11-21T18:08:38.157714",
+   "kind": "scout_idea",
+   "title": "Draft #112"
+  },
+  {
+   "id": 113,
+   "ts": "2026-11-21T18:08:38.160291",
+   "kind": "scout_idea",
+   "title": "Draft #113"
+  },
+  {
+   "id": 114,
+   "ts": "2026-11-21T18:08:38.162868",
+   "kind": "scout_idea",
+   "title": "Draft #114"
   }
  ],
  "worker": {
   "running": false,
   "age_seconds": null
  },
- "handoffs": [
-  {
-   "from_agent": "Draft Worker",
-   "to_agent": "Content Manager",
-   "item": "draft #110",
-   "at": "2026-11-15T22:34:31Z"
-  },
-  {
-   "from_agent": "Draft Worker",
-   "to_agent": "Content Manager",
-   "item": "draft #109",
-   "at": "2026-11-15T22:31:04Z"
-  },
-  {
-   "from_agent": "Draft Worker",
-   "to_agent": "Content Manager",
-   "item": "draft #111",
-   "at": "2026-11-15T22:26:43Z"
-  },
-  {
-   "from_agent": "Draft Worker",
-   "to_agent": "Content Manager",
-   "item": "draft #110",
-   "at": "2026-11-15T22:26:40Z"
-  },
-  {
-   "from_agent": "Draft Worker",
-   "to_agent": "Content Manager",
-   "item": "draft #109",
-   "at": "2026-11-15T22:26:38Z"
-  }
- ],
+ "handoffs": [],
  "office": {
   "agents": [
    {
@@ -402,66 +389,44 @@
     "activity": "off_duty"
    }
   ],
-  "meetings": [
-   {
-    "draft_number": 109,
-    "agents": [
-     "Draft Worker",
-     "QA Checker"
-    ]
-   },
-   {
-    "draft_number": 110,
-    "agents": [
-     "Draft Worker",
-     "QA Checker"
-    ]
-   },
-   {
-    "draft_number": 111,
-    "agents": [
-     "Draft Worker",
-     "QA Checker"
-    ]
-   }
-  ],
+  "meetings": [],
   "letters": []
  },
  "ai_health": [
   {
    "provider": "Groq",
    "model": "openai/gpt-oss-20b",
-   "state": "down",
-   "reason": "Provider request rate exceeded",
-   "checked_at": "2026-11-15T23:35:36Z"
+   "state": "up",
+   "reason": "Latest request succeeded",
+   "checked_at": "2026-11-21T18:08:39Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
-   "state": "up",
-   "reason": "Latest request succeeded",
-   "checked_at": "2026-11-15T23:35:36Z"
+   "state": "unknown",
+   "reason": "No recent activity recorded",
+   "checked_at": "2026-11-21T18:08:39Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
-   "state": "up",
-   "reason": "Latest request succeeded",
-   "checked_at": "2026-11-15T23:35:36Z"
+   "state": "unknown",
+   "reason": "No recent activity recorded",
+   "checked_at": "2026-11-21T18:08:39Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-15T23:35:36Z"
+   "checked_at": "2026-11-21T18:08:39Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-15T23:35:36Z"
+   "checked_at": "2026-11-21T18:08:39Z"
   }
  ],
  "minutes": {
@@ -752,29 +717,29 @@
  "reject_reasons": [
   {
    "reason": "Formatting or rubric issue",
-   "count": 105
+   "count": 84
   },
   {
    "reason": "Risky or prohibited claim",
-   "count": 69
+   "count": 65
   },
   {
    "reason": "Target audience unclear",
    "count": 58
   },
   {
-   "reason": "Unclear value over free template",
-   "count": 57
-  },
-  {
    "reason": "Product structure incomplete",
    "count": 42
+  },
+  {
+   "reason": "Unclear value over free template",
+   "count": 40
   }
  ],
  "report": {
-  "drafts_made": 4,
-  "drafts_waiting": 9,
-  "drafts_approved": 2,
+  "drafts_made": 3,
+  "drafts_waiting": 12,
+  "drafts_approved": 0,
   "products_built": 0,
   "errors": 0
  },
@@ -841,15 +806,15 @@
   },
   "research": {
    "plan": 4,
-   "done": 3
+   "done": 0
   },
   "drafts": {
    "plan": 3,
-   "done": 5
+   "done": 0
   },
   "review": {
    "plan": 3,
-   "done": 5
+   "done": 0
   },
   "product_builds": {
    "plan": 2,
@@ -884,68 +849,80 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 55,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 55,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 55,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 55,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 55,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 55,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 55,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 55,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 55,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   }
  ],
  "loop_events": [
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-21T18:08:34Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-21T18:08:34Z"
+  },
   {
    "agent": "Unknown agent",
    "kind": "error",
@@ -1233,18 +1210,6 @@
    "kind": "error",
    "label": "Recovery check",
    "at": "2026-11-05T03:08:29Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-05T01:30:03Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-05T01:29:51Z"
   }
  ],
  "activity_events": [
@@ -2410,48 +2375,37 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-15T23:35:35Z",
-  "last_run_end": "2026-11-15T23:35:36Z",
+  "last_run_start": "2026-11-21T18:08:34Z",
+  "last_run_end": "2026-11-21T18:08:39Z",
   "runner": "github-actions",
-  "run_id": "43774957146"
+  "run_id": "44933065619"
  },
  "changelog": [
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "Lead fix: robot code imports on the Mac's Python 3.9 too",
-  "Lead fix: /upload zips every listed buyer file; owner-journey tests follow sellable types",
-  "CPD-2 Test Telegram upload flow",
-  "CPD-1 Add Gumroad upload plugin",
-  "CPC-2 Honor authenticated inbox routing",
-  "CPC-2 Add Telegram Gumroad preflight",
-  "CPC-1 Add Gumroad preflight checks",
-  "OCF-3 owner journey for planner habit tracker wall art",
-  "OCF-2 approve button journey expected failure",
-  "OCF-1 owner journey end-to-end test",
-  "OCE-4 tg_reports escape lint pack argument",
-  "OCE-3 short plugin phrases reply",
-  "OCE-2 tg_posts bare posted help",
-  "OCE-1 tg_files bare-word pack hint",
-  "CCC-10 Sell proof for all 12: real path build -> truth check -> upload pack -> /sell",
-  "CCC-8 Premium look: every product PDF is drawn in the pack's theme, images follow the PDF",
-  "CCC-7 Wall art sellable: full-bleed vector art PDFs in A4 and US Letter",
-  "CCC-6 Email signature sellable: printable install guide the checker can prove, honest file list"
+  "Lead hotfix: robot runs red since 18 Nov \u2014 /health reply now always ends with a next step",
+  "agent: owner inbox state [skip ci]",
+  "Lead fix: robot runs failed because a slow test chunk crashed the test runner",
+  "agent: owner inbox state [skip ci]",
+  "Lead fix: /week test no longer fails every Sunday",
+  "Lead fix: /status test ignores the clock line (it failed when the second ticked)",
+  "OCG-1 Every command against real packs of all 12 types",
+  "OCG-2 Add next-step hints to Telegram plugin replies",
+  "CCE-3 All AI down: a run whose AI calls all failed sends the once-a-day AI-down line (now with Tenglish), not only when a draft task fails",
+  "CCE-3 Telegram busy (429/5xx/network): inbox skips the run without a red step or lost updates, next healthy run sends one Tenglish line",
+  "CCE-3 Disk full: product builder gives one Tenglish owner line instead of a traceback, the draft gets its build slot back for the next run",
+  "CCE-3 Bad-day simulator: --bad injects Telegram 429/500, AI down, KV wrong id, disk full, corrupt PDF, half-written state, clock jumps; CI-like RUNNER_TEMP and",
+  "CCE-1 fix: random fake alarm URL so the copied simulator never trips the robot's own secret guard",
+  "CCE-2 Album of one: send_media_group sends a single file as a photo or document (Telegram refuses 1-item albums)",
+  "CCE-2 Owner holds #4/#6 apply only to the drafts of the 2026-10-16 decision: a new draft with that number is built, unknown date stays held",
+  "CCE-2 Rebuild specs only for their real draft: approved, same niche agent, never a new or pending draft with the same number",
+  "CCE-2 Fresh database: marketing agency finds no ready products instead of crashing on a missing product_builds table",
+  "CCE-1 Day simulator: real CI steps for a simulated 24 h in a temp sandbox, fake Telegram/AI/KV/clock, every error with file:line",
+  "CCD-4 Plugin crash safety: one Tenglish line for the owner, other plugins still answer, crash in the auto-fix log",
+  "CCD-3 Approve buttons doctor: /buttontest next-run report, no lost or silent button presses"
  ],
  "daily_report": {
-  "date_ist": "2026-11-16",
-  "summary": "13 tasks completed; 0 approvals reviewed; 0 products built.",
-  "items_done": [
-   "Review completed",
-   "Review completed",
-   "Revision completed",
-   "Revision completed",
-   "Review completed",
-   "Review completed",
-   "Review completed",
-   "Draft completed",
-   "Draft completed",
-   "Draft completed"
-  ]
+  "date_ist": "2026-11-21",
+  "summary": "No completed work recorded.",
+  "items_done": []
  },
  "sunday_letter": null,
  "cubes": [
@@ -2805,12 +2759,12 @@
  ],
  "office_requests": [],
  "scout_ideas_count": {
-  "total": 57,
-  "pending": 6,
+  "total": 60,
+  "pending": 9,
   "approved": 51
  },
  "trend_items_count": {
-  "total": 160,
+  "total": 170,
   "proposed": 0,
   "approved": 0
  },
