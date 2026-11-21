@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-21T18:36:11Z",
+ "generated_at": "2026-11-21T19:20:18Z",
  "llm": {
   "calls_today": 7,
   "cap": 500
@@ -386,35 +386,35 @@
    "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-21T18:36:11Z"
+   "checked_at": "2026-11-21T19:20:18Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
    "state": "unknown",
    "reason": "No recent activity recorded",
-   "checked_at": "2026-11-21T18:36:11Z"
+   "checked_at": "2026-11-21T19:20:18Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "unknown",
    "reason": "No recent activity recorded",
-   "checked_at": "2026-11-21T18:36:11Z"
+   "checked_at": "2026-11-21T19:20:18Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-21T18:36:11Z"
+   "checked_at": "2026-11-21T19:20:18Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-21T18:36:11Z"
+   "checked_at": "2026-11-21T19:20:18Z"
   }
  ],
  "minutes": {
@@ -2363,12 +2363,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-21T18:36:11Z",
-  "last_run_end": "2026-11-21T18:36:11Z",
+  "last_run_start": "2026-11-21T19:20:17Z",
+  "last_run_end": "2026-11-21T19:20:18Z",
   "runner": "github-actions",
-  "run_id": "44934847336"
+  "run_id": "44940309987"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "Lead hotfix: robot runs red since 18 Nov \u2014 /health reply now always ends with a next step",
@@ -2387,8 +2388,7 @@
   "CCE-2 Album of one: send_media_group sends a single file as a photo or document (Telegram refuses 1-item albums)",
   "CCE-2 Owner holds #4/#6 apply only to the drafts of the 2026-10-16 decision: a new draft with that number is built, unknown date stays held",
   "CCE-2 Rebuild specs only for their real draft: approved, same niche agent, never a new or pending draft with the same number",
-  "CCE-2 Fresh database: marketing agency finds no ready products instead of crashing on a missing product_builds table",
-  "CCE-1 Day simulator: real CI steps for a simulated 24 h in a temp sandbox, fake Telegram/AI/KV/clock, every error with file:line"
+  "CCE-2 Fresh database: marketing agency finds no ready products instead of crashing on a missing product_builds table"
  ],
  "daily_report": {
   "date_ist": "2026-11-22",
