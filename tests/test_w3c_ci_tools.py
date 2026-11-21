@@ -663,7 +663,9 @@ class TestRunTestsChunked(unittest.TestCase):
             rc = run_tests_chunked.main([])
             self.assertEqual(rc, 0)
             self.assertIsNone(mock_run.call_args[1]["tests_dir"])
-            self.assertEqual(mock_run.call_args[1]["chunk_size"], 20)
+            # CCI-3: the default chunk size is 10 (was 20); it is read from the runner, not repeated here
+            self.assertEqual(mock_run.call_args[1]["chunk_size"], run_tests_chunked.DEFAULT_CHUNK_SIZE)
+            self.assertEqual(run_tests_chunked.DEFAULT_CHUNK_SIZE, 10)
             self.assertEqual(mock_run.call_args[1]["timeout_per_chunk"], 900)
 
     def test_56_run_tests_chunked_environment_chilli_test_default(self):

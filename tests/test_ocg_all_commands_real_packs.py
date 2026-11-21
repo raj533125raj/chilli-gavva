@@ -140,25 +140,11 @@ def _approvals(db):
 
 
 def _build_real_packs(root: Path):
-    products = root / "exported_content" / "products"
-    products.mkdir(parents=True, exist_ok=True)
-    build_db = str(root / "build.db")
-    for index, kind in enumerate(sell_proof.FORMAT_ORDER, 1):
-        folder = pb.build_product(sell_proof.spec_for(kind), index, out_dir=str(products))
-        report = pb.truth_check_folder(
-            index, folder, db_path=build_db, out_dir=str(products),
-            notify_fn=lambda _text: False,
-        )
-        if report.get("verdict") != "ready":
-            raise AssertionError(f"{kind}: truth check {report.get('verdict')}: {report.get('problems')}")
-        pack = products / "upload" / folder
-        if not (pack / "product.zip").is_file():
-            raise AssertionError(f"{kind}: upload pack has no product.zip")
-        store_kits.build(pack)
-        if gumroad_images.available():
-            gumroad_images.for_pack(pack)
-        marketing_auto.build_for_pack(pack, build_db, products_dir=products)
-    return products, marketing_auto.marketing_root(products)
+    """The twelve real packs, built once per run and shared (tests/real_pack_cache.py, CCI-3)."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import real_pack_cache
+    products, marketing, _build_db, _cache_root = real_pack_cache.real_packs()
+    return products, marketing
 
 
 @unittest.skipUnless(mockups.available(), "needs Pillow and poppler")

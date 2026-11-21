@@ -25,7 +25,7 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_CHUNK_SIZE = 20
+DEFAULT_CHUNK_SIZE = 10  # CCI-3: 20 put the simulation and real-pack modules in one chunk (357-426 s); 10 keeps every chunk under 300 s
 DEFAULT_TIMEOUT_PER_CHUNK = 900  # 15 min per chunk: the product-builder chunk took 246 s on a fast machine (2026-11-16), GitHub is ~2x slower
 MAX_JOBS = 4  # most chunk processes side by side
 JOBS_ENV = "CHILLI_TEST_JOBS"

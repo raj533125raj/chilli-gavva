@@ -85,6 +85,21 @@ BUYER_AUDIENCE = {
 # .jobs/PROGRESS.md.  Do not weaken the checks themselves.
 EXPECTED_BUILDER_GAPS = {}
 
+# CCI-3: the normal run builds ONE buyer pack per product type (12 packs). The full 3-buyer x 12 sweep,
+# with the buyer-to-buyer copy checks, runs when CHILLI_SLOW_TESTS=1 (nightly / manual run).
+SLOW_ENV = "CHILLI_SLOW_TESTS"
+FAST_BUYER = "student"
+
+
+def slow_mode(env=None) -> bool:
+    env = os.environ if env is None else env
+    return str(env.get(SLOW_ENV, "")).strip() == "1"
+
+
+def buyers_for(env=None):
+    """Buyer keys built for one run: all three in slow mode, the first buyer otherwise."""
+    return BUYER_KEYS if slow_mode(env) else (FAST_BUYER,)
+
 
 def _slug(text, maxlen=40):
     slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
@@ -281,7 +296,7 @@ class SweepBase(unittest.TestCase):
         cls.root = Path(cls.tmp.name)
         cls.built = {}
         cls.build_errors = {}
-        for buyer_key in BUYER_KEYS:
+        for buyer_key in buyers_for():
             try:
                 cls.built[buyer_key] = build_variant(cls.KIND, buyer_key, cls.root)
             except Exception as exc:  # a generator problem is reported per check
@@ -313,7 +328,7 @@ class SweepBase(unittest.TestCase):
         self.assertIn(BUYER_KEYWORDS[buyer_key], description.lower(), buyer_key)
         other_titles = []
         for other in BUYER_KEYS:
-            if other == buyer_key:
+            if other == buyer_key or other not in self.built:
                 continue
             other_built = self._built(other)
             other_listing = (other_built["pack"] / "listing.txt").read_text(encoding="utf-8")
@@ -327,7 +342,7 @@ class SweepBase(unittest.TestCase):
         description = _listing_description(listing)
         other_descriptions = []
         for other in BUYER_KEYS:
-            if other == buyer_key:
+            if other == buyer_key or other not in self.built:
                 continue
             other_built = self._built(other)
             other_listing = (other_built["pack"] / "listing.txt").read_text(encoding="utf-8")
@@ -444,7 +459,7 @@ def _make_test_method(check, buyer_key):
 
 def _make_kind_class(kind):
     attrs = {"KIND": kind}
-    for buyer_key in BUYER_KEYS:
+    for buyer_key in buyers_for():
         for check in CHECKS:
             method = _make_test_method(check, buyer_key)
             reason = EXPECTED_BUILDER_GAPS.get((kind, check, buyer_key))

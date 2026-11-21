@@ -165,23 +165,11 @@ def _approvals(db):
 
 
 def _build_real_packs(root: Path):
-    products = root / "exported_content" / "products"
-    products.mkdir(parents=True, exist_ok=True)
-    build_db = str(root / "build.db")
-    for index, kind in enumerate(sell_proof.FORMAT_ORDER, 1):
-        folder = pb.build_product(sell_proof.spec_for(kind), index, out_dir=str(products))
-        pb.truth_check_folder(
-            index, folder, db_path=build_db, out_dir=str(products),
-            notify_fn=lambda _text: False,
-        )
-        pack = products / "upload" / folder
-        if not (pack / "product.zip").is_file():
-            raise AssertionError(f"{kind}: upload pack has no product.zip")
-        store_kits.build(pack)
-        if gumroad_images.available():
-            gumroad_images.for_pack(pack)
-        marketing_auto.build_for_pack(pack, build_db, products_dir=products)
-    return products, marketing_auto.marketing_root(products)
+    """The twelve real packs, built once per run and shared (tests/real_pack_cache.py, CCI-3)."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import real_pack_cache
+    products, marketing, _build_db, _cache_root = real_pack_cache.real_packs()
+    return products, marketing
 
 
 PACK_COMMANDS = {
@@ -334,7 +322,8 @@ class SecretSweepTests(unittest.TestCase):
         text_exts = {".md", ".txt", ".json", ".csv", ".html", ".xml", ".yml", ".yaml",
                      ".py", ".js", ".db", ".sqlite", ".log"}
         scanned = 0
-        for path in self.root.rglob("*"):
+        # the real packs live in the shared cache folder (tests/real_pack_cache.py), so scan both
+        for path in sorted({*self.root.rglob("*"), *self.products.parent.rglob("*")}):
             if not path.is_file():
                 continue
             if path.suffix.lower() not in text_exts:
