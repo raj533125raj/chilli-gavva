@@ -77,6 +77,9 @@ def handle_health(text: str, ctx: Dict[str, Any]) -> Dict[str, Any]:
         db_path=db_path,
         now=now_dt,
     )
+    # Always end with a next step (a red/yellow card from the real robot database had none, and the
+    # every-command test made the robot's GitHub runs red from 18 Nov).
+    card = f"{card}\n\nNext: /logs tho chivari run chudandi; 👉 Fix line unte adi follow cheyandi."
 
     if callable(send_text):
         send_text(card)
