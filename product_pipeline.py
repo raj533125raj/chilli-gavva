@@ -42,22 +42,11 @@ def _allowed(db_path):
             and cubes.is_kind_enabled("review", db_path=db_path))
 
 
-def owner_approved(aid, db_path):
-    with connect(db_path) as conn:
-        row = conn.execute("SELECT status, reason FROM approvals WHERE id=?", (aid,)).fetchone()
-    return bool(row and row[0] == "approved" and row[1] != "auto-approved")
-
-
 def _reserve(aid, day, db_path):
     """Reserve a daily slot atomically, shared by CLI and other entry points."""
     conn = connect(db_path)
     try:
         conn.execute("BEGIN IMMEDIATE")
-        manual = owner_approved(aid, db_path)
-        if not manual and conn.execute("SELECT COUNT(*) FROM product_delivery_attempts p "
-                                       "JOIN approvals a ON a.id=p.approval_id "
-                                       "WHERE p.day=? AND a.reason='auto-approved'", (day,)).fetchone()[0] >= DAILY_BUILDS:
-            return False
         if conn.execute("SELECT 1 FROM product_delivery_attempts WHERE day = ? AND approval_id = ?", (day, aid)).fetchone():
             return False
         old = conn.execute("SELECT lease_until FROM product_deliveries WHERE approval_id = ?", (aid,)).fetchone()
@@ -326,7 +315,7 @@ def prepare_upload(folder, out_dir):
 
 def run_pending(db_path=None, out_dir=None, llm=None, max_builds=DAILY_BUILDS,
                 notify_fn=None, day=None, max_time_seconds=240):
-    """Finish owner-approved work this cycle; retain the daily cap for automatic approvals."""
+    """Drain already-approved work within the time and AI-call budgets."""
     if not _allowed(db_path):
         return []
     import workforce
@@ -335,15 +324,13 @@ def run_pending(db_path=None, out_dir=None, llm=None, max_builds=DAILY_BUILDS,
     day = day or datetime.datetime.now(datetime.timezone.utc).date().isoformat()
     started = time.monotonic()
     results = []
-    attempts = 0   # CCG-2: only reserved build attempts count against max_builds, not skipped drafts
+    # Keep max_builds for existing CLI callers; approvals have already passed
+    # their own quota. A second build quota strands approved backlogs.
     for item in pending(db_path):
         aid, title, payload, review = (item[key] for key in ("id", "title", "payload", "review"))
         if time.monotonic() - started >= max_time_seconds or not _allowed(db_path):
             break
         if product_builder.is_held(aid, db_path):
-            continue
-        manual = owner_approved(aid, db_path)
-        if not manual and attempts >= max_builds:
             continue
         # BINNY-V4A: Feasibility check before build. If no builder can make the idea,
         # mark the draft 'needs_owner' with a Tenglish reason (never build a fake product).
@@ -374,7 +361,6 @@ def run_pending(db_path=None, out_dir=None, llm=None, max_builds=DAILY_BUILDS,
             continue
         if not _reserve(aid, day, db_path):
             continue
-        attempts += int(not manual)
         stage = "council"
         try:
             summary = product_council.get_council_summary(aid, db_path)

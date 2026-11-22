@@ -2301,7 +2301,7 @@ def build_pending(db_path=None, llm=None, max_builds=MAX_BUILDS_PER_RUN, out_dir
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Chilli Gavva Product Builder")
-    parser.add_argument("--max", type=int, default=MAX_BUILDS_PER_RUN, help="max products to build this run")
+    parser.add_argument("--max", type=int, default=MAX_BUILDS_PER_RUN, help="legacy batch hint; approved work drains within time and AI-call budgets")
     parser.add_argument("--list", action="store_true", help="show built products")
     parser.add_argument("--db", default=None)
     args = parser.parse_args(argv)
