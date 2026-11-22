@@ -21,6 +21,7 @@ import guardrails
 import health_check
 import improver_loop
 import post_planner
+import sales_ledger
 import teams_report
 import telegram_inbox as ti
 import tg_settings
@@ -29,6 +30,7 @@ from tests.test_ocd_plugins_e2e import OWNER,BOT_TOKEN
 from tests.test_cxj_planner_gate import sample_assets
 
 START=datetime.datetime(2026,11,22,10,tzinfo=datetime.timezone.utc)
+REAL_SEND_TEXT=ti.send_text
 
 
 @unittest.skipUnless(Image is not None,'Owner-week media fixture needs Pillow')
@@ -108,6 +110,16 @@ class WeekFixture(ReplyStyleFixture):
     def check_output_style(self,output):
         for value in output:self.assert_reply_style(value)
 
+    def private_sale_delivery(self):
+        result=self.run_command('sale pack 1 Gumroad '+chr(36)+str(12),allow_money=True)
+        with mock.patch.object(ti,'_call',return_value={'ok':True}) as api:
+            self.assertTrue(REAL_SEND_TEXT(BOT_TOKEN,OWNER,result['text']))
+        token,method,params=api.call_args.args
+        self.assertEqual(method,'sendMessage')
+        self.assertEqual(params['chat_id'],OWNER)
+        self.assertNotIn(token,params['text'])
+        return result['text'],params['text']
+
 
 class OwnerWeekTests(WeekFixture,unittest.TestCase):
     def test_seven_days_preserve_decisions_posts_and_owner_control(self):
@@ -155,8 +167,24 @@ class OwnerWeekTests(WeekFixture,unittest.TestCase):
         for command in ('/sell','/sell 1','/files 1','/not_a_real_command','namaste'):
             with self.subTest(command=command):self.check_output_style(self.exchange(command))
 
+    def test_private_sale_is_saved_and_reaches_real_transport(self):
+        reply,delivered=self.private_sale_delivery()
+        self.assertIn('USD '+str(12),reply)
+        rows=sales_ledger.get_sales(db_path=self.db)
+        self.assertEqual(len(rows),1)
+        self.assertEqual(rows[0]['amount'],12)
+        self.assertEqual(rows[0]['currency'],'USD')
+        self.assert_reply_style(delivered,allow_money=True)
+
 
 class ProtectedReplyStyleTests(WeekFixture,unittest.TestCase):
+    @unittest.expectedFailure
+    # FOR CLAUDE CODE: telegram_inbox.send_text applies the public money scrubber to private sales confirmations.
+    def test_private_sale_amount_survives_real_transport(self):
+        reply,delivered=self.private_sale_delivery()
+        self.assertIn('USD '+str(12),reply)
+        self.assertIn('USD '+str(12),delivered)
+
     @unittest.expectedFailure
     # FOR CLAUDE CODE: telegram_inbox.HELP is 26 lines and needs one final Next line.
     def test_start_style(self):self.check_output_style(self.exchange('/start'))
