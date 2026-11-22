@@ -33,6 +33,17 @@ def _is_single_color(path):
     return colors is not None and len(colors) <= 1
 
 
+def _is_mostly_one_color(path, threshold=0.92):
+    with Image.open(path) as im:
+        rgb = im.convert("RGB")
+        colors = rgb.getcolors(maxcolors=1_000_000) or []
+    if not colors:
+        return True
+    total = sum(count for count, _ in colors)
+    dominant = max(count for count, _ in colors)
+    return (dominant / max(1, total)) >= threshold
+
+
 @unittest.skipUnless(HAS_PILLOW, "Pillow is required for baby tracker builds")
 class BabyBuilderTests(unittest.TestCase):
     @classmethod
@@ -82,11 +93,15 @@ class BabyBuilderTests(unittest.TestCase):
                 self.assertGreaterEqual(im.size[0], 1200, name)
                 self.assertGreaterEqual(im.size[1], 800, name)
             self.assertFalse(_is_single_color(self.tmp / name), name)
+            self.assertFalse(_is_mostly_one_color(self.tmp / name), name)
+            self.assertFalse(_is_mostly_one_color(self.tmp / name), name)
 
     def test_previews_visually_distinct(self):
         hashes = [_sha256(self.tmp / n) for n in ("cover.png", "preview_1.png", "preview_2.png", "preview_3.png")]
         self.assertEqual(len(set(hashes)), 4)
         self.assertNotEqual(hashes[0], hashes[1])
+        self.assertNotEqual(hashes[0], hashes[2])
+        self.assertNotEqual(hashes[0], hashes[3])
 
     def test_manifest_records_format_title_files_page_count(self):
         self.assertEqual(self.manifest["format"], "baby_tracker")
