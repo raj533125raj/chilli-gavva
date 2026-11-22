@@ -469,7 +469,7 @@ def bad_day_events(every: int = 60) -> Dict[int, Callable[[Dict[str, Path], Dict
     add(14, corrupt)
 
     def half(paths, env):
-        for rel in ("exported_content/post_plan.json", "web/data/status.json",
+        for rel in ("exported_content/products/post_plan.json", "web/data/status.json",
                     "exported_content/marketing/dup_report.json"):
             _half_write(paths["code"] / rel)
         _half_write(paths["runner"] / "robot-failure-state.json")

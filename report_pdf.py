@@ -29,9 +29,9 @@ import zlib
 
 import pdf_design
 import report_charts
+import post_planner
 
 BASE_DIR = Path(__file__).resolve().parent
-DEFAULT_PLAN = BASE_DIR / "exported_content" / "post_plan.json"
 PAGE_W, PAGE_H = pdf_design.PAGE_SIZES["A4"]
 MARGIN = pdf_design.MARGIN
 ACCENT = pdf_design.STYLES["A"]["accent"]
@@ -145,7 +145,7 @@ def _week_bounds(now):
 
 
 def _load_plan_with_warning(plan_path):
-    path = Path(plan_path) if plan_path else DEFAULT_PLAN
+    path = Path(plan_path) if plan_path else BASE_DIR / post_planner.PLAN_PATH
     if not path.is_file():
         return [], None
     try:
@@ -369,7 +369,7 @@ def collect_weekly_data(db_path=None, now=None, plan_path=None, products_dir=Non
     if plan_warning:
         problems.insert(0, {
             "problem": plan_warning,
-            "fix": "exported_content/post_plan.json check chesi malli save cheyandi.",
+            "fix": "Post plan check chesi malli save cheyandi. Next: /post today",
         })
     data["problems"] = problems[:3]
     data["next_plan"] = _next_plan(data)

@@ -105,7 +105,7 @@ class ShortBadDayTests(unittest.TestCase):
         cls.sim = sim = _sim()
 
         def trouble(paths, env):
-            for rel in ("exported_content/post_plan.json", "web/data/status.json"):
+            for rel in ("exported_content/products/post_plan.json", "web/data/status.json"):
                 sim._half_write(paths["code"] / rel)
             return -3 * 3600.0
 

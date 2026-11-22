@@ -13,12 +13,13 @@ import json
 import os
 import time
 from pathlib import Path
+import post_planner
 
 ROOT = Path(__file__).resolve().parent
 
 # JSON state files the robot rewrites itself (path relative to the robot folder).
 STATE_FILES = (
-    "exported_content/post_plan.json",
+    post_planner.PLAN_PATH,
     "exported_content/marketing/dup_report.json",
     "web/data/status.json",
 )
@@ -61,9 +62,11 @@ def _send(text, send):
         return False
 
 
-def check_state_files(root=None, send=None, files=STATE_FILES):
+def check_state_files(root=None, send=None, files=None):
     """Remove half-written state files, tell the owner once. Returns the names removed."""
     root = Path(root) if root else ROOT
+    if files is None:
+        files = (post_planner.PLAN_PATH, *STATE_FILES[1:])
     removed = []
     for rel in files:
         path = root / rel

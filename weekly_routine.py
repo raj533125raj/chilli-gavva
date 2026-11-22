@@ -23,6 +23,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
+import post_planner
 
 REPO_ROOT = Path(__file__).resolve().parent
 DEFAULT_PRODUCTS_DIR = REPO_ROOT / "exported_content" / "products"
@@ -227,7 +228,7 @@ def run_calendar_export(
         result["errors"].append(f"calendar_export import error: {exc}")
         return result
 
-    plan_file = Path(plan_path) if plan_path else REPO_ROOT / "exported_content" / "post_plan.json"
+    plan_file = Path(plan_path) if plan_path else REPO_ROOT / post_planner.PLAN_PATH
     m_dir = Path(marketing_dir) if marketing_dir else DEFAULT_MARKETING_DIR
     ics_file = m_dir / "post_plan.ics"
     csv_file = m_dir / "post_plan.csv"
@@ -239,7 +240,7 @@ def run_calendar_export(
         else:
             res = calendar_export.export_calendar(plan_path=plan_file, ics_path=ics_file, csv_path=csv_file)
         result["status"] = "ok"
-        result["events_count"] = res.get("events_count", 0)
+        result["events_count"] = res.get("events_count", res.get("count", 0))
     except Exception as exc:
         result["status"] = "error"
         result["errors"].append(f"calendar_export error: {exc}")

@@ -110,7 +110,7 @@ class TestDoctorIntegrityChecks(unittest.TestCase):
 
     def test_post_plan_valid_ok(self):
         self.plan_path.parent.mkdir(parents=True, exist_ok=True)
-        self.plan_path.write_text(json.dumps({"schedule": []}))
+        self.plan_path.write_text(json.dumps([]))
         res = doctor.check_post_plan_valid_json(str(self.plan_path))
         self.assertEqual(res["status"], "ok")
         self.assertIn("valid JSON", res["message"])
@@ -123,12 +123,12 @@ class TestDoctorIntegrityChecks(unittest.TestCase):
         self.assertIn("parse error", res["message"])
         self.assertIn("post_planner.py", res["fix"])
 
-    def test_post_plan_non_dict_fails(self):
+    def test_post_plan_non_list_fails(self):
         self.plan_path.parent.mkdir(parents=True, exist_ok=True)
-        self.plan_path.write_text("[]")
+        self.plan_path.write_text('{"schedule": []}')
         res = doctor.check_post_plan_valid_json(str(self.plan_path))
         self.assertEqual(res["status"], "fail")
-        self.assertIn("must be a JSON object", res["message"])
+        self.assertIn("must be a JSON list", res["message"])
 
     def test_keywords_json_missing_is_ok(self):
         res = doctor.check_keywords_json_valid_if_present(str(self.keywords_path))
@@ -205,7 +205,7 @@ class TestDoctorIntegrityChecks(unittest.TestCase):
     def test_run_environment_checks_aggregation_all_ok(self):
         upload_dir = self.products_dir / "upload"
         upload_dir.mkdir(parents=True)
-        self.plan_path.write_text("{}")
+        self.plan_path.write_text("[]")
 
         res = doctor.run_environment_checks(
             products_dir=str(self.products_dir),

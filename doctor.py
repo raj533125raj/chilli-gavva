@@ -1027,7 +1027,9 @@ def check_marketing_folders_per_ready_pack(products_dir: str = None, marketing_d
 
 def check_post_plan_valid_json(plan_path: str = None) -> dict:
     """Check post plan file exists and contains valid JSON."""
-    p_path = pathlib.Path(plan_path) if plan_path else pathlib.Path("exported_content") / "post_plan.json"
+    import post_planner
+    p_path = (pathlib.Path(plan_path) if plan_path else
+              pathlib.Path(__file__).resolve().parent / post_planner.PLAN_PATH)
     if not p_path.exists():
         return {
             "status": "warn",
@@ -1037,10 +1039,10 @@ def check_post_plan_valid_json(plan_path: str = None) -> dict:
     try:
         with open(p_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        if not isinstance(data, dict):
+        if not isinstance(data, list):
             return {
                 "status": "fail",
-                "message": "post_plan.json root must be a JSON object",
+                "message": "post_plan.json root must be a JSON list",
                 "fix": "post_plan.json corrupt aindi, post_planner.py re-run chesi overwrite cheyandi",
             }
         return {

@@ -251,10 +251,10 @@ class HalfWrittenStateTests(unittest.TestCase):
 
     def _root(self, tmp):
         import json
-        for rel in ("exported_content/marketing", "web/data"):
+        for rel in ("exported_content/marketing", "exported_content/products", "web/data"):
             os.makedirs(os.path.join(tmp, rel))
         good = json.dumps({"days": [{"day": 1, "posts": ["a", "b"]}], "week": "2026-W47"}, indent=2)
-        with open(os.path.join(tmp, "exported_content", "post_plan.json"), "w", encoding="utf-8") as handle:
+        with open(os.path.join(tmp, "exported_content", "products", "post_plan.json"), "w", encoding="utf-8") as handle:
             handle.write(good[: len(good) // 2])                       # half written
         with open(os.path.join(tmp, "web", "data", "status.json"), "w", encoding="utf-8") as handle:
             handle.write(good)                                         # complete
@@ -273,7 +273,7 @@ class HalfWrittenStateTests(unittest.TestCase):
             self.assertIn("post_plan.json", sent[0])
             self.assertIn("dup_report.json", sent[0])
             self.assertNotIn("status.json", sent[0])
-            self.assertFalse(os.path.exists(os.path.join(root, "exported_content", "post_plan.json")))
+            self.assertFalse(os.path.exists(os.path.join(root, "exported_content", "products", "post_plan.json")))
             self.assertTrue(os.path.exists(os.path.join(root, "web", "data", "status.json")))   # good file kept
             self.assertEqual(state_guard.check_state_files(root=root, send=sent.append), [])    # next run: quiet
             self.assertEqual(len(sent), 1)
