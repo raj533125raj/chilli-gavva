@@ -166,7 +166,7 @@ def _stage_images(pack):
 def _buyer_files(kind, pack):
     if kind == "notion":
         return [path for path in pack.iterdir()
-                if path.is_file() and "notion-import.zip" in path.name]
+                if path.is_file() and "workspace-import.zip" in path.name]
     keep_names = {"README.md", "README.txt", "LICENSE.txt", "HOW_TO_IMPORT.md",
                   "README-HOW-TO-INSTALL.txt", "PRINTING.txt"}
     skip_names = {"product.zip", "listing.md", "listing.txt", "checklist.txt",

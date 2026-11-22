@@ -104,10 +104,11 @@ class UploadPackTests(unittest.TestCase):
         self.assertEqual(before, {p.name: p.read_bytes() for p in self.folder.iterdir()})
         listing = (output / "listing.txt").read_text()
         for expected in ("Title: Focus Planner", "Description:", "Tags: focus, printable planner, calm routine",
-                         "What you get:\nA4 PDF\nUS Letter PDF", "a pen", "read the guide"):
+                         "What you get:\n- A4 PDF\n- US Letter PDF", "a pen", "read the guide"):
             self.assertIn(expected, listing)
-        for symbol in ("**", "#", "`", "[", "]", "- "):
+        for symbol in ("**", "#", "`", "[", "]"):
             self.assertNotIn(symbol, listing)
+        self.assertTrue(all(line.startswith("- ") for line in listing.split("What you get:\n", 1)[1].splitlines() if line))
         checklist = (output / "checklist.txt").read_text()
         self.assertEqual(checklist.splitlines()[0], "nothing was uploaded")
         for platform in ("Gumroad", "Topmate"):
@@ -211,7 +212,7 @@ class UploadPackTests(unittest.TestCase):
 
     def test_existing_launch_listing_included_files_heading_is_supported(self):
         listing = upload_pack._listing(LISTING.replace("## What you get", "## Included Files"))
-        self.assertIn("What you get:\nA4 PDF\nUS Letter PDF", listing)
+        self.assertIn("What you get:\n- A4 PDF\n- US Letter PDF", listing)
 
     def test_listing_cleaning_in_make(self):
         listing_content = """# Focus Planner Minimal Daily Goal System Routine
@@ -244,13 +245,13 @@ Also works on any spreadsheet app.
         self.assertNotIn("LibreOffice", listing_txt)
         self.assertNotIn("your preferred spreadsheet program", listing_txt)
         self.assertNotIn("any spreadsheet app", listing_txt)
-        self.assertIn("an Excel (.xlsx) file", listing_txt)
+        self.assertIn("a spreadsheet (.xlsx) file", listing_txt)
         self.assertIn("For personal use only. Do not resell or share the files.", listing_txt)
 
         # Check tags
         tags_line = [l for l in listing_txt.splitlines() if l.startswith("Tags:")][0]
         tags = [t.strip() for t in tags_line[len("Tags:"):].split(",")]
-        self.assertLessEqual(len(tags), 13)
+        self.assertLessEqual(len(tags), 10)
         self.assertIn("focus", tags)
         self.assertIn("daily routine", tags)
         self.assertNotIn("a tag that is way longer than twenty chars", tags)

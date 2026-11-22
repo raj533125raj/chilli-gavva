@@ -75,7 +75,7 @@ def _clean_tags(raw_tags, title):
             seen.add(norm)
             valid_tags.append(cleaned)
 
-    if len(valid_tags) < 13 and title:
+    if len(valid_tags) < 3 and title:
         # Build relevant candidate tags from words in title
         words = re.findall(r"[A-Za-z0-9]+", title)
         candidates = []
@@ -87,7 +87,7 @@ def _clean_tags(raw_tags, title):
             if pair not in candidates:
                 candidates.append(pair)
         for cand in candidates:
-            if len(valid_tags) >= 13:
+            if len(valid_tags) >= 3:
                 break
             cand_clean = cand.strip()
             if not cand_clean or len(cand_clean) > 20:
@@ -99,7 +99,7 @@ def _clean_tags(raw_tags, title):
                 seen.add(norm)
                 valid_tags.append(cand_clean)
 
-    return valid_tags[:13]
+    return valid_tags[:10]
 
 
 def _clean_description(description):
@@ -113,7 +113,7 @@ def _clean_description(description):
     ]
     cleaned = description
     for pat in app_patterns:
-        cleaned = re.sub(re.escape(pat), "an Excel (.xlsx) file", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(re.escape(pat), "a spreadsheet (.xlsx) file", cleaned, flags=re.IGNORECASE)
 
     # If the description does not contain "personal use", append notice
     if "personal use" not in cleaned.lower():
@@ -154,8 +154,14 @@ def _listing(body):
     cleaned_tags = _clean_tags(tags, title)
     cleaned_desc = _clean_description(raw_description)
 
-    return (f"Title: {title}\n\nDescription:\n{cleaned_desc}\n\nTags: {', '.join(cleaned_tags)}"
-            + "\n\nWhat you get:\n" + "\n".join(items) + "\n")
+    extra = ""
+    for heading, label in (("how to use", "How to use"), ("license", "License"), ("details", "File details")):
+        value = _plain("\n".join(sections.get(heading, [])))
+        if value:
+            extra += f"\n\n{label}:\n{value}"
+    return (f"Title: {title}\n\nDescription:\n{cleaned_desc}" + extra
+            + f"\n\nTags: {', '.join(cleaned_tags)}\n\nWhat you get:\n"
+            + "\n".join("- " + item for item in items) + "\n")
 
 
 def _scan(path):
@@ -293,6 +299,9 @@ def make(product_folder, out_dir):
                 from PIL import Image
                 with Image.open(cover) as image:
                     image.convert("RGB").save(stage / "cover.png", "PNG")
+        for image in images:
+            if re.match(r"^preview[-_.]", image.name, re.I):
+                shutil.copyfile(image, stage / image.name)
         # Rename the complete directory only after every file has been written.
         os.rename(stage, destination)
     return destination

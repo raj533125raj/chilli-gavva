@@ -723,7 +723,7 @@ class TestEdgeCasesAndSafety(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             folder = product_builder.build_product(spec, 558, td)
             self.assertTrue(os.path.isdir(os.path.join(td, folder)))
-            self.assertTrue(os.path.isfile(os.path.join(td, folder, f"{spec['short_name']}-notion-import.zip")))
+            self.assertTrue(os.path.isfile(os.path.join(td, folder, f"{spec['short_name']}-workspace-import.zip")))
             self.assertTrue(os.path.isfile(os.path.join(td, folder, "HOW_TO_IMPORT.md")))
 
     def test_57_build_product_preserves_existing_dated_planner_builds(self):

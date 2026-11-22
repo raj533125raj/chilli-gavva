@@ -1086,7 +1086,7 @@ def _delivery_facts(folder):
             # listing, advertise a subset of real tabs without that claim.
             listed = [tab for tab in tabs if facts["kind"] != "resume" or tab.casefold() != "dashboard"]
             label = "tabs" if listed == tabs else "tabs include"
-            contents.append(f"`{name}` — Excel (.xlsx); {label}: " + ", ".join(listed))
+            contents.append(f"`{name}` — spreadsheet (.xlsx); {label}: " + ", ".join(listed))
         elif ext == ".html":
             contents.append(f"`{name}` — HTML file (copy into your email program)")
         elif ext == ".png" and not name.startswith(LISTING_IMAGE_PREFIXES):
@@ -1170,7 +1170,9 @@ def _listing_md(spec, facts=None):
         "## What you get", "", *[f"- {item}" for item in _contents_lines(facts)], "",
         *(["## Details", "", *[f"- {item}" for item in facts["details"]], ""]
           if facts and facts.get("details") else []),
-        f"## Tags ({len(l['tags'])})", "", *[f"- {t}" for t in l["tags"]], "",
+        "## How to use", "", *[f"{i}. {step}" for i, step in enumerate(spec.get("instructions", []), 1)], "",
+        "## License", "", "Personal use only. Do not resell or share the files.", "",
+        "## Tags", "", *[f"- {t}" for t in l["tags"]], "",
         "## Cover image idea", "", spec["cover_image_idea"] or "A clean flat-lay of the product on a laptop screen.",
         "", "---", (spec.get("source_note") or f"Built by the Product Builder from approved draft #{spec['approval_id']}.")
         + " "
@@ -1181,6 +1183,46 @@ def _listing_md(spec, facts=None):
     from upload_pack import _check_money
     _check_money(body, "generated listing.md")
     return body
+
+
+def _buyer_listing(spec, facts, files):
+    """Write buyer copy using inspected deliverables, preserving the original niche."""
+    from upload_pack import _check_money
+    from pin_ready import BRAND_CHECK
+    listing = spec["listing"]
+    _check_money(str(listing), "approved listing")
+
+    def plain(value):
+        value = re.sub(r"\bExcel\b", "spreadsheet", str(value), flags=re.I)
+        value = re.sub(r"\bNotion\b", "workspace", value, flags=re.I)
+        return re.sub(r"\s+", " ", BRAND_CHECK.sub("", value)).strip()
+
+    title = plain(listing["title"])
+    if len(title) < 40:
+        title += " - Digital Files and Personal Use Guide"
+    if len(title) > 80:
+        title = title[:80].rsplit(" ", 1)[0].rstrip(" -")
+    listing["title"] = title
+    # Put the product topic first; all remaining tags come from the approved spec.
+    topic = " ".join(title.split()[:2])[:20].strip()
+    tags = [topic] + [plain(tag) for tag in listing.get("tags", [])]
+    tags += ["digital files", "personal use", "download guide"]
+    listing["tags"] = list(dict.fromkeys(tag.casefold() for tag in tags if 0 < len(tag) <= 20))[:10]
+    details = [plain(line.replace("`", "")) for line in facts.get("contents", [])]
+    steps = [plain(step) for step in spec.get("instructions", [])]
+    if not steps:
+        steps = ["Download and extract the archive, then open the included files. Read the guide before using them."]
+    spec["instructions"] = steps
+    description = plain(listing["description"])
+    evidence = " Files included: " + "; ".join(details[:6]) + ". "
+    # Archive size is an actual file size even for formats without paper pages.
+    size = sum(os.path.getsize(os.path.join(facts["folder"], name)) for name in files
+               if os.path.isfile(os.path.join(facts["folder"], name))) if facts.get("folder") else 0
+    if size:
+        evidence += f"Download files total {max(1, (size + 1023) // 1024)} KB. "
+    instructions = " How to use: " + " ".join(steps) + " Personal use only; do not resell or share the files."
+    # Keep original buyer benefits and leave room for concrete evidence and instructions.
+    listing["description"] = description[:max(0, 2900-len(evidence)-len(instructions))].rstrip() + evidence + instructions
 
 
 def _readme_md(spec, files, how_to):
@@ -1219,7 +1261,7 @@ def _build_planner(folder, spec):
 
 
 def _build_notion(folder, spec):
-    name = f"{spec['short_name']}-notion-import.zip"
+    name = f"{spec['short_name']}-workspace-import.zip"
     files = {}
     for p in spec["pages"] or [{"title": spec["name"], "markdown": f"# {spec['name']}"}]:
         md = p["markdown"] if p["markdown"].lstrip().startswith("#") else f"# {p['title']}\n\n{p['markdown']}"
@@ -1608,6 +1650,8 @@ def build_product(spec, approval_id, out_dir=None, folder_name=None):
     spec["listing"]["description"] = _delivery_text(spec["listing"]["description"], spec, facts)
     spec["instructions"] = [_delivery_text(inst, spec, facts) for inst in spec["instructions"]]
 
+    _buyer_listing(spec, dict(facts, folder=folder), files)
+
     _listing_md(spec, facts=facts)  # validate before writing listing media
     with open(os.path.join(folder, "cover_image_idea.txt"), "w", encoding="utf-8") as f:
         f.write((spec["cover_image_idea"] or "A clean flat-lay of the product on a laptop screen.") + "\n")
@@ -1858,7 +1902,7 @@ def spec_from_folder(folder):
                      "pages": planner_pages_from_pdf(os.path.join(folder, pdf))}, **extra)
     if any(n.endswith("-resume.docx") for n in names):
         return dict({"kind": "resume", "name": name, "resume": [], "cover_letter": []}, **extra)
-    if any(n.endswith("-notion-import.zip") for n in names):
+    if any(n.endswith(("-notion-import.zip", "-workspace-import.zip")) for n in names):
         return dict({"kind": "notion", "name": name, "pages": [], "databases": []}, **extra)
     return dict({"kind": "sheets", "name": name, "sheets": []}, **extra)
 

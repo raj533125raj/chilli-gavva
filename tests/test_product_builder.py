@@ -119,8 +119,10 @@ class Base(unittest.TestCase):
         self.assertNotIn("USD", listing)
         self.assertIn("**Buyer:**", listing)
         self.assertIn("**Platform:**", listing)
-        tags = listing.split("## Tags (5)")[1].split("##")[0]
-        self.assertEqual(len(re.findall(r"^- ", tags, re.M)), 5)
+        tags = listing.split("## Tags")[1].split("##")[0]
+        count = len(re.findall(r"^- ", tags, re.M))
+        self.assertGreaterEqual(count, 3)
+        self.assertLessEqual(count, 10)
 
 
 def xml_parts(path):
@@ -177,7 +179,7 @@ class FileTypeTests(Base):
         folder = self.build_one("Notion Templates Agent")
         self.assert_common_files(folder)
         self.assertTrue(os.path.isfile(os.path.join(folder, "HOW_TO_IMPORT.md")))
-        with zipfile.ZipFile(os.path.join(folder, "client-crm-notion-import.zip")) as z:
+        with zipfile.ZipFile(os.path.join(folder, "client-crm-workspace-import.zip")) as z:
             self.assertEqual(sorted(z.namelist()), ["clients.csv", "start-here.md"])
             rows = list(csv.reader(io.StringIO(z.read("clients.csv").decode())))
             self.assertTrue(z.read("start-here.md").decode().startswith("# Start Here"))

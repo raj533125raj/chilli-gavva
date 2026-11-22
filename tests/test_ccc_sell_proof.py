@@ -122,7 +122,7 @@ class BuyerZipTests(unittest.TestCase):
             self.assertTrue((pack / "product.zip").is_file(), "upload_pack refused the Notion pack")
             with zipfile.ZipFile(pack / "product.zip") as archive:
                 names = set(archive.namelist())
-            self.assertIn("client-crm-notion-import.zip", names)
+            self.assertIn("client-crm-workspace-import.zip", names)
             self.assertIn("HOW_TO_IMPORT.md", names)
             self.assertIn("client-crm-import-guide-A4.pdf", names)
             self.assertIn("client-crm-import-guide-Letter.pdf", names)

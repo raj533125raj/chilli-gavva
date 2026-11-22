@@ -99,7 +99,7 @@ def facts(folder):
     for n in names:
         path = os.path.join(folder, n)
         if n.endswith(".zip"):
-            f["kind"] = "notion" if "notion" in n else f["kind"]
+            f["kind"] = "notion" if ("notion" in n or n.endswith("-workspace-import.zip")) else f["kind"]
             with zipfile.ZipFile(path) as z:
                 for member in z.namelist():
                     body = z.read(member).decode("utf-8", "ignore")
