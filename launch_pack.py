@@ -42,7 +42,7 @@ UPLOAD_CHECKLIST = [
     "Log in to your seller account on Gumroad or Etsy.",
     "Click 'New Product' and select 'Digital Product' / 'Digital Download'.",
     "Copy the product title and description from listing.md.",
-    "Add all 13 search tags listed in listing.md to maximize search visibility.",
+    "Add the search tags listed in listing.md to maximize search visibility.",
     "Upload cover.png as the primary thumbnail and preview-1.png through preview-3.png into the product gallery.",
     "Upload the main deliverable files (A4 and US Letter PDFs or templates).",
     "Set your item options and publish or save as a draft ready for release."
@@ -157,6 +157,7 @@ def _format_launch_listing(spec: Dict[str, Any], file_list: List[str], facts: Op
             description += "\n\nVerified contents: " + "; ".join(parts) + "."
         if facts["formulas"]:
             description += "\n\nThe workbook includes formulas."
+    description = sanitize(description)
     tags = listing.get("tags", [])
     buyer = listing.get("buyer", "")
     platform = listing.get("platform", "Gumroad")
@@ -216,7 +217,7 @@ def _format_launch_listing(spec: Dict[str, Any], file_list: List[str], facts: Op
         "",
         "## How to use",
         "",
-        *[f"{index}. {step}" for index, step in enumerate(spec.get("instructions", []), 1)],
+        *[f"{index}. {step}" for index, step in enumerate([sanitize(step) for step in spec.get("instructions", [])], 1)],
         "",
         "## License",
         "",

@@ -389,7 +389,8 @@ def _sanitize_text(text, spec, facts=None):
     text = re.sub(r"\bcalendar views?\b", "calendar layout", text, flags=re.I)
     text = re.sub(r"\bkanban\b|\btimeline views?|\bgallery views?|\bboard views?\b", "view", text, flags=re.I)
 
-    if not any("dashboard" in n for n in all_names):
+    dashboard_proven = truth_check._proven("dashboard", facts)[0] if facts else any("dashboard" in n for n in all_names)
+    if not dashboard_proven:
         text = re.sub(r"\bdashboards?\b", "overview", text, flags=re.I)
 
     if kind not in ("sheets", "resume"):
@@ -1197,7 +1198,7 @@ def _buyer_listing(spec, facts, files):
         value = re.sub(r"\bNotion\b", "workspace", value, flags=re.I)
         return re.sub(r"\s+", " ", BRAND_CHECK.sub("", value)).strip()
 
-    title = plain(listing["title"])
+    title = plain(_delivery_text(listing["title"], spec, facts))
     if len(title) < 40:
         title += " - Digital Files and Personal Use Guide"
     if len(title) > 80:
@@ -1205,15 +1206,15 @@ def _buyer_listing(spec, facts, files):
     listing["title"] = title
     # Put the product topic first; all remaining tags come from the approved spec.
     topic = " ".join(title.split()[:2])[:20].strip()
-    tags = [topic] + [plain(tag) for tag in listing.get("tags", [])]
+    tags = [topic] + [plain(_delivery_text(tag, spec, facts)) for tag in listing.get("tags", [])]
     tags += ["digital files", "personal use", "download guide"]
     listing["tags"] = list(dict.fromkeys(tag.casefold() for tag in tags if 0 < len(tag) <= 20))[:10]
-    details = [plain(line.replace("`", "")) for line in facts.get("contents", [])]
+    details = [plain(line.split(" — ", 1)[-1].replace("`", "")) for line in facts.get("contents", [])]
     steps = [plain(step) for step in spec.get("instructions", [])]
     if not steps:
         steps = ["Download and extract the archive, then open the included files. Read the guide before using them."]
     spec["instructions"] = steps
-    description = plain(listing["description"])
+    description = plain(_delivery_text(listing["description"], spec, facts))
     evidence = " Files included: " + "; ".join(details[:6]) + ". "
     # Archive size is an actual file size even for formats without paper pages.
     size = sum(os.path.getsize(os.path.join(facts["folder"], name)) for name in files

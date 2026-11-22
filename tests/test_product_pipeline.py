@@ -18,7 +18,7 @@ import product_pipeline as pipeline
 import telegram_inbox
 import workforce
 from scripts import db_crypt
-from test_launch_pack import fake_spec
+from tests.test_launch_pack import fake_spec
 
 
 DRAFT = ("PRODUCT NAME: Approved Fixture\nBUYER: adults\n"
@@ -310,7 +310,7 @@ class DeliveryTests(unittest.TestCase):
 
     @unittest.skipUnless(mockups.available(), "needs Pillow and poppler (free image tools)")
     def test_other_supported_formats_reach_truth_ready_with_real_files(self):
-        from test_product_builder import SPECS
+        from tests.test_product_builder import SPECS
         for niche in ("Budget Sheets Agent", "Resume Bundle Agent", "Notion Templates Agent"):
             with self.subTest(niche=niche):
                 aid = self.approved(checker.format_review(90, []), council=True, niche=niche)
