@@ -1,4 +1,5 @@
 """CXJ-2: real slide files and visible hook/CTA, with temp-only metadata."""
+import copy
 import json
 import tempfile
 import unittest
@@ -71,6 +72,17 @@ class CarouselGateTests(unittest.TestCase):
         self.assertIn('brand/money',self.errors())
         self.data['slides'][1]['layout'][0]['size']=12
         self.assertIn('font size',self.errors())
+
+    def test_currency_variants_fail_in_caption_alt_and_visible_text(self):
+        original=copy.deepcopy(self.data)
+        for amount in ('CAD'+str(12),str(12)+'EUR','AED .'+str(99),chr(8361)+str(12)):
+            for field in ('caption','alt','layout'):
+                with self.subTest(amount=amount,field=field):
+                    self.data=copy.deepcopy(original)
+                    if field=='caption': self.data['caption']+=' '+amount
+                    elif field=='alt': self.data['slides'][1]['alt']+=' '+amount
+                    else: self.data['slides'][1]['layout'][0].update(text=amount,lines=[amount])
+                    self.assertIn('money',self.errors())
 
     def test_saved_caption_and_alt_must_match_the_checked_values(self):
         (self.root/'caption.txt').write_text('Different caption')

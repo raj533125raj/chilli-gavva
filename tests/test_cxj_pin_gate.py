@@ -59,6 +59,18 @@ class PinGateTests(unittest.TestCase):
             pin=dict(self.pin,title=value)
             self.assertTrue(pin_ready.check_ready_pin(pin,self.path))
 
+    def test_currency_variants_are_rejected_in_metadata_and_visible_text(self):
+        for amount in ('CAD'+str(12),str(12)+'EUR','AED .'+str(99),chr(8361)+str(12)):
+            with self.subTest(amount=amount):
+                pin=dict(self.pin,title='Weekly Planner '+amount)
+                problems=pin_ready.check_ready_pin(pin,self.path)
+                self.assertTrue(any('money' in problem for problem in problems),problems)
+                pin=copy.deepcopy(self.pin)
+                pin['layout'][0]['text']=amount
+                pin['layout'][0]['lines']=[amount]
+                problems=pin_ready.check_ready_pin(pin,self.path)
+                self.assertTrue(any('money' in problem for problem in problems),problems)
+
     def test_folder_checker_reaches_singular_gate_and_refuses_external_images(self):
         data={'pins':[dict(self.pin) for _ in range(5)],'main_keyword':'weekly planner'}
         (self.root/'pins.json').write_text(json.dumps(data))

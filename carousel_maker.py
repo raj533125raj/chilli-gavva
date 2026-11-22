@@ -1127,7 +1127,7 @@ def check_ready_carousel(folder: Path) -> List[str]:
         alt = slide.get("alt")
         if not isinstance(alt,str) or not 0 < len(alt.strip()) <= 500:
             problems.append(f"{label}: Alt text 1-500 characters lo rayandi.")
-        elif pin_ready.MONEY_CHECK.search(alt) or pin_ready.BRAND_CHECK.search(alt):
+        elif pin_ready.check_money_text(alt) or pin_ready.BRAND_CHECK.search(alt):
             problems.append(f"{label}: Alt text lo brand/money text teeseyandi.")
         layout = slide.get("layout")
         if not isinstance(layout,list) or not layout:
@@ -1151,7 +1151,7 @@ def check_ready_carousel(folder: Path) -> List[str]:
     if not isinstance(caption,str) or not 0 < len(caption.strip()) <= 2200:
         problems.append("Caption 1-2200 characters lo rayandi.")
         caption = str(caption or "")
-    if pin_ready.MONEY_CHECK.search(caption) or pin_ready.BRAND_CHECK.search(caption):
+    if pin_ready.check_money_text(caption) or pin_ready.BRAND_CHECK.search(caption):
         problems.append("Caption lo brand/money text teeseyandi.")
     if len(re.findall(r"(?<![\w#])#\w+",caption)) > 20:
         problems.append("Caption lo 20 kanna ekkuva hashtags unnayi; 20 lopala pettandi.")

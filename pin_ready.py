@@ -76,13 +76,20 @@ def cut(text: str, limit: int) -> str:
     return short + "..."
 
 
+def check_money_text(text: Any) -> bool:
+    """Reject the same currency forms as public listings, plus marketing price words."""
+    from listing_fields import MONEY_PATTERNS
+    value = str(text or "")
+    return bool(MONEY_CHECK.search(value) or any(pattern.search(value) for pattern in MONEY_PATTERNS))
+
+
 def text_problems(text: str, label: str, limit: int) -> List[str]:
     problems = []
     if not str(text or "").strip():
         problems.append(f"{label}: empty")
     elif len(text) > limit:
         problems.append(f"{label}: {len(text)} chars (max {limit})")
-    if MONEY_CHECK.search(str(text or "")):
+    if check_money_text(text):
         problems.append(f"{label}: money words")
     if BRAND_CHECK.search(str(text or "")):
         problems.append(f"{label}: brand name")
@@ -638,7 +645,7 @@ def check_ready_pin(pin: Dict[str, Any], image_path: Path | str,
         value = pin.get(field)
         if not isinstance(value,str) or not value.strip() or len(value)>limit:
             problems.append(f"{label}: {field} 1-{limit} characters lo rayandi.")
-        elif MONEY_CHECK.search(value):
+        elif check_money_text(value):
             problems.append(f"{label}: {field} lo money text teeseyandi.")
         elif BRAND_CHECK.search(value):
             problems.append(f"{label}: {field} lo brand names teeseyandi.")
