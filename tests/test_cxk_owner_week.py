@@ -156,4 +156,32 @@ class OwnerWeekTests(WeekFixture,unittest.TestCase):
             with self.subTest(command=command):self.check_output_style(self.exchange(command))
 
 
+class ProtectedReplyStyleTests(WeekFixture,unittest.TestCase):
+    @unittest.expectedFailure
+    # FOR CLAUDE CODE: telegram_inbox.HELP is 26 lines and needs one final Next line.
+    def test_start_style(self):self.check_output_style(self.exchange('/start'))
+    @unittest.expectedFailure
+    # FOR CLAUDE CODE: telegram_inbox.today_posts_text/today_product_text need one final Next line.
+    def test_today_style(self):self.check_output_style(self.exchange('/today'))
+    def test_drafts_style(self):self.check_output_style(self.exchange('/drafts'))
+    @unittest.expectedFailure
+    # FOR CLAUDE CODE: tg_posts.handle_post_today sends a header and media captions without final Next lines.
+    def test_post_today_style(self):self.check_output_style(self.exchange('/post today'))
+    @unittest.expectedFailure
+    # FOR CLAUDE CODE: telegram_inbox.mark_post_done_text needs one final Next line.
+    def test_posted_style(self):self.check_output_style(self.exchange('/posted 1'))
+    @unittest.expectedFailure
+    # FOR CLAUDE CODE: tg_health/health_check health card needs one final Next line.
+    def test_health_style(self):self.check_output_style(self.exchange('/health'))
+    @unittest.expectedFailure
+    # FOR CLAUDE CODE: telegram_inbox.status_text needs one final Next line.
+    def test_status_style(self):self.check_output_style(self.exchange('/status'))
+    @unittest.expectedFailure
+    # FOR CLAUDE CODE: tg_teams/teams_report report is 28 lines and needs one final Next line.
+    def test_teams_style(self):self.check_output_style(self.exchange('/teams'))
+    @unittest.expectedFailure
+    # FOR CLAUDE CODE: telegram_inbox.handle_callback edits Approved without a final Next line.
+    def test_approval_button_style(self):self.check_output_style(self.exchange(callback=f'a:{self.first}'))
+
+
 if __name__=='__main__':unittest.main()
