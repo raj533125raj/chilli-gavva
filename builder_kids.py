@@ -100,7 +100,7 @@ def _table(pdf: Any, title: str, subtitle: str, headers: List[str], rows: int = 
     right = pdf.w - pdf_design.MARGIN
     top = pdf.h - 125
     col_w = (right - left) / len(headers)
-    row_h = 32
+    row_h = (top - 28 - 80) / rows
     for i, header in enumerate(headers):
         x = left + i * col_w
         pdf.fill(x, top - 28, col_w, 28, _COLORS["soft"])
@@ -166,6 +166,10 @@ def _build_pdf(path: Path, paper: str, norm: Dict[str, Any]) -> None:
         pdf.text(pdf_design.MARGIN, y, label, 11, bold=True, color=_COLORS["ink"])
         pdf.line(pdf_design.MARGIN + 150, y - 2, pdf.w - pdf_design.MARGIN, y - 2, color=_COLORS["line"])
         y -= 72
+    pdf.text(pdf_design.MARGIN, y, "How I will get started", 11, bold=True, color=_COLORS["ink"])
+    for _ in range(8):
+        y -= 24
+        pdf.line(pdf_design.MARGIN, y, pdf.w - pdf_design.MARGIN, y, color=_COLORS["line"], width=0.4)
     pdf.new_page()
     _table(pdf, "Weekly Chore Chart", "Mark a box after each chore is finished.", ["Chore", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], 10)
     pdf.new_page()

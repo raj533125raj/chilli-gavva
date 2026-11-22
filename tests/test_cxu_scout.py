@@ -18,7 +18,7 @@ class ScoutDraftTests(unittest.TestCase):
         self.assertEqual(item['idea'],'Festival Planner for Students')
 
     def test_app_physical_and_course_ideas_never_enter_the_database(self):
-        bad=('Budget Planner App','Physical Product: Printed Planner Shipped to Buyers','Resume Video Course','Subscription Audio Course')
+        bad=('Budget Planner App','Physical Product: Printed Planner Shipped to Buyers','Resume Video Course','Subscription Audio Course','Physical Planner')
         good=('Budget Sheet for Students','Small Business Log for Home Bakers','ADHD Focus Planner',
               'Notion Workspace Template','Resume Bundle for Job Seekers','Teacher Planner','Fitness Planner',
               'Baby Tracker','Kids Chore Chart and Reward Pack')

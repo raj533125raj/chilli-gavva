@@ -83,12 +83,7 @@ BUYER_AUDIENCE = {
 # OCH-2 list: (kind, check, buyer) -> reason.  A reason is added only for a
 # real generator gap that this sweep proves; every entry is mirrored in
 # .jobs/PROGRESS.md.  Do not weaken the checks themselves.
-EXPECTED_BUILDER_GAPS = {
-    (kind, "sell_command_reaches_sellable_or_almost", buyer):
-        "FOR KILO/COPILOT: registered PDF has empty page areas; kids also promises unsupported charts"
-    for kind in ("teacher_planner", "fitness_planner", "baby_tracker", "small_business_log", "kids_chore_reward")
-    for buyer in BUYER_KEYS
-}
+EXPECTED_BUILDER_GAPS = {}
 
 # CCI-3: the normal run builds ONE buyer pack per product type (one pack per format). The full 3-buyer sweep,
 # with the buyer-to-buyer copy checks, runs when CHILLI_SLOW_TESTS=1 (nightly / manual run).

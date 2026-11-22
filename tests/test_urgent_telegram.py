@@ -175,6 +175,7 @@ class TelegramIntegrationTests(unittest.TestCase):
     def test_normal_run_sends_daily_report_once_with_real_transport(self):
         server = Telegram()
         with mock.patch.object(daily_report, "_now", return_value=datetime.datetime(2026, 11, 4, 4)), \
+                mock.patch("auto_approve._as_utc", return_value=datetime.datetime(2026, 11, 4, 4, tzinfo=datetime.timezone.utc)), \
                 mock.patch.object(daily_report, "report_text", return_value="Daily health report"), \
                 mock.patch("improver_loop.maybe_run_weekly", return_value=False), \
                 mock.patch("autofix.poll"), mock.patch("product_pipeline.notify_ready"):

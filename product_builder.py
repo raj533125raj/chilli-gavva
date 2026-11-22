@@ -1251,10 +1251,10 @@ def _buyer_listing(spec, facts, files):
     listing["description"] = description[:max(0, 2900-len(evidence)-len(instructions))].rstrip() + evidence + instructions
 
 
-def _readme_md(spec, files, how_to):
+def _readme_md(spec, files, how_to, facts=None):
     steps = spec["instructions"] or how_to
     return "\n".join([
-        f"# {spec['name']}", "", "## What's inside", "", *[f"- `{f}`" for f in files], "",
+        "# " + (_delivery_text(spec["name"], spec, facts) if facts is not None else _sanitize_text(spec["name"], spec)), "", "## What's inside", "", *[f"- `{f}`" for f in files], "",
         "## How to use", "", *[f"{i}. {s}" for i, s in enumerate(steps, 1)], "",
         "## Notes", "",
         "- This is a planning and organising tool for personal use. It does not give financial, medical, "
@@ -1692,7 +1692,7 @@ def build_product(spec, approval_id, out_dir=None, folder_name=None):
     except Exception as exc:
         print(f"Product Builder: listing images skipped for #{approval_id}: {type(exc).__name__}", file=sys.stderr)
     with open(os.path.join(folder, "README.md"), "w", encoding="utf-8") as f:
-        f.write(_readme_md(spec, files + extra, how_to))
+        f.write(_readme_md(spec, files + extra, how_to, facts=_delivery_facts(folder)))
     with open(os.path.join(folder, "listing.md"), "w", encoding="utf-8") as f:
         f.write(_listing_md(spec, facts=_delivery_facts(folder)))
     return folder_name

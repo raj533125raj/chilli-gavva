@@ -339,7 +339,7 @@ def _clamp_score(val, default=20):
 # Notion templates, resume bundles) and the five newly registered printable formats.
 PREFERRED_FORMATS = {'sheets','planner','notion','resume','teacher_planner','fitness_planner',
                      'baby_tracker','small_business_log','kids_chore_reward'}
-_UNBUILDABLE = re.compile(r"\b(?:app|apps|software|saas|physical products?|shipped|shipping|courses?|"
+_UNBUILDABLE = re.compile(r"\b(?:app|apps|software|saas|physical(?: products?)?|shipped|shipping|courses?|"
                           r"webinars?|coaching|videos?|podcasts?|audio|mp3|mp4)\b",re.I)
 _AUDIENCE_LABELS = {
     'exam taker':'Students','exam takers':'Students','student':'Students','students':'Students',

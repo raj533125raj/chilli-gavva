@@ -397,7 +397,7 @@ def _progress_review_page(pdf: Any, norm: Dict[str, Any]) -> None:
         y -= 14
         for _ in range(lines):
             pdf.line(left, y, right, y, color=_col("line"), width=0.6)
-            y -= 20
+            y -= 26
         y -= 6
         if y < 90:
             break

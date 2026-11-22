@@ -425,7 +425,7 @@ def _substitute_notes_page(pdf: Any, norm: Dict[str, Any]) -> None:
         y -= 14
         for _ in range(lines):
             pdf.line(left, y, right, y, color=_col("line"), width=0.6)
-            y -= 18
+            y -= 20
         y -= 6
         if y < 90:
             break

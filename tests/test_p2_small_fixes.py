@@ -37,9 +37,9 @@ class CheckerScoreBoundsTests(unittest.TestCase):
 
     def test_scout_clamps_after_ranking_and_persists_only_bounded_scores(self):
         # Both top candidates exceed the display limit, and the stronger one arrives second.
-        candidates = [dict(category='Templates',idea='Synthetic weaker',niche='niche_budget_sheets',
+        candidates = [dict(category='Templates',idea='Synthetic weaker Budget Sheet',niche='niche_budget_sheets',
                            demand_score=25,competition_score=25,fit_score=25,effort_score=25,total_score=100,reason='Synthetic'),
-                      dict(category='Templates',idea='Synthetic stronger',niche='niche_budget_sheets',
+                      dict(category='Templates',idea='Synthetic stronger Budget Sheet',niche='niche_budget_sheets',
                            demand_score=25,competition_score=25,fit_score=25,effort_score=25,total_score=100,reason='Synthetic')]
         candidates[0]['effort_score'] = 24
         with tempfile.TemporaryDirectory() as folder:
@@ -49,7 +49,7 @@ class CheckerScoreBoundsTests(unittest.TestCase):
                  mock.patch('scout.get_recent_approved_or_rejected_ideas',return_value=[]), \
                  mock.patch('scout.public_export.get_public_reject_reasons',return_value=[]):
                 ideas = scout.run_scout(db_path=db, llm=lambda *_a,**_k: None)
-            self.assertEqual([item['idea'] for item in ideas],['Synthetic stronger','Synthetic weaker'])
+            self.assertEqual([item['idea'] for item in ideas],['Synthetic stronger Budget Sheet','Synthetic weaker Budget Sheet'])
             self.assertEqual([item['total_score'] for item in ideas],[100,100])
             conn = scout.connect(db)
             scores = conn.execute('SELECT total_score FROM scout_ideas ORDER BY id').fetchall()

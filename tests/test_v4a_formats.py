@@ -441,7 +441,7 @@ class TestProductPipelineIntegration(unittest.TestCase):
         guardrails.decide(aid, True, db_path=self.db)
         return aid
 
-    def test_35_pipeline_stops_unbuildable_draft_and_marks_needs_owner(self):
+    def test_35_pipeline_rejects_unbuildable_draft_with_a_clear_reason(self):
         unbuildable_title = "Draft: [SaaS Agent] Cloud Billing Platform"
         unbuildable_payload = (
             "PRODUCT NAME: Cloud Billing Platform\n"
@@ -456,7 +456,7 @@ class TestProductPipelineIntegration(unittest.TestCase):
         results = product_pipeline.run_pending(db_path=self.db, out_dir=self.out)
 
         app = guardrails.get_approval(aid, db_path=self.db)
-        self.assertEqual(app["status"], "needs_owner")
+        self.assertEqual(app["status"], "rejected")
         with guardrails.connect(self.db) as conn:
             row = conn.execute("SELECT reason FROM approvals WHERE id=?", (aid,)).fetchone()
             self.assertIsNotNone(row)

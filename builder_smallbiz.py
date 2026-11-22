@@ -130,7 +130,7 @@ def _start(pdf: Any, norm: Dict[str, Any]) -> None:
     for step in ("1. Record each new order.", "2. Update inventory after packing.", "3. Check supplier needs.",
                  "4. Review open orders and follow-ups.", "5. Add a count to the monthly review."):
         pdf.text(pdf_design.MARGIN + 12, y, step, 10, color=_COLORS["ink"])
-        y -= 38
+        y -= 46
 
 
 def _table_page(pdf: Any, title: str, subtitle: str, headers: List[str], rows: int = 18) -> None:

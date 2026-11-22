@@ -32,6 +32,9 @@ class NewFormatsSellTests(unittest.TestCase):
             from tests.test_och_niche_sweep import build_variant
             built = build_variant(kind, 'student', Path(tmp))
             pack = built['pack']
+            import truth_check
+            truth = truth_check.check(str(pack))
+            self.assertEqual(truth["verdict"], "ready", truth)
             quality = listing_lint.quality_report(pack)
             self.assertTrue(quality['ok'], quality)
             pins = pin_ready.make_pins(pack, Path(tmp)/'pins', store_link='https://example.com/pack')
