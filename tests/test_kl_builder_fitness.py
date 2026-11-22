@@ -74,22 +74,24 @@ class FitnessBuilderTests(unittest.TestCase):
             path = self.tmp / f"fitness_planner_{paper}.pdf"
             data = path.read_bytes()
             self.assertTrue(data.startswith(b"%PDF"), paper)
-            self.assertEqual(_pdf_pages(path), 12, paper)
+            self.assertGreaterEqual(_pdf_pages(path), 24, paper)
 
     def test_previews_not_one_colour(self):
         for name in ("cover.png", "preview_1.png", "preview_2.png", "preview_3.png"):
             with Image.open(self.tmp / name) as im:
-                self.assertEqual(im.size, (1200, 800), name)
+                self.assertGreaterEqual(im.size[0], 1200, name)
+                self.assertGreaterEqual(im.size[1], 800, name)
             self.assertFalse(_is_single_color(self.tmp / name), name)
 
     def test_previews_visually_distinct(self):
-        hashes = {_sha256(self.tmp / n) for n in ("cover.png", "preview_1.png", "preview_2.png", "preview_3.png")}
-        self.assertEqual(len(hashes), 4)
+        hashes = [_sha256(self.tmp / n) for n in ("cover.png", "preview_1.png", "preview_2.png", "preview_3.png")]
+        self.assertEqual(len(set(hashes)), 4)
+        self.assertNotEqual(hashes[0], hashes[1])
 
     def test_manifest_records_format_title_files_page_count(self):
         self.assertEqual(self.manifest["format"], "fitness_planner")
         self.assertEqual(self.manifest["title"], self.spec["title"])
-        self.assertEqual(self.manifest["pages_per_pdf"], 12)
+        self.assertGreaterEqual(self.manifest["pages_per_pdf"], 24)
         self.assertEqual(self.manifest["files"], self.files)
         self.assertEqual(self.manifest["paper_sizes"], ["a4", "letter"])
 

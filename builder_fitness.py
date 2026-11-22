@@ -74,6 +74,9 @@ DEFAULT_TITLE = "Workout & Fitness Planner"
 DEFAULT_WEEKS = 12
 DEFAULT_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 PAPER_SIZES = {"a4": "A4", "letter": "Letter"}
+WORKOUT_LOG_PAGES = 12
+COVER_SIZE = (1600, 1067)
+PREVIEW_SIZE = (1600, 1067)
 
 
 def _clean_title(value: Any) -> str:
@@ -115,10 +118,23 @@ def _font(size: int, bold: bool = False):
         return ImageFont.load_default()
 
 
+def _draw_mini(draw, x, y, w, h, title, accent, soft, line, ink):
+    draw.rectangle([x, y, x + w, y + h], fill="#ffffff", outline=line, width=2)
+    draw.rectangle([x, y, x + w, y + 24], fill=accent)
+    draw.text((x + 8, y + 5), title, fill="#ffffff", font=_font(12, True))
+    for i in range(6):
+        ly = y + 40 + i * ((h - 48) / 6)
+        draw.line([x + 10, ly, x + w - 10, ly], fill=line, width=1)
+        if i == 0:
+            draw.rectangle([x + 10, y + 28, x + w - 10, ly], fill=soft, outline=line)
+
+
 def _cover_image(path: Path, norm: Dict[str, Any], preview: int = 0) -> None:
     if not HAS_PILLOW:
         raise RuntimeError("Pillow is required for fitness planner images")
-    w, h = 1200, 800
+    labels = ["Cover", "12-Week Program", "Workout Log", "Progress Review"]
+    kind = preview % len(labels)
+    w, h = COVER_SIZE if kind == 0 else PREVIEW_SIZE
     bg = "#f7fbf9"
     ink = _col("ink")
     accent = _col("accent")
@@ -126,73 +142,61 @@ def _cover_image(path: Path, norm: Dict[str, Any], preview: int = 0) -> None:
     line = _col("line")
     im = Image.new("RGB", (w, h), color=bg)
     draw = ImageDraw.Draw(im)
-    draw.rectangle([24, 24, w - 24, h - 24], outline=accent, width=3)
-    draw.rectangle([24, 24, w - 24, 72], fill=accent)
-    draw.text((48, 38), "CHILLI GAVVA · FITNESS PLANNER", fill="#ffffff", font=_font(20, True))
-    draw.text((60, 120), norm["title"][:42], fill=ink, font=_font(42, True))
-    draw.text((60, 178), f"{norm['weeks']}-Week Program · A4 + US Letter", fill=accent, font=_font(22))
-    labels = ["Cover", "12-Week Program", "Workout Log", "Progress Review"]
-    kind = preview % len(labels)
-
+    draw.rectangle([20, 20, w - 20, h - 20], outline=accent, width=4)
+    draw.rectangle([20, 20, w - 20, 84], fill=accent)
+    draw.text((44, 36), "CHILLI GAVVA · FITNESS PLANNER", fill="#ffffff", font=_font(24, True))
+    draw.text((48, 110), norm["title"][:48], fill=ink, font=_font(46, True))
+    draw.text((48, 170), f"{norm['weeks']}-Week Program · 24+ pages · A4 + US Letter", fill=accent, font=_font(24, True))
+    draw.text((48, 206), "For anyone who wants a simple printable fitness routine", fill=_col("muted"), font=_font(18))
     if kind == 0:
-        draw.text((60, 240), "GOALS & PROGRAM GRID", fill=accent, font=_font(16, True))
-        for i in range(12):
-            col = i % 6
-            row = i // 6
-            x = 60 + col * 175
-            y = 280 + row * 140
-            draw.rectangle([x, y, x + 155, y + 110], outline=line, fill="#ffffff")
-            draw.rectangle([x, y, x + 155, y + 28], fill=soft)
-            draw.text((x + 10, y + 6), f"Week {i + 1}", fill=accent, font=_font(12, True))
-            for ln in range(3):
-                draw.line([x + 10, y + 44 + ln * 18, x + 145, y + 44 + ln * 18], fill=line, width=1)
+        draw.rounded_rectangle([48, 260, w - 48, h - 110], radius=18, fill="#ffffff", outline=line, width=2)
+        draw.text((72, 280), "INSIDE THE PACK", fill=accent, font=_font(20, True))
+        _draw_mini(draw, 72, 330, 430, 420, "12-Week Grid", accent, soft, line, ink)
+        _draw_mini(draw, 540, 330, 430, 420, "Workout Log", accent, soft, line, ink)
+        _draw_mini(draw, 1008, 330, 430, 420, "Progress Review", accent, soft, line, ink)
+        draw.text((72, 780), "Goals · 12-week grid · 12 workout logs · Cardio · Measurements · Meal & water · Review", fill=ink, font=_font(18))
     elif kind == 1:
-        draw.text((60, 240), "WEEKLY WORKOUT LOG", fill=accent, font=_font(16, True))
+        draw.text((48, 250), "12-WEEK PROGRAM GRID", fill=accent, font=_font(22, True))
+        for i in range(12):
+            col = i % 4
+            row = i // 4
+            x = 48 + col * 370
+            y = 300 + row * 210
+            draw.rectangle([x, y, x + 340, y + 180], outline=line, fill="#ffffff")
+            draw.rectangle([x, y, x + 340, y + 34], fill=soft)
+            draw.text((x + 12, y + 8), f"Week {i + 1}", fill=accent, font=_font(14, True))
+            for ln in range(4):
+                draw.line([x + 12, y + 56 + ln * 28, x + 328, y + 56 + ln * 28], fill=line, width=1)
+    elif kind == 2:
+        draw.text((48, 250), "WEEKLY WORKOUT LOG", fill=accent, font=_font(22, True))
         headers = ["Exercise", "Sets", "Reps", "Weight", "Notes"]
-        widths = [320, 90, 90, 110, 270]
-        x0, y0 = 60, 280
+        widths = [500, 140, 140, 180, 540]
+        x0, y0 = 48, 296
         for c, label in enumerate(headers):
             x = x0 + sum(widths[:c])
-            draw.rectangle([x, y0, x + widths[c], y0 + 34], outline=line, fill=soft)
-            draw.text((x + 8, y0 + 8), label, fill=accent, font=_font(12, True))
-        for r in range(7):
-            y = y0 + 34 + r * 48
+            draw.rectangle([x, y0, x + widths[c], y0 + 44], outline=line, fill=soft)
+            draw.text((x + 10, y0 + 10), label, fill=accent, font=_font(16, True))
+        for r in range(10):
+            y = y0 + 44 + r * 58
             for c in range(len(headers)):
                 x = x0 + sum(widths[:c])
-                draw.rectangle([x, y, x + widths[c], y + 48], outline=line, fill="#ffffff")
-    elif kind == 2:
-        draw.text((60, 240), "CARDIO & MEASUREMENTS", fill=accent, font=_font(16, True))
-        draw.rounded_rectangle([60, 280, 560, 620], radius=12, fill="#ffffff", outline=line, width=2)
-        draw.text((84, 300), "Cardio Log", fill=accent, font=_font(15, True))
-        for i, h in enumerate(["Date", "Activity", "Minutes", "Distance"]):
-            draw.text((84 + i * 115, 336), h, fill=ink, font=_font(11, True))
-        for r in range(6):
-            y = 360 + r * 36
-            draw.line([84, y, 530, y], fill=line, width=1)
-        draw.rounded_rectangle([600, 280, 1130, 620], radius=12, fill="#ffffff", outline=line, width=2)
-        draw.text((624, 300), "Body Measurements", fill=accent, font=_font(15, True))
-        for i, h in enumerate(["Date", "Chest", "Waist", "Hips", "Weight"]):
-            draw.text((624 + i * 98, 336), h, fill=ink, font=_font(11, True))
-        for r in range(6):
-            y = 360 + r * 36
-            draw.line([624, y, 1100, y], fill=line, width=1)
+                draw.rectangle([x, y, x + widths[c], y + 58], outline=line, fill="#ffffff")
     else:
-        draw.text((60, 240), "PROGRESS REVIEW", fill=accent, font=_font(16, True))
-        draw.rounded_rectangle([60, 280, 760, 620], radius=12, fill="#ffffff", outline=line, width=2)
-        for i, label in enumerate(["What improved this period?", "What felt hard?", "Next focus"]):
-            y = 310 + i * 90
-            draw.text((84, y), label, fill=accent, font=_font(14, True))
-            draw.line([84, y + 36, 720, y + 36], fill=line, width=1)
-            draw.line([84, y + 62, 720, y + 62], fill=line, width=1)
-        draw.rounded_rectangle([800, 280, 1130, 620], radius=12, fill=soft, outline=line, width=2)
-        draw.text((824, 304), "MEAL & WATER", fill=accent, font=_font(14, True))
-        for i, item in enumerate(["Breakfast plan", "Lunch plan", "Dinner plan", "Water glasses"]):
-            y = 348 + i * 56
-            draw.text((824, y), item, fill=ink, font=_font(12))
-            draw.line([824, y + 28, 1100, y + 28], fill=line, width=1)
-
-    draw.text((60, 700), "Goals · 12-week grid · Workout log · Cardio · Measurements · Meal & water · Review", fill=_col("muted"), font=_font(15))
-    draw.text((880, 720), labels[kind], fill=accent, font=_font(14, True))
+        draw.text((48, 250), "PROGRESS REVIEW", fill=accent, font=_font(22, True))
+        draw.rounded_rectangle([48, 296, 980, h - 110], radius=16, fill="#ffffff", outline=line, width=2)
+        for i, label in enumerate(["What improved?", "What felt hard?", "Measurements / energy", "Next 4-week focus"]):
+            y = 336 + i * 132
+            draw.text((76, y), label, fill=accent, font=_font(18, True))
+            for ln in range(2):
+                draw.line([76, y + 42 + ln * 34, 940, y + 42 + ln * 34], fill=line, width=1)
+        draw.rounded_rectangle([1020, 296, w - 48, h - 110], radius=16, fill=soft, outline=line, width=2)
+        draw.text((1048, 326), "MEAL & WATER", fill=accent, font=_font(18, True))
+        for i, item in enumerate(["Breakfast plan", "Lunch plan", "Dinner plan", "Snack / water", "Sleep / recovery"]):
+            y = 386 + i * 86
+            draw.text((1048, y), item, fill=ink, font=_font(16))
+            draw.line([1048, y + 34, w - 90, y + 34], fill=line, width=1)
+    draw.text((48, h - 72), "Goals · 12-week grid · 12 workout logs · Exercise library · Cardio · Measurements · Review", fill=_col("muted"), font=_font(16))
+    draw.text((w - 260, h - 72), labels[kind], fill=accent, font=_font(18, True))
     im.save(str(path), format="PNG", optimize=True)
 
 
@@ -273,12 +277,12 @@ def _program_grid_page(pdf: Any, norm: Dict[str, Any]) -> None:
 
 
 def _workout_log_page(pdf: Any, norm: Dict[str, Any], page_no: int) -> None:
-    _heading(pdf, f"Weekly Workout Log — Page {page_no}", "Record exercises, sets, reps, and weight.")
-    pdf.text(pdf_design.MARGIN, pdf.h - 114, "Week: ______  Day: __________________  Focus: ________________________", 9, color=_col("muted"))
+    _heading(pdf, f"Weekly Workout Log — Week {page_no}", "Record exercises, sets, reps, and weight. One page per week.")
+    pdf.text(pdf_design.MARGIN, pdf.h - 114, f"Week: {page_no}    Day / date: __________________  Focus: ________________________", 9, color=_col("muted"))
     left = pdf_design.MARGIN
     right = pdf.w - pdf_design.MARGIN
     top = pdf.h - 136
-    bottom = 80
+    bottom = 90
     headers = ["Exercise", "Sets", "Reps", "Weight", "Notes"]
     widths = [180, 55, 55, 70, right - left - 360]
     row_h = (top - bottom - 22) / 14
@@ -295,6 +299,11 @@ def _workout_log_page(pdf: Any, norm: Dict[str, Any], page_no: int) -> None:
         for w in widths:
             pdf.line(x, y, x, y + row_h, color=_col("line"), width=0.4)
             x += w
+    pdf.text(left, bottom - 10, "Warm-up / cool-down / notes:", 8, bold=True, color=_col("accent"))
+    for i in range(2):
+        ly = bottom - 24 - i * 14
+        if ly > 58:
+            pdf.line(left + 140, ly, right, ly, color=_col("line"), width=0.5)
 
 
 def _cardio_log_page(pdf: Any, norm: Dict[str, Any]) -> None:
@@ -428,19 +437,119 @@ def _weekly_checkin_page(pdf: Any, norm: Dict[str, Any]) -> None:
         pdf.text(left + 8, y + row_h / 2 - 3, str(r + 1), 8, color=_col("ink"))
 
 
+def _exercise_library_page(pdf: Any, norm: Dict[str, Any]) -> None:
+    _heading(pdf, "Exercise Library", "Simple exercise ideas to mix into your weekly plan.")
+    left = pdf_design.MARGIN
+    right = pdf.w - pdf_design.MARGIN
+    top = pdf.h - 128
+    bottom = 76
+    groups = [
+        ("Upper body", ["Push-ups / wall push-ups", "Dumbbell row", "Shoulder press", "Band pull-apart", "Triceps dips"]),
+        ("Lower body", ["Squats / chair squats", "Lunges", "Glute bridge", "Calf raises", "Step-ups"]),
+        ("Core", ["Plank", "Dead bug", "Bird dog", "Side plank", "Glute bridge hold"]),
+        ("Cardio / mobility", ["Brisk walk", "Cycling / jump rope", "Light stretch", "Hip mobility", "Easy cooldown"]),
+    ]
+    col_w = (right - left - 12) / 2
+    row_h = (top - bottom - 12) / 2
+    for idx, (name, items) in enumerate(groups):
+        c = idx % 2
+        r = idx // 2
+        x = left + c * (col_w + 12)
+        y = top - (r + 1) * row_h - r * 12
+        pdf.rect(x, y, col_w, row_h, color=_col("line"), width=0.8)
+        pdf.fill(x, y + row_h - 22, col_w, 22, _col("soft"))
+        pdf.text(x + 8, y + row_h - 15, name, 10, bold=True, color=_col("accent"))
+        for i, item in enumerate(items):
+            iy = y + row_h - 40 - i * 22
+            pdf.rect(x + 10, iy - 2, 10, 10, color=_col("line"), width=0.6)
+            pdf.text(x + 26, iy, item, 8.5, color=_col("ink"))
+            pdf.line(x + 26, iy - 6, x + col_w - 10, iy - 6, color=_col("line"), width=0.4)
+
+
+def _progress_chart_page(pdf: Any, norm: Dict[str, Any]) -> None:
+    _heading(pdf, "Progress Charts", "Track simple trends over time. Use any unit you prefer.")
+    left = pdf_design.MARGIN
+    right = pdf.w - pdf_design.MARGIN
+    top = pdf.h - 128
+    gap = 18
+    chart_h = (top - 84 - 2 * gap) / 3
+    charts = ["Weight / measurement trend", "Workout sessions completed per week", "Energy or mood trend (1-5)"]
+    for i, label in enumerate(charts):
+        y = top - (i + 1) * chart_h - i * gap
+        pdf.text(left, y + chart_h - 12, label, 9, bold=True, color=_col("accent"))
+        box_y = y
+        box_h = chart_h - 20
+        pdf.rect(left, box_y, right - left, box_h, color=_col("line"), width=0.8)
+        # grid
+        for gx in range(13):
+            x = left + gx * (right - left) / 12
+            pdf.line(x, box_y, x, box_y + box_h, color=_col("line"), width=0.3)
+            if gx > 0:
+                pdf.text(x - 3, box_y - 10, str(gx), 6, color=_col("muted"))
+        for gy in range(6):
+            ly = box_y + gy * box_h / 5
+            pdf.line(left, ly, right, ly, color=_col("line"), width=0.3)
+        pdf.text(left, box_y - 10, "Week:", 6, color=_col("muted"))
+
+
+def _monthly_summary_page(pdf: Any, norm: Dict[str, Any]) -> None:
+    _heading(pdf, "Monthly Summary", "Review your month at a glance.")
+    left = pdf_design.MARGIN
+    right = pdf.w - pdf_design.MARGIN
+    y = pdf.h - 128
+    fields = [("Month / dates", 1), ("Top wins", 3), ("Challenges", 3), ("Habits to keep", 3), ("Focus for next month", 3)]
+    for label, lines in fields:
+        pdf.text(left, y, label, 9, bold=True, color=_col("accent"))
+        y -= 14
+        for _ in range(lines):
+            pdf.line(left, y, right, y, color=_col("line"), width=0.6)
+            y -= 20
+        y -= 6
+        if y < 90:
+            break
+
+
+def _stretch_mobility_page(pdf: Any, norm: Dict[str, Any]) -> None:
+    _heading(pdf, "Stretch & Mobility Log", "Track warm-up, stretching, and recovery sessions.")
+    left = pdf_design.MARGIN
+    right = pdf.w - pdf_design.MARGIN
+    top = pdf.h - 128
+    bottom = 80
+    headers = ["Date", "Warm-up", "Stretch / mobility", "Duration", "How it felt", "Notes"]
+    widths = [60, 110, 130, 60, 80, right - left - 440]
+    row_h = (top - bottom - 22) / 16
+    pdf.fill(left, top - 22, right - left, 22, _col("soft"))
+    pdf.rect(left, top - 22, right - left, 22, color=_col("line"), width=0.7)
+    x = left
+    for h, w in zip(headers, widths):
+        pdf.text(x + 3, top - 15, h, 7.5, bold=True, color=_col("accent"))
+        x += w
+    for r in range(16):
+        y = top - 22 - (r + 1) * row_h
+        pdf.rect(left, y, right - left, row_h, color=_col("line"), width=0.5)
+        x = left
+        for w in widths:
+            pdf.line(x, y, x, y + row_h, color=_col("line"), width=0.4)
+            x += w
+
+
 def _build_pdf(path: Path, paper: str, norm: Dict[str, Any]) -> None:
     size = PAPER_SIZES[paper]
     pdf = pdf_design.Pdf(size, footer=f"{norm['title']} · {norm['weeks']}-Week Plan", style=_STYLE["name"])
     pdf.new_page(); _title_page(pdf, norm)
     pdf.new_page(); _goals_page(pdf, norm)
     pdf.new_page(); _program_grid_page(pdf, norm)
-    for i in range(1, 5):
+    for i in range(1, WORKOUT_LOG_PAGES + 1):
         pdf.new_page(); _workout_log_page(pdf, norm, i)
+    pdf.new_page(); _exercise_library_page(pdf, norm)
     pdf.new_page(); _cardio_log_page(pdf, norm)
     pdf.new_page(); _measurements_page(pdf, norm)
     pdf.new_page(); _meal_water_page(pdf, norm)
+    pdf.new_page(); _progress_chart_page(pdf, norm)
     pdf.new_page(); _progress_review_page(pdf, norm)
     pdf.new_page(); _weekly_checkin_page(pdf, norm)
+    pdf.new_page(); _stretch_mobility_page(pdf, norm)
+    pdf.new_page(); _monthly_summary_page(pdf, norm)
     pdf.save(str(path), title=norm["title"])
 
 
@@ -453,11 +562,14 @@ def _readme(norm: Dict[str, Any]) -> str:
         "- A4 PDF and US Letter PDF",
         "- Goals page",
         "- 12-week program grid",
-        "- 4 weekly workout log pages (sets, reps, weight)",
+        f"- {WORKOUT_LOG_PAGES} weekly workout log pages (sets, reps, weight)",
+        "- Exercise library page",
         "- Cardio log page",
         "- Body measurements page",
         "- Meal and water tracker page",
+        "- Progress charts page",
         "- Progress review page",
+        "- Weekly check-in page",
         "- cover.png and three preview images",
         "",
         "HOW TO PRINT",
@@ -467,7 +579,7 @@ def _readme(norm: Dict[str, Any]) -> str:
         "4. Use the progress review page every few weeks.",
         "",
         "PAGE COUNT",
-        "- 12 pages per PDF (A4 and US Letter included)",
+        f"- {3 + WORKOUT_LOG_PAGES + 9} pages per PDF (A4 and US Letter included)",
         "",
         "LICENSE",
         "Personal use only. Do not resell or redistribute the files.",
@@ -513,12 +625,14 @@ def build(spec: Dict[str, Any], out_dir: Union[str, Path]) -> List[str]:
         names.extend(["README.txt", "LICENSE.txt"])
         _write_text(temp_dir / "README.txt", _readme(norm))
         _write_text(temp_dir / "LICENSE.txt", _license(norm))
+        page_count = 3 + WORKOUT_LOG_PAGES + 9
         manifest = {
             "format": FORMAT,
             "title": norm["title"],
             "weeks": norm["weeks"],
             "paper_sizes": list(PAPER_SIZES),
-            "pages_per_pdf": 12,
+            "pages_per_pdf": page_count,
+            "workout_log_pages": WORKOUT_LOG_PAGES,
             "files": sorted(names + ["manifest.json"]),
         }
         _write_text(temp_dir / "manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
