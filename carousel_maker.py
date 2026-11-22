@@ -1089,55 +1089,88 @@ def make_ready_carousel(pack_dir: Path, out_dir: Path, now: Any = None) -> Dict[
 
 
 def check_ready_carousel(folder: Path) -> List[str]:
-    """The carousel checker. [] means the carousel is ready to post."""
+    """Posting gate: real slides, visible hook/CTA, safe caption and matching alt text."""
     import json as _json
     import pin_ready
+    import secret_guard
     folder = Path(folder)
     try:
         data = _json.loads((folder / READY_FILE).read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return [f"{READY_FILE} missing or broken"]
+        return ["Carousel vivaralu missing leda broken; malli save cheyandi."]
     slides = data.get("slides") if isinstance(data, dict) else None
     count = len(slides) if isinstance(slides, list) else 0
     if not READY_MIN_SLIDES <= count <= READY_MAX_SLIDES:
-        return [f"need {READY_MIN_SLIDES}-{READY_MAX_SLIDES} slides, found {count}"]
+        return [f"Carousel lo {READY_MIN_SLIDES}-{READY_MAX_SLIDES} slides tayaru cheyandi."]
     if Image is None:
-        return ["Pillow missing: cannot check the images"]
-    problems: List[str] = []
+        return ["Carousel images check kosam Pillow setup cheyandi."]
+    problems = []
     for i, slide in enumerate(slides, 1):
         label = f"Slide {i}"
+        if not isinstance(slide, dict):
+            problems.append(f"{label}: Slide vivaralu saricheyandi.")
+            continue
         path = folder / str(slide.get("file") or "")
-        if not slide.get("file") or not path.is_file():
-            problems.append(f"{label}: image file missing")
+        try:
+            path.resolve().relative_to(folder.resolve())
+        except ValueError:
+            problems.append(f"{label}: Image ni ee Carousel folder lone pettandi.")
             continue
         try:
             with Image.open(path) as im:
-                size = im.size
-        except Exception:
-            problems.append(f"{label}: image does not open")
-            continue
-        if size != (READY_W, READY_H):
-            problems.append(f"{label}: size {size[0]}x{size[1]} (need {READY_W}x{READY_H})")
-        problems += pin_ready.text_problems(slide.get("alt"), f"{label} alt text", ALT_MAX)
-        problems += pin_ready.check_layout(slide.get("layout") or [], READY_W, READY_H, label)
-    caption = str(data.get("caption") or "")
-    problems += pin_ready.text_problems(caption, "Caption", CAPTION_MAX)
-    tags = re.findall(r"(?<![\w#])#\w+", caption)
-    if len(tags) > HASHTAG_MAX:
-        problems.append(f"Caption: {len(tags)} hashtags (max {HASHTAG_MAX})")
+                if im.size != (READY_W, READY_H):
+                    problems.append(f"{label}: Image {READY_W}x{READY_H} ga tayaru cheyandi.")
+                else:
+                    im.load()
+        except (OSError, ValueError, TypeError, Image.DecompressionBombError):
+            problems.append(f"{label}: teriche slide image file pettandi.")
+        alt = slide.get("alt")
+        if not isinstance(alt,str) or not 0 < len(alt.strip()) <= 500:
+            problems.append(f"{label}: Alt text 1-500 characters lo rayandi.")
+        elif pin_ready.MONEY_CHECK.search(alt) or pin_ready.BRAND_CHECK.search(alt):
+            problems.append(f"{label}: Alt text lo brand/money text teeseyandi.")
+        layout = slide.get("layout")
+        if not isinstance(layout,list) or not layout:
+            problems.append(f"{label}: readable Image text layout save cheyandi.")
+            layout = []
+        else:
+            try:
+                for problem in pin_ready.check_layout(layout,READY_W,READY_H,label):
+                    detail = problem.split(": ",1)[-1].split(" ('",1)[0]
+                    problems.append(f"{label}: {detail}; font, contrast mariyu margins saricheyandi.")
+            except (ValueError,TypeError,KeyError,AttributeError,IndexError,OverflowError):
+                problems.append(f"{label}: Image text layout vivaralu saricheyandi.")
+        if i == 1 and not any(isinstance(block,dict) and block.get("role") in ("title","hook")
+                              and str(block.get("text") or "").strip() for block in layout):
+            problems.append("Slide 1: buyer ni aape Hook ni Image meeda rayandi.")
+        if i == count and not any(isinstance(block,dict) and
+                re.search(r"\b(?:download|visit|shop|save|tap|open|explore|try|get)\b|link in bio",
+                          str(block.get("text") or ""),re.I) for block in layout):
+            problems.append("Last Slide: call to action rayandi; Link in bio leda Download ani cheppandi.")
+    caption = data.get("caption")
+    if not isinstance(caption,str) or not 0 < len(caption.strip()) <= 2200:
+        problems.append("Caption 1-2200 characters lo rayandi.")
+        caption = str(caption or "")
+    if pin_ready.MONEY_CHECK.search(caption) or pin_ready.BRAND_CHECK.search(caption):
+        problems.append("Caption lo brand/money text teeseyandi.")
+    if len(re.findall(r"(?<![\w#])#\w+",caption)) > 20:
+        problems.append("Caption lo 20 kanna ekkuva hashtags unnayi; 20 lopala pettandi.")
     try:
         on_disk = (folder / "caption.txt").read_text(encoding="utf-8").strip()
-    except OSError:
+    except (OSError,ValueError):
         on_disk = None
     if on_disk != caption.strip():
-        problems.append("caption.txt missing or not the checked caption")
+        problems.append("caption.txt lo check chesina ade Caption save cheyandi.")
     try:
-        alt_lines = [x for x in (folder / "alt.txt").read_text(encoding="utf-8").splitlines() if x.strip()]
-    except OSError:
+        alt_lines = [line.strip() for line in (folder / "alt.txt").read_text(encoding="utf-8").splitlines() if line.strip()]
+    except (OSError,ValueError):
         alt_lines = []
-    if len(alt_lines) != count:
-        problems.append(f"alt.txt: {len(alt_lines)} lines for {count} slides")
-    return problems
+    expected = [f"Slide {i}: {slide.get('alt') or ''}" for i,slide in enumerate(slides,1) if isinstance(slide,dict)]
+    if len(alt_lines) != count or alt_lines != expected:
+        problems.append("alt.txt lo prathi Slide ki ade Alt text okka line lo save cheyandi.")
+    if secret_guard.scan_text(_json.dumps(data,ensure_ascii=False)):
+        problems.append("Carousel lo private vivaralu teesesi malli check cheyandi.")
+    return list(dict.fromkeys(problems))
 
 
 if __name__ == "__main__":
