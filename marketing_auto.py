@@ -584,8 +584,10 @@ def build_for_pack(pack_dir: Path | str, db_path=None, *, products_dir: Optional
             raise ValueError("pack has no listing.txt or listing.md")
         root = marketing_root(products_dir or products_dir_of(pack_path))
         out = root / pack_path.name
+        # A marketing folder has a manifest with "parts" (load_manifest). A product pack may hold its own
+        # manifest.json (builder_habit writes one), which is a pack file, not a marketing folder.
         if (pack_path.name == MARKETING_FOLDER or pack_path.parent.name == MARKETING_FOLDER
-                or (pack_path / MANIFEST_NAME).is_file()):
+                or load_manifest(pack_path)):
             raise ValueError("a marketing folder is not a pack")
         if not is_private_dir(out):
             raise ValueError("marketing folder is not private (not git-ignored); nothing written")
