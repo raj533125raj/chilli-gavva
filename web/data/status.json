@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-22T01:34:18Z",
+ "generated_at": "2026-11-22T11:30:43Z",
  "llm": {
   "calls_today": 10,
   "cap": 500
@@ -398,35 +398,35 @@
    "model": "openai/gpt-oss-120b",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-22T01:34:18Z"
+   "checked_at": "2026-11-22T11:30:43Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-22T01:34:18Z"
+   "checked_at": "2026-11-22T11:30:43Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "unknown",
    "reason": "No recent activity recorded",
-   "checked_at": "2026-11-22T01:34:18Z"
+   "checked_at": "2026-11-22T11:30:43Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-22T01:34:18Z"
+   "checked_at": "2026-11-22T11:30:43Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-22T01:34:18Z"
+   "checked_at": "2026-11-22T11:30:43Z"
   }
  ],
  "minutes": {
@@ -2375,12 +2375,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-22T01:34:17Z",
-  "last_run_end": "2026-11-22T01:34:18Z",
+  "last_run_start": "2026-11-22T11:30:42Z",
+  "last_run_end": "2026-11-22T11:30:43Z",
   "runner": "github-actions",
-  "run_id": "44971362773"
+  "run_id": "45017592516"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
@@ -2399,8 +2400,7 @@
   "CCE-3 Disk full: product builder gives one Tenglish owner line instead of a traceback, the draft gets its build slot back for the next run",
   "CCE-3 Bad-day simulator: --bad injects Telegram 429/500, AI down, KV wrong id, disk full, corrupt PDF, half-written state, clock jumps; CI-like RUNNER_TEMP and",
   "CCE-1 fix: random fake alarm URL so the copied simulator never trips the robot's own secret guard",
-  "CCE-2 Album of one: send_media_group sends a single file as a photo or document (Telegram refuses 1-item albums)",
-  "CCE-2 Owner holds #4/#6 apply only to the drafts of the 2026-10-16 decision: a new draft with that number is built, unknown date stays held"
+  "CCE-2 Album of one: send_media_group sends a single file as a photo or document (Telegram refuses 1-item albums)"
  ],
  "daily_report": {
   "date_ist": "2026-11-22",
