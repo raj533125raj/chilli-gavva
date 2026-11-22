@@ -113,6 +113,15 @@ class OwnerRenderingTests(unittest.TestCase):
             return None
         self.assertIsNone(handle("unrelated", {}))
 
+    def test_text_only_transport_does_not_receive_an_unused_keyboard_argument(self):
+        sent = []
+        @tg_menu.owner_reply
+        def handle(text, ctx):
+            ctx["send_text"]("Pack ready ga undi.")
+            return {"handled": True}
+        self.assertEqual(handle("/kit", {"send_text": sent.append}), {"handled": True})
+        self.assert_page(sent[0])
+
     def test_compact_menu_includes_all_commands_in_one_page(self):
         reply = tg_menu.handle("/menu", {})["text"]
         self.assert_page(reply)

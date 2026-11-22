@@ -140,7 +140,10 @@ def owner_reply(handler):
             result = None
             for index, page in enumerate(pages):
                 # The real keyboard is preserved on the last page only.
-                result = original["send_text"](page, keyboard=keyboard if index == len(pages) - 1 else None)
+                if keyboard is not None and index == len(pages) - 1:
+                    result = original["send_text"](page, keyboard=keyboard)
+                else:
+                    result = original["send_text"](page)
             return result
 
         if callable(original.get("send_text")):
