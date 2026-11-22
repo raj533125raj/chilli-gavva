@@ -37,6 +37,8 @@ except ImportError:
 
 import post_planner
 
+ROOT = Path(__file__).resolve().parent
+
 
 COMMANDS = [
     {
@@ -215,36 +217,31 @@ def _format_hashtags(tags: List[str]) -> str:
 
 
 def _resolve_pack_directory(pack_id: str, base_dir: Optional[str] = None) -> Optional[Path]:
-    """Find the pack directory under exported_content/products/upload or exported_content/products."""
-    candidates = []
-    if base_dir:
-        candidates.append(Path(base_dir) / pack_id)
-        candidates.append(Path(base_dir) / "upload" / pack_id)
-    candidates.extend([
-        Path("exported_content") / "products" / "upload" / pack_id,
-        Path("exported_content") / "products" / pack_id,
-    ])
-    for cand in candidates:
-        if cand.is_dir():
-            return cand
+    root = Path(base_dir or os.environ.get("CHILLI_PRODUCTS_DIR") or ROOT / "exported_content" / "products")
+    for candidate in (root / "upload" / pack_id, root / pack_id):
+        if candidate.is_dir():
+            return candidate
     return None
 
 
 def _resolve_marketing_directory(pack_id: str, base_dir: Optional[str] = None) -> Optional[Path]:
-    """Find marketing directory under exported_content/marketing/<pack_id>."""
-    candidates = []
-    if base_dir:
-        candidates.append(Path(base_dir) / pack_id)
-    candidates.append(Path("exported_content") / "marketing" / pack_id)
-    for cand in candidates:
-        if cand.is_dir():
-            return cand
+    products = Path(os.environ.get("CHILLI_PRODUCTS_DIR") or ROOT / "exported_content" / "products")
+    roots = ([Path(base_dir)] if base_dir else []) + [products / "marketing"]
+    if os.environ.get("CHILLI_MARKETING_DIR"):
+        roots.append(Path(os.environ["CHILLI_MARKETING_DIR"]))
+    roots.append(ROOT / "exported_content" / "marketing")
+    for root in roots:
+        candidate = root / pack_id
+        if candidate.is_dir():
+            return candidate
     return None
 
 
 def _resolve_asset_file(pack_id: str, asset_name: str, base_products: Optional[str] = None, base_marketing: Optional[str] = None) -> Optional[str]:
     """Resolve a single asset file (relative or absolute) to an existing file path."""
     asset_path = Path(asset_name)
+    if not asset_path.is_absolute():
+        asset_path = ROOT / asset_path
     if asset_path.is_file():
         return str(asset_path.resolve())
 
@@ -331,18 +328,20 @@ def _build_pin_caption(post: Dict[str, Any], pack_details: Dict[str, Any], mkt_d
             except Exception:
                 pass
 
-    title = pin_title or post.get("caption_short") or pack_details.get("title") or post.get("pack_id", "")
-    desc = pin_desc or pack_details.get("description") or ""
+    title = post.get("title") or pin_title or post.get("caption_short") or pack_details.get("title") or post.get("pack_id", "")
+    desc = post.get("description") or pin_desc or pack_details.get("description") or ""
     tags = post.get("hashtags") or pack_details.get("tags") or []
 
     # Clean parts
     title = post_planner.clean_caption(title, 120)
     if desc:
-        desc = post_planner.clean_caption(desc, 250)
+        desc = post_planner.clean_caption(desc, 500)
 
     tags_str = _format_hashtags(tags)
 
-    parts = [p for p in [title, desc, tags_str] if p]
+    board = post_planner.clean_caption(str(post.get("board") or ""), 100)
+    link = str(post.get("link") or "")
+    parts = [p for p in [title, "Board: " + board if board else "", "Link: " + link if link else "", desc, tags_str] if p]
     caption = "\n\n".join(parts)
     return _scrub_text(caption)
 
@@ -350,20 +349,30 @@ def _build_pin_caption(post: Dict[str, Any], pack_details: Dict[str, Any], mkt_d
 def _collect_carousel_assets(pack_id: str, post: Dict[str, Any], mkt_dir: Optional[Path], pack_dir: Optional[Path]) -> Tuple[List[str], str]:
     """Find slides and caption for a carousel post."""
     slides: List[str] = []
-    caption = ""
-
+    caption = str(post.get("caption") or "")
+    planned = post.get("slides")
+    if isinstance(planned, list) and planned:
+        for item in planned:
+            file = _resolve_asset_file(pack_id, str(item), base_marketing=str(mkt_dir.parent) if mkt_dir else None)
+            if not file and mkt_dir:
+                candidate = mkt_dir / "carousel" / str(item)
+                file = str(candidate.resolve()) if candidate.is_file() else None
+            if not file or Path(file).suffix.lower() not in post_planner.IMAGE_EXTENSIONS:
+                return [], "Carousel Slide file ledu. Next: /today pampandi; ready plan malli chudandi."
+            slides.append(file)
     if mkt_dir:
         car_dir = mkt_dir / "carousel"
-        if car_dir.is_dir():
-            found_slides = sorted([str(f.resolve()) for f in car_dir.glob("slide-*.png")])
-            if found_slides:
-                slides = found_slides[:10]  # Instagram carousel max 10
-            cap_file = car_dir / "caption.txt"
-            if cap_file.is_file():
-                try:
-                    caption = cap_file.read_text(encoding="utf-8").strip()
-                except Exception:
-                    pass
+        if not slides and car_dir.is_dir():
+            slides = [str(file.resolve()) for file in sorted(car_dir.glob("slide-*.png")) if file.is_file()][:10]
+        cap_file = Path(str(post.get("caption_file"))) if post.get("caption_file") else car_dir / "caption.txt"
+        if not cap_file.is_absolute():
+            cap_file = ROOT / cap_file
+        if not caption and cap_file.is_file():
+            caption = cap_file.read_text(encoding="utf-8").strip()
+    elif post.get("caption_file"):
+        cap_file = Path(str(post["caption_file"]))
+        if not cap_file.is_absolute(): cap_file = ROOT / cap_file
+        if cap_file.is_file(): caption = cap_file.read_text(encoding="utf-8").strip()
 
     # If caption is still empty, build from post or pack details
     if not caption:
@@ -382,7 +391,8 @@ def _collect_carousel_assets(pack_id: str, post: Dict[str, Any], mkt_dir: Option
             if images:
                 slides = images[:10]
 
-    return slides, _scrub_text(caption)
+    import public_export
+    return slides, public_export.scrub_text(caption)
 
 
 def _collect_reel_assets(pack_id: str, post: Dict[str, Any], mkt_dir: Optional[Path], pack_dir: Optional[Path]) -> Tuple[List[str], str]:
@@ -477,9 +487,10 @@ def handle_post_today(ctx: dict, plan_path: Optional[Union[str, Path]] = None, p
             send_text(f"Post {post_num} ({channel}) - [{pack_id}] already posted ✓", keyboard)
             continue
 
-        mkt_dir = _resolve_marketing_directory(pack_id)
-        pack_dir = _resolve_pack_directory(pack_id)
-        pack_details = _get_pack_details(pack_id)
+        effective_products = products_dir or ctx.get("products_dir")
+        mkt_dir = (_resolve_marketing_directory(pack_id, str(Path(effective_products) / "marketing")) if effective_products else _resolve_marketing_directory(pack_id))
+        pack_dir = (_resolve_pack_directory(pack_id, effective_products) if effective_products else _resolve_pack_directory(pack_id))
+        pack_details = (_get_pack_details(pack_id, base_products=effective_products) if effective_products else _get_pack_details(pack_id))
 
         if channel == "pinterest":
             # Single Pin photo
@@ -514,10 +525,15 @@ def handle_post_today(ctx: dict, plan_path: Optional[Union[str, Path]] = None, p
                 cap_msg = f"Post {post_num} (Instagram Carousel Caption):\n\n{car_caption}"
                 send_text(cap_msg, keyboard)
             elif slides and total_media_sent < MAX_MEDIA_PER_COMMAND:
-                # Single photo fallback
-                total_media_sent += 1
-                send_photo(slides[0], caption=f"Post {post_num} (Instagram)\n\n{car_caption[:1000]}")
-                send_text(f"👆 Post {post_num} Instagram image ready.", keyboard)
+                to_send = slides[:available_slots]
+                for number, slide in enumerate(to_send, 1):
+                    label = (f"Post {post_num} (Instagram)\n\n{car_caption[:1000]}" if len(slides) == 1
+                             else f"Post {post_num} Carousel Slide {number}/{len(slides)}")
+                    send_photo(slide, caption=label)
+                total_media_sent += len(to_send)
+                if len(to_send) < len(slides):
+                    send_text(f"Media limit reached ({MAX_MEDIA_PER_COMMAND} items max per command). Carousel truncated to {len(to_send)} slides.")
+                send_text(f"Post {post_num} (Instagram Carousel Caption):\n\n{car_caption}", keyboard)
             else:
                 send_text(f"Post {post_num} (Instagram Carousel)\n\n{car_caption}", keyboard)
             posts_sent += 1
