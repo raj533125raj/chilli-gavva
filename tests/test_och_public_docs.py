@@ -14,6 +14,7 @@ with @unittest.expectedFailure and a "FOR CLAUDE CODE:" reason (see RULES.md
 OWNERSHIP: docs are not owned by robot-oc11).
 """
 
+import ast
 import re
 import unittest
 from pathlib import Path
@@ -115,6 +116,18 @@ def plugin_and_core_commands():
     commands = {"/" + c for c in _CORE_COMMANDS.split("|")}
     for plugin in sorted(ROOT.glob("tg_*.py")):
         src = plugin.read_text(encoding="utf-8", errors="replace")
+        for node in ast.walk(ast.parse(src)):
+            if not isinstance(node, ast.Assign) or not any(isinstance(target, ast.Name) and target.id == "COMMANDS" for target in node.targets):
+                continue
+            try:
+                entries = ast.literal_eval(node.value)
+            except (ValueError, TypeError):
+                continue
+            for entry in entries if isinstance(entries, list) else []:
+                if isinstance(entry, dict):
+                    for word in entry.get("words", []):
+                        if isinstance(word, str) and re.fullmatch(r"/[a-z][a-z0-9_]*", word):
+                            commands.add(word)
         for m in re.finditer(r'"cmd":\s*"([^"]+)"', src):
             commands.add(m.group(1).strip().lower())
         for m in re.finditer(r"'cmd':\s*'([^']+)'", src):
