@@ -19,6 +19,8 @@ Strict privacy scrubbing: no system paths leaked, no money amounts, text <= 3500
 
 from __future__ import annotations
 
+from tg_menu import owner_reply
+
 import json
 import os
 from pathlib import Path
@@ -692,6 +694,7 @@ def handle_boards(text: str, ctx: dict) -> dict:
 
 # --- Main Handler Router ---
 
+@owner_reply
 def handle(text: str, ctx: dict) -> Optional[dict]:
     """Plugin entrypoint conforming to Telegram plugin interface."""
     if not text or not isinstance(text, str):

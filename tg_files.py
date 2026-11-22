@@ -26,6 +26,8 @@ Safety and Constraints:
 
 from __future__ import annotations
 
+from tg_menu import owner_reply
+
 import json
 import os
 from pathlib import Path
@@ -732,6 +734,7 @@ def _missing_pack_reply(action: str, ctx: Dict[str, Any]) -> Dict[str, Any]:
 # Plugin Handle Entrypoint
 # ---------------------------------------------------------------------------
 
+@owner_reply
 def handle(text: str, ctx: dict) -> dict | None:
     """Plugin entrypoint.
 

@@ -19,6 +19,8 @@ Follows Chilli Gavva Telegram Plugin Interface:
 
 from __future__ import annotations
 
+from tg_menu import owner_reply
+
 import datetime
 from typing import Any, Dict, Optional
 
@@ -56,6 +58,7 @@ def _get_utc_now(ctx: Dict[str, Any]) -> datetime.datetime:
     return datetime.datetime.now(datetime.timezone.utc)
 
 
+@owner_reply
 def handle(text: str, ctx: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Handle incoming owner Telegram text.
 

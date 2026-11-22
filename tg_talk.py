@@ -20,6 +20,8 @@ runs and returns its REAL output. There are no canned answers here.
 """
 from __future__ import annotations
 
+from tg_menu import owner_reply
+
 import datetime
 import glob
 import importlib
@@ -279,6 +281,7 @@ def examples_text() -> str:
     return "\n".join(lines)
 
 
+@owner_reply
 def handle(text: str, ctx: dict) -> Optional[dict]:
     """Standard Telegram plugin entry point."""
     if not isinstance(text, str):

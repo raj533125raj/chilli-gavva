@@ -21,6 +21,8 @@ Features:
 
 from __future__ import annotations
 
+from tg_menu import owner_reply
+
 import os
 from pathlib import Path
 import re
@@ -280,6 +282,7 @@ def _handle_media_upload(ctx: dict) -> Optional[dict]:
             pass
 
 
+@owner_reply
 def handle(text: str, ctx: dict) -> Optional[dict]:
     """Handle incoming message or command for tg_assets plugin.
 

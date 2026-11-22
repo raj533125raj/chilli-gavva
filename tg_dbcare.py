@@ -7,6 +7,8 @@ Never calls the Telegram API directly and never imports telegram_inbox.
 
 from __future__ import annotations
 
+from tg_menu import owner_reply
+
 import re
 from typing import Any, Dict, Optional
 
@@ -77,6 +79,7 @@ def _is_owner_chat(ctx: Dict[str, Any]) -> bool:
     return True
 
 
+@owner_reply
 def handle(text: str, ctx: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     action = parse_action(text)
     if action is None:

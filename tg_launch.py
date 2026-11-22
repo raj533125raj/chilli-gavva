@@ -19,6 +19,8 @@ Rules kept:
 """
 from __future__ import annotations
 
+from tg_menu import owner_reply
+
 import datetime
 import os
 import re
@@ -305,6 +307,7 @@ def handle_list(ctx: Dict[str, Any]) -> Dict[str, Any]:
     return {"text": text}
 
 
+@owner_reply
 def handle(text: str, ctx: dict) -> Optional[dict]:
     """Standard Telegram plugin entry point."""
     parsed = parse(text)

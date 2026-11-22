@@ -22,6 +22,8 @@ Rules kept:
 """
 from __future__ import annotations
 
+from tg_menu import owner_reply
+
 import os
 import re
 from pathlib import Path
@@ -566,6 +568,7 @@ def handle_sell(pack_id: int, ctx: Dict[str, Any]) -> Dict[str, Any]:
     return {"handled": True}
 
 
+@owner_reply
 def handle(text: str, ctx: dict) -> Optional[dict]:
     """Standard Telegram plugin entry point."""
     parsed = parse(text)

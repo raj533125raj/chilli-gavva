@@ -19,6 +19,8 @@ ctx keys:
 
 from __future__ import annotations
 
+from tg_menu import owner_reply
+
 import datetime
 import json
 import re
@@ -318,6 +320,7 @@ def _show_next_draft(ctx: dict, db_path: Optional[str], now_dt: datetime.datetim
     _show_draft(pending[0], ctx, db_path, now_dt, prefix_msg=prefix_msg)
 
 
+@owner_reply
 def handle(text: str, ctx: dict) -> Optional[dict]:
     """Handle incoming message if targeted at keyboard decision plugin."""
     if not isinstance(text, str):

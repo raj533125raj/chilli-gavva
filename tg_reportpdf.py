@@ -14,6 +14,8 @@ inbox before plugins run.
 
 from __future__ import annotations
 
+from tg_menu import owner_reply
+
 import re
 import shutil
 import tempfile
@@ -45,6 +47,7 @@ def is_report_command(text):
     return bool(_PATTERN.match(str(text or "").strip()))
 
 
+@owner_reply
 def handle(text, ctx):
     if not is_report_command(text):
         return None

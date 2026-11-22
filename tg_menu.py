@@ -17,6 +17,155 @@ import importlib
 import os
 import re
 import sys
+import functools
+import textwrap
+
+
+def owner_reply_pages(text, next_step="/menu pampandi; command enchukondi.", limit=3400):
+    """Render private plugin output as short phone pages, keeping all content.
+
+    Only presentation changes here: actions, state, files and keyboards belong
+    to the original handler. Apply scrubbing before wrapping so a credential
+    cannot be split into otherwise unrecognisable pieces.
+    """
+    import secret_guard
+
+    clean = secret_guard.scrub_text(text)
+    clean = re.sub(
+        r"(?:[₹$€£¥]\s*\d[\d,.]*|\b(?:USD|INR|EUR|GBP|Rs\.?)\s*\d[\d,.]*"
+        r"|\d[\d,.]*\s*(?:USD|INR|EUR|GBP|Rs\.?)\b)",
+        "[amount]", clean, flags=re.I,
+    )
+    # Local machine paths are never useful on the owner's phone. Public URLs
+    # and Telegram commands are deliberately left intact.
+    clean = re.sub(r"(?<![\w:/])(?:~?/|[A-Za-z]:\\)(?:[^\s/\\]+[/\\])+[^\s,;)`]*",
+                   "file vivaralu", clean)
+    translations = {
+        "None": "vivaralu levu", "True": "avunu", "False": "kaadu",
+        "dict": "vivaralu", "traceback": "problem vivaralu",
+        "send_document": "File pampadam", "download_file": "File techukovadam",
+        "ctx": "setup", "not checked yet": "inka check cheyaledu",
+        "counts only": "counts chudandi", "nothing auto-published": "Owner decide chestaru",
+    }
+    for old, new in translations.items():
+        clean = re.sub(r"\b" + re.escape(old) + r"\b", new, clean, flags=re.I)
+    clean = re.sub(r"\b\w*(?:Error|Exception)\b", "problem vachindi", clean)
+    lines, steps = [], []
+    for line in clean.splitlines():
+        # Move existing next-step instructions to the final line. Preserve any
+        # text before an inline marker, and keep every distinct action.
+        marker = re.search(r"(?:^|(?<=[.!?])\s+)Next:\s*", line)
+        if marker:
+            before, after = line[:marker.start()], line[marker.end():]
+            if before.strip():
+                lines.append(before.strip())
+            if after.strip() and after.strip() not in steps:
+                steps.append(after.strip())
+        elif line.strip():
+            lines.append(line.strip())
+    step = "Next: " + ("; ".join(steps) if steps else next_step)
+    # Long copied listing fields stay complete; each emitted message has room
+    # for its final action and stays below Telegram's character limit.
+    step = " ".join(step.split())
+    if len(step) > 600:
+        lines.extend(textwrap.wrap(step[6:], width=500, break_long_words=True))
+        step = "Next: " + next_step
+    # Short cards stay one message. Pair neighbouring short rows rather than
+    # separating the card heading from its status, links or final action.
+    # Large tables still paginate instead of becoming an unreadable wall.
+    if 14 < len(lines) <= 42 and len("\n".join(lines + [step])) <= limit:
+        while len(lines) > 14:
+            candidates = [(len(lines[i]) + len(lines[i + 1]), i)
+                          for i in range(1, len(lines) - 1)
+                          if len(lines[i]) + len(lines[i + 1]) < 500]
+            if not candidates:
+                break
+            _, index = min(candidates)
+            lines[index:index + 2] = [lines[index] + " · " + lines[index + 1]]
+    pages, page = [], []
+    for line in lines:
+        for piece in textwrap.wrap(line, width=min(900, limit - len(step) - 1),
+                                   break_long_words=True, break_on_hyphens=False) or [line]:
+            if len(page) >= 14 or len("\n".join(page + [piece, step])) > limit:
+                pages.append("\n".join(page + [step]))
+                page = []
+            page.append(piece)
+    if page or not pages:
+        pages.append("\n".join(page + [step]))
+    return pages
+
+
+def owner_reply(handler):
+    """Keep all owned plugins' reply text and media captions phone friendly."""
+    @functools.wraps(handler)
+    def render(text, ctx):
+        original = ctx if isinstance(ctx, dict) else {}
+        view = dict(original)
+        command = str(text or "").strip().split()
+        command = command[0].split("@")[0] if command else ""
+        if not re.fullmatch(r"/[a-z][a-z0-9_]*", command):
+            command = "/menu"
+        next_step = f"{command} pampandi; vivaralu chudandi."
+        actions = {
+            "/assets": "Photo attach chesi 'idi logo' leda 'idi icon' caption ivvandi.",
+            "/asset": "/assets pampandi; kavalsina Asset number enchukondi.",
+            "/dbcare": "Clean now leda Check copy button enchukondi.",
+            "/decide": "Draft chusi Approve leda Reject button nokkandi.",
+            "/files": "/files <Pack number> pampandi; files techukondi.",
+            "/ready": "/ready <Pack number> pampandi; fixes chudandi.",
+            "/sell": "/sell <Pack number> pampandi; listing chusi meeru decide cheyandi.",
+            "/listed": "/listed <Pack number> <Store link> pampandi; mee link save cheyandi.",
+            "/sales": "/sales today pampandi; Sale counts chudandi.",
+            "/settings": "Setting marchadaniki 'quiet off' leda 'morning 9' pampandi.",
+            "/office": "Office change cheppandi; venakki velladaniki 'office change undo' pampandi.",
+            "/launch": "/launch <Pack number> pampandi; ee roju pani chudandi.",
+            "/talk": "Mee pani mamulu matallo cheppandi; udaharanaki 'pending drafts entha'.",
+            "/reportpdf": "PDF open chesi ee vaaram counts chudandi.",
+            "/kit": "/kit <Pack number> gumroad pampandi; Store fields techukondi.",
+            "/seokit": "/seokit <Pack number> pampandi; keywords chudandi.",
+        }
+        next_step = actions.get(command, next_step)
+        if command in ("/menu", "/help"):
+            next_step = "/help <command> pampandi; ela vadalo chudandi."
+
+        def send_text(value, keyboard=None):
+            pages = owner_reply_pages(value, next_step)
+            result = None
+            for index, page in enumerate(pages):
+                # The real keyboard is preserved on the last page only.
+                result = original["send_text"](page, keyboard=keyboard if index == len(pages) - 1 else None)
+            return result
+
+        if callable(original.get("send_text")):
+            view["send_text"] = send_text
+        for name in ("send_document", "send_photo", "send_media_group"):
+            callback = original.get(name)
+            if callable(callback):
+                def send_media(path, caption="", _callback=callback):
+                    pages = owner_reply_pages(caption, next_step, limit=1000)
+                    # Keep captions complete without exceeding Telegram's
+                    # caption limit; overflow remains ordinary chat text.
+                    result = _callback(path, caption=pages[0])
+                    if callable(view.get("send_text")):
+                        for page in pages[1:]:
+                            view["send_text"](page)
+                    return result
+                view[name] = send_media
+        result = handler(text, view)
+        if isinstance(result, dict) and "text" in result:
+            result = dict(result)
+            pages = owner_reply_pages(result["text"], next_step)
+            if len(pages) > 1 and callable(view.get("send_text")):
+                for page in pages[:-1]:
+                    view["send_text"](page)
+            elif len(pages) > 1:
+                # Callers without a transport still receive all the content.
+                # Joining short rows keeps the final reply inside 15 lines.
+                pages = [" | ".join(" ".join(p.splitlines()[:-1]) for p in pages)
+                         + "\n" + pages[-1].splitlines()[-1]]
+            result["text"] = pages[-1]
+        return result
+    return render
 
 COMMANDS = [
     {
@@ -198,16 +347,14 @@ def format_grouped_menu():
             groups[cat] = []
         cmd = item.get("cmd", "")
         help_te = item.get("help_te") or item.get("help_en") or ""
-        groups[cat].append(f"  {cmd} — {_short_help(help_te)}")
+        groups[cat].append(f"{cmd} — {_short_help(help_te, 28)}")
 
-    lines = ["📋 *Chilli Gavva Menu* (Mee robot commands):\n"]
+    lines = ["📋 *Chilli Gavva Menu* (Mee robot commands):"]
     order = GROUP_ORDER + [cat for cat in groups if cat not in GROUP_ORDER]
     for cat in order:
         cmd_lines = groups.get(cat, [])
         if cmd_lines:
-            lines.append(f"*{cat}*:")
-            lines.extend(cmd_lines)
-            lines.append("")
+            lines.append(f"*{cat}*: " + " · ".join(cmd_lines))
 
     lines.append("Tip: Edhaina command vivarana kosam `/help <command>` type cheyandi.")
     return "\n".join(lines).strip()
@@ -304,6 +451,7 @@ def format_unknown_suggestions(text: str, max_suggestions=3, commands=None) -> s
     )
 
 
+@owner_reply
 def handle(text: str, ctx: dict) -> dict | None:
     """Plugin handle entry point."""
     if not isinstance(text, str):

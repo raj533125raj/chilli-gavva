@@ -7,6 +7,8 @@ never imports telegram_inbox.  /seo itself belongs to tg_reports.
 
 from __future__ import annotations
 
+from tg_menu import owner_reply
+
 import os
 import re
 import tempfile
@@ -73,6 +75,7 @@ def _products_dir(ctx: Dict[str, Any]) -> Optional[str]:
     return ctx.get("products_dir") or os.environ.get("CHILLI_PRODUCTS_DIR")
 
 
+@owner_reply
 def handle(text: str, ctx: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     if not _is_command(text):
         return None

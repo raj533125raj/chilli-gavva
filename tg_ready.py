@@ -23,6 +23,8 @@ Strict Constraints:
 
 from __future__ import annotations
 
+from tg_menu import owner_reply
+
 import os
 from pathlib import Path
 import re
@@ -88,6 +90,7 @@ def _find_target_pack(aid: int, products_dir: Optional[str] = None) -> Optional[
     return None
 
 
+@owner_reply
 def handle(text: str, ctx: dict) -> Optional[dict]:
     """Standard telegram plugin handle function."""
     if not text or not isinstance(text, str):

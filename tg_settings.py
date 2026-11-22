@@ -12,6 +12,8 @@ Settings stored in state under 'owner_settings' as versioned JSON.
 """
 from __future__ import annotations
 
+from tg_menu import owner_reply
+
 import datetime
 import json
 import os
@@ -588,6 +590,7 @@ def _is_settings_view_command(text: str) -> bool:
 # ---------------- Plugin Entry Point ----------------
 
 
+@owner_reply
 def handle(text: str, ctx: dict) -> Optional[dict]:
     """Plugin handle implementation following the Telegram Plugin Interface.
 

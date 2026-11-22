@@ -22,6 +22,8 @@ Rules kept
 """
 from __future__ import annotations
 
+from tg_menu import owner_reply
+
 import datetime
 import json
 import re
@@ -320,6 +322,7 @@ def parse(text: Any) -> Optional[Tuple[str, Optional[int], str]]:
     return "help", pack_id, rest
 
 
+@owner_reply
 def handle(text: str, ctx: dict) -> Optional[dict]:
     """Standard Telegram plugin entry point."""
     parsed = parse(text)

@@ -20,6 +20,8 @@ Allows owner full control of the office layout and agent appearances:
 """
 from __future__ import annotations
 
+from tg_menu import owner_reply
+
 import json
 import os
 import re
@@ -161,6 +163,7 @@ def _format_unknown_office_hint(text: str) -> str:
     )
 
 
+@owner_reply
 def handle(text: str, ctx: dict) -> dict | None:
     """Plugin entry point."""
     if not isinstance(text, str):

@@ -21,6 +21,8 @@ Safety and Constraints:
 
 from __future__ import annotations
 
+from tg_menu import owner_reply
+
 import os
 from pathlib import Path
 import re
@@ -215,6 +217,7 @@ def extract_first_3_fields(kit_text: str) -> str:
 # Plugin Handle Entrypoint
 # ---------------------------------------------------------------------------
 
+@owner_reply
 def handle(text: str, ctx: dict) -> Optional[dict]:
     """Plugin entrypoint.
 
