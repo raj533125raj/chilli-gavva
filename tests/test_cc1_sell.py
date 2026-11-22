@@ -295,12 +295,15 @@ class SellFlowTests(Base):
         self.make_pack()
         rec, reply = self.sell()
         self.assertEqual(reply, {"handled": True})
-        self.assertEqual(rec.order, ["text", "text", "document", "document", "photo", "photo", "photo",
-                                     "text", "text"])
+        # Text is paged for the phone; the same files and images stay in order.
+        self.assertEqual([kind for kind in rec.order if kind != "text"],
+                         ["document", "document", "photo", "photo", "photo"])
+        self.assertTrue(all(kind == "text" for kind in rec.order[:rec.order.index("document")]))
+        self.assertEqual(rec.order[-2:], ["text", "text"])
         self.assertIn("🟢 Pack #1 — SELLABLE", rec.texts[0])
         self.assertIn("1/4 GUMROAD FIELDS", rec.texts[1])
-        self.assertIn("4/4 GUMROAD CHECKLIST", rec.texts[2])
-        self.assertIn("2 product files, 3 images pampanu", rec.texts[3])
+        self.assertTrue(any("4/4 GUMROAD CHECKLIST" in page for page in rec.texts[2:]))
+        self.assertIn("2 product files, 3 images pampanu", rec.texts[-1])
 
     def test_verdict_is_on_top(self):
         self.make_pack()
@@ -311,14 +314,15 @@ class SellFlowTests(Base):
     def test_gumroad_fields_come_from_the_real_kit(self):
         pack = self.make_pack()
         rec, _reply = self.sell()
-        fields = rec.texts[1]
+        fields = "\n".join(line for page in rec.texts[1:] for line in page.splitlines()
+                           if not line.startswith("Next:"))
         kit = store_kits.generate_kit_text("gumroad", pack, store_kits.parse_listing_file(pack / "listing.txt"))
         self.assertIn("=== GUMROAD LISTING KIT ===", fields)
         self.assertIn("Title: Focus Planner Printable Pack", fields)
         # CCA-2: the Gumroad description opens with the hook (the listing's first sentence) on its own
         # line; the rest of the listing description follows unchanged.
         hook, rest = DESCRIPTION.split(". ", 1)
-        self.assertIn(hook + ".\n\n" + rest, fields)
+        self.assertIn(" ".join((hook + ". " + rest).split()), " ".join(fields.split()))
         tag_line = next(line for line in kit.splitlines() if line.startswith("focus planner, "))
         self.assertIn(tag_line, fields)
         self.assertEqual(len(tag_line.split(", ")), 10)
@@ -327,7 +331,7 @@ class SellFlowTests(Base):
     def test_price_is_owner_decides_and_no_amounts(self):
         self.make_pack()
         rec, _reply = self.sell()
-        self.assertIn("Price: owner decides", rec.texts[1])
+        self.assertIn("Price: owner decides", "\n".join(rec.texts))
         self.assertIsNone(tg_sell.MONEY_RE.search(rec.all_text))
         for _path, caption in rec.documents + rec.photos:
             self.assertIsNone(tg_sell.MONEY_RE.search(caption))
@@ -368,7 +372,7 @@ class SellFlowTests(Base):
     def test_checklist_is_tenglish_click_by_click_with_real_names(self):
         self.make_pack()
         rec, _reply = self.sell()
-        checklist = rec.texts[2]
+        checklist = next(page for page in rec.texts if "4/4 GUMROAD CHECKLIST" in page)
         self.assertIn("gumroad.com", checklist)
         self.assertIn("'New product'", checklist)
         self.assertIn("product.zip, LICENSE.txt", checklist)
@@ -510,7 +514,9 @@ class ProblemTests(Base):
         self.make_pack()
         with mock.patch.object(sell_ready, "evaluate_pack", side_effect=RuntimeError("boom")):
             _rec, reply = self.sell()
-        self.assertIn("/sell lo problem vachindi (RuntimeError)", reply["text"])
+        self.assertIn("/sell lo Pack check poorthi kaledu.", reply["text"])
+        self.assertNotIn("RuntimeError", reply["text"])
+        self.assertTrue(reply["text"].splitlines()[-1].startswith("Next:"))
 
     def test_long_description_is_split_into_safe_messages(self):
         self.make_pack(description=("Clear planner pages for calm days. " * 220).strip())
@@ -604,7 +610,7 @@ class ReachabilityTests(Base):
         self.assertIn("1/4 GUMROAD FIELDS", self.texts[1])
         self.assertEqual([Path(path).name for path in self.documents], ["product.zip", "LICENSE.txt"])
         self.assertEqual([Path(path).name for path in self.photos], ["cover.png", "preview-1.png", "preview-2.png"])
-        self.assertIn("4/4 GUMROAD CHECKLIST", self.texts[2])
+        self.assertTrue(any("4/4 GUMROAD CHECKLIST" in page for page in self.texts[2:]))
 
     def test_sell_alone_through_call_plugins(self):
         self.make_pack()

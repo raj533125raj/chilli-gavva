@@ -581,4 +581,4 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
             return handle_sell(pack_id, ctx)
         return handle_list(ctx)
     except Exception as error:
-        return {"text": clean(f"/sell lo problem vachindi ({type(error).__name__}). /doctor tho chudandi.")}
+        return {"text": "/sell lo Pack check poorthi kaledu.\nNext: /doctor tho problem chudandi."}

@@ -35,7 +35,7 @@ class ReplyStyleFixture(PluginMixin):
                 patcher.start()
                 self.addCleanup(patcher.stop)
 
-    def assert_reply_style(self, value):
+    def assert_reply_style(self, value, allow_money=False):
         value = str(value)
         self.assertTrue(value.strip(), "empty owner reply")
         lines = value.splitlines()
@@ -43,12 +43,13 @@ class ReplyStyleFixture(PluginMixin):
         self.assertTrue(lines[-1].startswith("Next:"), value)
         self.assertEqual(sum(line.startswith("Next:") for line in lines), 1, value)
         self.assertNotRegex(value, PYTHON_WORDS)
-        self.assertNotRegex(value, MONEY_RE)
+        if not allow_money:
+            self.assertNotRegex(value, MONEY_RE)
         self.assertNotRegex(value, LOCAL_PATH)
         self.assertEqual(secret_guard.scan_text(value), [], value)
         self.assertNotIn(BOT_TOKEN, value)
 
-    def run_command(self, command, plugins=None):
+    def run_command(self, command, plugins=None, allow_money=False):
         self.rec.clear()
         with mock.patch.object(ti, "build_plugin_ctx", return_value=self.ctx), \
              mock.patch.object(ti, "record_plugin_crash", side_effect=AssertionError("plugin crashed")):
@@ -63,13 +64,14 @@ class ReplyStyleFixture(PluginMixin):
         self.assertTrue(output, command)
         for value in output:
             with self.subTest(reply=value):
-                self.assert_reply_style(value)
+                self.assert_reply_style(value, allow_money=allow_money)
         return result
 
 
 def command_test(plugin, command, full_loader):
     def test(self):
-        self.run_command(command, plugins=None if full_loader else [plugin])
+        self.run_command(command, plugins=None if full_loader else [plugin],
+                         allow_money=plugin.__name__ == "tg_sales")
     return test
 
 
@@ -104,8 +106,11 @@ class PackReplyStyleTests(ReplyStyleFixture, unittest.TestCase):
             with self.subTest(command=command):
                 self.run_command(command)
 
-    def test_private_sale_amount_is_not_echoed(self):
-        self.run_command("sale pack 1 Gumroad " + chr(36) + str(12))
+    def test_private_sale_amount_is_confirmed_only_by_sales(self):
+        result = self.run_command("sale pack 1 Gumroad " + chr(36) + str(12),
+                                  plugins=[p for p in OWNED if p.__name__ == "tg_sales"],
+                                  allow_money=True)
+        self.assertIn("USD " + str(12), result["text"])
 
 
 if __name__ == "__main__":

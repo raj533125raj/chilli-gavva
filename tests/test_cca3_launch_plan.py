@@ -483,8 +483,9 @@ class PluginTests(Base):
         self.assertIn("7 rojula launch plan", self.texts[0])
         self.assertIn("Launch start: 2026-11-14", self.texts[0])
         self.assertIn("Ee roju: Day 1/7.", self.texts[0])
-        self.assertEqual([(Path(path).name, caption) for path, caption in self.photos],
-                         [("pin_1.png", "Pack #3 Day 1 image: pin_1.png")])
+        self.assertEqual([Path(path).name for path, _ in self.photos], ["pin_1.png"])
+        self.assertEqual(self.photos[0][1].splitlines()[0], "Pack #3 Day 1 image: pin_1.png")
+        self.assertTrue(self.photos[0][1].splitlines()[-1].startswith("Next:"))
         self.assertIn("Day 1/7: Launch day", self.texts[1])
         self.assertEqual(self.keyboards[1], [["/launch 3 day 2"], ["/launch 3"]])
 
@@ -651,7 +652,10 @@ class PluginTests(Base):
 
     def test_problem_gives_a_short_reply_not_a_crash(self):
         with mock.patch.object(tg_launch, "handle_plan", side_effect=RuntimeError("boom")):
-            self.assertIn("/launch lo problem vachindi (RuntimeError)", self.say("/launch 3")["text"])
+            text = self.say("/launch 3")["text"]
+            self.assertIn("/launch lo plan chadavaledu.", text)
+            self.assertNotIn("RuntimeError", text)
+            self.assertTrue(text.splitlines()[-1].startswith("Next:"))
 
     def test_nothing_is_posted_only_owner_chat_callbacks_are_used(self):
         self.make_marketing(self.make_pack())

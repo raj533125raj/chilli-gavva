@@ -408,7 +408,9 @@ class ReplyTests(Base):
     def test_database_problem_gives_a_short_reply_not_a_crash(self):
         with mock.patch.object(tg_listed, "list_text", side_effect=sqlite3.OperationalError("locked")):
             text = self.say("/listed")
-        self.assertIn("/listed lo problem vachindi (OperationalError)", text)
+        self.assertIn("/listed lo Store link vivaralu chadavaledu.", text)
+        self.assertNotIn("OperationalError", text)
+        self.assertTrue(text.splitlines()[-1].startswith("Next:"))
 
     def test_replies_have_no_money_amounts(self):
         import store_kits

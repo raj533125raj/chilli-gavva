@@ -324,4 +324,4 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
             return handle_day(pack_id, day, ctx)
         return handle_plan(pack_id, ctx)
     except Exception as error:
-        return {"text": launch_plan.clean(f"/launch lo problem vachindi ({type(error).__name__}). /doctor tho chudandi.")}
+        return {"text": "/launch lo plan chadavaledu.\nNext: /doctor tho problem chudandi."}

@@ -21,7 +21,7 @@ import functools
 import textwrap
 
 
-def owner_reply_pages(text, next_step="/menu pampandi; command enchukondi.", limit=3400):
+def owner_reply_pages(text, next_step="/menu pampandi; command enchukondi.", limit=3400, allow_money=False):
     """Render private plugin output as short phone pages, keeping all content.
 
     Only presentation changes here: actions, state, files and keyboards belong
@@ -31,11 +31,12 @@ def owner_reply_pages(text, next_step="/menu pampandi; command enchukondi.", lim
     import secret_guard
 
     clean = secret_guard.scrub_text(text)
-    clean = re.sub(
-        r"(?:[₹$€£¥]\s*\d[\d,.]*|\b(?:USD|INR|EUR|GBP|Rs\.?)\s*\d[\d,.]*"
-        r"|\d[\d,.]*\s*(?:USD|INR|EUR|GBP|Rs\.?)\b)",
-        "[amount]", clean, flags=re.I,
-    )
+    if not allow_money:
+        clean = re.sub(
+            r"(?:[₹$€£¥]\s*\d[\d,.]*|\b(?:USD|INR|EUR|GBP|Rs\.?)\s*\d[\d,.]*"
+            r"|\d[\d,.]*\s*(?:USD|INR|EUR|GBP|Rs\.?)\b)",
+            "[amount]", clean, flags=re.I,
+        )
     # Local machine paths are never useful on the owner's phone. Public URLs
     # and Telegram commands are deliberately left intact.
     clean = re.sub(r"(?<![\w:/])(?:~?/|[A-Za-z]:\\)(?:[^\s/\\]+[/\\])+[^\s,;)`]*",
@@ -101,6 +102,12 @@ def owner_reply(handler):
     def render(text, ctx):
         original = ctx if isinstance(ctx, dict) else {}
         view = dict(original)
+        # Only the private sales ledger confirms owner-provided amounts. This
+        # exemption never reaches public listings, files or other plugins.
+        allow_money = handler.__module__ == "tg_sales"
+
+        def pages_for(value, next_step, limit=3400):
+            return owner_reply_pages(value, next_step, limit, allow_money=allow_money)
         command = str(text or "").strip().split()
         command = command[0].split("@")[0] if command else ""
         if not re.fullmatch(r"/[a-z][a-z0-9_]*", command):
@@ -129,7 +136,7 @@ def owner_reply(handler):
             next_step = "/help <command> pampandi; ela vadalo chudandi."
 
         def send_text(value, keyboard=None):
-            pages = owner_reply_pages(value, next_step)
+            pages = pages_for(value, next_step)
             result = None
             for index, page in enumerate(pages):
                 # The real keyboard is preserved on the last page only.
@@ -142,7 +149,7 @@ def owner_reply(handler):
             callback = original.get(name)
             if callable(callback):
                 def send_media(path, caption="", _callback=callback):
-                    pages = owner_reply_pages(caption, next_step, limit=1000)
+                    pages = pages_for(caption, next_step, limit=1000)
                     # Keep captions complete without exceeding Telegram's
                     # caption limit; overflow remains ordinary chat text.
                     result = _callback(path, caption=pages[0])
@@ -154,7 +161,7 @@ def owner_reply(handler):
         result = handler(text, view)
         if isinstance(result, dict) and "text" in result:
             result = dict(result)
-            pages = owner_reply_pages(result["text"], next_step)
+            pages = pages_for(result["text"], next_step)
             if len(pages) > 1 and callable(view.get("send_text")):
                 for page in pages[:-1]:
                     view["send_text"](page)

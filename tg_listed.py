@@ -343,4 +343,4 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
         return {"text": "Ila pampandi (pack number, tarvata okka Gumroad link):\n" + EXAMPLE
                         + "\nListed packs chudadaniki: /listed"}
     except Exception as error:
-        return {"text": f"/listed lo problem vachindi ({type(error).__name__}). /doctor tho chudandi."}
+        return {"text": "/listed lo Store link vivaralu chadavaledu.\nNext: /doctor tho problem chudandi."}
