@@ -18,12 +18,46 @@ import zipfile
 
 
 MONEY_PATTERNS = [
+    re.compile(r"(?:[$₹€£¥]\s*[-+]?\s*\d[\d,.]*|\b(?:USD|INR|EUR|GBP|JPY|Rs\.?)\s*[-+]?\s*\d[\d,.]*|\d[\d,.]*\s*(?:[$₹€£¥]|\b(?:USD|INR|EUR|GBP|JPY|Rs\.?)\b))", re.I),
     re.compile(r"\$[\d,]+(?:\.\d{1,2})?\b"),            # $10, $10.00, $1,200
     re.compile(r"[\d,]+(\s?)USD\b", re.IGNORECASE),      # 10 USD, 10USD
     re.compile(r"[\d,]+(\s?)INR\b", re.IGNORECASE),      # 10 INR
     re.compile(r"[Rs]?\s?₹\s?[\d,]+(?:\.\d{1,2})?"),    # ₹10, Rs ₹10, ₹ 10
     re.compile(r"Rs\.?\s?[\d,]+(?:\.\d{1,2})?\b", re.IGNORECASE),  # Rs 10, Rs.10
 ]
+
+
+def parse_fields(text: str) -> dict:
+    """Read labelled or Markdown listing sections without swallowing the next field."""
+    fields = {name: [] for name in ("title", "description", "tags", "what_you_get", "how_to_use",
+                                   "license", "format", "size", "main_keyword")}
+    labels = {"title": "title", "name": "title", "description": "description", "tags": "tags",
+              "what you get": "what_you_get", "what's included": "what_you_get",
+              "what's inside": "what_you_get", "included files": "what_you_get",
+              "how to use": "how_to_use", "instructions": "how_to_use", "usage": "how_to_use",
+              "license": "license", "licence": "license", "file format": "format", "format": "format",
+              "size": "size", "page count": "size", "main keyword": "main_keyword", "keyword": "main_keyword"}
+    current = None
+    for raw in str(text).replace("’", "'").splitlines():
+        stripped = raw.strip()
+        heading = re.match(r"^(#{1,6})\s+(.+?)\s*#*$", stripped)
+        label_match = re.match(r"^([A-Za-z][A-Za-z '/-]*):\s*(.*)$", stripped)
+        if heading:
+            label = heading.group(2).strip().rstrip(":").lower()
+            current = labels.get(label)
+            if heading.group(1) == "#" and not fields["title"] and current is None:
+                fields["title"].append(heading.group(2).strip())
+                current = "title"
+        elif label_match and label_match.group(1).lower() in labels:
+            current = labels[label_match.group(1).lower()]
+            fields[current].append(label_match.group(2))
+        elif label_match:
+            current = None
+        elif stripped.rstrip(":").casefold() in labels:
+            current = labels[stripped.rstrip(":").casefold()]
+        elif current:
+            fields[current].append(raw)
+    return {name: "\n".join(lines).strip() for name,lines in fields.items()}
 
 
 def _read_listing_txt(folder: str) -> str:
@@ -62,7 +96,11 @@ def _bundle_member_count(folder: str) -> int:
 
 def _section(text: str, label: str) -> str:
     """Extract a section value by label. Returns '' if missing."""
-    # Match "Label:" at start of a line, capture everything until next section label or EOF.
+    parsed = parse_fields(text)
+    key = {"Title": "title", "Description": "description", "Tags": "tags", "What you get": "what_you_get"}.get(label)
+    if key is not None:
+        return parsed[key]
+    # Other legacy callers may ask for an additional labelled section.
     pattern = re.compile(rf"^{re.escape(label)}:\s*(.*?)$", re.MULTILINE | re.DOTALL)
     m = pattern.search(text)
     if not m:
@@ -233,7 +271,7 @@ def main() -> None:
     money_hit = _check_money(text)
     if money_hit:
         print(
-            f"Error: listing.txt contains a money amount ({money_hit!r}). "
+            "Error: listing.txt contains a money amount. "
             "Refusing to print listing fields.",
             file=sys.stderr,
         )

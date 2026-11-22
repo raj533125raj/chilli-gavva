@@ -265,10 +265,85 @@ def lint_folder(pack_folder, name=None):
     path = pack_folder / "listing.txt"
     label = name or pack_folder.name or str(pack_folder)
     if not path.is_file():
-        return [("file", "FAIL", f"{label}: listing.txt not found inside {pack_folder}")], False
-    results = lint_text(path.read_text(encoding="utf-8-sig"), name=path.name)
+        return [("file", "FAIL", "Pack listing.txt file pettandi.")] + quality_checks("", pack_folder), False
+    results = quality_checks(path.read_text(encoding="utf-8-sig"), pack_folder)
     ok = not any(level == "FAIL" for _check, level, _message in results)
     return results, ok
+
+
+def quality_checks(text, pack_folder=None, main_keyword=None):
+    """Gumroad quality gate, with fixed Tenglish guidance that never quotes private input.
+
+    lint_text remains the legacy store-independent thirteen-tag lint API.
+    Real upload folders use this stricter Gumroad gate via lint_folder.
+    """
+    from listing_fields import parse_fields, _check_money
+    import secret_guard
+    fields = parse_fields(text)
+    title = fields["title"]
+    tags = [part.strip().lstrip("-*• ") for part in re.split(r"[,\n]", fields["tags"]) if part.strip().lstrip("-*• ")]
+    keyword = main_keyword or fields["main_keyword"] or (tags[0] if tags else "")
+    tokens = lambda value: re.findall(r"\w+", str(value).casefold())
+    first = tokens(title)[:5]
+    wanted = tokens(keyword)
+    keyword_ok = bool(wanted) and any(first[i:i+len(wanted)] == wanted for i in range(len(first)))
+    description = fields["description"]
+    body = "\n".join(fields[key] for key in ("description", "what_you_get", "how_to_use", "license", "format", "size"))
+    items = [line for line in fields["what_you_get"].splitlines() if re.match(r"\s*(?:[-*•]|\d+[.)])\s+\S", line)]
+    brand = re.compile(r"\b(?:etsy|amazon|canva|notion|google|microsoft|excel|gumroad|topmate|payhip|goodnotes|apple|ipad|chatgpt|openai|shopify)\b", re.I)
+    cover, previews = [], []
+    if pack_folder is not None:
+        root = Path(pack_folder).resolve()
+        if root.is_dir():
+            for path in sorted(root.iterdir()):
+                if (not path.is_file() or path.is_symlink() or path.suffix.lower() not in (".png", ".jpg", ".jpeg", ".webp")):
+                    continue
+                if re.match(r"^cover(?:[-_.]|$)", path.name, re.I):
+                    cover.append(path.name)
+                elif re.match(r"^preview(?:[-_.]|$)", path.name, re.I):
+                    previews.append(path.name)
+    rules = [
+        ("title", 40 <= len(title) <= 80, "Title 40-80 characters lo rayandi."),
+        ("keyword", keyword_ok, "Main keyword ni Title modati 5 padallo pettandi; modati Tag lo ade topic ivvandi."),
+        ("description", 300 <= len(description) <= 3000, "Description 300-3000 characters lo buyer ki upayogam cheppandi."),
+        ("what you get", bool(items), "What you get kinda nijamaina files ni bullet list ga rayandi."),
+        ("format", bool(re.search(r"\b(?:PDF|DOCX|XLSX|CSV|SVG|PNG|JPG|JPEG|ZIP|PPTX)\b", body, re.I)),
+         "Files format, udaharanaki PDF, Description lo rayandi."),
+        ("page count/size", bool(re.search(r"\b\d+\s*(?:pages?|sheets?|slides?|MB|KB)\b|\bA[345]\b|\b(?:US\s+)?Letter\b|\d+\s*[x×]\s*\d+", body, re.I)),
+         "Page count leda size (A4 / Letter) Description lo rayandi."),
+        ("how to use", bool(fields["how_to_use"] or re.search(r"\bhow to use\b|\binstructions\b|\bdownload\b.{0,160}\b(?:open|print|import)\b", body, re.I | re.S)),
+         "How to use steps rayandi: Download, open, print leda import ela cheyalo cheppandi."),
+        ("license", bool(fields["license"] or re.search(r"\blicen[cs]e\b|\b(?:personal|commercial) use\b", body, re.I)),
+         "License lo personal use leda commercial use rules cheppandi."),
+        ("tags", 3 <= len(tags) <= 10, "3-10 Tag words enchukondi."),
+        ("tag duplicates", len({tag.casefold() for tag in tags}) == len(tags), "Repeat ayina Tags teeseyandi."),
+        ("tag length", all(len(tag) <= TAG_MAX_LEN for tag in tags), "Prathi Tag 20 characters lopala pettandi."),
+        ("brands", not brand.search("\n".join((title, body, ", ".join(tags)))), "Brand names teesesi product pani gurinchi rayandi."),
+        ("money", _check_money(text) is None, "Public text lo amounts teeseyandi; price owner decide chestaru."),
+        ("secrets", not secret_guard.scan_text(text), "Private vivaralu teesesi listing malli check cheyandi."),
+    ]
+    if pack_folder is not None:
+        rules += [("cover", bool(cover), "Pack lo cover.png leda cover image pettandi."),
+                  ("previews", len(previews) >= 3, "Pack lo kanisam 3 preview images pettandi.")]
+    return [(name, "PASS" if passed else "FAIL", "Check bagundi." if passed else fix)
+            for name,passed,fix in rules]
+
+
+def quality_report(pack_folder, main_keyword=None):
+    """Canonical listing score, using exactly sell_ready's existing lint formula."""
+    folder = Path(pack_folder)
+    source = folder / "listing.txt"
+    if source.is_file():
+        results = quality_checks(source.read_text(encoding="utf-8-sig"), folder, main_keyword)
+    else:
+        results = [("file", "FAIL", "Pack listing.txt file pettandi.")] + quality_checks("", folder)
+    fixes = [message for _,level,message in results if level != "PASS"]
+    score = max(0, 100 - 20 * sum(level == "FAIL" for _,level,_ in results)
+                - 5 * sum(level == "WARN" for _,level,_ in results))
+    next_line = "Next: " + ("; ".join(fixes[:3]) if fixes else "Listing chusi Store lo meere upload cheyandi.")
+    return {"score": score, "ok": not fixes, "checks": results, "fixes": fixes,
+            "top_fixes": fixes[:3], "next": next_line,
+            "tenglish_summary": f"Listing score {score}/100.\n{next_line}"}
 
 
 def lint_all(packs_root=None):
