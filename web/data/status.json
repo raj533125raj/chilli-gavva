@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-22T01:24:35Z",
+ "generated_at": "2026-11-22T01:34:18Z",
  "llm": {
-  "calls_today": 4,
+  "calls_today": 10,
   "cap": 500
  },
  "agents": [
@@ -204,18 +204,6 @@
  ],
  "pending_approvals": [
   {
-   "id": 105,
-   "ts": "2026-11-12T00:47:29.444642",
-   "kind": "scout_idea",
-   "title": "Draft #105"
-  },
-  {
-   "id": 106,
-   "ts": "2026-11-14T01:39:08.560453",
-   "kind": "scout_idea",
-   "title": "Draft #106"
-  },
-  {
    "id": 107,
    "ts": "2026-11-14T01:39:08.563360",
    "kind": "scout_idea",
@@ -407,38 +395,38 @@
  "ai_health": [
   {
    "provider": "Groq",
-   "model": "openai/gpt-oss-20b",
-   "state": "down",
-   "reason": "Provider returned no answer",
-   "checked_at": "2026-11-22T01:24:35Z"
+   "model": "openai/gpt-oss-120b",
+   "state": "up",
+   "reason": "Latest request succeeded",
+   "checked_at": "2026-11-22T01:34:18Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
    "state": "up",
    "reason": "Latest request succeeded",
-   "checked_at": "2026-11-22T01:24:35Z"
+   "checked_at": "2026-11-22T01:34:18Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "unknown",
    "reason": "No recent activity recorded",
-   "checked_at": "2026-11-22T01:24:35Z"
+   "checked_at": "2026-11-22T01:34:18Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-22T01:24:35Z"
+   "checked_at": "2026-11-22T01:34:18Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-22T01:24:35Z"
+   "checked_at": "2026-11-22T01:34:18Z"
   }
  ],
  "minutes": {
@@ -729,19 +717,19 @@
  "reject_reasons": [
   {
    "reason": "Formatting or rubric issue",
-   "count": 79
+   "count": 80
   },
   {
    "reason": "Risky or prohibited claim",
-   "count": 69
+   "count": 73
   },
   {
    "reason": "Target audience unclear",
-   "count": 60
+   "count": 63
   },
   {
    "reason": "Product structure incomplete",
-   "count": 45
+   "count": 47
   },
   {
    "reason": "Unclear value over free template",
@@ -750,8 +738,8 @@
  ],
  "report": {
   "drafts_made": 4,
-  "drafts_waiting": 14,
-  "drafts_approved": 0,
+  "drafts_waiting": 12,
+  "drafts_approved": 2,
   "products_built": 0,
   "errors": 0
  },
@@ -861,68 +849,92 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 4,
+   "calls_used_today": 10,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 4,
+   "calls_used_today": 10,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 4,
+   "calls_used_today": 10,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 4,
+   "calls_used_today": 10,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 4,
+   "calls_used_today": 10,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 4,
+   "calls_used_today": 10,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 4,
+   "calls_used_today": 10,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 4,
+   "calls_used_today": 10,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 4,
+   "calls_used_today": 10,
    "calls_limit_today": 500,
    "context_percent": null
   }
  ],
  "loop_events": [
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-22T01:34:17Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-22T01:34:17Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-22T01:25:21Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-22T01:25:18Z"
+  },
   {
    "agent": "Unknown agent",
    "kind": "error",
@@ -1198,30 +1210,6 @@
    "kind": "error",
    "label": "Recovery check",
    "at": "2026-11-07T02:51:42Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-07T02:17:28Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-07T02:16:46Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-07T02:16:46Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-06T04:15:47Z"
   }
  ],
  "activity_events": [
@@ -2387,12 +2375,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-22T01:23:23Z",
-  "last_run_end": "2026-11-22T01:24:35Z",
+  "last_run_start": "2026-11-22T01:34:17Z",
+  "last_run_end": "2026-11-22T01:34:18Z",
   "runner": "github-actions",
-  "run_id": "44971137734"
+  "run_id": "44971362773"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
@@ -2411,17 +2400,18 @@
   "CCE-3 Bad-day simulator: --bad injects Telegram 429/500, AI down, KV wrong id, disk full, corrupt PDF, half-written state, clock jumps; CI-like RUNNER_TEMP and",
   "CCE-1 fix: random fake alarm URL so the copied simulator never trips the robot's own secret guard",
   "CCE-2 Album of one: send_media_group sends a single file as a photo or document (Telegram refuses 1-item albums)",
-  "CCE-2 Owner holds #4/#6 apply only to the drafts of the 2026-10-16 decision: a new draft with that number is built, unknown date stays held",
-  "CCE-2 Rebuild specs only for their real draft: approved, same niche agent, never a new or pending draft with the same number"
+  "CCE-2 Owner holds #4/#6 apply only to the drafts of the 2026-10-16 decision: a new draft with that number is built, unknown date stays held"
  ],
  "daily_report": {
   "date_ist": "2026-11-22",
-  "summary": "No completed work recorded.",
-  "items_done": []
+  "summary": "0 tasks completed; 2 approvals reviewed; 0 products built.",
+  "items_done": [
+   "Approval reviewed"
+  ]
  },
  "sunday_letter": {
   "date_ist": "2026-11-22",
-  "summary": "13 tasks completed; 2 approvals reviewed; 0 products built."
+  "summary": "13 tasks completed; 4 approvals reviewed; 0 products built."
  },
  "cubes": [
   {
@@ -2775,8 +2765,8 @@
  "office_requests": [],
  "scout_ideas_count": {
   "total": 64,
-  "pending": 11,
-  "approved": 53
+  "pending": 9,
+  "approved": 55
  },
  "trend_items_count": {
   "total": 180,
