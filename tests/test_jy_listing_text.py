@@ -17,7 +17,7 @@ class JyListingTextTests(unittest.TestCase):
         self.environment.start()
         self.addCleanup(self.environment.stop)
 
-    def test_five_tags_expanded_up_to_13_valid_tags(self):
+    def test_five_valid_tags_are_kept_without_unrelated_padding(self):
         listing_md = """# Minimalist Daily Task Manager Schedule Organizer Book
 
 ## Description
@@ -37,9 +37,9 @@ A simple task planner for personal use only.
         self.assertIn("Tags:", res)
         tags_line = [line for line in res.splitlines() if line.startswith("Tags:")][0]
         tags = [t.strip() for t in tags_line[len("Tags:"):].split(",")]
-        self.assertGreater(len(tags), 5)
-        self.assertLessEqual(len(tags), 13)
-        self.assertEqual(len(tags), 13)
+        self.assertGreaterEqual(len(tags), 3)
+        self.assertLessEqual(len(tags), 10)
+        self.assertEqual(len(tags), 5)
         # Check all tags valid
         for tag in tags:
             self.assertLessEqual(len(tag), 20)
@@ -92,7 +92,7 @@ A simple task planner for personal use only.
         for forbidden in ("Google Sheets", "Numbers", "LibreOffice",
                           "your preferred spreadsheet program", "any spreadsheet app"):
             self.assertNotIn(forbidden.casefold(), cleaned.casefold())
-        self.assertIn("an Excel (.xlsx) file", cleaned)
+        self.assertIn("a spreadsheet (.xlsx) file", cleaned)
 
     def test_personal_use_line_added_once(self):
         # Case 1: no "personal use" in description -> line added once

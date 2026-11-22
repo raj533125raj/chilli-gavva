@@ -234,7 +234,7 @@ class SheetTests(unittest.TestCase):
         self.assertIn("2 sheets in the Excel workbook: Instructions tab, Job Applications tab", what_you_get(folder))
 
     def test_old_tab_line_is_kept_unchanged(self):
-        self.assertIn("— Excel (.xlsx); tabs: Instructions, Income Log", what_you_get(built("sheets")))
+        self.assertIn("— spreadsheet (.xlsx); tabs: Instructions, Income Log", what_you_get(built("sheets")))
 
     def test_tabs_that_are_feature_claims_are_not_named(self):
         for tab in ("Dashboard", "Charts", "Calendar View", "Kanban"):

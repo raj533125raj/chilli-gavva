@@ -231,7 +231,8 @@ class TelegramIntegrationTests(unittest.TestCase):
     def test_workflow_preserves_only_fixed_safe_diagnostic_lines_on_success(self):
         self.run_server(Telegram())
         safe = [line for line in self.output.getvalue().splitlines() if diagnostics.safe_line(line)]
-        self.assertEqual(len(safe), 10)
+        self.assertEqual(len(safe), len(diagnostics.METHODS) + 5)
+        self.assertTrue(any(line.startswith("Telegram diagnostic: allowed_updates=") for line in safe))
         unsafe = ["Telegram diagnostic: getMe HTTP=200 PRIVATE-TOKEN", "Telegram diagnostic: errors=PRIVATE-TOKEN",
                   "Telegram diagnostic: getUpdates HTTP=200x1\r::warning::PRIVATE-TOKEN"]
         raw = "\n".join(safe + unsafe + ["PRIVATE MESSAGE TEXT", "::warning::PRIVATE-TOKEN"])

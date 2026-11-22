@@ -201,7 +201,8 @@ class S4AbResultsTests(unittest.TestCase):
     def test_25_handle_command_integration(self):
         with mock.patch("ab_results.format_ab_table", return_value="Table for 99"):
             res = ti.handle_command("ab", [99], db_path=self.db)
-            self.assertEqual(res, "Table for 99")
+            self.assertEqual(res.splitlines()[0], "Table for 99")
+            self.assertTrue(res.splitlines()[-1].startswith("Next:"))
 
 
 if __name__ == "__main__":

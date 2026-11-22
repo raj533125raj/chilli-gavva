@@ -632,7 +632,7 @@ class TestKLBundleBuilder(unittest.TestCase):
 
         self.assertNotIn("Google Sheets", listing_text)
         self.assertNotIn("Numbers", listing_text)
-        self.assertIn("Excel (.xlsx)", listing_text)
+        self.assertIn("spreadsheet (.xlsx)", listing_text)
 
     def test_39_build_bundle_handles_fallback_card_when_member_cover_missing(self):
         p1 = create_temp_pack(self.tmp_dir, "p1", title="Pack 1")

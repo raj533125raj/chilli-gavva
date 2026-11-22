@@ -816,7 +816,7 @@ class DrillTests(unittest.TestCase):
                 stats = telegram_inbox.new_stats()
                 handled = telegram_inbox.process_updates("token", "123456", db_path=db_path, stats=stats)
                 self.assertEqual(handled, 1)
-                mock_send.assert_called_once_with("token", "123456", "Auto-fix drill: PASS\ndrill passed")
+                mock_send.assert_called_once_with("token", "123456", "Auto-fix drill: PASS\ndrill passed\nNext: /list pampandi; waiting Drafts chudandi.")
 
             # Non-owner chat is completely ignored
             update_non_owner = {"update_id": 101, "message": {"chat": {"id": "stranger_chat"}, "text": "/autofix_drill"}}

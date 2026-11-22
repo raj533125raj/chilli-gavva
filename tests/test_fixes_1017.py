@@ -192,7 +192,9 @@ class BundleTests(unittest.TestCase):
         self.assertIn("the owner decides if it goes on sale", index)
         self.assertNotIn("**Price:**", listing)
         self.assertNotIn("3.00 USD", listing)
-        self.assertIn("## Tags (10)", listing)
+        self.assertIn("## Tags", listing)
+        from listing_fields import parse_fields
+        self.assertEqual(len(parse_fields(listing)["tags"].splitlines()), 10)
         self.assertIn("WHAT'S INSIDE (14 pages)", listing)
         self.assertIn("products #1 v2, #2 v2 and #3 v2", listing)
 

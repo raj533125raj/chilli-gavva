@@ -126,6 +126,8 @@ def owner_reply(handler):
                 if raw == alias or raw.startswith(alias + " "):
                     command = target
                     break
+        if handler.__module__ == "tg_posts" and command in ("/today", "/tomorrow", "/week"):
+            command = "/post"
         next_step = f"{command} pampandi; vivaralu chudandi."
         actions = {
             "/assets": "Photo attach chesi 'idi logo' leda 'idi icon' caption ivvandi.",

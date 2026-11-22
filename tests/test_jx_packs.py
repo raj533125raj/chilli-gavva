@@ -146,7 +146,8 @@ class JxPacksTests(unittest.TestCase):
         self.assertIn("What you get:", reply)
         self.assertLessEqual(len(reply), 3500)
         self.assertNotIn(".zip", reply.lower())
-        self.assertNotIn("/", reply)
+        self.assertNotIn("/", "\n".join(line for line in reply.splitlines() if not line.startswith("Next:")))
+        self.assertTrue(reply.splitlines()[-1].startswith("Next:"))
         self.assertNotIn("\\", reply)
         self.assertNotIn("$", reply)
 

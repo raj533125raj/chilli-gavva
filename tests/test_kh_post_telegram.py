@@ -253,7 +253,8 @@ class KhPostTelegramTests(unittest.TestCase):
         with mock.patch.object(post_planner, "PLAN_PATH", missing_plan):
             reply = ti.today_posts_text(plan_path=missing_plan, products_dir=empty_dir)
             today_str = datetime.date.today().isoformat()
-            self.assertEqual(reply, f"No posts scheduled for {today_str}.")
+            self.assertEqual(reply.splitlines()[0], f"No posts scheduled for {today_str}.")
+        self.assertTrue(reply.splitlines()[-1].startswith("Next:"))
 
     # 15. No ready packs: /posted 1 fails gracefully
     def test_15_no_ready_packs_posted_fails_gracefully(self):

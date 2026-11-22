@@ -22,6 +22,7 @@ from __future__ import annotations
 from tg_menu import owner_reply
 
 import datetime
+from zoneinfo import ZoneInfo
 import os
 import re
 from pathlib import Path
@@ -42,7 +43,7 @@ COMMANDS = [
 ]
 
 STATE_START = "launch_start:{}"
-IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+IST = ZoneInfo("Asia/Kolkata")
 _ID = r"(?:pack\s+)?#?(\d{1,9})"
 _PATTERNS = [
     ("restart", re.compile(rf"^/launch(?:@\w+)?\s+{_ID}\s+(?:restart|reset|malli|start)$", re.IGNORECASE)),

@@ -28,27 +28,14 @@ def record(method, status=None, kind=None, ok=False, terminal=True):
         state["send_failed"] += int(terminal and not ok and kind is not None)
 
 
-import sys
-
-
-def _in_legacy_count_test():
-    f = sys._getframe()
-    while f:
-        if f.f_code.co_name == "test_workflow_preserves_only_fixed_safe_diagnostic_lines_on_success":
-            return True
-        f = f.f_back
-    return False
-
-
 def print_summary(state, stats):
     print("Telegram diagnostic: configured=" + state["configured"])
     print("Telegram diagnostic: webhook=" + state["webhook"])
     allowed = state.get("allowed_updates", "default")
     allowed_str = repr(allowed) if isinstance(allowed, list) else allowed
-    if not _in_legacy_count_test():
-        print("Telegram diagnostic: allowed_updates=" + allowed_str)
-        if isinstance(allowed, list) and len(allowed) > 0 and "callback_query" not in allowed:
-            print("Telegram diagnostic: callback_dropped_risk=yes")
+    print("Telegram diagnostic: allowed_updates=" + allowed_str)
+    if isinstance(allowed, list) and len(allowed) > 0 and "callback_query" not in allowed:
+        print("Telegram diagnostic: callback_dropped_risk=yes")
     for method in METHODS:
         counts = state["http"][method]
         statuses = ",".join(f"{code}x{count}" for code, count in sorted(counts.items())) or "not_called"

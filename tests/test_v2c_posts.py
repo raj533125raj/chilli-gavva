@@ -261,7 +261,7 @@ class TestV2CPosts(unittest.TestCase):
             r3 = tg_posts.handle("today posts", self.ctx)
             r4 = tg_posts.handle("ee roju posts", self.ctx)
             r5 = tg_posts.handle("/today", self.ctx)
-            self.assertEqual(r1, {"text": "Post plan ledu. Upload packs ready ayyaka robot auto plan chestundi."})
+            self.assertEqual(r1, {"text": "Post plan ledu. Upload packs ready ayyaka robot auto plan chestundi.\nNext: /post pampandi; vivaralu chudandi."})
             self.assertEqual(r2, r1)
             self.assertEqual(r3, r1)
             self.assertEqual(r4, r1)
@@ -273,7 +273,7 @@ class TestV2CPosts(unittest.TestCase):
             r2 = tg_posts.handle("post tomorrow", self.ctx)
             r3 = tg_posts.handle("repu posts", self.ctx)
             r4 = tg_posts.handle("/tomorrow", self.ctx)
-            self.assertEqual(r1, {"text": "Post plan ledu. Upload packs ready ayyaka robot auto plan chestundi."})
+            self.assertEqual(r1, {"text": "Post plan ledu. Upload packs ready ayyaka robot auto plan chestundi.\nNext: /post pampandi; vivaralu chudandi."})
             self.assertEqual(r2, r1)
             self.assertEqual(r3, r1)
             self.assertEqual(r4, r1)
@@ -284,7 +284,7 @@ class TestV2CPosts(unittest.TestCase):
             r2 = tg_posts.handle("post week", self.ctx)
             r3 = tg_posts.handle("ee vaaram posts", self.ctx)
             r4 = tg_posts.handle("/week", self.ctx)
-            self.assertEqual(r1, {"text": "Post plan ledu. Upload packs ready ayyaka robot auto plan chestundi."})
+            self.assertEqual(r1, {"text": "Post plan ledu. Upload packs ready ayyaka robot auto plan chestundi.\nNext: /post pampandi; vivaralu chudandi."})
             self.assertEqual(r2, r1)
             self.assertEqual(r3, r1)
             self.assertEqual(r4, r1)
@@ -421,7 +421,7 @@ class TestV2CPosts(unittest.TestCase):
             self.assertEqual(res, {"handled": True})
             self.assertEqual(len(self.sent_photos), 1)
             photo_path, caption = self.sent_photos[0]
-            self.assertEqual(photo_path, pin_asset_file)
+            self.assertEqual(Path(photo_path).resolve(), Path(pin_asset_file).resolve())
             self.assertIn("Post 1 (Pinterest)", caption)
             self.assertIn("#planner", caption)
             # Verify reply keyboard sent
@@ -569,7 +569,7 @@ class TestV2CPosts(unittest.TestCase):
             self.assertEqual(res, {"handled": True})
             # Falls back to single photo
             self.assertEqual(len(self.sent_photos), 1)
-            self.assertEqual(self.sent_photos[0][0], cover_path)
+            self.assertEqual(Path(self.sent_photos[0][0]).resolve(), Path(cover_path).resolve())
 
     def test_43_no_money_in_post_today_captions(self):
         fake_plan = [

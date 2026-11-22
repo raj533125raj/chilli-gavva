@@ -36,6 +36,7 @@ import os
 import base64
 import binascii
 import datetime
+from zoneinfo import ZoneInfo
 import re
 import sys
 import time
@@ -1239,7 +1240,6 @@ def _format_ist_time(ts_str):
     if not ts_str:
         return "unknown"
     try:
-        from zoneinfo import ZoneInfo
         ist_zone = ZoneInfo("Asia/Kolkata")
         clean = ts_str.replace("Z", "+00:00")
         dt = datetime.datetime.fromisoformat(clean)
@@ -2607,7 +2607,6 @@ def send_morning_post_plan(token, owner_chat_id, db_path=None, now=None, plan_pa
     Never send twice the same day, never at night (22:00-08:00 India time).
     Remembers last sent date in telegram_state key 'last_morning_post_date'.
     """
-    from zoneinfo import ZoneInfo
     ist_zone = ZoneInfo("Asia/Kolkata")
     if now is None:
         now_dt = datetime.datetime.now(datetime.timezone.utc)
@@ -2649,7 +2648,6 @@ def send_morning_sell_card(token, owner_chat_id, db_path=None, now=None):
     Never at night (22:00-08:00 India time), never inside the owner's quiet hours (tg_settings),
     never twice a day, and not at all when there is nothing to do. Nothing is listed or posted.
     """
-    from zoneinfo import ZoneInfo
     if now is None:
         now_dt = datetime.datetime.now(datetime.timezone.utc)
     elif isinstance(now, datetime.datetime):
