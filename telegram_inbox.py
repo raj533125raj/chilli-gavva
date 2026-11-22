@@ -1987,6 +1987,24 @@ def handle_callback(token, owner_chat_id, data, db_path=None, message_id=None):
             return reply
     if data and data.startswith("imp:"):
         import improver_loop
+        match = re.fullmatch(r"imp:(a|r|off):(\d+)", data)
+        if match:
+            conn = improver_loop.connect(db_path)
+            row = conn.execute("SELECT status, created_ts FROM learned_rules WHERE id=?", (int(match.group(2)),)).fetchone()
+            conn.close()
+            expected = "approved" if match.group(1) == "off" else "proposed"
+            expired = False
+            if row and match.group(1) != "off" and row[1]:
+                try:
+                    created = datetime.datetime.fromisoformat(str(row[1]).replace("Z", "+00:00"))
+                    if created.tzinfo is None:
+                        created = created.replace(tzinfo=datetime.timezone.utc)
+                    expired = (datetime.datetime.now(datetime.timezone.utc) - created).total_seconds() >= 24 * 3600
+                except (TypeError, ValueError):
+                    pass
+            if row is None or row[0] != expected or expired:
+                send_text(token, owner_chat_id, UNKNOWN_BUTTON_TEXT)
+                return UNKNOWN_BUTTON_TEXT
         imp_reply = improver_loop.handle_callback(data, db_path)
         if imp_reply is not None:
             send_text(token, owner_chat_id, imp_reply)
@@ -2031,6 +2049,9 @@ def handle_callback(token, owner_chat_id, data, db_path=None, message_id=None):
         return BUTTON_TEST_OK
     if m.group(1):
         kind, approval_id = m.group(1), int(m.group(2))
+        if not guardrails.get_approval(approval_id, db_path):
+            send_text(token, owner_chat_id, UNKNOWN_BUTTON_TEXT)
+            return UNKNOWN_BUTTON_TEXT
         if kind == "v":
             reply = view_text(approval_id, db_path)
             send_text(token, owner_chat_id, reply, draft_buttons(approval_id)
@@ -2047,8 +2068,7 @@ def handle_callback(token, owner_chat_id, data, db_path=None, message_id=None):
                 reply = f"Approved ✓ #{approval_id}\nNext: /today pampandi; Pack build status chudandi."
                 if message_id:
                     edit_text(token, owner_chat_id, message_id, reply)
-                else:
-                    send_text(token, owner_chat_id, reply)
+                send_text(token, owner_chat_id, reply)
             else:
                 reply = f"Not changed (not found or already decided): #{approval_id}"
                 send_text(token, owner_chat_id, reply)
@@ -2065,8 +2085,7 @@ def handle_callback(token, owner_chat_id, data, db_path=None, message_id=None):
             reply = f"Rejected: #{approval_id}. Why? Pick a reason so the agents can learn:"
             if message_id:
                 edit_text(token, owner_chat_id, message_id, reply, reason_buttons(approval_id))
-            else:
-                send_text(token, owner_chat_id, reply, reason_buttons(approval_id))
+            send_text(token, owner_chat_id, reply, reason_buttons(approval_id))
         else:
             reply = f"Not changed (not found or already decided): #{approval_id}"
             send_text(token, owner_chat_id, reply)
@@ -2077,7 +2096,10 @@ def handle_callback(token, owner_chat_id, data, db_path=None, message_id=None):
     conn = guardrails.connect(db_path)
     cur_reason_row = conn.execute("SELECT reason FROM approvals WHERE id = ?", (approval_id,)).fetchone()
     conn.close()
-    if cur_reason_row and cur_reason_row[0]:
+    if cur_reason_row is None:
+        send_text(token, owner_chat_id, UNKNOWN_BUTTON_TEXT)
+        return UNKNOWN_BUTTON_TEXT
+    if cur_reason_row[0]:
         reply = f"Rejected: {cur_reason_row[0]} #{approval_id} (reason mundee save ayyindi)"
         send_text(token, owner_chat_id, reply)
         return reply
@@ -2086,16 +2108,14 @@ def handle_callback(token, owner_chat_id, data, db_path=None, message_id=None):
         reply = f"Rejected: {reason_label}"
         if message_id:
             edit_text(token, owner_chat_id, message_id, reply)
-        else:
-            send_text(token, owner_chat_id, reply)
+        send_text(token, owner_chat_id, reply)
     else:
         reply = f"Could not save that reason for #{approval_id}."
         send_text(token, owner_chat_id, reply)
     return reply
 
 
-UNKNOWN_BUTTON_TEXT = ("Ee button paata di leda robot ki teliyadu, emi marchaledu. "
-                       "/list pampandi: kotha buttons vastayi (leda /approve N, /reject N).")
+UNKNOWN_BUTTON_TEXT = "Ee button paatadi. Next: /drafts"
 
 
 def callback_chat_id(cb):
