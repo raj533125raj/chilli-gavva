@@ -1,0 +1,36 @@
+BIG-3 final validation
+
+Code under test: 2bb5c9b
+Runtime: Python 3.11.18; Pillow 13.0.0. Only pip, setuptools and wheel are also installed.
+Environment cleared; Node and the system tools kept on PATH. Local test servers ran outside the sandbox.
+CI command: CHILLI_TEST=1 python3.11 tools/run_tests_chunked.py
+
+Total tests run: 8697 | Failures: 0 | Errors: 0 | Skipped: 18 | Time: 391.64s
+
+Last five CI output lines, verbatim:
+   50.21s - chunk_28_test_ccc_sell_proof
+   39.88s - chunk_44_test_ccg5_worksheets
+----------------------------------------------------------------------
+RESULT: PASSED
+======================================================================
+
+Slowest five chunks (all below 300 seconds):
+  155.79s - chunk_179_test_ocg_all_commands_real_packs
+  155.73s - chunk_183_test_och_secret_sweep
+   93.61s - chunk_37_test_cce_robot_day
+   82.60s - chunk_181_test_och_niche_sweep
+   77.64s - chunk_39_test_ccf_autofix_drill
+
+All 17 formats, three buyers each (306 buyer checks plus 14 required guards):
+----------------------------------------------------------------------
+Ran 320 tests in 274.001s
+
+OK
+
+Live-shaped queue: 12 waiting including one improvement proposal; oldest 201 hours; scores 40 to 98; four approved in 24 hours.
+Three offline cycles of the real robot code: all four approved samples built, sellable and upload-ready after cycle one and still ready after cycles two and three.
+Each sample handoff folder contained exactly seven files; listing text matched the gate and every image had the required dimensions.
+Four previously auto-approved samples were also built in one cycle by the real pipeline regression.
+The original 63 builder tests passed after the owner-approved layout fixes.
+No BIG-3 expected-failure waivers remain. Truth Checker, sell_ready and product_qa_deep are unchanged from the start of BIG-3.
+Nothing was pushed, published, sold or emailed.
