@@ -181,6 +181,7 @@ class OncePerDayTests(Base):
                 mock.patch.object(ti, "send_text", side_effect=lambda tok, chat, text, buttons=None:
                                   calls.append(chat) or True), \
                 mock.patch.object(dr, "_now", return_value=MONDAY), \
+                mock.patch("auto_approve._as_utc", return_value=MONDAY.replace(tzinfo=datetime.timezone.utc)), \
                 mock.patch.object(dr, "_minutes", return_value="GitHub minutes this month: 1 of 2000 free"):
             result = ti.run(self.db)
         self.assertTrue(result["daily_report"])

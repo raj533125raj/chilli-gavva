@@ -510,10 +510,17 @@ def _send_images(pack_id: int, images: List[Path], ctx: Dict[str, Any],
 def handle_list(ctx: Dict[str, Any]) -> Dict[str, Any]:
     import sell_ready
     base = products_dir(ctx)
+    import product_counts
+    counts = product_counts.snapshot(ctx.get('db_path'), base, ctx.get('marketing_dir'), now=ctx.get('now'))
     evaluations = []
-    for _number, _title, path in sell_ready.find_all_ready_packs(base):
-        evaluations.append(sell_ready.evaluate_pack(path, marketing_base(Path(path), ctx)))
+    if counts is not None:
+        evaluations = [row[3] for row in counts['packs']]
+    else:
+        for _number, _title, path in sell_ready.find_all_ready_packs(base):
+            evaluations.append(sell_ready.evaluate_pack(path, marketing_base(Path(path), ctx)))
     text, ids = list_text(evaluations)
+    if counts is not None:
+        text = f"Products built: {counts['built']}\nUpload packs ready: {counts['upload_ready']}\n\n" + text
     if ids and callable(ctx.get("send_text")):
         keyboard = [[f"/sell {number}" for number in ids[row:row + 3]] for row in range(0, min(len(ids), 9), 3)]
         _send(ctx, text, keyboard=keyboard)

@@ -100,9 +100,12 @@ def _count_ready_upload_packs(products_dir=None):
     return count
 
 
-def upload_packs_line(products_dir=None):
+def upload_packs_line(products_dir=None, db_path=None, now=None):
     """One safe status line showing count of ready upload packs."""
-    n = _count_ready_upload_packs(products_dir)
+    import product_builder
+    import product_counts
+    counts = product_counts.snapshot(db_path, products_dir or product_builder.PRODUCTS_DIR, now=now)
+    n = counts["upload_ready"] if counts is not None else _count_ready_upload_packs(products_dir)
     if n > 0:
         return f"Upload packs ready: {n} (send /packs to see them)"
     return "Upload packs ready: 0"
@@ -227,7 +230,7 @@ def daily_text(db_path=None, now=None, status_fn=None, products_dir=None):
              f"Products built: {built}",
              built_line,
              *product_path_lines(db_path, now, include_built=False),
-             upload_packs_line(products_dir=products_dir),
+             upload_packs_line(products_dir=products_dir, db_path=db_path, now=now),
              _minutes(reply=clock),
              door_bell_line(clock),
              f"Button presses received in the last 24h: {buttons}",
