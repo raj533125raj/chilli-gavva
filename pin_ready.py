@@ -33,6 +33,7 @@ PIN_COUNT = 5
 TITLE_MAX = 100
 DESC_MAX = 500
 MIN_CONTRAST = 4.5
+MIN_FONT_SIZE = 24
 FOLDER = "pinterest"
 META_FILE = "pins.json"
 SHEET_FILE = "PINS.txt"
@@ -497,15 +498,22 @@ def pin_texts(listing: Dict[str, Any], board: str) -> List[Dict[str, str]]:
             "Pin with three page previews of the {t} fanned out above the title.",
             "Pin with a short quote about the {t}, the title and a page preview."]
     out = []
+    from seo_score import get_main_keyword
+    keyword = clean(get_main_keyword(title,[clean(tag) for tag in listing.get("tags",[])]))
     for design, t, d, alt in zip(DESIGNS, titles, descs, alts):
+        if keyword and keyword.casefold() not in d.casefold():
+            d = keyword + ": " + d
+        cta = " Download the files from the shop link."
         out.append({"design": design, "title": cut(clean(t), TITLE_MAX),
-                    "description": cut(clean(re.sub(r"\s+", " ", d)), DESC_MAX),
+                    "description": cut(clean(re.sub(r"\s+", " ", d)), DESC_MAX-len(cta)) + cta,
+                    "main_keyword": keyword,
                     "alt": cut(clean(alt.format(t=short)), 500), "board": board, "link": LINK_PLACEHOLDER})
     return out
 
 
 # ---- make + check ---------------------------------------------------------------------------------
-def make_pins(pack_dir: Path | str, out_dir: Path | str, now: Optional[datetime.datetime] = None) -> Dict[str, Any]:
+def make_pins(pack_dir: Path | str, out_dir: Path | str, now: Optional[datetime.datetime] = None,
+              store_link: Optional[str] = None) -> Dict[str, Any]:
     """Make the 5 ready Pins of one pack into `out_dir` (the pack's pinterest folder), check them, and return
     the pins.json data. The folder is replaced atomically; the pack folder is only read."""
     pack_dir, out_dir = Path(pack_dir), Path(out_dir)
@@ -523,13 +531,16 @@ def make_pins(pack_dir: Path | str, out_dir: Path | str, now: Optional[datetime.
     try:
         pins = []
         for index, meta in enumerate(texts, 1):
+            if store_link is not None:
+                meta["link"] = store_link
             info["headline"] = meta["title"]
             cv = Canvas(PIN_W, PIN_H, th["bg"])
             DRAW[meta["design"]](cv, th, info)
             name = f"pin-{index}.png"
             cv.image.save(stage / name, "PNG", optimize=True)
             pins.append(dict(meta, file=name, width=PIN_W, height=PIN_H, layout=cv.blocks))
-        data = {"version": FORMAT_VERSION, "pack": pack_dir.name, "board": board, "link": LINK_PLACEHOLDER,
+        data = {"version": FORMAT_VERSION, "pack": pack_dir.name, "board": board, "link": store_link or LINK_PLACEHOLDER,
+                "main_keyword": texts[0]["main_keyword"],
                 "theme": {k: hex_of(v) for k, v in th.items()},
                 "made_at": (now or datetime.datetime.now(datetime.timezone.utc)).astimezone(
                     datetime.timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds"),
@@ -568,7 +579,13 @@ def check_layout(blocks: List[Dict[str, Any]], width: int, height: int, label: s
     if not blocks:
         return [f"{label}: no text on the image"]
     for block in blocks:
-        role = f"{label} {block.get('role')}"
+        if not isinstance(block, dict):
+            problems.append(f"{label}: layout data broken")
+            continue
+        name = str(block.get("role") or "Text")
+        if not re.fullmatch(r"(?:title|hint|cta|note|quote|footer|count|item\d*|step\d*|num\d*|Text)", name):
+            name = "Text"
+        role = f"{label} {name}"
         lines = [str(x) for x in block.get("lines") or []]
         text = str(block.get("text") or "")
         if not text.strip() or not lines:
@@ -577,6 +594,8 @@ def check_layout(blocks: List[Dict[str, Any]], width: int, height: int, label: s
         if "".join(lines).replace(" ", "") != text.replace(" ", ""):
             problems.append(f"{role}: words missing from the image")
         try:
+            if int(block["size"]) < MIN_FONT_SIZE:
+                problems.append(f"{role}: font size below {MIN_FONT_SIZE}; font size penchandi")
             fnt = font(str(block["weight"]), int(block["size"]))
             x, y, w, lh = int(block["x"]), int(block["y"]), int(block["w"]), int(block["line_h"])
         except (KeyError, TypeError, ValueError):
@@ -595,49 +614,98 @@ def check_layout(blocks: List[Dict[str, Any]], width: int, height: int, label: s
         try:
             if contrast(rgb_of(block["fill"]), rgb_of(block["bg"])) < MIN_CONTRAST:
                 problems.append(f"{role}: text colour too weak")
-        except (KeyError, ValueError, TypeError):
+        except (KeyError, ValueError, TypeError, IndexError):
             problems.append(f"{role}: colours missing")
         problems += [f"{role}: {p.split(': ', 1)[1]}" for p in text_problems(text, "x", 10 ** 6)
                      if "money" in p or "brand" in p]
     return problems
 
 
+def check_ready_pin(pin: Dict[str, Any], image_path: Path | str,
+                    keyword: Optional[str] = None, label: str = "Pin") -> List[str]:
+    """Posting gate for one real Pin; [] means the owner can post it by hand.
+
+    A draft's [STORE LINK] marker is intentionally not a posting link. The
+    planner calls check_pins, which delegates here, so incomplete drafts never
+    become ready posts merely because their picture dimensions are correct.
+    """
+    from urllib.parse import urlsplit
+    import secret_guard
+    if not isinstance(pin, dict):
+        return [f"{label}: Pin vivaralu sariga save cheyandi."]
+    problems = []
+    for field,limit in (("title",100),("description",500),("alt",500),("board",100)):
+        value = pin.get(field)
+        if not isinstance(value,str) or not value.strip() or len(value)>limit:
+            problems.append(f"{label}: {field} 1-{limit} characters lo rayandi.")
+        elif MONEY_CHECK.search(value):
+            problems.append(f"{label}: {field} lo money text teeseyandi.")
+        elif BRAND_CHECK.search(value):
+            problems.append(f"{label}: {field} lo brand names teeseyandi.")
+    keyword = keyword or pin.get("main_keyword") or pin.get("keyword")
+    normalize = lambda value: " ".join(re.findall(r"\w+", str(value or "").casefold()))
+    kw,description = normalize(keyword),normalize(pin.get("description"))
+    if not kw or not re.search(r"(?<!\w)"+re.escape(kw)+r"(?!\w)",description):
+        problems.append(f"{label}: main keyword ni Description lo pettandi.")
+    if not re.search(r"\b(?:download|visit|shop|save|tap|open|explore|try|get)\b|link in bio",description,re.I):
+        problems.append(f"{label}: Description chivaralo call to action rayandi; Download leda Visit ani cheppandi.")
+    try:
+        link=urlsplit(str(pin.get("link") or ""))
+        valid=link.scheme in ("https","http") and bool(link.hostname) and not link.username and not link.password
+        valid=valid and not re.search(r"[\s<>\[\]]",str(pin.get("link") or ""))
+    except ValueError:
+        valid=False
+    if not valid:
+        problems.append(f"{label}: nijamaina Store link pettandi; [STORE LINK] ni marchandi.")
+    if secret_guard.scan_text(json.dumps(pin,ensure_ascii=False)):
+        problems.append(f"{label}: private vivaralu teesesi Pin malli check cheyandi.")
+    try:
+        from PIL import Image
+    except ImportError:
+        return problems+[f"{label}: Image check kosam Pillow setup cheyandi."]
+    try:
+        with Image.open(image_path) as im:
+            im.load()
+            if im.size != (PIN_W,PIN_H):
+                problems.append(f"{label}: Image {PIN_W}x{PIN_H} (2:3) ga tayaru cheyandi.")
+    except (OSError,ValueError,TypeError):
+        problems.append(f"{label}: teriche Pin image file pettandi.")
+    layout=pin.get("layout")
+    if not isinstance(layout,list) or not layout:
+        problems.append(f"{label}: Image text layout save chesi readable font tho malli tayaru cheyandi.")
+    else:
+        try:
+            for problem in check_layout(layout,PIN_W,PIN_H,label):
+                detail=problem.split(": ",1)[-1].split(" ('",1)[0]
+                problems.append(f"{label}: {detail}; Image text font, contrast mariyu margins saricheyandi.")
+        except (TypeError,ValueError,KeyError,AttributeError,IndexError,OverflowError):
+            problems.append(f"{label}: Image text layout vivaralu saricheyandi.")
+    return list(dict.fromkeys(problems))
+
+
 def check_pins(folder: Path | str) -> List[str]:
-    """The Pin checker. [] means every Pin is ready to post."""
+    """Check the five real Pins before the planner can mark them ready."""
     folder = Path(folder)
     try:
         data = json.loads((folder / META_FILE).read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return [f"{META_FILE} missing or broken"]
+        return ["Pin vivaralu missing leda broken; pins.json malli save cheyandi."]
     pins = data.get("pins") if isinstance(data, dict) else None
     if not isinstance(pins, list) or len(pins) != PIN_COUNT:
-        return [f"need {PIN_COUNT} Pins, found {len(pins) if isinstance(pins, list) else 0}"]
-    problems: List[str] = []
-    try:
-        from PIL import Image
-    except ImportError:
-        return ["Pillow missing: cannot check the images"]
+        return [f"{PIN_COUNT} Pins tayaru chesi vivaralu save cheyandi."]
+    problems = []
     for i, pin in enumerate(pins, 1):
         label = f"Pin {i}"
+        if not isinstance(pin, dict):
+            problems.append(f"{label}: Pin vivaralu saricheyandi.")
+            continue
         path = folder / str(pin.get("file") or "")
-        if not pin.get("file") or not path.is_file():
-            problems.append(f"{label}: image file missing")
-            continue
         try:
-            with Image.open(path) as im:
-                size = im.size
-        except Exception:
-            problems.append(f"{label}: image does not open")
+            path.resolve().relative_to(folder.resolve())
+        except ValueError:
+            problems.append(f"{label}: Image ni ee Pin folder lone pettandi.")
             continue
-        if size != (PIN_W, PIN_H):
-            problems.append(f"{label}: size {size[0]}x{size[1]} (need {PIN_W}x{PIN_H})")
-        problems += text_problems(pin.get("title"), f"{label} title", TITLE_MAX)
-        problems += text_problems(pin.get("description"), f"{label} description", DESC_MAX)
-        problems += text_problems(pin.get("board"), f"{label} board", 100)
-        problems += text_problems(pin.get("alt"), f"{label} alt text", 500)
-        if str(pin.get("link") or "") != LINK_PLACEHOLDER:
-            problems.append(f"{label}: link placeholder missing")
-        problems += check_layout(pin.get("layout") or [], PIN_W, PIN_H, label)
+        problems += check_ready_pin(pin, path, keyword=data.get("main_keyword"), label=label)
     return problems
 
 
@@ -646,8 +714,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Ready-to-post Pins for one pack (nothing is posted).")
     parser.add_argument("pack")
     parser.add_argument("out")
+    parser.add_argument("--link", help="Owner-provided Store URL; missing links keep the Pins as drafts")
     args = parser.parse_args(argv)
-    data = make_pins(args.pack, args.out)
+    data = make_pins(args.pack, args.out, store_link=args.link)
     print("ready" if data["check"]["ok"] else "NOT ready:\n" + "\n".join(data["check"]["problems"]))
     return 0 if data["check"]["ok"] else 1
 
