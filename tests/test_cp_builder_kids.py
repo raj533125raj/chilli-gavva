@@ -75,9 +75,12 @@ class KidsBuilderTests(unittest.TestCase):
             path = self.tmp / name
             with Image.open(path) as image:
                 self.assertEqual(image.format, "PNG")
+                self.assertEqual(image.size, (1200, 800))
                 self.assertGreater(len(set(image.getdata())), 5)
             hashes.add(hash(path.read_bytes()))
         self.assertEqual(len(hashes), 4)
+        self.assertNotEqual(hash((self.tmp / "cover.png").read_bytes()),
+                            hash((self.tmp / "preview_1.png").read_bytes()))
 
     def test_manifest_and_license(self):
         manifest = json.loads((self.tmp / "manifest.json").read_text(encoding="utf-8"))
