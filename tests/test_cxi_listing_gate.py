@@ -127,5 +127,13 @@ class ListingGateTests(unittest.TestCase):
         text=GOOD.replace('- 24 PDF planner pages\n- A4 guide','- PDF workbook\n- Guide')+'Page count: 24\n'
         self.assertNotIn('page count/size',self.failures(text))
 
+    def test_copyable_store_description_keeps_the_checked_buyer_information(self):
+        for store in ('gumroad','topmate','instamojo'):
+            with self.subTest(store=store):
+                text=listing_fields.build_blocks(TITLE,DESC,'weekly planner, printable, focus',store,whole_text=GOOD)
+                for expected in ('What you get:', '24 PDF planner pages','How to use:', 'License:', 'Personal use only.'):
+                    self.assertIn(expected,text)
+                self.assertEqual(text.count('24 PDF planner pages'),1)
+
 
 if __name__=='__main__':unittest.main()

@@ -115,10 +115,7 @@ def _section(text: str, label: str) -> str:
 
 
 def gumroad_block(title: str, description: str, tags: str, member_count: int | None = None) -> str:
-    what_you_get = _section_raw_for_what_you_get(description)
     desc_block = description
-    if what_you_get:
-        desc_block = description + "\n\n" + what_you_get
 
     tag_list = [t.strip() for t in tags.split(",") if t.strip()]
     tag_list = tag_list[:10]
@@ -246,6 +243,18 @@ def owner_quality_summary(folder: str) -> str:
     return quality_report(folder)["tenglish_summary"]
 
 
+def buyer_description(description: str, whole_text: str = "") -> str:
+    """Keep the checked buyer information in the actual copyable description."""
+    fields = parse_fields(whole_text or description)
+    result = description.strip()
+    for key,label in (("what_you_get", "What you get"), ("format", "File format"),
+                      ("size", "Page count / size"), ("how_to_use", "How to use"), ("license", "License")):
+        value = fields[key]
+        if value and " ".join(value.split()) not in " ".join(result.split()):
+            result += f"\n\n{label}:\n{value}"
+    return result
+
+
 def build_blocks(title: str, description: str, tags: str, store: str = "all", whole_text: str = "",
                  member_count: int | None = None) -> str:
     """Return one or more listing blocks, separated by blank lines.
@@ -254,14 +263,14 @@ def build_blocks(title: str, description: str, tags: str, store: str = "all", wh
     member_count: when set (bundle folder), upload bundle.zip and print a
     "BUNDLE / Members: N packs" line instead of product.zip.
     """
+    description = buyer_description(description, whole_text)
     parts = []
     if store in ("all", "gumroad"):
         parts.append(gumroad_block(title, description, tags, member_count))
     if store in ("all", "topmate"):
         parts.append(topmate_block(title, description, member_count))
     if store in ("all", "instamojo"):
-        what_you_get = _section_what_you_get_block(description, whole_text)
-        parts.append(instamojo_block(title, description, what_you_get, member_count))
+        parts.append(instamojo_block(title, description, member_count=member_count))
     return "\n\n".join(parts)
 
 
@@ -293,12 +302,7 @@ def main() -> None:
 
     member_count = _bundle_member_count(folder) if _is_bundle_folder(folder) else None
 
-    print(gumroad_block(title, description, tags, member_count))
-    print()
-    print(topmate_block(title, description, member_count))
-    print()
-    what_you_get = _section_what_you_get_block(description, text)
-    print(instamojo_block(title, description, what_you_get, member_count))
+    print(build_blocks(title, description, tags, whole_text=text, member_count=member_count))
     print()
     print(owner_quality_summary(folder), file=sys.stderr)
 
