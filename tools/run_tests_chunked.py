@@ -25,7 +25,11 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_CHUNK_SIZE = 20
+# A module is the unit of fixture isolation. Grouping twenty alphabetically
+# put the three real-product sweeps in one >590s chunk, even with four workers.
+# Keep every test and the same worker limit; independent modules no longer
+# accumulate into a single long chunk or share mutable module-level fixtures.
+DEFAULT_CHUNK_SIZE = 1
 DEFAULT_TIMEOUT_PER_CHUNK = 900  # 15 min per chunk: the product-builder chunk took 246 s on a fast machine (2026-11-16), GitHub is ~2x slower
 MAX_JOBS = 4  # most chunk processes side by side
 JOBS_ENV = "CHILLI_TEST_JOBS"
