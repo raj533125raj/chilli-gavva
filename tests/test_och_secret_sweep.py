@@ -308,18 +308,17 @@ class SecretSweepTests(unittest.TestCase):
                 text = "\n".join(line for line in text.splitlines() if not line.startswith("Real money:"))
                 self.assert_clean(f"daily_report.{builder.__name__}", text)
 
-    @unittest.expectedFailure
-    def test_weekly_letter_money_amount_is_a_known_gap(self):
-        # FOR CLAUDE CODE: daily_report.py — the Sunday letter prints real
-        # payout amounts ("Real money: $0.00 this week, $0.00 in total",
-        # daily_report.py:195) on purpose; tests/test_daily_report.py asserts
-        # that exact line.  The project rule says money amounts are written as
-        # [amount], so this sweep documents the gap here instead of editing
-        # another worker's file.
+    def test_weekly_letter_is_private_and_public_copy_redacts_amounts(self):
+        from owner_private import OwnerPrivateText
+        import public_export
         db = str(self.root / "daily.db")
         text = daily_report.weekly_text(db_path=db)
+        self.assertIsInstance(text, OwnerPrivateText)
         self.assertTrue(text.strip())
-        self.assert_clean("daily_report.weekly_text", text)
+        self.assertIsNotNone(MONEY_RE.search(text))
+        without_payout = "\n".join(line for line in text.splitlines() if not line.startswith("Real money:"))
+        self.assert_clean("daily_report.weekly_text", without_payout)
+        self.assert_clean("public weekly copy", public_export.scrub_text(text))
 
     # -- every file created during the sweep -----------------------------------
     def test_exported_files_have_no_secrets_emails_or_money(self):

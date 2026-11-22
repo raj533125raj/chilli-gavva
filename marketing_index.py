@@ -142,16 +142,11 @@ def _find_blog(pack_dir: Path, base: Path) -> Optional[str]:
 
 
 def _find_launch(pack_dir: Path, base: Path) -> Optional[str]:
-    """Locate LAUNCH.md checklist in pack folder."""
-    candidates = [
-        pack_dir / "LAUNCH.md",
-        pack_dir / "launch.md",
-        pack_dir / "launch_checklist.md",
-        pack_dir / "LAUNCH_CHECKLIST.md",
-    ]
-    for c in candidates:
-        if c.is_file():
-            return _safe_rel(c, base)
+    """Use actual entry spelling on both case-sensitive and case-insensitive filesystems."""
+    entries = {path.name: path for path in pack_dir.iterdir() if path.is_file()}
+    for name in ("LAUNCH.md", "launch.md", "launch_checklist.md", "LAUNCH_CHECKLIST.md"):
+        if name in entries:
+            return _safe_rel(entries[name], base)
     return None
 
 

@@ -442,7 +442,7 @@ class TestMarketingIndex(unittest.TestCase):
         """build_index writes to <marketing_dir>/index.html by default."""
         self._create_full_pack("default-pack")
         out_path = marketing_index.build_index(self.marketing_dir)
-        self.assertEqual(out_path, self.marketing_dir / "index.html")
+        self.assertEqual(out_path, (self.marketing_dir / "index.html").resolve())
         self.assertTrue(out_path.is_file())
         content = out_path.read_text(encoding="utf-8")
         self.assertIn("default-pack", content)

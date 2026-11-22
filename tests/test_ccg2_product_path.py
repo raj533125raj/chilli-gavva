@@ -83,8 +83,11 @@ class OwnerApprovalsDoNotUseAutoSlots(Base):
         b = self.add("public_draft", "Draft: [Freelancer Trackers Agent] Invoices", _pass(86), 26)
         self.assertEqual({d["id"] for d in auto_approve.auto_decide_drafts(self.db, now=NOW)}, {a, b})
         # the owner's approvals of 15 Nov are not reported as auto-approved the next morning
-        self.assertIn("Auto-approved yesterday: None",
-                      auto_approve.morning_digest_line(self.db, now=NOW + datetime.timedelta(days=1)))
+        digest = auto_approve.morning_digest_line(self.db, now=NOW + datetime.timedelta(days=1))
+        self.assertIn("Auto-approved yesterday: 2 drafts", digest)
+        self.assertIn(f"#{a} ", digest)
+        self.assertIn(f"#{b} ", digest)
+        self.assertNotRegex(digest, r"#[12]\b")
 
 
 class RevisedDraftsAreNotAutoApproved(Base):
@@ -154,8 +157,13 @@ class FifteenNovemberQueue(Base):
         import approval_probe
         approval_probe.seed_queue(Path(self.db), NOW)
         decisions = auto_approve.auto_decide_drafts(self.db, now=NOW)
-        titles = [d["title"] for d in decisions]
-        self.assertEqual(len(decisions), 2, titles)
+        expired = [d for d in decisions if d.get("kind") == "self_improvement"]
+        self.assertEqual(len(expired), 1)
+        self.assertEqual(expired[0]["action"], "rejected")
+        self.assertEqual(auto_approve.waiting_rule_proposals(self.db), 0)
+        products = [d for d in decisions if d not in expired]
+        titles = [d["title"] for d in products]
+        self.assertEqual(len(products), 2, titles)
         self.assertTrue(all(t.startswith("Draft: [") for t in titles), titles)
         self.assertTrue(any("Couple budget" in t for t in titles) and any("2027 teacher" in t for t in titles))
         left = {i["kind"] for i in guardrails.pending(self.db)}

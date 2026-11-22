@@ -67,6 +67,13 @@ class DailyTests(Base):
         self.assertIn("unknown (alarm clock not reachable)", text)
         self.assertLess(len(text), 800)
 
+    def test_auto_rejections_include_checker_details_and_timeout_reasons(self):
+        for reason in ("Low score (auto)", "Low score (auto): missing buyer instructions", "checker problem", "owner time ayipoyindi"):
+            self.approval("rejected", reason=reason)
+        self.approval("rejected", reason="Owner chose another topic")
+        text = dr.daily_text(self.db, now=MONDAY, status_fn=lambda: {})
+        self.assertIn("Auto-decided (last 24h): 0 approved, 4 rejected", text)
+
     def test_empty_database(self):
         text = dr.report_text(self.db, now=MONDAY, status_fn=lambda: {})
         self.assertIn("AI: not used in the last day", text)
@@ -177,7 +184,7 @@ class OncePerDayTests(Base):
                 mock.patch.object(dr, "_minutes", return_value="GitHub minutes this month: 1 of 2000 free"):
             result = ti.run(self.db)
         self.assertTrue(result["daily_report"])
-        self.assertEqual(calls, ["42"])
+        self.assertEqual(calls, ["42", "42"])  # daily report and the required morning queue digest
 
 
 class ProviderLogTests(Base):

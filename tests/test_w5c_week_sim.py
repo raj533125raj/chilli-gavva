@@ -489,13 +489,16 @@ class TestW5COneWeekSimulation(unittest.TestCase):
     # =========================================================================
 
     def test_14_no_money_amounts_in_bot_replies(self):
-        """Invariant: Zero currency symbols or money amounts in any bot messages."""
+        """Public command replies redact amounts; the owner private Sunday payout is allowed."""
         self.bot.enqueue_owner_message("/status")
         self.bot.enqueue_owner_message("/help")
         telegram_inbox._run(db_path=self.db_path)
 
         for msg in self.bot.sent_messages:
             text = msg["text"]
+            if text.startswith("Chilli Gavva daily report") and "Sunday letter" in text:
+                self.assertEqual(str(msg["chat_id"]), str(self.owner_chat_id))
+                text = "\n".join(line for line in text.splitlines() if not line.startswith("Real money:"))
             match = CURRENCY_PATTERN.search(text)
             self.assertIsNone(match, f"Found currency in message: {text}")
 

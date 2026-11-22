@@ -186,7 +186,7 @@ def daily_text(db_path=None, now=None, status_fn=None, products_dir=None):
     providers = _providers(conn, (now - datetime.timedelta(days=1)).date().isoformat())
     buttons = _count(conn, "SELECT COUNT(*) FROM button_log WHERE ts >= ?", (since,))
     auto_rejected = _count(conn, "SELECT COUNT(*) FROM approvals WHERE status = 'rejected' AND decided_ts >= ? "
-                                 "AND reason = 'Low score (auto)'", (since,))
+                                 "AND (reason LIKE 'Low score (auto)%' OR reason IN ('checker problem', 'owner time ayipoyindi'))", (since,))
     # Only the robot's own decisions: the owner's button approvals have no reason (CCG-1 cause 4)
     auto_approved = _count(conn, "SELECT COUNT(*) FROM approvals WHERE status = 'approved' AND decided_ts >= ? "
                                  "AND reason = 'auto-approved'", (since,))
@@ -273,7 +273,8 @@ def weekly_text(db_path=None, now=None):
         except Exception:
             pass
 
-    return "\n".join(lines)
+    from owner_private import OwnerPrivateText
+    return OwnerPrivateText("\n".join(lines))
 
 
 def report_text(db_path=None, now=None, status_fn=None, products_dir=None):

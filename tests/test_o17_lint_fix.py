@@ -207,6 +207,10 @@ class CliSuggestTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
+        from unittest import mock
+        patch = mock.patch.object(listing_lint, "SUGGEST_ROOT", self.root / "lint")
+        patch.start()
+        self.addCleanup(patch.stop)
 
     def pack(self, name, text=None):
         target = self.root / name

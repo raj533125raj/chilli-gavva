@@ -180,7 +180,8 @@ class TelegramIntegrationTests(unittest.TestCase):
                 mock.patch("autofix.poll"), mock.patch("product_pipeline.notify_ready"):
             self.assertTrue(self.run_server(server, recovery=False)["daily_report"])
             self.assertFalse(self.run_server(server, recovery=False)["daily_report"])
-        self.assertEqual(len(server.sent), 1)
+        self.assertEqual(len(server.sent), 2)  # one report plus one morning queue digest
+        self.assertEqual(sum("Daily health report" in str(message) for message in server.sent), 1)
         self.assertTrue(Path(self.db + ".daily-receipts/2026-11-04").is_file())
 
     def test_failed_announcement_is_not_marked_announced(self):
