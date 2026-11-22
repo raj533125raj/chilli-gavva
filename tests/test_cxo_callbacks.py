@@ -21,9 +21,11 @@ class CallbackTests(unittest.TestCase):
         self.messages = []
         self.edits = []
 
-    def press(self, data, old_receipt=False, broken_edit=False, owner=OWNER):
+    def press(self, data, old_receipt=False, broken_edit=False, owner=OWNER, message_date=None):
         update = {"update_id": 1, "callback_query": {"id": "test-query", "data": data,
                   "message": {"message_id": 7, "chat": {"id": owner}}}}
+        if message_date is not None:
+            update["callback_query"]["message"]["date"] = message_date
         def open_request(request, timeout=None):
             method = request.full_url.rsplit("/",1)[-1]
             params = json.loads(request.data)
@@ -82,6 +84,30 @@ class CallbackTests(unittest.TestCase):
         conn = improver_loop.connect(self.db)
         self.assertEqual(conn.execute("SELECT status FROM learned_rules WHERE id=1").fetchone()[0],"proposed")
         conn.close()
+
+    def test_expired_receipt_and_first_button_age_survive_safe_run_log(self):
+        import telegram_diagnostics as diagnostics
+        import contextlib
+        aid = guardrails.request_approval("public_draft", "Printable routine", "Daily planning pages", None, self.db)
+        stamp = 1800000000
+        with mock.patch.object(inbox.time, "time", return_value=stamp), diagnostics.session() as state:
+            _, stats = self.press(f"a:{aid}", old_receipt=True, message_date=stamp-17*60)
+            self.assertEqual(stats["buttons_too_old"],1)
+            self.assertEqual(stats["first_button_age_min"],17)
+            self.assertEqual(state["send_failed"],0)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output): diagnostics.print_summary(state,stats)
+        line = next(line for line in output.getvalue().splitlines() if line.startswith("Telegram diagnostic: updates="))
+        self.assertTrue(diagnostics.safe_line(line))
+        self.assertIn("buttons_too_old=1 first_button_age_min=17",line)
+        self.assertIn("buttons_too_old=1 first_button_age_min=17",inbox.stats_line(stats))
+        self.assertFalse(diagnostics.safe_line(line+" PRIVATE"))
+
+    def test_future_button_date_is_clamped_and_current_receipt_is_not_old(self):
+        with mock.patch.object(inbox.time,"time",return_value=1000):
+            _,stats = self.press("unrecognized-old-button",message_date=2000)
+        self.assertEqual(stats["first_button_age_min"],0)
+        self.assertEqual(stats["buttons_too_old"],0)
 
     def test_other_chat_cannot_use_old_or_live_buttons(self):
         handled, stats = self.press("a:999",owner=OWNER+1)

@@ -116,6 +116,13 @@ def set_state(key, value, db_path=None):
 
 
 # ---- Telegram API ------------------------------------------------------------
+def callback_receipt_expired(method, result):
+    if method != "answerCallbackQuery" or not isinstance(result, dict):
+        return False
+    description = str(result.get("description") or "").casefold()
+    return bool(re.search(r"query is too old|query id is invalid|query_id_invalid", description))
+
+
 def _call(token, method, params, opener=None, sleep_fn=None):
     """Call Telegram with bounded retries; never expose the token in an error log."""
     url = API.format(token=token, method=method)
@@ -134,12 +141,23 @@ def _call(token, method, params, opener=None, sleep_fn=None):
                 status = getattr(resp, "status", 200)
                 status = status if type(status) is int else 200
                 result = json.loads(resp.read().decode("utf-8"))
+            if callback_receipt_expired(method, result):
+                diagnostics.record(method, status, terminal=False)
+                return {"ok": False, "callback_too_old": True}
             ok = isinstance(result, dict) and result.get("ok") is True
             code = result.get("error_code") if isinstance(result, dict) else None
             code = code if type(code) is int else status
             diagnostics.record(method, status, None if ok else diagnostics.error_kind(code), ok)
             return result
         except urllib.error.HTTPError as exc:
+            if method == "answerCallbackQuery" and exc.code == 400:
+                try:
+                    body = json.loads(exc.read().decode("utf-8"))
+                except (ValueError, UnicodeDecodeError):
+                    body = {}
+                if callback_receipt_expired(method, body):
+                    diagnostics.record(method, exc.code, terminal=False)
+                    return {"ok": False, "callback_too_old": True}
             if exc.code == 429 and attempt == 0:
                 diagnostics.record(method, exc.code, "rate_limit", terminal=False)
                 retry_after = None
@@ -2209,6 +2227,7 @@ def log_button(db_path=None):
 
 def new_stats():
     return {"text": 0, "button": 0, "other": 0, "handled": 0, "received": 0, "commands": 0,
+            "buttons_too_old": 0, "first_button_age_min": 0, "_first_button_seen": False,
             "skipped": {"not owner chat": 0, "not a command": 0, "unknown button": 0}}
 
 
@@ -2302,12 +2321,19 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
             if callback_chat_id(cb) != str(owner_chat_id).strip():
                 stats["skipped"]["not owner chat"] += 1
                 continue
+            if not stats.get("_first_button_seen"):
+                sent_at = (cb.get("message") or {}).get("date")
+                if type(sent_at) is int:
+                    stats["first_button_age_min"] = max(0, int((time.time() - sent_at) // 60))
+                stats["_first_button_seen"] = True
             log_button(db_path)
             # Always answer the press (stops the spinning clock on the owner's button). Telegram refuses
             # answers older than a few minutes; that is harmless, the reply message below still goes out.
             try:
-                _call(token, "answerCallbackQuery", {"callback_query_id": cb.get("id"),
-                                                     "text": "Robot ki vachindi ✓"})
+                receipt = _call(token, "answerCallbackQuery", {"callback_query_id": cb.get("id"),
+                                                               "text": "Robot ki vachindi ✓"})
+                if isinstance(receipt, dict) and receipt.get("callback_too_old"):
+                    stats["buttons_too_old"] = stats.get("buttons_too_old", 0) + 1
             except Exception:
                 pass
             msg_id = (cb.get("message") or {}).get("message_id")
@@ -2575,7 +2601,9 @@ def stats_line(stats, note=""):
     """One safe log line: counts and reasons only."""
     skipped = ", ".join(f"{n} {why}" for why, n in stats["skipped"].items() if n) or "none"
     line = (f"Telegram updates: {stats['text']} text, {stats['button']} button, {stats['other']} other; "
-            f"handled {stats['handled']}; skipped: {skipped}")
+            f"handled {stats['handled']}; skipped: {skipped}; "
+            f"buttons_too_old={stats.get('buttons_too_old', 0)} "
+            f"first_button_age_min={stats.get('first_button_age_min', 0)}")
     if LAST_FETCH_ERROR:
         line += f"; READ FAILED: {LAST_FETCH_ERROR}"
     return line + (f"; {note}" if note else "") + "."

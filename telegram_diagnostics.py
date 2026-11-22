@@ -42,7 +42,8 @@ def print_summary(state, stats):
         print(f"Telegram diagnostic: {method} HTTP={statuses}")
     print(f"Telegram diagnostic: updates={stats.get('received', 0)} buttons={stats['button']} "
           f"commands={stats.get('commands', 0)} handled={stats['handled']} "
-          f"messages_sent={state['sent']} other_chat={stats['skipped']['not owner chat']}")
+          f"messages_sent={state['sent']} other_chat={stats['skipped']['not owner chat']} "
+          f"buttons_too_old={stats.get('buttons_too_old', 0)} first_button_age_min={stats.get('first_button_age_min', 0)}")
     errors = ",".join(f"{kind}x{count}" for kind, count in sorted(state["errors"].items())) or "none"
     print(f"Telegram diagnostic: errors={errors}")
 
@@ -58,7 +59,7 @@ def safe_line(line):
         r"|webhook=(?:set|unset|unknown)"
         r"|allowed_updates=" + allowed_pattern +
         r"|callback_dropped_risk=yes"
-        r"|updates=[0-9]+ buttons=[0-9]+ commands=[0-9]+ handled=[0-9]+ messages_sent=[0-9]+ other_chat=[0-9]+"
+        r"|updates=[0-9]+ buttons=[0-9]+ commands=[0-9]+ handled=[0-9]+ messages_sent=[0-9]+ other_chat=[0-9]+(?: buttons_too_old=[0-9]+ first_button_age_min=[0-9]+)?"
         r"|errors=(?:none|" + kind + r"x[0-9]+(?:," + kind + r"x[0-9]+)*))", line))
 
 

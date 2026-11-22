@@ -339,7 +339,7 @@ class LogLineTests(InboxBase):
             ti.process_updates("SECRET-TOKEN", OWNER, self.db, stats)
         line = ti.stats_line(stats, "webhook set: no")
         self.assertEqual(line, "Telegram updates: 3 text, 1 button, 2 other; handled 3; "
-                               "skipped: 1 not owner chat; webhook set: no.")
+                               "skipped: 1 not owner chat; buttons_too_old=0 first_button_age_min=0; webhook set: no.")
         for private in ("SECRET", OWNER, "777", "hello", "/view"):
             self.assertNotIn(private, line)
 
