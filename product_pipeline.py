@@ -311,6 +311,8 @@ def prepare_upload(folder, out_dir):
         store_kits.build(staged)
         if gumroad_images.available():
             gumroad_images.for_pack(staged)
+        import gumroad_handoff
+        gumroad_handoff.build(staged, source=pathlib.Path(out_dir)/folder)
         previous = pathlib.Path(temp) / "previous"
         if destination.exists():
             os.replace(destination, previous)
@@ -436,6 +438,8 @@ def run_pending(db_path=None, out_dir=None, llm=None, max_builds=DAILY_BUILDS,
             mark_encrypted(db_path, out_dir, archive)
         except Exception:
             encryption_failed(db_path)
+    import gumroad_handoff
+    gumroad_handoff.build_missing(out_dir, db_path)
     notify_ready(db_path, notify_fn)
     # R66-JB: repair up to 3 old NEEDS FIX products per day. Never stops the pipeline.
     try:

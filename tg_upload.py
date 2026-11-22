@@ -115,6 +115,28 @@ def _send_prepared(pack_id: int, pack: Path, ctx: dict) -> dict:
                       "Pack files check chesi malli `/upload " + str(pack_id) + "` try cheyandi.", ctx)
 
 
+
+def _send_handoff(pack_id, pack, ctx):
+    import gumroad_handoff
+    try:
+        folder=gumroad_handoff.build(pack)
+        large=gumroad_handoff.oversized(folder)
+        if large:
+            return _reply("Pack #"+str(pack_id)+" lo "+", ".join(large)+
+                          " Telegram file limit minchindi; ee files computer nunchi copy cheyandi. Folder: "+str(folder),ctx)
+        sender=ctx.get('send_document')
+        if not callable(sender):
+            return _reply("Upload files send callback dorakaledu; inbox setup check cheyandi.",ctx)
+        # Documents preserve the exact upload image dimensions and pixels.
+        for name in gumroad_handoff.FILES:
+            if sender(str(folder/name),caption="Gumroad hand-upload: "+name) is False:
+                return _reply("Pack #"+str(pack_id)+" lo "+name+" send avvaledu; /upload "+str(pack_id)+" malli try cheyandi.",ctx)
+        return _reply("Pack #"+str(pack_id)+" Gumroad files oke folder lo ready: "+str(folder)+
+                      "\nBuyer ZIP, Cover, Thumbnail, 3 Previews, listing.txt pampanu. Gumroad lo files meere drag-and-drop cheyandi. "
+                      "Price meere set chesi Publish meere click cheyandi.",ctx)
+    except (OSError,ValueError,zipfile.BadZipFile,RuntimeError):
+        return _reply("Pack #"+str(pack_id)+" upload kit ready kaaledu; /ready "+str(pack_id)+" lo fixes chudandi.",ctx)
+
 def handle(text: str, ctx: dict) -> Optional[dict]:
     if not isinstance(text, str):
         return None
@@ -136,6 +158,9 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
     pack = tg_preflight._find_pack(pack_id, ctx)
     if pack is None:
         return _reply(f"Pack #{pack_id} kanipinchaledu. `/upload` ani pampithe help vastundi.", ctx)
+
+    if (pack/"product.zip").is_file() and (pack/"listing.txt").is_file():
+        return _send_handoff(pack_id,pack,ctx)
 
     checks = gumroad_preflight.check(pack)
     failures = [item for item in checks if not item.get("ok")]
