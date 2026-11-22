@@ -34,9 +34,10 @@ def parse_fields(text: str) -> dict:
     labels = {"title": "title", "name": "title", "description": "description", "tags": "tags",
               "what you get": "what_you_get", "what's included": "what_you_get",
               "what's inside": "what_you_get", "included files": "what_you_get",
-              "how to use": "how_to_use", "instructions": "how_to_use", "usage": "how_to_use",
+              "how to use": "how_to_use", "how it works": "how_to_use", "instructions": "how_to_use", "usage": "how_to_use",
               "license": "license", "licence": "license", "file format": "format", "format": "format",
-              "size": "size", "page count": "size", "main keyword": "main_keyword", "keyword": "main_keyword"}
+              "formats": "format", "file formats": "format", "file size": "size", "page size": "size",
+              "dimensions": "size", "size": "size", "page count": "size", "main keyword": "main_keyword", "keyword": "main_keyword"}
     current = None
     for raw in str(text).replace("’", "'").splitlines():
         stripped = raw.strip()

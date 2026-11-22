@@ -70,7 +70,9 @@ class ListingGateTests(unittest.TestCase):
             'what you get':GOOD.replace('What you get:', 'More details:'),
             'format':GOOD.replace('PDF','digital').replace('A4','printed'),
             'page count/size':GOOD.replace('24 PDF planner pages','PDF planner workbook').replace('A4','Simple'),
-            'how to use':GOOD.replace('How to use: Download, open the PDF, and print the pages.',''),
+            'how to use':GOOD.replace('How to use: Download, open the PDF, and print the pages.','').replace(
+                'Keep the original workbook and print another copy whenever you want a fresh start.',
+                'Keep the original workbook for another fresh start.'),
             'license':GOOD.replace('License: Personal use only.',''),
         }
         for check,text in cases.items():
@@ -127,6 +129,31 @@ class ListingGateTests(unittest.TestCase):
         self.assertEqual(self.failures(text),{})
         text=GOOD.replace('- 24 PDF planner pages\n- A4 guide','- PDF workbook\n- Guide')+'Page count: 24\n'
         self.assertNotIn('page count/size',self.failures(text))
+
+    def test_natural_use_instructions_do_not_require_a_section_heading(self):
+        text=GOOD.replace('How to use: Download, open the PDF, and print the pages.','')
+        self.assertNotIn('how to use',self.failures(text))
+        for action in ('Print the pages on A4 paper.','Open the PDF file to begin.','Import the CSV file into your workbook.'):
+            with self.subTest(action=action):
+                clean_desc=DESC.replace('print another copy','keep another copy')
+                sample=text.replace(DESC,clean_desc+' '+action)
+                self.assertNotIn('how to use',self.failures(sample))
+
+    def test_supported_text_and_calendar_formats_are_recognized(self):
+        for format_name in ('HTML','MD','TXT','ICS','EPUB'):
+            with self.subTest(format_name=format_name):
+                self.assertNotIn('format',self.failures(GOOD.replace('PDF',format_name)))
+                sample=GOOD.replace('- 24 PDF planner pages\n- A4 guide\n- Blank notes sheet',
+                                    'planner.'+format_name.lower()+' - 24 planner pages\nguide.txt - A4 guide')
+                self.assertNotIn('what you get',self.failures(sample))
+
+    def test_alternative_buyer_detail_labels_pass_and_remain_in_store_copy(self):
+        text=GOOD.replace('How to use:', 'How it works:').replace('24 PDF planner pages','PDF planner workbook')
+        text=text.replace('A4 guide','Simple guide')+'\nFile size: 2 MB\nFile formats: PDF\n'
+        self.assertEqual(self.failures(text),{})
+        output=listing_fields.build_blocks(TITLE,DESC,'weekly planner, printable, focus','gumroad',whole_text=text)
+        self.assertIn('2 MB',output)
+        self.assertIn('Download, open the PDF, and print the pages.',output)
 
     def test_copyable_store_description_keeps_the_checked_buyer_information(self):
         for store in ('gumroad','topmate','instamojo'):
