@@ -81,6 +81,26 @@ export function updateChat(u) {
   return m && m.chat ? String(m.chat.id) : "";
 }
 
+export async function answerPendingButton(env, query, fetchFn) {
+  if (!query || typeof query.id !== "string" || !query.id || query.id.length > 256) return false;
+  const key = `answered-button:${query.id}`;
+  if (await env.STATE.get(key)) return false;
+  try {
+    const response = await fetchFn(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/answerCallbackQuery`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ callback_query_id: query.id, text: "Andindi ✅ Robot ~10 min lo chestundi" }),
+    });
+    const reply = response.ok ? await response.json() : null;
+    if (!reply || reply.ok !== true) return false;
+    await env.STATE.put(key, "1", { expirationTtl: 86400 });
+    return true;
+  } catch {
+    // A failed acknowledgement must not prevent the real robot from processing the press.
+    return false;
+  }
+}
+
 export async function newestOwnerUpdate(env, fetchFn) {
   // No offset => Telegram only shows pending updates and does NOT mark them as read,
   // so telegram_inbox.py still receives every command and button press.
@@ -91,8 +111,9 @@ export async function newestOwnerUpdate(env, fetchFn) {
   const data = await r.json();
   let newest = null;
   for (const u of data.result || []) {
-    if (updateChat(u) === String(env.TELEGRAM_CHAT_ID) && (newest === null || u.update_id > newest)) {
-      newest = u.update_id;
+    if (updateChat(u) === String(env.TELEGRAM_CHAT_ID)) {
+      if (u.callback_query) await answerPendingButton(env, u.callback_query, fetchFn);
+      if (Number.isInteger(u.update_id) && (newest === null || u.update_id > newest)) newest = u.update_id;
     }
   }
   return newest;
