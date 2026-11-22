@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional, Tuple
 COMMANDS = [
     {
         "cmd": "/decide",
-        "words": ["decide", "nirnayinchi", "drafts decide", "decide drafts"],
+        "words": ["decide", "nirnayinchi", "drafts decide", "decide drafts", "/drafts", "drafts", "drafts chudu"],
         "help_en": "Review and decide drafts one by one using a reply keyboard.",
         "help_te": "Reply keyboard tho drafts okati okati ga chusi decide cheyandi.",
     }
@@ -345,6 +345,9 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
     # Match /decide or trigger words
     is_decide_start = (
         lower == "/decide"
+        or lower == "/drafts"
+        or lower == "drafts"
+        or lower == "drafts chudu"
         or lower.startswith("/decide ")
         or lower in ("decide", "nirnayinchi", "drafts decide", "decide drafts")
     )

@@ -118,6 +118,7 @@ def owner_reply(handler):
             "/asset": "/assets pampandi; kavalsina Asset number enchukondi.",
             "/dbcare": "Clean now leda Check copy button enchukondi.",
             "/decide": "Draft chusi Approve leda Reject button nokkandi.",
+            "/drafts": "Draft chusi Approve leda Reject button nokkandi.",
             "/files": "/files <Pack number> pampandi; files techukondi.",
             "/ready": "/ready <Pack number> pampandi; fixes chudandi.",
             "/sell": "/sell <Pack number> pampandi; listing chusi meeru decide cheyandi.",
