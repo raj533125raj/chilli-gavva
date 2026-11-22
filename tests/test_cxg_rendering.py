@@ -133,6 +133,15 @@ class OwnerRenderingTests(unittest.TestCase):
         self.assertIn('/menu',text.splitlines()[-1])
         self.assertNotIn('/missing_cxg_command',text.splitlines()[-1])
 
+    def test_owned_word_alias_keeps_its_command_next_action(self):
+        import tg_files
+        for word,command in (('carousel','/carousel'),('landing page','/landing'),('reel','/reel')):
+            with self.subTest(word=word):
+                alias=tg_files.handle(word,{})['text']
+                direct=tg_files.handle(command,{})['text']
+                self.assertEqual(alias,direct)
+                self.assert_page(alias)
+
     def test_compact_currency_is_hidden_and_large_counts_stay_complete(self):
         text='Planner '+str(12)+'EUR; CAD'+str(12)+'; '+str(12)+' dollars; rupees '+str(12)
         self.assertEqual(tg_menu.owner_reply_pages(text)[0].count('[amount]'),4)

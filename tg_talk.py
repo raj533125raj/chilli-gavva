@@ -102,7 +102,7 @@ def next_step(ctx: Dict[str, Any]) -> Dict[str, Any]:
         quiet = _text_only(ctx)
         reply = sell.handle("/sell", quiet) or {}
         text = "\n".join(quiet["_collected"]) or str(reply.get("text", ""))
-        if "/sell " in text:      # at least one pack can be listed now
+        if re.search(r"/sell\s+\d+\b", text):  # an actual pack, never the final help instruction
             return {"text": "Approval kosam drafts levu. Ippudu ee packs ni Gumroad lo pettochu:\n\n" + text}
     return {"text": "Approval kosam drafts levu, sell ki ready packs levu. Ee roju posts:\n\n"
                     + _builtin("today", [], ctx)}

@@ -110,6 +110,17 @@ def owner_reply(handler):
         command = command[0].split("@")[0] if command else ""
         if not re.fullmatch(r"/[a-z][a-z0-9_]*", command):
             command = "/menu"
+            # An alias has the same next action as its slash command. Derive
+            # this from the handler's own declarations without redispatching
+            # or running the command a second time.
+            raw = str(text or "").strip().casefold()
+            aliases = [(str(word).casefold(), entry.get("cmd", "/menu"))
+                       for entry in handler.__globals__.get("COMMANDS", [])
+                       for word in entry.get("words", [])]
+            for alias, target in sorted(aliases, key=lambda pair: len(pair[0]), reverse=True):
+                if raw == alias or raw.startswith(alias + " "):
+                    command = target
+                    break
         next_step = f"{command} pampandi; vivaralu chudandi."
         actions = {
             "/assets": "Photo attach chesi 'idi logo' leda 'idi icon' caption ivvandi.",

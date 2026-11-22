@@ -92,6 +92,14 @@ for plugin in OWNED:
 
 
 class PackReplyStyleTests(ReplyStyleFixture, unittest.TestCase):
+    def test_next_step_does_not_confuse_a_help_instruction_with_a_ready_pack(self):
+        import tg_talk
+        with mock.patch.object(ti,'handle_command',wraps=ti.handle_command) as builtin:
+            reply=self.run_command('em cheyali ippudu?',plugins=[tg_talk])
+        self.assertIn('Ee roju posts:',reply['text'])
+        self.assertNotIn('Ippudu ee packs ni Gumroad lo pettochu:',reply['text'])
+        self.assertTrue(any(call.args[0]=='today' for call in builtin.call_args_list))
+
     def test_real_sample_pack_commands(self):
         for command in ("/files 1", "/covers 1", "/pins 1", "/carousel 1", "/reel 1", "/blog 1",
                         "/landing 1", "launch checklist 1", "/launch 1", "/kit 1 gumroad",
