@@ -45,7 +45,7 @@ def parse_fields(text: str) -> dict:
         heading = re.match(r"^(#{1,6})\s+(.+?)\s*#*$", stripped)
         label_match = re.match(r"^([A-Za-z][A-Za-z '/-]*):\s*(.*)$", stripped)
         if heading:
-            label = heading.group(2).strip().rstrip(":").lower()
+            label = re.sub(r"\s*\(\d+\)$", "", heading.group(2).strip().rstrip(":")).lower()
             current = labels.get(label)
             if heading.group(1) == "#" and not fields["title"] and current is None:
                 fields["title"].append(heading.group(2).strip())

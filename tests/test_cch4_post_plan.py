@@ -46,7 +46,7 @@ def make_ready(products: Path, slug: str, colour, pins=True, carousel=True) -> s
     Image.new("RGB", (1600, 1200), (250, 250, 245)).save(pack / "preview-1.png")
     out = products / "marketing" / folder
     if pins:
-        pin_ready.make_pins(pack, out / "pinterest", now=NOW)
+        pin_ready.make_pins(pack, out / "pinterest", now=NOW, store_link="https://example.gumroad.com/l/planner")
     if carousel:
         carousel_maker.make_ready_carousel(pack, out / "carousel", now=NOW)
     return folder
@@ -96,7 +96,7 @@ class ReadyOnlyTests(Base):
             self.assertEqual(len({r["pack_id"] for r in rows}), len(rows))     # one post per pack a day
         pins = [r for r in plan if r["channel"] == "pinterest"]
         self.assertEqual(len({r["date"] for r in pins}), 5)                    # spread over the month
-        self.assertTrue(all(r["board"] and r["link"] == "[STORE LINK]" for r in pins))
+        self.assertTrue(all(r["board"] and r["link"] == "https://example.gumroad.com/l/planner" for r in pins))
         car = [r for r in plan if r["channel"] == "carousel"][0]
         self.assertEqual(len(car["slides"]), len(json.loads(
             (self.products / "marketing" / good / "carousel" / "carousel.json").read_text())["slides"]))

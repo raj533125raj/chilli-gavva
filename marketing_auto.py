@@ -596,7 +596,7 @@ def build_for_pack(pack_dir: Path | str, db_path=None, *, products_dir: Optional
         _build(pack_path, root, out, result, force, resolve_modules(modules), now, timeout)
         if social:
             base = Path(products_dir) if products_dir else products_dir_of(pack_path)
-            result["social"] = build_social(pack_path, root, out, base, now=now, force=force, timeout=timeout)
+            result["social"] = build_social(pack_path, root, out, base, now=now, force=force, timeout=timeout, db_path=db_path)
     except Exception as error:   # never stop the product build
         result["error"] = clean_error(f"{type(error).__name__}: {error}")
         log.warning("marketing_auto: %s: %s", result["pack"], result["error"])
@@ -755,20 +755,33 @@ def _social_keep(entry: Dict[str, Any], part: str, pack_path: Path, out: Path, p
     return False
 
 
-def social_due(pack_path: Path, out: Path, products_dir: Path, today: str) -> bool:
+def _owner_store_link(pack_path, db_path):
+    """Only an owner-saved listing can turn a draft Pin into a ready post."""
+    if not db_path:
+        return None
+    import tg_listed
+    aid = approval_id_of(Path(pack_path).name)
+    if aid is None:
+        return None
+    row = tg_listed.get_listed(aid, db_path)
+    return row.get("url") if row else None
+
+
+def social_due(pack_path: Path, out: Path, products_dir: Path, today: str, db_path=None) -> bool:
     """A READY pack whose ready-to-post files may need work (cheap: the checker does not run here)."""
     social = load_manifest(out).get("social")
     if not isinstance(social, dict):
         return True
     for part in SOCIAL_PARTS:
         entry = social.get(part)
-        if not isinstance(entry, dict) or not _social_keep(entry, part, pack_path, out, products_dir, today):
+        link_changed = part == "pinterest" and isinstance(entry, dict) and entry.get("store_link") != _owner_store_link(pack_path, db_path)
+        if not isinstance(entry, dict) or link_changed or not _social_keep(entry, part, pack_path, out, products_dir, today):
             return True
     return False
 
 
 def build_social(pack_path: Path, root: Path, out: Path, products_dir: Path, now=None, force: bool = False,
-                 timeout: float = STEP_TIMEOUT) -> Dict[str, Any]:
+                 timeout: float = STEP_TIMEOUT, db_path=None) -> Dict[str, Any]:
     """Make the ready-to-post files of a SELLABLE pack (Pins in pinterest/, Instagram carousel in carousel/).
     Never raises.
 
@@ -790,7 +803,8 @@ def build_social(pack_path: Path, root: Path, out: Path, products_dir: Path, now
         entry = social.get(part) if isinstance(social.get(part), dict) else {}
         try:
             maker, checker = _social_maker(part)
-            if not force and entry and _social_keep(entry, part, pack_path, out, products_dir, today, checker):
+            store_link = _owner_store_link(pack_path, db_path) if part == "pinterest" else None
+            if not force and entry and entry.get("store_link") == store_link and _social_keep(entry, part, pack_path, out, products_dir, today, checker):
                 report[part] = {"status": entry["status"], "built": False, "problems": entry.get("problems", []),
                                 "reason": entry.get("reason", "unchanged")}
                 continue
@@ -801,10 +815,13 @@ def build_social(pack_path: Path, root: Path, out: Path, products_dir: Path, now
                 new = {"status": "skipped", "sell_key": sell_key(pack_path, out, products_dir), "problems": [],
                        "reason": f"not SELLABLE: {verdict[1]}"}
             else:
-                data, error = _call(maker, timeout, pack_path, folder, now)
+                options = {"store_link": store_link} if part == "pinterest" else {}
+                data, error = _call(maker, timeout, pack_path, folder, now, **options)
                 problems = [clean_error(error)] if error else list((data or {}).get("check", {}).get("problems") or [])
                 new = {"status": "failed" if problems else "ok", "fingerprint": fingerprint,
                        "problems": problems[:10], "reason": "made" if not error else "maker failed", "day": today}
+            if part == "pinterest":
+                new["store_link"] = store_link
             social[part] = new
             report[part] = {"status": new["status"], "built": new["reason"] == "made",
                             "problems": new["problems"], "reason": new["reason"]}
@@ -898,11 +915,11 @@ def run_ready(db_path=None, products_dir: Optional[Path | str] = None, limit: in
                                         pack_digest=item.get("digest") or "")
                 row = {"line": result.get("line", ""), "pack_digest": item.get("digest") or ""}
             elif (built < max(0, int(limit)) and row and row.get("status") in ("ready", "partial")
-                  and social_due(pack_dir, marketing_root(base) / folder, base, today)
+                  and social_due(pack_dir, marketing_root(base) / folder, base, today, db_path=db_path)
                   and pack_dir.is_dir() and not pack_dir.is_symlink()
                   and _pack_matches_receipt(pack_dir, item.get("digest") or "")):
                 built += 1      # CCH-2 backfill: READY packs made before the ready-to-post files existed
-                build_social(pack_dir, marketing_root(base), marketing_root(base) / folder, base, now=now)
+                build_social(pack_dir, marketing_root(base), marketing_root(base) / folder, base, now=now, db_path=db_path)
             if row and row.get("line") and row.get("pack_digest") == (item.get("digest") or ""):
                 lines[aid] = row["line"]
     except Exception as error:

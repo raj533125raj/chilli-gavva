@@ -124,7 +124,7 @@ class TestLaunchPack(unittest.TestCase):
             listing_text = f.read()
 
         self.assertIn("## Description", listing_text)
-        self.assertIn("## Tags (13)", listing_text)
+        self.assertRegex(listing_text, r"## Tags \((?:[3-9]|10)\)")
         self.assertIn("## Frequently Asked Questions (FAQ)", listing_text)
         self.assertIn("## License", listing_text)
         self.assertIn("## Included Files", listing_text)

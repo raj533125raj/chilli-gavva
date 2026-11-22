@@ -214,6 +214,10 @@ def _format_launch_listing(spec: Dict[str, Any], file_list: List[str], facts: Op
 
     lines.extend([
         "",
+        "## How to use",
+        "",
+        *[f"{index}. {step}" for index, step in enumerate(spec.get("instructions", []), 1)],
+        "",
         "## License",
         "",
         "Personal use only. Do not resell, share, or redistribute these files.",
@@ -282,9 +286,9 @@ def evaluate_pack_quality(folder_path: str, spec: Dict[str, Any]) -> Tuple[int, 
 
     # 3. Tags check
     tags = spec.get("listing", {}).get("tags", [])
-    if len(tags) < 13:
-        score -= 5 * (13 - len(tags))
-        reasons.append(f"Contains {len(tags)} tags instead of required 13 tags")
+    if not 3 <= len(tags) <= 10:
+        score -= 20
+        reasons.append(f"Contains {len(tags)} tags; requires 3-10 tags")
 
     # 4. Content length / detail check
     title = spec.get("listing", {}).get("title", "")
@@ -373,8 +377,6 @@ def build_launch_pack(approval_id: int, db_path=None, out_dir=None, llm=None,
     if not spec:
         return {"approval_id": approval_id, "status": "failed", "reason": "Failed to parse spec"}
 
-    # Ensure exactly 13 search tags
-    spec["listing"]["tags"] = _ensure_13_tags(spec["listing"].get("tags", []), niche)
 
     folder_name = existing_folder or f"{approval_id}-{spec['short_name']}"
     folder_path = os.path.join(out_dir, folder_name)
@@ -404,6 +406,7 @@ def build_launch_pack(approval_id: int, db_path=None, out_dir=None, llm=None,
             f.write("Included Launch Pack Files:\n" + "\n".join([f"- {name}" for name in files_built]) + "\n")
 
         facts = product_builder._delivery_facts(folder_path)
+        product_builder._buyer_listing(spec, dict(facts, folder=folder_path), files_built)
         listing_content = _format_launch_listing(spec, files_built, facts=facts)
         with open(os.path.join(folder_path, "listing.md"), "w", encoding="utf-8") as f:
             f.write(listing_content)
@@ -436,7 +439,6 @@ def build_launch_pack(approval_id: int, db_path=None, out_dir=None, llm=None,
         current_round += 1
         spec["listing"]["title"] = product_builder._sanitize_text(spec["listing"]["title"], spec, facts=facts)
         spec["listing"]["description"] = product_builder._sanitize_text(spec["listing"]["description"], spec, facts=facts)
-        spec["listing"]["tags"] = _ensure_13_tags(spec["listing"].get("tags", []), niche)
 
     # Record launch pack in database
     conn = connect(db_path)

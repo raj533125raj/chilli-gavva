@@ -144,41 +144,41 @@ class CheckerTests(unittest.TestCase):
     def test_wrong_size(self):
         def change(data, folder):
             Image.new("RGB", (1080, 1080), (255, 255, 255)).save(folder / "slide-2.png")
-        self.assertIn("Slide 2: size 1080x1080 (need 1080x1350)", self.broken(change))
+        self.assertIn("Slide 2: Image 1080x1350 ga tayaru cheyandi.", self.broken(change))
 
     def test_slide_count(self):
-        self.assertEqual(self.broken(lambda d, f: d.update(slides=d["slides"][:4])), ["need 5-8 slides, found 4"])
+        self.assertEqual(self.broken(lambda d, f: d.update(slides=d["slides"][:4])), ["Carousel lo 5-8 slides tayaru cheyandi."])
         self.assertEqual(self.broken(lambda d, f: d.update(slides=d["slides"] + d["slides"][:1])),
-                         ["need 5-8 slides, found 9"])
+                         ["Carousel lo 5-8 slides tayaru cheyandi."])
 
     def test_empty_and_long_texts(self):
         def change(data, folder):
             data["slides"][0]["alt"] = ""
-            data["slides"][1]["alt"] = "word " * 30
+            data["slides"][1]["alt"] = "word " * 120
             data["caption"] = ""
         problems = self.broken(change)
-        self.assertIn("Slide 1 alt text: empty", problems)
-        self.assertTrue(any(p.startswith("Slide 2 alt text: 150 chars") for p in problems), problems)
-        self.assertIn("Caption: empty", problems)
+        self.assertIn("Slide 1: Alt text 1-500 characters lo rayandi.", problems)
+        self.assertTrue(any(p.startswith("Slide 2: Alt text 1-500 characters") for p in problems), problems)
+        self.assertIn("Caption 1-2200 characters lo rayandi.", problems)
 
     def test_caption_too_long_and_too_many_hashtags(self):
         def change(data, folder):
             data["caption"] = "words " * 400 +" ".join(f"#tag{i}" for i in range(31))
             (folder / "caption.txt").write_text(data["caption"])
         problems = self.broken(change)
-        self.assertTrue(any(p.startswith("Caption: ") and "chars (max 2200)" in p for p in problems), problems)
-        self.assertIn("Caption: 31 hashtags (max 30)", problems)
+        self.assertTrue(any(p == "Caption 1-2200 characters lo rayandi." for p in problems), problems)
+        self.assertIn("Caption lo 20 kanna ekkuva hashtags unnayi; 20 lopala pettandi.", problems)
 
     def test_caption_file_must_match(self):
         def change(data, folder):
             (folder / "caption.txt").write_text("something else")
-        self.assertIn("caption.txt missing or not the checked caption", self.broken(change))
+        self.assertIn("caption.txt lo check chesina ade Caption save cheyandi.", self.broken(change))
 
     def test_text_running_off_the_slide(self):
         def change(data, folder):
             data["slides"][2]["layout"][0]["y"] = 1330
         problems = self.broken(change)
-        self.assertTrue(any(p.startswith("Slide 3 title: text runs off the image") for p in problems), problems)
+        self.assertTrue(any(p.startswith("Slide 3: text runs off the image") for p in problems), problems)
 
     def test_money_brand_and_missing_alt_lines(self):
         def change(data, folder):
@@ -186,9 +186,9 @@ class CheckerTests(unittest.TestCase):
             (folder / "caption.txt").write_text(data["caption"])
             (folder / "alt.txt").write_text("Slide 1: x\n")
         problems = self.broken(change)
-        self.assertIn("Caption: money words", problems)
-        self.assertIn("Caption: brand name", problems)
-        self.assertTrue(any(p.startswith("alt.txt: 1 lines") for p in problems), problems)
+        self.assertIn("Caption lo brand/money text teeseyandi.", problems)
+        self.assertIn("Caption lo brand/money text teeseyandi.", problems)
+        self.assertTrue(any(p.startswith("alt.txt lo prathi Slide") for p in problems), problems)
 
 
 @unittest.skipUnless(HAS_PIL, "the carousel needs Pillow")
@@ -201,6 +201,8 @@ class MarketingAutoTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.pack = make_pack(self.root)
         self.products = self.root / "products"
+        from tests.listing_fixtures import save_store_link
+        save_store_link(self.pack, self.root / "db.sqlite")
         p = mock.patch.object(marketing_auto, "is_private_dir", return_value=True)
         p.start()
         self.addCleanup(p.stop)
@@ -243,6 +245,12 @@ class SellProofTests(unittest.TestCase):
             self.assertTrue(evaluation["checks"]["marketing"]["has_carousel"])
             found = teams_report.scan_marketing(products)[name]
             self.assertEqual(found["carousel"]["count"], 1)
+            from tests.listing_fixtures import save_store_link
+            import marketing_auto
+            db = Path(tmp) / "wall_art" / "proof.db"
+            save_store_link(Path(row["pack"]), db)
+            marketing_auto.build_for_pack(Path(row["pack"]), str(db), products_dir=products)
+            found = teams_report.scan_marketing(products)[name]
             self.assertEqual(found["pins"]["count"], 5)
 
 

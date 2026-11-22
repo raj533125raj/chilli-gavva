@@ -23,6 +23,8 @@ except ImportError:
     HAS_PIL = False
 
 import pin_ready
+import functools
+linked_pins = functools.partial(pin_ready.make_pins, store_link="https://example.gumroad.com/l/planner")
 
 NOW = datetime.datetime(2026, 11, 20, 9, 0, tzinfo=datetime.timezone.utc)
 LISTING = """Title: Calm Weekly Planner Printable
@@ -71,7 +73,7 @@ class MakePinsTests(unittest.TestCase):
 
     def test_five_ready_pins(self):
         before = tree_hash(self.pack)
-        data = pin_ready.make_pins(self.pack, self.out, now=NOW)
+        data = linked_pins(self.pack, self.out, now=NOW)
         self.assertEqual(data["check"], {"ok": True, "problems": []})
         self.assertEqual(tree_hash(self.pack), before)          # the pack is only read
         self.assertEqual(sorted(p.name for p in self.out.glob("*.png")), [f"pin-{i}.png" for i in range(1, 6)])
@@ -84,7 +86,7 @@ class MakePinsTests(unittest.TestCase):
                 self.assertEqual(im.size, (1000, 1500))
             self.assertTrue(0 < len(pin["title"]) <= 100, pin["title"])
             self.assertTrue(0 < len(pin["description"]) <= 500, pin["description"])
-            self.assertEqual(pin["link"], "[STORE LINK]")
+            self.assertEqual(pin["link"], "https://example.gumroad.com/l/planner")
             self.assertTrue(pin["board"])
             self.assertTrue(pin["alt"])
             self.assertNotRegex(json.dumps(pin), r"[$₹€£]")
@@ -92,11 +94,11 @@ class MakePinsTests(unittest.TestCase):
         self.assertEqual(len(designs), 5)
         self.assertEqual(saved["pins"][0]["board"], "Weekly Overview Planners & Schedule Sheets")
         self.assertIn("Calm Weekly Planner Printable", (self.out / "PINS.txt").read_text())
-        self.assertIn("[STORE LINK]", (self.out / "PINS.txt").read_text())
+        self.assertIn("https://example.gumroad.com/l/planner", (self.out / "PINS.txt").read_text())
         self.assertIn("Calm weekly A4 (PDF, 4 pages)", saved["pins"][1]["description"])
 
     def test_pins_use_the_pack_theme(self):
-        data = pin_ready.make_pins(self.pack, self.out, now=NOW)
+        data = linked_pins(self.pack, self.out, now=NOW)
         accent = pin_ready.rgb_of(data["theme"]["accent"])
         self.assertLess(sum(abs(a - b) for a, b in zip(accent, (150, 70, 60))), 60)   # colour from the cover
         with Image.open(self.out / "pin-1.png") as im:
@@ -107,14 +109,14 @@ class MakePinsTests(unittest.TestCase):
         long_title = ("Ultra Organised Household Routine And Weekly Cleaning Planner Printable Pack With "
                       "Supercalifragilisticexpialidociousroutinechecklistsheets Inside For Busy Homes")
         pack = make_pack(self.root / "b", LISTING.replace("Calm Weekly Planner Printable", long_title))
-        data = pin_ready.make_pins(pack, self.root / "b" / "pinterest", now=NOW)
+        data = linked_pins(pack, self.root / "b" / "pinterest", now=NOW)
         self.assertEqual(data["check"]["problems"], [])
         self.assertTrue(all(len(p["title"]) <= 100 for p in data["pins"]))
 
     def test_brand_and_money_words_are_removed(self):
         listing = LISTING.replace("Calm Weekly Planner Printable", "Calm Weekly Notion Planner for Canva USD 5")
         pack = make_pack(self.root / "c", listing)
-        data = pin_ready.make_pins(pack, self.root / "c" / "pinterest", now=NOW)
+        data = linked_pins(pack, self.root / "c" / "pinterest", now=NOW)
         self.assertEqual(data["check"]["problems"], [])
         text = json.dumps(data["pins"]).lower()
         for word in ("notion", "canva", "usd"):
@@ -123,7 +125,7 @@ class MakePinsTests(unittest.TestCase):
     def test_folder_is_replaced_not_mixed(self):
         self.out.mkdir(parents=True)
         (self.out / "old-pin.png").write_bytes(b"x")
-        pin_ready.make_pins(self.pack, self.out, now=NOW)
+        linked_pins(self.pack, self.out, now=NOW)
         self.assertFalse((self.out / "old-pin.png").exists())
         self.assertFalse([p for p in self.out.parent.iterdir() if p.name.startswith(".pins")])
 
@@ -137,7 +139,7 @@ class CheckerTests(unittest.TestCase):
         cls.tmp = tempfile.TemporaryDirectory()
         root = Path(cls.tmp.name)
         cls.good = root / "good"
-        pin_ready.make_pins(make_pack(root), cls.good, now=NOW)
+        linked_pins(make_pack(root), cls.good, now=NOW)
 
     @classmethod
     def tearDownClass(cls):
@@ -158,7 +160,7 @@ class CheckerTests(unittest.TestCase):
     def test_wrong_size(self):
         def change(data, folder):
             Image.new("RGB", (1000, 1000), (255, 255, 255)).save(folder / "pin-2.png")
-        self.assertIn("Pin 2: size 1000x1000 (need 1000x1500)", self.broken(change))
+        self.assertIn("Pin 2: Image 1000x1500 (2:3) ga tayaru cheyandi.", self.broken(change))
 
     def test_empty_texts(self):
         def change(data, folder):
@@ -166,7 +168,7 @@ class CheckerTests(unittest.TestCase):
             data["pins"][1]["description"] = ""
             data["pins"][2]["board"] = ""
         problems = self.broken(change)
-        for want in ("Pin 1 title: empty", "Pin 2 description: empty", "Pin 3 board: empty"):
+        for want in ("Pin 1: title 1-100 characters lo rayandi.", "Pin 2: description 1-500 characters lo rayandi.", "Pin 3: board 1-100 characters lo rayandi."):
             self.assertIn(want, problems)
 
     def test_too_long_texts(self):
@@ -174,8 +176,8 @@ class CheckerTests(unittest.TestCase):
             data["pins"][0]["title"] = "word " * 30
             data["pins"][1]["description"] = "word " * 120
         problems = self.broken(change)
-        self.assertTrue(any(p.startswith("Pin 1 title: 150 chars") for p in problems), problems)
-        self.assertTrue(any(p.startswith("Pin 2 description: 600 chars") for p in problems), problems)
+        self.assertTrue(any(p.startswith("Pin 1: title 1-100 characters") for p in problems), problems)
+        self.assertTrue(any(p.startswith("Pin 2: description 1-500 characters") for p in problems), problems)
 
     def test_text_running_off_the_image(self):
         def change(data, folder):
@@ -206,15 +208,15 @@ class CheckerTests(unittest.TestCase):
             data["pins"][3]["layout"][0]["fill"] = data["pins"][3]["layout"][0]["bg"]
             (folder / "pin-5.png").unlink()
         problems = self.broken(change)
-        for want in ("Pin 1: link placeholder missing", "Pin 2 description: money words", "Pin 3 title: brand name",
-                     "Pin 5: image file missing"):
+        for want in ("Pin 1: nijamaina Store link pettandi; [STORE LINK] ni marchandi.", "Pin 2: description lo money text teeseyandi.", "Pin 3: title lo brand names teeseyandi.",
+                     "Pin 5: teriche Pin image file pettandi."):
             self.assertIn(want, problems)
         self.assertTrue(any("text colour too weak" in p for p in problems), problems)
-        self.assertEqual(self.broken(lambda d, f: d["pins"].pop()), ["need 5 Pins, found 4"])
+        self.assertEqual(self.broken(lambda d, f: d["pins"].pop()), ["5 Pins tayaru chesi vivaralu save cheyandi."])
 
     def test_missing_json(self):
         with tempfile.TemporaryDirectory() as empty:
-            self.assertEqual(pin_ready.check_pins(empty), ["pins.json missing or broken"])
+            self.assertEqual(pin_ready.check_pins(empty), ["Pin vivaralu missing leda broken; pins.json malli save cheyandi."])
 
 
 @unittest.skipUnless(HAS_PIL, "Pins need Pillow")
@@ -230,6 +232,8 @@ class MarketingAutoTests(unittest.TestCase):
         self.pack = make_pack(self.root)
         self.products = self.root / "products"
         self.db = str(self.root / "agent_data.db")
+        from tests.listing_fixtures import save_store_link
+        save_store_link(self.pack, self.db)
         p = mock.patch.object(marketing_auto, "is_private_dir", return_value=True)
         p.start()
         self.addCleanup(p.stop)
@@ -270,14 +274,36 @@ class MarketingAutoTests(unittest.TestCase):
         self.assertIn("ALMOST 70", result["social"]["pinterest"]["reason"])
         out = self.products / "marketing" / self.pack.name
         self.assertFalse((out / "pinterest").exists())
-        self.assertFalse(self.ma.social_due(self.pack, out, self.products, "2026-11-20"))
+        self.assertFalse(self.ma.social_due(self.pack, out, self.products, "2026-11-20", db_path=self.db))
         _, calls = self.build((False, "ALMOST 70"))
         self.assertEqual(calls, 0)                       # nothing changed: not judged again
         (self.pack / "checklist.txt").write_text("fixed")   # the pack changed
-        self.assertTrue(self.ma.social_due(self.pack, out, self.products, "2026-11-20"))
+        self.assertTrue(self.ma.social_due(self.pack, out, self.products, "2026-11-20", db_path=self.db))
         result, calls = self.build()
         self.assertEqual(calls, 1)
         self.assertEqual(result["social"]["pinterest"]["status"], "ok")
+
+    def test_owner_link_change_rebuilds_pins_on_the_same_day(self):
+        import tg_listed
+        self.build()
+        out = self.products / "marketing" / self.pack.name
+        changed = tg_listed.set_listed(9001, "https://example.gumroad.com/l/changed", self.db)
+        self.assertTrue(changed["ok"])
+        self.assertTrue(self.ma.social_due(self.pack, out, self.products, "2026-11-20", db_path=self.db))
+        result, _ = self.build()
+        self.assertTrue(result["social"]["pinterest"]["built"])
+        data = json.loads((out / "pinterest" / "pins.json").read_text())
+        self.assertTrue(all(pin["link"] == changed["url"] for pin in data["pins"]))
+        self.assertEqual(pin_ready.check_pins(out / "pinterest"), [])
+
+    def test_missing_owner_link_keeps_pins_out_of_ready_posts(self):
+        import tg_listed
+        import post_planner
+        tg_listed.remove_listed(9001, self.db)
+        result, _ = self.build()
+        self.assertEqual(result["social"]["pinterest"]["status"], "failed")
+        self.assertTrue(result["social"]["pinterest"]["problems"])
+        self.assertFalse(any(row["channel"] == "pinterest" for row in post_planner.ready_items(self.products)))
 
     def test_real_judge_says_not_sellable_without_upload_files(self):
         (self.pack / "listing.txt").rename(self.pack / "listing.md.txt")
@@ -298,6 +324,11 @@ class SellProofTests(unittest.TestCase):
             self.assertEqual(row["status"], "SELLABLE", row)
             products = Path(tmp) / "planner" / "products"
             folder = products / "marketing" / Path(row["pack"]).name / "pinterest"
+            from tests.listing_fixtures import save_store_link
+            import marketing_auto
+            db = Path(tmp) / "planner" / "proof.db"
+            save_store_link(Path(row["pack"]), db)
+            marketing_auto.build_for_pack(Path(row["pack"]), str(db), products_dir=products)
             self.assertEqual(pin_ready.check_pins(folder), [])
             stats = teams_report.scan_marketing(products)
             self.assertEqual(stats[Path(row["pack"]).name]["pins"]["count"], 5)
