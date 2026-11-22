@@ -111,6 +111,26 @@ class BizSheetsBuilderTests(unittest.TestCase):
         self.assertIn("Microsoft Excel", text)
         self.assertIn("Google Sheets", text)
 
+    def test_every_tab_has_a_matching_csv_header(self):
+        csv_headers = {
+            "Start_Here.csv": "Small Business Workbook",
+            "Orders.csv": "Order Date",
+            "Inventory.csv": "Item",
+            "Customers.csv": "Customer",
+            "Expenses.csv": "Date",
+            "Monthly_Summary.csv": "Month",
+        }
+        for name, header in csv_headers.items():
+            first_line = (self.tmp / name).read_text(encoding="utf-8").splitlines()[0]
+            self.assertIn(header, first_line)
+
+    def test_formula_cells_exist_for_inventory_and_monthly_profit(self):
+        with zipfile.ZipFile(self.tmp / "biz_sheets.xlsx") as archive:
+            inventory = archive.read("xl/worksheets/sheet3.xml").decode("utf-8")
+            monthly = archive.read("xl/worksheets/sheet6.xml").decode("utf-8")
+            self.assertGreaterEqual(inventory.count("<f>"), 100)
+            self.assertGreaterEqual(monthly.count("<f>"), 48)
+
 
 if __name__ == "__main__":
     unittest.main()
