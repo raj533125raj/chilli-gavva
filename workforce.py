@@ -443,6 +443,10 @@ def step_research(task, ctx):
 
 
 def step_draft(task, ctx):
+    waiting = len(guardrails.pending(ctx["db_path"]))
+    if waiting > MAX_PENDING_APPROVALS:
+        return {"summary": f"Waiting {waiting}; kotha Drafts ee run lo aapamu; mundu waiting Drafts decide avvali.",
+                "next": []}
     topic = task["payload"]["topic"]
     blocked = off_limits(topic)
     if blocked:

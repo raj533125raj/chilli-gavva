@@ -33,6 +33,9 @@ MIN_DAILY_LIMIT, MAX_DAILY_LIMIT = 1, 20
 AUTO_REJECT_REASON = "Low score (auto)"
 STATE_SETTINGS_KEY = "auto_approve_settings"
 MAX_SHINGLE_SIMILARITY = 0.45
+QUOTA_MAX_WAIT_HOURS = 72
+CHECKER_MAX_BLOCK_HOURS = 72
+CHECKER_SINCE_KEY = "auto_approve_checker_block_since"
 
 # Backwards compatibility constant (legacy tests expect 70 when unconfigured)
 SCORE_THRESHOLD = 70
@@ -388,8 +391,57 @@ def _as_utc(now=None) -> datetime.datetime:
     if isinstance(now, (int, float)):
         return datetime.datetime.fromtimestamp(now, tz=datetime.timezone.utc)
     if isinstance(now, datetime.datetime):
-        return now if now.tzinfo is not None else now.replace(tzinfo=datetime.timezone.utc)
+        return now.astimezone(datetime.timezone.utc) if now.tzinfo is not None else now.replace(tzinfo=datetime.timezone.utc)
     return datetime.datetime.now(datetime.timezone.utc)
+
+
+def _checker_since(db_path=None, now=None, track=False):
+    """Persist actual continuous checker-block duration; status reads never start it."""
+    conn = _state_conn(db_path)
+    try:
+        row = conn.execute("SELECT value FROM telegram_state WHERE key=?", (CHECKER_SINCE_KEY,)).fetchone()
+        since = _parse_item_time(row[0]) if row else None
+        if track:
+            if not has_broken_checker_signal(db_path):
+                conn.execute("DELETE FROM telegram_state WHERE key=?", (CHECKER_SINCE_KEY,))
+                since = None
+            elif since is None or since > _as_utc(now):
+                since = _as_utc(now)
+                conn.execute("INSERT INTO telegram_state(key,value) VALUES (?,?) "
+                             "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                             (CHECKER_SINCE_KEY, since.isoformat()))
+            conn.commit()
+        return since
+    finally:
+        conn.close()
+
+
+def _expire_rule_proposals(db_path=None, now=None):
+    """Expire imp: proposals without ever applying a learned rule."""
+    conn = guardrails.connect(db_path)
+    try:
+        if not conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='learned_rules'").fetchone():
+            return []
+        if "reason" not in {row[1] for row in conn.execute("PRAGMA table_info(learned_rules)")}:
+            conn.execute("ALTER TABLE learned_rules ADD COLUMN reason TEXT")
+        rows = conn.execute("SELECT id, rule_text, created_ts FROM learned_rules WHERE status='proposed'").fetchall()
+        decisions = []
+        now_dt = _as_utc(now)
+        for rule_id, text, ts in rows:
+            created = _parse_item_time(ts)
+            if created is None or (now_dt - created).total_seconds() < AUTO_APPROVE_HOURS * 3600:
+                continue
+            result = conn.execute("UPDATE learned_rules SET status='rejected', reason=?, decided_ts=? "
+                                  "WHERE id=? AND status='proposed'",
+                                  ("owner time ayipoyindi", now_dt.isoformat(), rule_id))
+            if result.rowcount:
+                decisions.append({"id": f"imp:{rule_id}", "action": "rejected", "kind": "self_improvement",
+                                  "title": str(text or "")[:50], "score": None,
+                                  "line": f"Proposal imp:{rule_id} auto-rejected: owner time ayipoyindi."})
+        conn.commit()
+        return decisions
+    finally:
+        conn.close()
 
 
 def effective_settings(db_path=None) -> Dict:
@@ -427,6 +479,7 @@ def _plan(db_path=None, now=None, settings=None) -> List[Dict]:
     now_dt = _as_utc(now)
     stopped = guardrails.is_paused(db_path) or guardrails.is_killed()
     broken_checker = None   # checked once, only when a draft gets that far
+    checker_since = _checker_since(db_path)
     approved_today = count_auto_approvals_today(db_path, now=now_dt)
     decided: List[Tuple[int, Set[str]]] = []   # (id, shingles) approved/rejected earlier in this pass
     plan = []
@@ -441,6 +494,9 @@ def _plan(db_path=None, now=None, settings=None) -> List[Dict]:
         plan.append(entry)
         if not entry["product"]:
             entry["why"] = "proposal"
+            if (str(current.get("kind", "")).startswith("imp:")
+                    and item_dt and hours >= AUTO_APPROVE_HOURS and not stopped):
+                entry["action"], entry["why"] = "reject", "proposal_timeout"
         elif stopped:
             entry["why"] = "paused"
         elif not item_dt:
@@ -455,13 +511,16 @@ def _plan(db_path=None, now=None, settings=None) -> List[Dict]:
                 decided.append((current["id"], _shingles(text)))
             elif not enabled:
                 entry["why"] = "off"
-            elif approved_today >= daily_limit:
+            elif approved_today >= daily_limit and hours < QUOTA_MAX_WAIT_HOURS:
                 entry["why"] = "daily_limit"
             else:
                 if broken_checker is None:
                     broken_checker = has_broken_checker_signal(db_path)
                 if broken_checker:
-                    entry["why"] = "checker_signal"
+                    if checker_since and (now_dt - checker_since).total_seconds() >= CHECKER_MAX_BLOCK_HOURS * 3600:
+                        entry["action"], entry["why"] = "reject", "checker_problem"
+                    else:
+                        entry["why"] = "checker_signal"
                 elif checker_blocks(current.get("review")):
                     entry["why"] = "checker_revise"
                 else:
@@ -498,9 +557,10 @@ def auto_decide_drafts(db_path=None, now=None):
     """
     if guardrails.is_paused(db_path) or guardrails.is_killed():
         return []
+    _checker_since(db_path, now, track=True)
     settings = effective_settings(db_path)
     threshold = settings.get("threshold", DEFAULT_SCORE_THRESHOLD)
-    decisions = []
+    decisions = _expire_rule_proposals(db_path, now)
     for entry in _plan(db_path, now, settings):
         approval_id, score, title = entry["id"], entry["score"], entry["title"][:50]
         if entry["action"] == "approve":
@@ -509,12 +569,27 @@ def auto_decide_drafts(db_path=None, now=None):
                                   "line": f"Draft #{approval_id} auto-approved (score {score}/100 >= {threshold}): "
                                           f"{title}"})
         elif entry["action"] == "reject":
-            if guardrails.decide(approval_id, False, db_path, reason=AUTO_REJECT_REASON):
-                # Also ensure reason is saved in case decide() didn't record it directly
-                guardrails.set_reason(approval_id, AUTO_REJECT_REASON, db_path)
+            reason = {"checker_problem": "checker problem", "proposal_timeout": "owner time ayipoyindi"}.get(
+                entry["why"], AUTO_REJECT_REASON)
+            if reason == AUTO_REJECT_REASON:
+                current = guardrails.get_approval(approval_id, db_path) or {}
+                _, reasons = checker.parse_review(current.get("review") or "")
+                if reasons:
+                    reason += ": " + "; ".join(str(value) for value in reasons[:2])[:240]
+            if guardrails.decide(approval_id, False, db_path, reason=reason):
                 decisions.append({"id": approval_id, "action": "rejected", "title": title, "score": score,
-                                  "line": f"Draft #{approval_id} auto-rejected (score {score}/100 < {threshold}, "
-                                          f"Low score (auto)): {title}"})
+                                  "line": f"Draft #{approval_id} auto-rejected: {reason}. {title}"})
+        # guardrails.decide is a compare-and-set: a prior owner decision wins.
+        # Use the injected clock for decisions actually made by this run.
+        if decisions and decisions[-1]["id"] == approval_id:
+            conn = guardrails.connect(db_path)
+            try:
+                conn.execute("UPDATE approvals SET decided_ts=? WHERE id=? AND status=? AND reason=?",
+                             (_as_utc(now).isoformat(), approval_id, decisions[-1]["action"],
+                              "auto-approved" if entry["action"] == "approve" else reason))
+                conn.commit()
+            finally:
+                conn.close()
     return decisions
 
 
@@ -531,6 +606,8 @@ WHY_TEXT = {
     "low_score": "score {score}/100 threshold {threshold} kanna takkuva; next run lo auto-reject",
     "ready": "next run lo auto-approve avutundi",
     "proposal": "proposal: meere decide cheyali (auto-approve cheyadu)",
+    "proposal_timeout": "owner time ayipoyindi; next run lo proposal reject avutundi",
+    "checker_problem": "checker problem; 3 rojulu aagindi, next run lo reject avutundi",
 }
 KIND_LABEL = {"scout_idea": "Scout idea", "trend_proposal": "Trend", "code_patch": "Code patch",
               "tool_draft": "Tool", "media_task": "Media"}
