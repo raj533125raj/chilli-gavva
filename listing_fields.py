@@ -17,13 +17,12 @@ import sys
 import zipfile
 
 
+_CURRENCY_CODES = r"USD|INR|EUR|GBP|JPY|CAD|AUD|NZD|CHF|CNY|RMB|HKD|SGD|AED|SAR|KRW|RUB|BRL|MXN|ZAR|SEK|NOK|DKK|Rs"
+_MONEY_NUMBER = r"[-+]?\s*(?:\d[\d,.]*|\.\d+)"
 MONEY_PATTERNS = [
-    re.compile(r"(?:[$₹€£¥]\s*[-+]?\s*\d[\d,.]*|\b(?:USD|INR|EUR|GBP|JPY|Rs\.?)\s*[-+]?\s*\d[\d,.]*|\d[\d,.]*\s*(?:[$₹€£¥]|\b(?:USD|INR|EUR|GBP|JPY|Rs\.?)\b))", re.I),
-    re.compile(r"\$[\d,]+(?:\.\d{1,2})?\b"),            # $10, $10.00, $1,200
-    re.compile(r"[\d,]+(\s?)USD\b", re.IGNORECASE),      # 10 USD, 10USD
-    re.compile(r"[\d,]+(\s?)INR\b", re.IGNORECASE),      # 10 INR
-    re.compile(r"[Rs]?\s?₹\s?[\d,]+(?:\.\d{1,2})?"),    # ₹10, Rs ₹10, ₹ 10
-    re.compile(r"Rs\.?\s?[\d,]+(?:\.\d{1,2})?\b", re.IGNORECASE),  # Rs 10, Rs.10
+    re.compile(r"(?:[$₹€£¥₩₽]\s*" + _MONEY_NUMBER
+               + r"|(?<![A-Za-z])(?:" + _CURRENCY_CODES + r")\.?(?![A-Za-z])\s*" + _MONEY_NUMBER
+               + r"|(?<![\w.,])" + _MONEY_NUMBER + r"\s*(?:[$₹€£¥₩₽]|(?:" + _CURRENCY_CODES + r")\.?(?![A-Za-z])))", re.I),
 ]
 
 

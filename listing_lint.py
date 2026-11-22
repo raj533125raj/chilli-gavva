@@ -297,8 +297,9 @@ def quality_checks(text, pack_folder=None, main_keyword=None):
     keyword_ok = bool(wanted) and any(first[i:i+len(wanted)] == wanted for i in range(len(first)))
     description = fields["description"]
     body = "\n".join(fields[key] for key in ("description", "what_you_get", "how_to_use", "license", "format", "size"))
-    items = [line for line in fields["what_you_get"].splitlines() if re.match(r"\s*(?:[-*•]|\d+[.)])\s+\S", line)]
-    brand = re.compile(r"\b(?:etsy|amazon|canva|notion|google|microsoft|excel|gumroad|topmate|payhip|goodnotes|apple|ipad|chatgpt|openai|shopify)\b", re.I)
+    items = [line for line in fields["what_you_get"].splitlines()
+             if re.match(r"\s*(?:[-*•]|\d+[.)])\s+\S|\s*[\w .-]+\.(?:pdf|docx|xlsx|csv|svg|png|jpg|jpeg|zip|pptx)\b", line, re.I)]
+    brand = re.compile(r"\b(?:etsy|amazon|canva|notion|google|microsoft|excel|gumroad|topmate|payhip|goodnotes|apple|ipad|chatgpt|openai|shopify|linkedin|facebook|instagram|pinterest|tiktok|youtube|kofi|ko-fi|instamojo)\b", re.I)
     cover, previews = [], []
     if pack_folder is not None:
         root = Path(pack_folder).resolve()
@@ -317,14 +318,15 @@ def quality_checks(text, pack_folder=None, main_keyword=None):
         ("what you get", bool(items), "What you get kinda nijamaina files ni bullet list ga rayandi."),
         ("format", bool(re.search(r"\b(?:PDF|DOCX|XLSX|CSV|SVG|PNG|JPG|JPEG|ZIP|PPTX)\b", body, re.I)),
          "Files format, udaharanaki PDF, Description lo rayandi."),
-        ("page count/size", bool(re.search(r"\b\d+\s*(?:pages?|sheets?|slides?|MB|KB)\b|\bA[345]\b|\b(?:US\s+)?Letter\b|\d+\s*[x×]\s*\d+", body, re.I)),
+        ("page count/size", bool(re.search(r"\b\d+\s*(?:[A-Za-z]+\s+){0,3}(?:pages?|sheets?|slides?|MB|KB)\b|\bA[345]\b|\b(?:US\s+)?Letter\b|\d+\s*[x×]\s*\d+", body, re.I)
+                                or re.search(r"\b\d+\b", fields["size"])),
          "Page count leda size (A4 / Letter) Description lo rayandi."),
         ("how to use", bool(fields["how_to_use"] or re.search(r"\bhow to use\b|\binstructions\b|\bdownload\b.{0,160}\b(?:open|print|import)\b", body, re.I | re.S)),
          "How to use steps rayandi: Download, open, print leda import ela cheyalo cheppandi."),
         ("license", bool(fields["license"] or re.search(r"\blicen[cs]e\b|\b(?:personal|commercial) use\b", body, re.I)),
          "License lo personal use leda commercial use rules cheppandi."),
         ("tags", 3 <= len(tags) <= 10, "3-10 Tag words enchukondi."),
-        ("tag duplicates", len({tag.casefold() for tag in tags}) == len(tags), "Repeat ayina Tags teeseyandi."),
+        ("tag duplicates", len({" ".join(tag.casefold().split()) for tag in tags}) == len(tags), "Repeat ayina Tags teeseyandi."),
         ("tag length", all(len(tag) <= TAG_MAX_LEN for tag in tags), "Prathi Tag 20 characters lopala pettandi."),
         ("brands", not brand.search("\n".join((title, body, ", ".join(tags)))), "Brand names teesesi product pani gurinchi rayandi."),
         ("money", _check_money(text) is None, "Public text lo amounts teeseyandi; price owner decide chestaru."),

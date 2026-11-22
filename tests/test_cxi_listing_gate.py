@@ -84,7 +84,8 @@ class ListingGateTests(unittest.TestCase):
         self.assertIn('brands',self.failures(start+'Tags: weekly planner, Canva, focus'))
 
     def test_all_common_currency_forms_are_refused(self):
-        for amount in (chr(36)+str(12),str(12)+' EUR','GBP '+str(12),str(12)+' '+chr(165)):
+        for amount in (chr(36)+str(12),str(12)+' EUR','GBP '+str(12),str(12)+' '+chr(165),
+                       str(12)+'EUR','CAD'+str(12),'AED .'+str(99)):
             with self.subTest(form=amount):self.assertIn('money',self.failures(GOOD+'\n'+amount))
 
     def test_cover_and_three_actual_previews_are_required(self):
@@ -118,6 +119,13 @@ class ListingGateTests(unittest.TestCase):
         (self.pack/'listing.md').write_text(text)
         self.assertEqual(seo_score.score_pack_folder(self.pack)['score'],100)
         self.assertEqual(sell_ready.inspect_listing_lint(self.pack)['score'],100)
+
+    def test_natural_page_counts_and_plain_file_lists_are_understood(self):
+        text=GOOD.replace('- 24 PDF planner pages\n- A4 guide\n- Blank notes sheet',
+                          'planner.pdf - 24 PDF planner pages\nguide.pdf - instructions')
+        self.assertEqual(self.failures(text),{})
+        text=GOOD.replace('- 24 PDF planner pages\n- A4 guide','- PDF workbook\n- Guide')+'Page count: 24\n'
+        self.assertNotIn('page count/size',self.failures(text))
 
 
 if __name__=='__main__':unittest.main()
