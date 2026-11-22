@@ -535,8 +535,8 @@ def fake_llm_reply(prompt):
         match = re.search(r"product type:\s*([a-z_]+)", low)
         kind = match.group(1) if match else "sheets"
         try:
-            specs = _sell_proof().builtin_specs()
-            raw = specs.get(kind, specs["sheets"])[0]
+            proof = _sell_proof()
+            raw = proof.builtin_specs()[kind][0] if kind in proof.builtin_specs() else proof.spec_for(kind)
             return "kind", json.dumps(raw)
         except Exception as exc:  # the fake must not hide the robot's own behaviour
             return "kind", json.dumps({"error": type(exc).__name__})

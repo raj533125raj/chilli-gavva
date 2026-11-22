@@ -198,17 +198,14 @@ class DeliveryTests(unittest.TestCase):
         self.assertIn("files changed", doctor.format_last_cases(db_path=self.db))
         self.assertEqual(self.sent, [])
 
-    def test_daily_attempts_shared_across_repeated_runs_then_continue_next_day(self):
-        aids = [self.approved() for _ in range(3)]
-        # No product/AI work is necessary to test the atomic daily reservation.
+    def test_owner_approvals_are_not_limited_by_automatic_daily_slots(self):
+        aids = [self.approved() for _ in range(4)]
         with mock.patch.object(launch_pack, "build_launch_pack", side_effect=OSError):
-            self.run_pipeline(day="2026-10-29")
-            self.run_pipeline(day="2026-10-29")
+            self.run_pipeline(day="2026-10-29", max_builds=2)
+            self.run_pipeline(day="2026-10-29", max_builds=2)
             with pipeline.connect(self.db) as conn:
-                self.assertEqual(conn.execute("SELECT COUNT(*) FROM product_delivery_attempts").fetchone()[0], 2)
-            self.run_pipeline(day="2026-10-30", max_builds=1)
-            with pipeline.connect(self.db) as conn:
-                self.assertEqual(conn.execute("SELECT approval_id FROM product_delivery_attempts WHERE day='2026-10-30'").fetchone()[0], aids[2])
+                rows=conn.execute("SELECT approval_id FROM product_delivery_attempts WHERE day='2026-10-29'").fetchall()
+            self.assertEqual({row[0] for row in rows},set(aids))
 
     def test_failures_are_isolated_and_approval_survives_build_exception(self):
         aid = self.approved()

@@ -345,7 +345,7 @@ def build_launch_pack(approval_id: int, db_path=None, out_dir=None, llm=None,
         return {"approval_id": approval_id, "status": "failed", "reason": "Draft not found"}
 
     title_text, payload_text = row[0] or "", row[1] or ""
-    niche = product_builder.niche_of(title_text)
+    niche = product_builder.niche_for_draft(title_text, payload_text)
     if not niche:
         return {"approval_id": approval_id, "status": "blocked", "reason": "Unsupported product niche"}
 

@@ -150,7 +150,7 @@ def pack_evidence(code, ids):
             continue
         pack = products / "upload" / folder if folder else None
         exists = bool(pack and (pack / "product.zip").is_file() and (pack / "listing.txt").is_file())
-        evaluation = sell_ready.evaluate_pack(pack, code / "exported_content" / "marketing") if exists else {}
+        evaluation = sell_ready.evaluate_pack(pack, products / "marketing") if exists else {}
         sellable = evaluation.get("status") in ("SELLABLE", "ALMOST")
         evidence.append({"id": aid, "approval": approval, "built": status == "built", "build_status": status,
                          "sellable": sellable, "upload_pack": exists,

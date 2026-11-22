@@ -109,6 +109,25 @@ def niche_of(title):
     return m.group(1) if m and m.group(1) in NICHES else None
 
 
+
+def niche_for_draft(title, payload=""):
+    """Resolve old agent titles and registered product formats through the same builder path."""
+    niche = niche_of(title)
+    if niche:
+        return niche
+    import format_registry
+    kind = format_registry.classify(f"{title}\n{payload}")
+    if not kind:
+        return None
+    for name, meta in NICHES.items():
+        if meta['kind'] == kind:
+            return name
+    name = kind.replace('_', ' ').title() + " Agent"
+    base = dict(NICHES['ADHD Planners Agent'])
+    base.update(kind=kind, buyer="people organizing this task", tags=[kind.replace('_', ' '), "printable", "organizer"])
+    NICHES[name] = base
+    return name
+
 def _todo(db_path=None, out_dir=None):
     """Scheduled image-tool probe: every approved, unfinished delivery is work.
 
@@ -208,10 +227,10 @@ def spec_prompt(niche, draft):
                            "buyer": NICHES[niche]["buyer"], "platform": NICHES[niche]["platform"]},
                "instructions": ["Step 1 ...", "Step 2 ..."],
                "cover_image_idea": "One sentence describing the cover image",
-               **EXAMPLES[kind]}
+               **EXAMPLES.get(kind, {"kind": kind, "title": "Product title"})}
     return ("You are the Product Builder for a small digital-product shop selling to global buyers in USD.\n"
             "Turn the APPROVED draft below into a complete product spec.\n"
-            f"Product type: {kind}. {KIND_RULES[kind]}\n"
+            f"Product type: {kind}. {KIND_RULES.get(kind, 'Use the registered builder controls; describe only files that builder can create.')}\n"
             "Rules: plain honest English; no income, health, medical or job promises; no made-up statistics.\n"
             "Reply with ONLY one JSON object shaped like this example (replace every value):\n"
             + json.dumps(example, indent=1) + "\n\nApproved draft:\n" + draft[:5000])
@@ -256,8 +275,14 @@ def parse_spec(text, niche):
             "instructions": [_clean(s, 300) for s in (data.get("instructions") or []) if _clean(s)][:12],
             "cover_image_idea": _clean(data.get("cover_image_idea"), 400)}
     checker = {"sheets": _norm_sheets, "planner": _norm_pages, "notion": _norm_notion, "resume": _norm_resume,
-               "dated_planner": _norm_dated}[kind]
-    reason = checker(data, spec)
+               "dated_planner": _norm_dated}.get(kind)
+    if checker is None:
+        import format_registry
+        if not callable(format_registry.get_builder(kind)):
+            return None, "registered builder is unavailable"
+        spec.update({key: value for key, value in data.items() if key not in spec})
+        spec["title"] = spec["name"]
+    reason = checker(data, spec) if checker else None
     if not reason and kind in ("planner", "dated_planner") and data.get("sheets"):
         reason = _norm_sheets(data, spec)
     if not reason and kind == "sheets" and data.get("pages"):

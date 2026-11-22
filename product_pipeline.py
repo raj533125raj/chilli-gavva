@@ -42,12 +42,21 @@ def _allowed(db_path):
             and cubes.is_kind_enabled("review", db_path=db_path))
 
 
+def owner_approved(aid, db_path):
+    with connect(db_path) as conn:
+        row = conn.execute("SELECT status, reason FROM approvals WHERE id=?", (aid,)).fetchone()
+    return bool(row and row[0] == "approved" and row[1] != "auto-approved")
+
+
 def _reserve(aid, day, db_path):
     """Reserve a daily slot atomically, shared by CLI and other entry points."""
     conn = connect(db_path)
     try:
         conn.execute("BEGIN IMMEDIATE")
-        if conn.execute("SELECT COUNT(*) FROM product_delivery_attempts WHERE day = ?", (day,)).fetchone()[0] >= DAILY_BUILDS:
+        manual = owner_approved(aid, db_path)
+        if not manual and conn.execute("SELECT COUNT(*) FROM product_delivery_attempts p "
+                                       "JOIN approvals a ON a.id=p.approval_id "
+                                       "WHERE p.day=? AND a.reason='auto-approved'", (day,)).fetchone()[0] >= DAILY_BUILDS:
             return False
         if conn.execute("SELECT 1 FROM product_delivery_attempts WHERE day = ? AND approval_id = ?", (day, aid)).fetchone():
             return False
@@ -283,9 +292,39 @@ def buildable(title, payload):
     return bool(fmt and format_registry.can_build({"kind": fmt}))
 
 
+
+def prepare_upload(folder, out_dir):
+    """Rebuild an upload pack atomically so retries and revised listings cannot leave stale files."""
+    import pathlib
+    import tempfile
+    import upload_pack
+    import store_kits
+    import gumroad_images
+    uploads = pathlib.Path(out_dir) / "upload"
+    uploads.mkdir(parents=True, exist_ok=True)
+    destination = uploads / folder
+    if destination.is_symlink():
+        raise ValueError("Upload destination must be a real directory")
+    with tempfile.TemporaryDirectory(prefix=".prepare-", dir=uploads) as temp:
+        staged = upload_pack.make(pathlib.Path(out_dir) / folder, temp)
+        product_builder.complete_buyer_zip(pathlib.Path(out_dir) / folder, staged)
+        store_kits.build(staged)
+        if gumroad_images.available():
+            gumroad_images.for_pack(staged)
+        previous = pathlib.Path(temp) / "previous"
+        if destination.exists():
+            os.replace(destination, previous)
+        try:
+            os.replace(staged, destination)
+        except OSError:
+            if previous.exists():
+                os.replace(previous, destination)
+            raise
+    return destination
+
 def run_pending(db_path=None, out_dir=None, llm=None, max_builds=DAILY_BUILDS,
                 notify_fn=None, day=None, max_time_seconds=240):
-    """Prioritise approved work, at most two attempts per UTC day, oldest attempt first."""
+    """Finish owner-approved work this cycle; retain the daily cap for automatic approvals."""
     if not _allowed(db_path):
         return []
     import workforce
@@ -297,9 +336,12 @@ def run_pending(db_path=None, out_dir=None, llm=None, max_builds=DAILY_BUILDS,
     attempts = 0   # CCG-2: only reserved build attempts count against max_builds, not skipped drafts
     for item in pending(db_path):
         aid, title, payload, review = (item[key] for key in ("id", "title", "payload", "review"))
-        if attempts >= max_builds or time.monotonic() - started >= max_time_seconds or not _allowed(db_path):
+        if time.monotonic() - started >= max_time_seconds or not _allowed(db_path):
             break
         if product_builder.is_held(aid, db_path):
+            continue
+        manual = owner_approved(aid, db_path)
+        if not manual and attempts >= max_builds:
             continue
         # BINNY-V4A: Feasibility check before build. If no builder can make the idea,
         # mark the draft 'needs_owner' with a Tenglish reason (never build a fake product).
@@ -321,16 +363,16 @@ def run_pending(db_path=None, out_dir=None, llm=None, max_builds=DAILY_BUILDS,
         if not can_make:
             tenglish_reason = format_registry.get_tenglish_unbuildable_reason(payload)
             with guardrails.connect(db_path) as conn:
-                conn.execute("UPDATE approvals SET status='needs_owner', reason=? WHERE id=?",
+                conn.execute("UPDATE approvals SET status='rejected', reason=? WHERE id=?",
                              (tenglish_reason, aid))
             results.append(_stuck(aid, "feasibility", tenglish_reason, db_path))
             continue
-        if not product_builder.niche_of(title):
+        if not product_builder.niche_for_draft(title, payload):
             results.append(_stuck(aid, "niche", "Unsupported product niche", db_path))
             continue
         if not _reserve(aid, day, db_path):
             continue
-        attempts += 1
+        attempts += int(not manual)
         stage = "council"
         try:
             summary = product_council.get_council_summary(aid, db_path)
@@ -366,6 +408,8 @@ def run_pending(db_path=None, out_dir=None, llm=None, max_builds=DAILY_BUILDS,
                                       db_path, result.get("folder", "")))
                 continue
             folder = result["folder"]
+            stage = "upload"
+            prepare_upload(folder, out_dir)
             names, digest = _inventory(os.path.join(out_dir, folder))
             with connect(db_path) as conn:
                 conn.execute("UPDATE product_deliveries SET status='prepared', reason='', folder=?, files=?, digest=?, lease_until=0 WHERE approval_id=?",

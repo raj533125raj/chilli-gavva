@@ -126,9 +126,11 @@ class UnbuildableDraftsDoNotTakeBuildSlots(Base):
         conn = sqlite3.connect(self.db)
         reserved = [r[0] for r in conn.execute("SELECT approval_id FROM product_delivery_attempts")]
         conn.close()
-        self.assertEqual(reserved, [niche])                    # the one real product draft got the slot
-        self.assertEqual(self.status(odd), "needs_owner")      # no builder can make it: owner told why
-        self.assertNotIn(legacy, reserved)
+        self.assertEqual(reserved, [legacy, niche])                    # the one real product draft got the slot
+        self.assertEqual(self.status(odd), "rejected")      # no builder can make it: owner told why
+        self.assertIn(legacy, reserved)  # registered planners no longer require a legacy agent title
+        with guardrails.connect(self.db) as conn:
+            self.assertTrue(conn.execute("SELECT reason FROM approvals WHERE id=?", (odd,)).fetchone()[0])
         self.assertFalse(os.path.isdir(out) and os.listdir(out))
 
 
