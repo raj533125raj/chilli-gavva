@@ -65,25 +65,82 @@ def _cover_image(path: Path, norm: Dict[str, Any], preview: int = 0) -> None:
     im = Image.new("RGB", (w, h), "#f7faf9")
     draw = ImageDraw.Draw(im)
     accent = "#287d78"
-    draw.rectangle([24, 24, w - 24, h - 24], outline=accent, width=4)
-    draw.rectangle([24, 24, w - 24, 86], fill=accent)
-    draw.text((48, 48), "CHILLI GAVVA · HOME BUSINESS PACK", fill="#ffffff", font=_font(20, True))
-    draw.text((60, 130), norm["title"][:46], fill="#23343d", font=_font(38, True))
-    draw.text((60, 184), norm["business"][:40], fill=accent, font=_font(22))
+    draw.rectangle([24, 24, w - 24, h - 24], outline=accent, width=5)
 
-    left = 60
-    top = 255
-    labels = ["Order", "Inventory", "Customers", "Suppliers", "Weekly", "Monthly"]
-    for i, label in enumerate(labels):
-        row, col = divmod(i, 3)
-        x = left + col * 340
-        y = top + row * 150
-        fill = "#ffffff" if (i + preview) % 2 else "#edf6f5"
-        draw.rounded_rectangle([x, y, x + 300, y + 112], radius=12, fill=fill, outline="#b9cbd0", width=3)
-        draw.text((x + 24, y + 24), f"{i + 1:02d}", fill="#d39a55", font=_font(18, True))
-        draw.text((x + 24, y + 58), label, fill="#23343d", font=_font(24, True))
-    preview_label = ["Cover", "Order Pages", "Log Pages", "Review Pages"][preview % 4]
-    draw.text((880, 720), preview_label, fill=accent, font=_font(16, True))
+    if preview == 0:
+        draw.rectangle([24, 24, w - 24, 110], fill=accent)
+        draw.text((48, 48), "CHILLI GAVVA · HOME BUSINESS PACK", fill="#ffffff", font=_font(22, True))
+        draw.text((60, 145), norm["title"][:46], fill="#23343d", font=_font(40, True))
+        draw.text((60, 198), norm["business"][:40], fill=accent, font=_font(24))
+        draw.text((60, 238), "35 printable pages · A4 + US Letter", fill="#66777d", font=_font(18, True))
+        page_specs = [
+            ("ORDER FORM", ["Customer", "Item", "Qty", "Due"]),
+            ("INVENTORY", ["Item", "Opening", "Used", "Left"]),
+            ("MONTHLY REVIEW", ["Orders", "Customers", "Packed", "Issues"]),
+        ]
+        left, top = 60, 300
+        for i, (label, headers) in enumerate(page_specs):
+            x = left + i * 360
+            draw.rounded_rectangle([x, top, x + 320, 690], radius=16, fill="#ffffff", outline="#b9cbd0", width=3)
+            draw.rectangle([x + 18, top + 18, x + 302, top + 72], fill="#edf6f5")
+            draw.text((x + 32, top + 34), label, fill=accent, font=_font(18, True))
+            for r in range(7):
+                yy = top + 100 + r * 56
+                draw.line((x + 24, yy, x + 296, yy), fill="#b9cbd0", width=2)
+            for c, header in enumerate(headers):
+                hx = x + 26 + c * 70
+                draw.text((hx, top + 82), header[:8], fill="#66777d", font=_font(10, True))
+        draw.text((60, 724), "Real order, stock, customer and monthly review pages", fill=accent, font=_font(16, True))
+    elif preview == 1:
+        draw.rectangle([24, 24, w - 24, 100], fill=accent)
+        draw.text((55, 50), "CUSTOMER ORDER FORM · REAL PAGE", fill="#ffffff", font=_font(24, True))
+        draw.text((55, 130), "Order details", fill="#23343d", font=_font(30, True))
+        draw.text((55, 170), "Complete one row for each new order.", fill="#66777d", font=_font(18))
+        left, top = 55, 220
+        headers = ["Date", "Customer", "Item", "Qty", "Due", "Status"]
+        widths = [150, 220, 260, 110, 180, 170]
+        x = left
+        for i, header in enumerate(headers):
+            draw.rectangle([x, top, x + widths[i], top + 55], fill="#edf6f5", outline="#b9cbd0")
+            draw.text((x + 12, top + 18), header, fill=accent, font=_font(15, True))
+            x += widths[i]
+        x = left
+        for r in range(8):
+            y = top + 55 + r * 52
+            x = left
+            for i, width in enumerate(widths):
+                draw.rectangle([x, y, x + width, y + 52], outline="#b9cbd0")
+                x += width
+    elif preview == 2:
+        draw.rectangle([24, 24, w - 24, 100], fill="#287d78")
+        draw.text((55, 50), "INVENTORY LOG · REAL PAGE", fill="#ffffff", font=_font(24, True))
+        draw.text((55, 130), "Stock count", fill="#23343d", font=_font(30, True))
+        left, top = 55, 220
+        headers = ["Item", "Opening", "Added", "Used", "Closing", "Check"]
+        widths = [260, 150, 150, 150, 150, 180]
+        x = left
+        for i, header in enumerate(headers):
+            draw.rectangle([x, top, x + widths[i], top + 55], fill="#edf6f5", outline="#b9cbd0")
+            draw.text((x + 12, top + 18), header, fill=accent, font=_font(15, True))
+            x += widths[i]
+        for r in range(8):
+            y = top + 55 + r * 52
+            x = left
+            for width in widths:
+                draw.rectangle([x, y, x + width, y + 52], outline="#b9cbd0")
+                x += width
+    else:
+        draw.rectangle([24, 24, w - 24, 100], fill="#287d78")
+        draw.text((55, 50), "MONTHLY REVIEW · REAL PAGE", fill="#ffffff", font=_font(24, True))
+        draw.text((55, 130), "Count this month", fill="#23343d", font=_font(30, True))
+        labels = ["Orders received", "Orders completed", "Open orders", "New customers",
+                  "Repeat customers", "Items packed", "Suppliers contacted", "Issues resolved"]
+        for i, label in enumerate(labels):
+            col, row = i % 2, i // 2
+            x, y = 55 + col * 550, 210 + row * 125
+            draw.rounded_rectangle([x, y, x + 500, y + 105], radius=12, fill="#ffffff", outline="#b9cbd0", width=3)
+            draw.text((x + 18, y + 18), label, fill="#23343d", font=_font(17, True))
+            draw.rectangle([x + 370, y + 18, x + 470, y + 82], fill="#edf6f5", outline="#b9cbd0")
     im.save(str(path), format="PNG", optimize=True)
 
 
@@ -192,34 +249,33 @@ def _build_pdf(path: Path, paper: str, norm: Dict[str, Any]) -> None:
     _cover(pdf, norm)
     pdf.new_page()
     _start(pdf, norm)
-    pdf.new_page()
-    _table_page(pdf, "Customer Order Form", "Record one order in each row.", ["Date", "Customer", "Item", "Qty", "Due", "Status"], 14)
-    pdf.new_page()
-    _table_page(pdf, "Order Tracker", "Track open work through completion.", ["Order", "Customer", "Item", "Qty", "Due", "Done"], 16)
-    pdf.new_page()
-    _table_page(pdf, "Customer List", "Use one row per customer.", ["Name", "Contact", "First order", "Repeat?", "Notes"], 15)
-    pdf.new_page()
-    _table_page(pdf, "Inventory Log", "Record stock movement and count.", ["Item", "Opening", "Added", "Used", "Closing", "Check"], 15)
+    for index in range(1, 11):
+        pdf.new_page()
+        _table_page(pdf, f"Customer Order Form {index}", "Record one order in each row.", ["Date", "Customer", "Item", "Qty", "Due", "Status"], 15)
+    for index in range(1, 4):
+        pdf.new_page()
+        _table_page(pdf, f"Inventory Log {index}", "Record stock movement and closing count.", ["Item", "Opening", "Added", "Used", "Closing", "Check"], 15)
+    for index in range(1, 4):
+        pdf.new_page()
+        _table_page(pdf, f"Customer List {index}", "Use one row per customer.", ["Name", "Contact", "First order", "Repeat?", "Notes"], 15)
     pdf.new_page()
     _table_page(pdf, "Supplier List", "Keep supplier details and recheck dates.", ["Supplier", "Product", "Contact", "Lead time", "Next check"], 15)
-    pdf.new_page()
-    _table_page(pdf, "Weekly To-Do", "Plan the week, then mark each task complete.", ["Day", "Task", "Owner", "Done", "Next step"], 16)
-    pdf.new_page()
-    _table_page(pdf, "Packing & Dispatch", "Check each step before the order leaves.", ["Order", "Packed", "Label", "Dispatch", "Stored?"], 16)
-    pdf.new_page()
-    _table_page(pdf, "Follow-Up Log", "Record follow-ups and their outcomes.", ["Date", "Customer", "Reason", "Action", "Next date"], 16)
-    pdf.new_page()
-    _monthly_review(pdf)
-    pdf.new_page()
-    _table_page(pdf, "Weekly Stock Check", "Review low stock and replenishment needs.", ["Item", "Minimum", "Current", "Needed", "Supplier"], 16)
-    pdf.new_page()
-    _heading(pdf, "Notes & Improvements", "Write one problem and one safe next step.")
-    y = pdf.h - 125
-    for i in range(8):
-        _lined_box(pdf, pdf_design.MARGIN, y - 70, pdf.w - 2 * pdf_design.MARGIN, 58, f"Idea / Problem {i + 1}")
-        y -= 76
-    pdf.new_page()
-    _table_page(pdf, "End of Month Checklist", "Close the month before starting the next.", ["Check", "Done", "Notes", "Next month"], 16)
+    for index in range(1, 5):
+        pdf.new_page()
+        _table_page(pdf, f"Weekly Planner {index}", "Plan the week, then mark each task complete.", ["Day", "Task", "Owner", "Done", "Next step"], 16)
+    for index in range(1, 13):
+        pdf.new_page()
+        _heading(pdf, f"Monthly Review {index}", "Counts only. Leave every value as a number, with no currency amount.")
+        y = pdf.h - 140
+        items = [("Orders received", "Count"), ("Orders completed", "Count"), ("Open orders", "Count"),
+                 ("New customers", "Count"), ("Repeat customers", "Count"), ("Items packed", "Count"),
+                 ("Suppliers contacted", "Count"), ("Issues resolved", "Count")]
+        for i, (label, unit) in enumerate(items):
+            col, row = i % 2, i // 2
+            x = pdf_design.MARGIN + col * ((pdf.w - 2 * pdf_design.MARGIN) / 2)
+            yy = y - row * 145
+            _lined_box(pdf, x + 8, yy - 105, (pdf.w - 2 * pdf_design.MARGIN) / 2 - 24, 105, label)
+            pdf.text(x + 18, yy - 49, unit, 8, color=_COLORS["muted"])
     pdf.save(str(path), title=norm["title"])
 
 
@@ -230,7 +286,7 @@ def _readme(norm: Dict[str, Any]) -> str:
         "",
         "WHAT YOU GET",
         "- A4 PDF and US Letter PDF",
-        "- 14 printable pages",
+        "- 35 printable pages",
         "- Cover, order form, order tracker, customer list",
         "- Inventory and supplier logs",
         "- Weekly and monthly planning pages",
@@ -282,7 +338,7 @@ def build(spec: Dict[str, Any], out_dir: Union[str, Path]) -> List[str]:
             "title": norm["title"],
             "business": norm["business"],
             "paper_sizes": list(PAPER_SIZES),
-            "pages_per_pdf": 14,
+            "pages_per_pdf": 35,
             "files": sorted(names + ["manifest.json"]),
         }
         (temp_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
