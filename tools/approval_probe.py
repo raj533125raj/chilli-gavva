@@ -27,6 +27,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import robot_day_sim  # noqa: E402
 
@@ -99,13 +100,73 @@ def queue(now: dt.datetime) -> List[Dict[str, Any]]:
     ]
 
 
-def seed_queue(db: Path, now: dt.datetime, only_drafts: bool = False) -> List[int]:
+
+def live_queue(now):
+    """22 Nov report: eleven approval rows plus one rule wait, four owner approvals."""
+    items = []
+    topics = [
+        ("Budget Sheets Agent", "Household Budget Sheet", "spreadsheet"),
+        ("ADHD Planners Agent", "Daily Focus Planner", "printable planner"),
+        ("Notion Templates Agent", "Student Notion Workspace", "Notion template"),
+        ("Resume Bundle Agent", "Resume and Cover Letter Bundle", "resume bundle"),
+    ]
+    for i in range(11):
+        niche, name, kind = topics[i % len(topics)]
+        score = (40, 54, 63, 72, 78, 80, 84, 88, 92, 96, 98)[i]
+        items.append({"hours": 201-i*17, "kind": "public_draft",
+                      "title": f"Draft: [{niche}] {name} variation {i+1}",
+                      "payload": DRAFT.format(name=f"{name} variation {i+1}", buyer="students and families",
+                                              kind=kind, inside="Daily plans, notes and a personal use guide",
+                                              tags=f"{kind}, organizer, personal use"),
+                      "review": _review(score, "pass" if score >= 80 else "revise", [])})
+    for i, (niche, name, kind) in enumerate(topics):
+        items.append({"hours": 28+i, "decided_hours": 1+i*5, "status": "approved",
+                      "kind": "public_draft", "title": f"Draft: [{niche}] {name}",
+                      "payload": DRAFT.format(name=name, buyer="students and families", kind=kind,
+                                              inside="Planning files with notes and a personal use guide",
+                                              tags=f"{kind}, organizer, personal use"),
+                      "review": _review(90+i*2, "pass", [])})
+    return items
+
+
+def pack_evidence(code, ids):
+    """Inspect database build state and actual upload packs, retaining every refusal reason."""
+    import sell_ready
+    products = code / "exported_content" / "products"
+    conn = sqlite3.connect(str(code / "agent_data.db"))
+    try:
+        rows = conn.execute("SELECT a.id, a.status, COALESCE(b.status,''), COALESCE(b.folder,''), "
+                            "COALESCE(b.note,''), COALESCE(d.reason,'') FROM approvals a "
+                            "LEFT JOIN product_builds b ON b.approval_id=a.id "
+                            "LEFT JOIN product_deliveries d ON d.approval_id=a.id "
+                            "WHERE a.id >= ? ORDER BY a.id", (FIRST_ID,)).fetchall()
+    finally:
+        conn.close()
+    attempted = robot_day_sim.db_rows(code, "SELECT approval_id FROM product_delivery_attempts")
+    attempted_ids = {row[0] for row in attempted}
+    evidence = []
+    for aid, approval, status, folder, note, reason in rows:
+        if aid not in ids:
+            continue
+        pack = products / "upload" / folder if folder else None
+        exists = bool(pack and (pack / "product.zip").is_file() and (pack / "listing.txt").is_file())
+        evaluation = sell_ready.evaluate_pack(pack, code / "exported_content" / "marketing") if exists else {}
+        sellable = evaluation.get("status") in ("SELLABLE", "ALMOST")
+        evidence.append({"id": aid, "approval": approval, "built": status == "built", "build_status": status,
+                         "sellable": sellable, "upload_pack": exists,
+                         "reason": reason or ("; ".join(evaluation.get("top_fixes", [])) if not sellable else "")
+                                   or (note if status != "built" else "")
+                                   or ("Launch path recorded built but did not create an upload pack" if status == "built" and not exists else "")
+                                   or ("No attempt: daily build slots exhausted" if approval == "approved" and aid not in attempted_ids else "")})
+    return evidence
+
+def seed_queue(db: Path, now: dt.datetime, only_drafts: bool = False, live: bool = False) -> List[int]:
     """Insert the queue straight into the sandbox database (naive UTC ISO like guardrails writes).
     only_drafts: leave out the other kinds and the owner's own approval (second scenario)."""
     conn = sqlite3.connect(str(db))
     ids = []
     try:
-        for item in queue(now):
+        for item in (live_queue(now) if live else queue(now)):
             if only_drafts and (item["kind"] != "public_draft" or item.get("status")):
                 continue
             ts = (now - dt.timedelta(hours=item["hours"])).replace(tzinfo=None).isoformat()
@@ -132,13 +193,18 @@ def seed_queue(db: Path, now: dt.datetime, only_drafts: bool = False) -> List[in
 
 
 def probe(runs: int = 3, start: str = START, python: str = None, log=lambda line: None,
-          only_drafts: bool = False, keep: str = None) -> Dict[str, Any]:
+          only_drafts: bool = False, keep: str = None, live: bool = False) -> Dict[str, Any]:
     now = dt.datetime.strptime(start, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=dt.timezone.utc)
     seeded: Dict[str, Any] = {}
 
     def before_first_run(paths, env):
-        seeded["ids"] = seed_queue(paths["code"] / "agent_data.db", now, only_drafts)
+        seeded["ids"] = seed_queue(paths["code"] / "agent_data.db", now, only_drafts, live)
         return None
+
+    cycles = []
+
+    def capture(paths, env):
+        cycles.append(pack_evidence(paths["code"], seeded.get("ids", [])))
 
     real_act = robot_day_sim.Owner.act
     real_report = robot_day_sim.build_report
@@ -147,7 +213,9 @@ def probe(runs: int = 3, start: str = START, python: str = None, log=lambda line
         return []
 
     def keep_rows(paths, steps_run, timeline, owner, runs_, failed_runs):
+        capture(paths, {})
         report = real_report(paths, steps_run, timeline, owner, runs_, failed_runs)
+        report["probe_cycles"] = cycles
         report["probe_rows"] = robot_day_sim.db_rows(
             paths["code"],
             "SELECT a.id, a.kind, a.title, a.status, COALESCE(a.reason,''), COALESCE(a.decided_ts,''), "
@@ -166,7 +234,7 @@ def probe(runs: int = 3, start: str = START, python: str = None, log=lambda line
     robot_day_sim.Owner.act = quiet_owner
     robot_day_sim.build_report = keep_rows
     try:
-        report = robot_day_sim.simulate(hours=runs, every=60, start=start, events={0: before_first_run},
+        report = robot_day_sim.simulate(hours=runs, every=60, start=start, events={0: before_first_run, **{i: capture for i in range(1, runs)}},
                                         log=log, python=python, keep=keep)
     finally:
         robot_day_sim.Owner.act = real_act
@@ -177,16 +245,17 @@ def probe(runs: int = 3, start: str = START, python: str = None, log=lambda line
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--live", action="store_true", help="22 Nov queue: 12 waiting, four approved")
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--python", default=None)
     parser.add_argument("--keep", default=None, help="keep the sandbox in this folder (outside the repo)")
     parser.add_argument("--only-drafts", action="store_true", help="queue of product drafts only")
     args = parser.parse_args(argv)
-    report = probe(args.runs, python=args.python, log=lambda line: print(line, file=sys.stderr),
-                   only_drafts=args.only_drafts, keep=args.keep)
+    report = probe(args.runs, start="2026-11-22T12:05:00Z" if args.live else START, python=args.python, log=lambda line: print(line, file=sys.stderr),
+                   only_drafts=args.only_drafts, keep=args.keep, live=args.live)
     if args.json:
-        print(json.dumps({k: report.get(k) for k in ("seeded_ids", "probe_rows", "probe_rules", "probe_builds",
+        print(json.dumps({k: report.get(k) for k in ("probe_cycles", "seeded_ids", "probe_rows", "probe_rules", "probe_builds",
                                                      "probe_deliveries", "probe_attempts",
                                                      "probe_build_logs", "probe_inbox_logs")}, indent=1))
         return 0
