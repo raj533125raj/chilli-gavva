@@ -46,3 +46,15 @@ RESULT: PASSED
 ```
 
 Evidence: /private/tmp/cxq-full-6459921.log. Product code stayed unchanged after this run; the remaining commits record verification and the completion summary. The owner must release the robot code and redeploy the Worker using docs/BUTTONS-FIX-TENGLISH.md. Nothing was pushed or deployed.
+
+Completion summary:
+1. I merged Claude’s finished work and kept both sets of fixes.
+2. Product listings now describe the files that buyers actually receive.
+3. Ready packs have suitable titles, tags, instructions, licenses and preview galleries.
+4. Marketing uses the Store links saved by the owner and refreshes changed links.
+5. Private owner reports can show sales amounts; public files still hide amounts and secrets.
+6. The door bell confirms owner button presses once, then starts the robot.
+7. Late presses still get results, old buttons get a clear reply, and safe logs show button age.
+8. /post today sends every ready carousel slide and caption, plus the Pin board and link.
+9. Reports, weekly calendars, the doctor and recovery checks now share the planner’s current file.
+10. All 8,522 tests finished with zero failures or errors; nothing was pushed or deployed.
