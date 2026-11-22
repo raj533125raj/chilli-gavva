@@ -732,19 +732,20 @@ What the reply looks like:
 When to use it:
 - After a pause, when you want the robot to start again.
 
-### /keyboard
+### /decide
 
-Controls the reply keyboard.
+Waiting Drafts okkokkati chusi mee decision ivvandi.
 
 Example:
-- `/keyboard`
-- `keyboard`
+- `/decide`
+- `nirnayinchi`
 
 What the reply looks like:
-- The keyboard control reply or current keyboard state.
+- Oka Draft card mariyu Approve / Reject / View full / Next buttons vastayi.
 
 When to use it:
-- When you want to change the reply keyboard behavior.
+- Draft approve cheyadaniki leda reject reason ivvadaniki vadandi.
+- Next: `/decide` pampandi; Draft chusi mee decision ivvandi.
 
 ---
 

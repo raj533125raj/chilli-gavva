@@ -163,13 +163,9 @@ class OchPublicDocsTests(unittest.TestCase):
             "docs reference repo files that do not exist:\n" + "\n".join(missing),
         )
 
-    @unittest.expectedFailure
     def test_commands_named_in_docs_exist(self):
-        # FOR CLAUDE CODE: docs/TELEGRAM-NEW-COMMANDS-TENGLISH.md names the
-        # command /keyboard, but no plugin COMMANDS entry and no telegram_inbox
-        # core command provides it (the reply-keyboard feature answers as the
-        # /decide command in tg_keyboard.py, its words are decide/nirnayinchi).
-        # The doc should either use /decide or a plugin should add /keyboard.
+        # The reply-keyboard feature is documented under its real /decide
+        # command, provided by tg_keyboard.py.
         known = plugin_and_core_commands()
         missing = []
         for doc in all_docs():
