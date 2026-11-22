@@ -29,14 +29,12 @@ def owner_reply_pages(text, next_step="/menu pampandi; command enchukondi.", lim
     cannot be split into otherwise unrecognisable pieces.
     """
     import secret_guard
+    from listing_fields import MONEY_PATTERNS
 
     clean = secret_guard.scrub_text(text)
     if not allow_money:
-        clean = re.sub(
-            r"(?:[₹$€£¥]\s*\d[\d,.]*|\b(?:USD|INR|EUR|GBP|Rs\.?)\s*\d[\d,.]*"
-            r"|\d[\d,.]*\s*(?:USD|INR|EUR|GBP|Rs\.?)\b)",
-            "[amount]", clean, flags=re.I,
-        )
+        for pattern in MONEY_PATTERNS:
+            clean = pattern.sub("[amount]", clean)
     # Local machine paths are never useful on the owner's phone. Public URLs
     # and Telegram commands are deliberately left intact.
     clean = re.sub(r"(?<![\w:/])(?:~?/|[A-Za-z]:\\)(?:[^\s/\\]+[/\\])+[^\s,;)`]*",
@@ -133,6 +131,8 @@ def owner_reply(handler):
             "/seokit": "/seokit <Pack number> pampandi; keywords chudandi.",
         }
         next_step = actions.get(command, next_step)
+        if handler.__module__ == "tg_menu" and command not in ("/help", "/menu"):
+            next_step = "/menu pampandi; command enchukondi."
         if command in ("/menu", "/help"):
             next_step = "/help <command> pampandi; ela vadalo chudandi."
 
