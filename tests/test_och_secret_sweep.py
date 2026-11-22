@@ -302,6 +302,10 @@ class SecretSweepTests(unittest.TestCase):
             with self.subTest(report=builder.__name__):
                 text = builder(db_path=db)
                 self.assertTrue(text.strip())
+                # CCI-4: the Sunday letter has one "Real money:" line with payout amounts on purpose (the owner's
+                # figure). report_text includes it on Sundays only, so the money check skips that one line here.
+                # The gap stays documented by test_weekly_letter_money_amount_is_a_known_gap below.
+                text = "\n".join(line for line in text.splitlines() if not line.startswith("Real money:"))
                 self.assert_clean(f"daily_report.{builder.__name__}", text)
 
     @unittest.expectedFailure
