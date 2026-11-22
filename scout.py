@@ -249,7 +249,8 @@ def get_supported_formats() -> list[str]:
     for excl in EXCLUDED_FORMATS:
         if is_builder_format_supported(excl):
             supported.append(excl)
-    return supported
+    import format_registry
+    return list(dict.fromkeys(supported + format_registry.list_registered_formats()))
 
 
 # Primary 6 fallback candidates (backward compatible with existing test expectations)
@@ -309,6 +310,22 @@ EXTENDED_FALLBACK_CANDIDATES = FALLBACK_CANDIDATES + [
 ]
 
 
+
+EXTENDED_FALLBACK_CANDIDATES += [
+    {"category":"Planners","idea":title,"audience":audience,"format":kind,
+     "demand_score":22,"competition_score":20,"fit_score":24,"effort_score":22,
+     "reason":"A printable record of this buyer's daily tasks and notes."}
+    for title,audience,kind in (
+        ('Teacher Planner for Classroom Lessons','teachers','teacher_planner'),
+        ('Fitness Planner for Workout Notes','fitness beginners','fitness_planner'),
+        ('Baby Tracker for New Parents','new parents','baby_tracker'),
+        ('Small Business Log for Home Bakers','home bakers','small_business_log'),
+        ('Kids Chore Chart and Reward Pack for Families','Telugu-speaking families','kids_chore_reward'),
+        ('Notion Client Workspace Template for Freelancers','freelancers','notion'),
+        ('Resume and Cover Letter Bundle for Job Seekers','job seekers','resume'),
+    )
+]
+
 def _clamp_score(val, default=20):
     try:
         ival = int(val)
@@ -316,6 +333,55 @@ def _clamp_score(val, default=20):
     except (TypeError, ValueError):
         return default
 
+
+
+# Prefer proven shop niches (budget sheets, small-business trackers, ADHD planners,
+# Notion templates, resume bundles) and the five newly registered printable formats.
+PREFERRED_FORMATS = {'sheets','planner','notion','resume','teacher_planner','fitness_planner',
+                     'baby_tracker','small_business_log','kids_chore_reward'}
+_UNBUILDABLE = re.compile(r"\b(?:app|apps|software|saas|physical products?|shipped|shipping|courses?|"
+                          r"webinars?|coaching|videos?|podcasts?|audio|mp3|mp4)\b",re.I)
+_AUDIENCE_LABELS = {
+    'exam taker':'Students','exam takers':'Students','student':'Students','students':'Students',
+    'teacher':'Teachers','teachers':'Teachers','parent':'Parents','parents':'Parents',
+    'new parent':'New Parents','new parents':'New Parents','freelancer':'Freelancers','freelancers':'Freelancers',
+    'job seeker':'Job Seekers','job seekers':'Job Seekers','small shop owner':'Small Shop Owners',
+    'small shop owners':'Small Shop Owners','family':'Families','families':'Families',
+    'telugu-speaking families':'Telugu-speaking Families','home baker':'Home Bakers','home bakers':'Home Bakers',
+    'fitness beginner':'Fitness Beginners','fitness beginners':'Fitness Beginners',
+    'wedding planner':'Wedding Planners','wedding planners':'Wedding Planners','retirees':'Retirees',
+}
+
+
+def natural_title(idea, audience=None, add_audience=False):
+    """Use plural buyer labels and never stack a second 'for' suffix onto an idea."""
+    title=re.sub(r'\s+',' ',str(idea or '')).strip()
+    title=re.sub(r'\bCultural Event and Festival Planner\b','Festival Planner',title,flags=re.I)
+    suffix=re.search(r'\s+for\s+(.+)$',title,re.I)
+    if suffix and suffix[1].casefold() in _AUDIENCE_LABELS:
+        return title[:suffix.start()]+' for '+_AUDIENCE_LABELS[suffix[1].casefold()]
+    if add_audience and audience and not suffix:
+        label=_AUDIENCE_LABELS.get(str(audience).casefold(),str(audience).title())
+        return title+' for '+label
+    return title
+
+
+def is_buildable_idea(idea, fmt=None):
+    """A format word must never turn an app, shipped item or course into a printable draft."""
+    import format_registry
+    text=str(idea or '')
+    if not text.strip() or _UNBUILDABLE.search(text+' '+str(fmt or '')):
+        return False
+    return (format_registry.can_build(text) or bool(fmt and (format_registry.can_build({'kind':fmt})
+                                                            or format_registry.classify(str(fmt)))))
+
+
+def candidate_priority(candidate):
+    import format_registry
+    kind=(candidate.get('format') if format_registry.get_format_info(candidate.get('format'))
+          else format_registry.classify(candidate['idea']))
+    new_types={'teacher_planner','fitness_planner','baby_tracker','small_business_log','kids_chore_reward'}
+    return candidate['total_score']+(12 if kind in new_types else 8 if kind in PREFERRED_FORMATS else 0)
 
 def _clean_idea_title(text: str) -> str:
     """Strip prefixes and formatting to get base idea title."""
@@ -738,7 +804,7 @@ def evaluate_against_reject_reasons(candidate: dict, reject_reasons: list[dict],
             if not any(w in full_text for w in audience_words):
                 candidate = dict(candidate)
                 chosen_aud = (available_audiences[0] if available_audiences else "Remote Creators")
-                candidate["idea"] = f"{candidate['idea']} for {chosen_aud.capitalize() if chosen_aud == 'teachers' else chosen_aud}"
+                candidate["idea"] = natural_title(candidate["idea"], chosen_aud, add_audience=True)
                 candidate["audience"] = chosen_aud
                 candidate["reason"] = candidate["reason"] + f" (Added clear target audience: {chosen_aud})"
 
@@ -755,7 +821,7 @@ def score_candidate(item):
     cat = item.get("category", "Templates")
     if cat not in CATEGORIES:
         cat = "Templates"
-    idea = str(item.get("idea", "")).strip()
+    idea = natural_title(item.get("idea", ""), item.get("audience"))
     demand = _clamp_score(item.get("demand_score"))
     comp = _clamp_score(item.get("competition_score"))
     fit = _clamp_score(item.get("fit_score"))
@@ -787,7 +853,10 @@ def score_candidate(item):
 SCOUT_PROMPT = """You are SCOUT, an AI research agent finding new digital product categories.
 Focus on low-cost digital products in these 3 categories: Printables, Planners, Templates.
 Rotate ideas across varied audiences (teachers, students, exam takers, small shop owners, home bakers, fitness beginners, new parents, freelancers, job seekers, wedding planners, Telugu-speaking families, retirees).
-Use only supported product formats: printable planner, tracker sheet, workbook, checklist, worksheet set, budget sheet, resume pack.
+Use only supported product formats: printable planner, tracker sheet, workbook, checklist, worksheet set, budget sheet, resume pack, Notion template, teacher planner, fitness planner, baby tracker, small business log, kids chore chart.
+Prefer budget sheets, small-business trackers, ADHD planners, Notion templates, resume bundles and these new printable types.
+Use natural buyer titles such as Festival Planner for Students; never add a singular audience suffix.
+Never propose apps, software, shipped physical products, courses, video or coaching services.
 Do NOT use wall art, slides, or email signatures.
 Suggest 8 specific, practical digital product ideas.
 For each idea, score these 4 factors (1 to 25 points each):
@@ -876,6 +945,13 @@ def run_scout(db_path=None, llm=None):
         llm = None
 
     candidates = get_candidate_ideas(llm, db_path=db_path)
+    # Keep the six-item fallback API stable, while the real queue uses the full
+    # registered-format pool for buyer rotation and niche caps.
+    primary_titles = {natural_title(item['idea']) for item in FALLBACK_CANDIDATES}
+    if {item.get('idea') for item in candidates} == primary_titles:
+        known = {item['idea'] for item in candidates}
+        candidates += [score_candidate(item) for item in EXTENDED_FALLBACK_CANDIDATES
+                       if natural_title(item['idea']) not in known]
     scored = [score_candidate(c) for c in candidates if c.get("idea")]
 
     # 1. Fetch past approved or rejected ideas in the last 30 days
@@ -897,6 +973,8 @@ def run_scout(db_path=None, llm=None):
     # Filter and adjust candidates
     filtered_candidates = []
     for c in scored:
+        if not is_buildable_idea(c["idea"], c.get("format")):
+            continue
         # Check repeat idea in last 30 days
         if is_repeat_idea(c["idea"], past_ideas):
             continue
@@ -913,7 +991,7 @@ def run_scout(db_path=None, llm=None):
 
         # Score against reject reasons (rewrite or drop)
         adjusted, dropped = evaluate_against_reject_reasons(c, reject_reasons, available_audiences=avail_audiences)
-        if dropped:
+        if dropped or not is_buildable_idea(adjusted["idea"], adjusted.get("format")):
             continue
 
         # Double check if rewritten idea is repeat or similar to recent drafts
@@ -967,7 +1045,7 @@ def run_scout(db_path=None, llm=None):
         filtered_candidates.append(adjusted)
 
     # Sort candidates by total_score descending
-    filtered_candidates.sort(key=lambda x: x["total_score"], reverse=True)
+    filtered_candidates.sort(key=candidate_priority, reverse=True)
 
     # Enforce caps:
     # 1. Max 2 ideas per niche per day
