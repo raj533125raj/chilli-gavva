@@ -380,7 +380,7 @@ class TalkBase(unittest.TestCase):
     def add_draft(self, title="Draft: [Budget Sheets Agent] Monthly budget sheet"):
         return guardrails.request_approval("public_draft", title, "PRODUCT NAME: Budget sheet\n", None, self.db)
 
-    def add_pack(self, name="3-focus-planner", title="Focus Planner Printable Pack"):
+    def add_pack(self, name="3-focus-planner", title="Focus Planner Printable Pack for Daily Planning"):
         pack = self.products / name
         pack.mkdir(parents=True)
         with zipfile.ZipFile(pack / "product.zip", "w") as bundle:
@@ -392,13 +392,17 @@ class TalkBase(unittest.TestCase):
                        "write. Each page keeps wide margins and calm spacing so the layout stays easy to read.")
         tags = ("focus planner, daily planner, printable page, desk pad, calm routine, habit tracker, study timer, "
                 "weekly menu, mindful notes, goal grid, brain dump, weekly audit, one page day")
+        tags = ", ".join(tags.split(", ")[:10])
+        if len(title) < 40:
+            title += " - Digital Download and Personal Use Guide"
         (pack / "listing.txt").write_text(
             f"Title: {title}\n\nDescription:\n{description}\n\nTags: {tags}\n\nWhat you get:\n- A4 PDF file\n"
             "- US Letter PDF file\n\nTheme: Calm Sage\n", encoding="utf-8")
         (pack / "checklist.txt").write_text("Checklist:\n- [ ] Upload product.zip\n- Theme: Calm Sage\n", encoding="utf-8")
         (pack / "LICENSE.txt").write_text("Personal use licence only.\n", encoding="utf-8")
         (pack / "cover.png").write_bytes(PNG)
-        (pack / "preview-1.png").write_bytes(PNG)
+        for index in range(1, 4):
+            (pack / f"preview-{index}.png").write_bytes(PNG)
         return pack
 
 
@@ -454,7 +458,8 @@ class TalkPluginTests(TalkBase):
 
     def test_daily_report_is_the_real_report(self):
         reply = tg_talk.handle("ee roju em jarigindi", self.ctx)
-        self.assertEqual(reply["text"], daily_report.report_text(db_path=self.db))
+        from tg_menu import owner_reply_pages
+        self.assertEqual(reply["text"], owner_reply_pages(daily_report.report_text(db_path=self.db), "/help <command> pampandi; ela vadalo chudandi.", allow_money=True)[-1])
         self.assertIn("daily report", reply["text"])
 
     def test_status_is_the_real_status(self):
@@ -493,7 +498,7 @@ class TalkPluginTests(TalkBase):
         self.assertIn("Pack #3", self.texts[0])
         self.assertIn("1/4 GUMROAD FIELDS", self.texts[1])
         self.assertEqual([Path(path).name for path in self.documents], ["product.zip", "LICENSE.txt"])
-        self.assertEqual([Path(path).name for path in self.photos], ["cover.png", "preview-1.png"])
+        self.assertEqual([Path(path).name for path in self.photos], ["cover.png", "preview-1.png", "preview-2.png", "preview-3.png"])
 
     def test_sell_missing_pack_is_tg_sells_own_answer(self):
         reply = tg_talk.handle("pack 9 sell chey", self.ctx)
@@ -549,7 +554,7 @@ class TalkPluginTests(TalkBase):
         self.add_pack()
         reply = tg_talk.handle("ippudu em cheyali", self.ctx)
         self.assertIn("Gumroad lo pettochu", reply["text"])
-        self.assertIn("/sell 3 — Focus Planner Printable Pack", reply["text"])
+        self.assertIn("/sell 3 — Focus Planner Printable Pack for Daily Planning", reply["text"])
         self.assertEqual(self.texts, [])           # quoted, not sent twice
 
     def test_next_step_with_nothing_waiting(self):
@@ -601,7 +606,8 @@ class TalkPluginTests(TalkBase):
     def test_command_error_is_reported_not_raised(self):
         with mock.patch.object(tg_talk, "run_command", side_effect=RuntimeError("boom")):
             reply = tg_talk.handle("status enti", self.ctx)
-        self.assertIn("problem vachindi (RuntimeError)", reply["text"])
+        self.assertIn("problem vachindi", reply["text"])
+        self.assertNotIn("RuntimeError", reply["text"])
         self.assertIn("/status", reply["text"])
 
     def test_empty_command_output_falls_back_to_suggestions(self):
@@ -706,7 +712,7 @@ class CallPluginsTests(TalkBase):
         import tg_menu
         handled, reply = self.call("menu")
         self.assertTrue(handled)
-        self.assertEqual(reply["text"], tg_menu.format_grouped_menu())
+        self.assertEqual(reply["text"], tg_menu.owner_reply_pages(tg_menu.format_grouped_menu(), "/help <command> pampandi; ela vadalo chudandi.")[-1])
 
     def test_chatter_is_not_handled_by_talk(self):
         with mock.patch.object(tg_talk, "run_command") as run:
@@ -764,10 +770,10 @@ class EndToEndTests(TalkBase):
         self.assertEqual(handled, 1)
         self.assertIn("Pack #3", texts[0])
         self.assertIn("1/4 GUMROAD FIELDS", texts[1])
-        self.assertIn("4/4 GUMROAD CHECKLIST", texts[2])
+        self.assertTrue(any("4/4 GUMROAD CHECKLIST" in page for page in texts))
         kinds = [kind for kind, _, _ in self.sent]
         self.assertEqual(kinds.count("document"), 2)
-        self.assertEqual(kinds.count("photo"), 2)
+        self.assertEqual(kinds.count("photo"), 4)
 
     def test_em_cheyali_ippudu(self):
         self.add_draft()

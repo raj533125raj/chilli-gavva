@@ -21,6 +21,8 @@ Adheres strictly to the Telegram plugin interface:
 """
 from __future__ import annotations
 
+from tg_menu import owner_reply
+
 import datetime
 import json
 import os
@@ -703,6 +705,7 @@ def handle_posted_help(ctx: dict, plan_path: Optional[Union[str, Path]] = None,
     return {"text": "\n".join(lines)}
 
 
+@owner_reply
 def handle(text: str, ctx: dict) -> dict | None:
     """Telegram plugin handle entry point.
 

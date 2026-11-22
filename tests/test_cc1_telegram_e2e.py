@@ -147,7 +147,7 @@ class Inbox(unittest.TestCase):
         return guardrails.request_approval("public_draft", title, "PRODUCT NAME: Budget sheet\nBUYER: adults\n",
                                            None, self.db)
 
-    def add_pack(self, name="3-focus-planner", title="Focus Planner Printable Pack"):
+    def add_pack(self, name="3-focus-planner", title="Focus Planner Printable Pack for Daily Planning"):
         pack = self.products / name
         pack.mkdir(parents=True)
         with zipfile.ZipFile(pack / "product.zip", "w") as bundle:
@@ -159,13 +159,17 @@ class Inbox(unittest.TestCase):
                        "write. Each page keeps wide margins and calm spacing so the layout stays easy to read.")
         tags = ("focus planner, daily planner, printable page, desk pad, calm routine, habit tracker, study timer, "
                 "weekly menu, mindful notes, goal grid, brain dump, weekly audit, one page day")
+        tags = ", ".join(tags.split(", ")[:10])
+        if len(title) < 40:
+            title += " - Digital Download and Personal Use Guide"
         (pack / "listing.txt").write_text(
             f"Title: {title}\n\nDescription:\n{description}\n\nTags: {tags}\n\nWhat you get:\n- A4 PDF file\n"
             "- US Letter PDF file\n\nTheme: Calm Sage\n", encoding="utf-8")
         (pack / "checklist.txt").write_text("Checklist:\n- [ ] Upload product.zip\n- Theme: Calm Sage\n", encoding="utf-8")
         (pack / "LICENSE.txt").write_text("Personal use licence only.\n", encoding="utf-8")
         (pack / "cover.png").write_bytes(PNG)
-        (pack / "preview-1.png").write_bytes(PNG)
+        for index in range(1, 4):
+            (pack / f"preview-{index}.png").write_bytes(PNG)
         return pack
 
     def add_private_marketing(self, name="3-focus-planner"):
@@ -265,12 +269,12 @@ class BuiltInBehaviourTests(Inbox):
     def test_packs_lists_a_ready_pack(self):
         self.add_pack()
         said = self.assert_real_reply("/packs")
-        self.assertIn("Focus Planner Printable Pack", said)
+        self.assertIn("Focus Planner Printable Pack for Daily Planning", said)
 
     def test_pack_details(self):
         self.add_pack()
         said = self.assert_real_reply("/pack 3")
-        self.assertIn("Focus Planner Printable Pack", said)
+        self.assertIn("Focus Planner Printable Pack for Daily Planning", said)
 
     def test_buttontest_sends_a_button(self):
         self.say("/buttontest")
@@ -367,15 +371,15 @@ class PackFlowTests(Inbox):
         _handled, texts = self.say("/sell 3")
         self.assertIn("Pack #3", texts[0])
         self.assertIn("1/4 GUMROAD FIELDS", texts[1])
-        self.assertIn("Price: owner decides", texts[1])
+        self.assertTrue(any("Price: owner decides" in page for page in texts))
         self.assertEqual(self.files(), ["product.zip", "LICENSE.txt"])
-        self.assertEqual(self.files("photo"), ["cover.png", "preview-1.png"])
-        self.assertIn("4/4 GUMROAD CHECKLIST", texts[2])
+        self.assertEqual(self.files("photo"), ["cover.png", "preview-1.png", "preview-2.png", "preview-3.png"])
+        self.assertTrue(any("4/4 GUMROAD CHECKLIST" in page for page in texts))
 
     def test_sell_alone_lists_the_pack(self):
         self.add_pack()
         _handled, texts = self.say("/sell")
-        self.assertIn("/sell 3 — Focus Planner Printable Pack", texts[0])
+        self.assertIn("/sell 3 — Focus Planner Printable Pack for Daily Planning", texts[0])
         self.assertEqual(self.sent[0]["keyboard"], [["/sell 3"]])
 
     def test_kit_sends_the_gumroad_kit(self):
@@ -794,7 +798,7 @@ class RegressionTests(Inbox):
         import tg_menu
         for text in ("ela cheyali", "ela cheyali?", "sahayam"):
             _handled, texts = self.say(text)
-            self.assertEqual(texts, [tg_menu.format_grouped_menu()], text)
+            self.assertEqual(texts, tg_menu.owner_reply_pages(tg_menu.format_grouped_menu(), "/help <command> pampandi; ela vadalo chudandi."), text)
 
     def test_yes_reaches_the_settings_plugin(self):
         self.say("morning 9")

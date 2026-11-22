@@ -75,10 +75,13 @@ class CommandTests(InboxBase):
         self.assertEqual(guardrails.get_approval(a, self.db)["status"], "approved")
 
     def test_missing_id_shows_real_waiting_drafts(self):
-        self.assertEqual(ti.handle_command("approve", [], self.db), "No drafts are waiting right now.")
+        reply = ti.handle_command("approve", [], self.db)
+        self.assertEqual(reply.splitlines()[0], "No drafts are waiting right now.")
+        self.assertTrue(reply.splitlines()[-1].startswith("Next:"))
         a, b, c = self.add(), self.add(), self.add()
         out = ti.handle_command("approve", [], self.db)
-        self.assertEqual(out, f"Waiting: #{a}, #{b}, #{c}. Send /approve {a}")
+        self.assertEqual(out.splitlines()[0], f"Waiting: #{a}, #{b}, #{c}. Send /approve {a}")
+        self.assertTrue(out.splitlines()[-1].startswith("Next:"))
         self.assertIn(f"Send /view {a}", ti.handle_command("view", [], self.db))
         self.assertIn(f"Send /reject {a}", ti.handle_command("reject", [], self.db))
         for reply in (out, ti.handle_command("view", [], self.db)):
@@ -226,7 +229,7 @@ class ButtonTests(InboxBase):
         self.assertEqual(guardrails.get_approval(a, self.db)["status"], "approved")
 
     def test_help_mentions_buttons_and_delay(self):
-        self.assertIn("30 minutes", ti.HELP)
+        self.assertIn("next run", ti.HELP)
         self.assertIn("/pause", ti.HELP)
 
 

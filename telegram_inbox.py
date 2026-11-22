@@ -55,29 +55,31 @@ WAITING_DRAFT_REMINDER_SECONDS = 12 * 60 * 60
 WAITING_DRAFT_REMINDER_STATE = "last_waiting_draft_reminder"
 UNKNOWN_TEXT_HINT = "Ardam kaaledu. 'help' ani type cheyandi or command malli cheppandi."
 
-HELP = ("\U0001f336️ Chilli Gavva approvals\n\n"
-        "/status - compact system status\n"
-        "/list - drafts waiting\n"
-        "/view ID - read a draft\n"
-        "/approve ID - approve (several ids ok)\n"
-        "/packs - list ready upload packs\n"
-        "/pack ID - plain listing text for store\n"
-        "/marketing N - marketing files built for pack N\n"
-        "/reject ID - reject\n"
-        "/pipeline - daily plan vs done per stage, backlog & stuck items\n"
-        "/cubes - department cubes status and controls\n"
-        "/rules - list active learned rules\n"
-        "/doctor - show last 10 doctor cases\n"
-        "/today - what to post today\n"
-        "/posted N - mark post N of today as done\n"
-        "/pause - emergency brake: stop all AI work and drafts\n"
-        "/resume - start work again\n"
-        "/buttontest - send a test button (checks that button presses reach the bot)\n"
-        "/errors - errors of today, each sent only once (with how many times it came)\n"
-        "/help - this message\n\n"
-        "New drafts come with Approve / Reject / View buttons. After Reject, pick a reason.\n"
-        "The bot answers buttons and commands on its next run (about every 30 minutes), not instantly.\n\n"
-        "Approve only marks a draft as OK. Nothing is published automatically.")
+HELP = ("🌶️ Chilli Gavva approvals\n"
+        "Drafts: /list · /view ID · /approve ID · /reject ID\n"
+        "Packs: /packs · /pack ID · /marketing N\n"
+        "Work: /pipeline · /cubes · /rules\n"
+        "Posts: /today · /posted N\n"
+        "Health: /status · /doctor · /errors\n"
+        "Control: /pause · /resume · /buttontest\n"
+        "Help: /help · /help <command>\n"
+        "Draft chusi Approve / Reject / View button nokkandi; Reject tarvata reason enchukondi.\n"
+        "Approve Draft ni maatrame marchutundi. Publish / post / sell anni meere chestaru.\n"
+        "Button pani Robot next run lo chestundi; /buttontest tho chudandi.\n"
+        "Next: /list pampandi; waiting Draft enchukondi.")
+
+
+def owner_card(next_step):
+    """Keep core owner cards readable using the same renderer as plugins."""
+    import functools
+    def decorate(function):
+        @functools.wraps(function)
+        def render(*args, **kwargs):
+            from tg_menu import owner_reply_pages
+            return "\n\n".join(owner_reply_pages(function(*args, **kwargs), next_step))
+        return render
+    return decorate
+
 
 REASON_LABELS = {
     "too generic": "Too generic",
@@ -176,7 +178,14 @@ def _scrub_outgoing(text: str) -> str:
     if not text:
         return ""
     import public_export
-    scrubbed = public_export.scrub_text(text)
+    from owner_private import OwnerPrivateText
+    if isinstance(text, OwnerPrivateText):
+        import secret_guard
+        scrubbed = secret_guard.scrub_text(text)
+        scrubbed = public_export.SECRET_PATTERN.sub("[redacted]", scrubbed)
+        scrubbed = secret_guard.EMAIL.sub("[redacted]", scrubbed).strip()
+    else:
+        scrubbed = public_export.scrub_text(text)
     if len(scrubbed) > MAX_MESSAGE:
         cut_suffix = "\n\n...(cut, message length limit)"
         scrubbed = scrubbed[:MAX_MESSAGE - len(cut_suffix)] + cut_suffix
@@ -1242,6 +1251,7 @@ def _format_ist_time(ts_str):
         return "unknown"
 
 
+@owner_card("/today pampandi; ee roju pani chudandi.")
 def status_text(db_path=None):
     """Compact status: AI providers, GitHub minutes, drafts, products, pipeline, last run IST."""
     import public_export
@@ -1444,6 +1454,7 @@ def ready_packs_text(page=1, products_dir=None):
     return "\n".join(lines)
 
 
+@owner_card("/post today pampandi; ready Posts techukondi.")
 def today_posts_text(plan_path=None, products_dir=None, date=None):
     """Load or build the post plan and return today's post text <= 1200 chars."""
     import post_planner
@@ -1456,6 +1467,7 @@ def today_posts_text(plan_path=None, products_dir=None, date=None):
     return post_planner.today_text(plan, date=date)
 
 
+@owner_card("/drafts pampandi; waiting Drafts chudandi.")
 def today_product_text(db_path=None, now=None):
     """CCG-4: the product path under /today (last 24 h): drafts waiting, proposals, approved, built, needs fix."""
     try:
@@ -1465,6 +1477,7 @@ def today_product_text(db_path=None, now=None):
         return f"Product path: chupinchalekapoyanu ({type(exc).__name__})"
 
 
+@owner_card("/today pampandi; migilina Posts chudandi.")
 def mark_post_done_text(n, plan_path=None, products_dir=None, date=None):
     """Mark post N as done, atomically save plan, and return confirmation + week summary."""
     import post_planner
@@ -1854,6 +1867,7 @@ def marketing_text(n=None, marketing_dir=None):
     return _scrub_outgoing("\n".join(lines))
 
 
+@owner_card("/list pampandi; waiting Drafts chudandi.")
 def handle_command(cmd, ids, db_path=None):
     if cmd == "status":
         return status_text(db_path)
@@ -2030,7 +2044,7 @@ def handle_callback(token, owner_chat_id, data, db_path=None, message_id=None):
                 return reply
             changed = guardrails.decide(approval_id, True, db_path)
             if changed:
-                reply = f"Approved ✓ #{approval_id}"
+                reply = f"Approved ✓ #{approval_id}\nNext: /today pampandi; Pack build status chudandi."
                 if message_id:
                     edit_text(token, owner_chat_id, message_id, reply)
                 else:

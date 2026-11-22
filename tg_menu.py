@@ -105,7 +105,12 @@ def owner_reply(handler):
         allow_money = handler.__module__ == "tg_sales"
 
         def pages_for(value, next_step, limit=3400):
-            return owner_reply_pages(value, next_step, limit, allow_money=allow_money)
+            from owner_private import OwnerPrivateText
+            private = allow_money or isinstance(value, OwnerPrivateText)
+            pages = owner_reply_pages(value, next_step, limit, allow_money=private)
+            if private:
+                return [OwnerPrivateText(page) for page in pages]
+            return pages
         command = str(text or "").strip().split()
         command = command[0].split("@")[0] if command else ""
         if not re.fullmatch(r"/[a-z][a-z0-9_]*", command):

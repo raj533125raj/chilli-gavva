@@ -281,7 +281,8 @@ def report_text(db_path=None, now=None, status_fn=None, products_dir=None):
     text = daily_text(db_path, now, status_fn, products_dir=products_dir)
     if now.weekday() == 6:
         text += "\n\n" + weekly_text(db_path, now)
-    return text
+    from owner_private import OwnerPrivateText
+    return OwnerPrivateText(text)
 
 
 def run_weekly_improver(send, get_state, set_state, db_path=None, now=None):

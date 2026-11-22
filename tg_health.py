@@ -21,6 +21,8 @@ Strict rules:
 
 from __future__ import annotations
 
+from tg_menu import owner_reply
+
 import datetime
 import json
 import os
@@ -143,6 +145,7 @@ def handle_undo_request(text: str, ctx: Dict[str, Any]) -> Dict[str, Any]:
     return {"text": prompt, "keyboard": keyboard}
 
 
+@owner_reply
 def handle(text: str, ctx: dict) -> Optional[dict]:
     """Telegram plugin entrypoint."""
     if not text or not isinstance(text, str):

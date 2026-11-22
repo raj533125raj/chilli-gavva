@@ -8,6 +8,8 @@ Research), what waits for the owner and one next step. Numbers come only from re
 """
 from __future__ import annotations
 
+from tg_menu import owner_reply
+
 import re
 from typing import Optional
 
@@ -25,6 +27,7 @@ HELP_TEXT = ("Teams report kosam /teams pampandi.\n"
 _SLASH = re.compile(r"^/teams(?:@\w+)?(?:\s+(\S+))?\s*$", re.IGNORECASE)
 
 
+@owner_reply
 def handle(text: str, ctx: dict) -> Optional[dict]:
     if not text or not isinstance(text, str):
         return None
