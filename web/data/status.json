@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-21T19:20:18Z",
+ "generated_at": "2026-11-22T01:24:35Z",
  "llm": {
-  "calls_today": 7,
+  "calls_today": 4,
   "cap": 500
  },
  "agents": [
@@ -262,6 +262,30 @@
    "ts": "2026-11-21T18:08:38.162868",
    "kind": "scout_idea",
    "title": "Draft #114"
+  },
+  {
+   "id": 115,
+   "ts": "2026-11-22T01:24:33.166777",
+   "kind": "scout_idea",
+   "title": "Draft #115"
+  },
+  {
+   "id": 116,
+   "ts": "2026-11-22T01:24:33.170205",
+   "kind": "scout_idea",
+   "title": "Draft #116"
+  },
+  {
+   "id": 117,
+   "ts": "2026-11-22T01:24:33.172718",
+   "kind": "scout_idea",
+   "title": "Draft #117"
+  },
+  {
+   "id": 118,
+   "ts": "2026-11-22T01:24:33.175268",
+   "kind": "scout_idea",
+   "title": "Draft #118"
   }
  ],
  "worker": {
@@ -383,38 +407,38 @@
  "ai_health": [
   {
    "provider": "Groq",
-   "model": "openai/gpt-oss-120b",
-   "state": "up",
-   "reason": "Latest request succeeded",
-   "checked_at": "2026-11-21T19:20:18Z"
+   "model": "openai/gpt-oss-20b",
+   "state": "down",
+   "reason": "Provider returned no answer",
+   "checked_at": "2026-11-22T01:24:35Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
-   "state": "unknown",
-   "reason": "No recent activity recorded",
-   "checked_at": "2026-11-21T19:20:18Z"
+   "state": "up",
+   "reason": "Latest request succeeded",
+   "checked_at": "2026-11-22T01:24:35Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "unknown",
    "reason": "No recent activity recorded",
-   "checked_at": "2026-11-21T19:20:18Z"
+   "checked_at": "2026-11-22T01:24:35Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-21T19:20:18Z"
+   "checked_at": "2026-11-22T01:24:35Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-21T19:20:18Z"
+   "checked_at": "2026-11-22T01:24:35Z"
   }
  ],
  "minutes": {
@@ -705,7 +729,7 @@
  "reject_reasons": [
   {
    "reason": "Formatting or rubric issue",
-   "count": 84
+   "count": 79
   },
   {
    "reason": "Risky or prohibited claim",
@@ -721,13 +745,13 @@
   },
   {
    "reason": "Unclear value over free template",
-   "count": 41
+   "count": 38
   }
  ],
  "report": {
-  "drafts_made": 3,
-  "drafts_waiting": 10,
-  "drafts_approved": 2,
+  "drafts_made": 4,
+  "drafts_waiting": 14,
+  "drafts_approved": 0,
   "products_built": 0,
   "errors": 0
  },
@@ -837,68 +861,80 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 4,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 4,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 4,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 4,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 4,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 4,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 4,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 4,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 7,
+   "calls_used_today": 4,
    "calls_limit_today": 500,
    "context_percent": null
   }
  ],
  "loop_events": [
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-22T01:23:23Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-22T01:23:23Z"
+  },
   {
    "agent": "Unknown agent",
    "kind": "error",
@@ -1186,18 +1222,6 @@
    "kind": "error",
    "label": "Recovery check",
    "at": "2026-11-06T04:15:47Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-06T04:15:47Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-06T03:20:37Z"
   }
  ],
  "activity_events": [
@@ -2363,12 +2387,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-21T19:20:17Z",
-  "last_run_end": "2026-11-21T19:20:18Z",
+  "last_run_start": "2026-11-22T01:23:23Z",
+  "last_run_end": "2026-11-22T01:24:35Z",
   "runner": "github-actions",
-  "run_id": "44940309987"
+  "run_id": "44971137734"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
@@ -2387,8 +2412,7 @@
   "CCE-1 fix: random fake alarm URL so the copied simulator never trips the robot's own secret guard",
   "CCE-2 Album of one: send_media_group sends a single file as a photo or document (Telegram refuses 1-item albums)",
   "CCE-2 Owner holds #4/#6 apply only to the drafts of the 2026-10-16 decision: a new draft with that number is built, unknown date stays held",
-  "CCE-2 Rebuild specs only for their real draft: approved, same niche agent, never a new or pending draft with the same number",
-  "CCE-2 Fresh database: marketing agency finds no ready products instead of crashing on a missing product_builds table"
+  "CCE-2 Rebuild specs only for their real draft: approved, same niche agent, never a new or pending draft with the same number"
  ],
  "daily_report": {
   "date_ist": "2026-11-22",
@@ -2750,12 +2774,12 @@
  ],
  "office_requests": [],
  "scout_ideas_count": {
-  "total": 60,
-  "pending": 7,
+  "total": 64,
+  "pending": 11,
   "approved": 53
  },
  "trend_items_count": {
-  "total": 170,
+  "total": 180,
   "proposed": 0,
   "approved": 0
  },
