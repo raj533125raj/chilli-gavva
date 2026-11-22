@@ -85,7 +85,8 @@ class ListingGateTests(unittest.TestCase):
 
     def test_all_common_currency_forms_are_refused(self):
         for amount in (chr(36)+str(12),str(12)+' EUR','GBP '+str(12),str(12)+' '+chr(165),
-                       str(12)+'EUR','CAD'+str(12),'AED .'+str(99)):
+                       str(12)+'EUR','CAD'+str(12),'AED .'+str(99),
+                       str(12)+' dollars', 'rupees '+str(12), str(12)+' cents'):
             with self.subTest(form=amount):self.assertIn('money',self.failures(GOOD+'\n'+amount))
 
     def test_cover_and_three_actual_previews_are_required(self):

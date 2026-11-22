@@ -17,7 +17,8 @@ import sys
 import zipfile
 
 
-_CURRENCY_CODES = r"USD|INR|EUR|GBP|JPY|CAD|AUD|NZD|CHF|CNY|RMB|HKD|SGD|AED|SAR|KRW|RUB|BRL|MXN|ZAR|SEK|NOK|DKK|Rs"
+_CURRENCY_CODES = (r"USD|INR|EUR|GBP|JPY|CAD|AUD|NZD|CHF|CNY|RMB|HKD|SGD|AED|SAR|KRW|RUB|BRL|MXN|ZAR|SEK|NOK|DKK|Rs"
+                   r"|dollars?|rupees?|cents?|euros?|pounds?|yen|paise|pence")
 _MONEY_NUMBER = r"[-+]?\s*(?:\d[\d,.]*|\.\d+)"
 MONEY_PATTERNS = [
     re.compile(r"(?:[$₹€£¥₩₽]\s*" + _MONEY_NUMBER

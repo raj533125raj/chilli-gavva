@@ -134,8 +134,8 @@ class OwnerRenderingTests(unittest.TestCase):
         self.assertNotIn('/missing_cxg_command',text.splitlines()[-1])
 
     def test_compact_currency_is_hidden_and_large_counts_stay_complete(self):
-        text='Planner '+str(12)+'EUR; CAD'+str(12)
-        self.assertEqual(tg_menu.owner_reply_pages(text)[0].count('[amount]'),2)
+        text='Planner '+str(12)+'EUR; CAD'+str(12)+'; '+str(12)+' dollars; rupees '+str(12)
+        self.assertEqual(tg_menu.owner_reply_pages(text)[0].count('[amount]'),4)
         digits='7'*5000
         pages=tg_menu.owner_reply_pages('Count: '+digits)
         self.assertEqual(''.join(line for page in pages for line in page.splitlines()[:-1]),'Count: '+digits)
