@@ -9,3 +9,11 @@ FAIL: test_all_twelve_registered_formats_are_covered
 FAIL: test_15_pack_with_launch_lowercase
 RESULT: FAILED
 PATH-A DONE
+CPC-1 DONE df1648f tests: Ran 16 tests in 1.063s OK; Ran 14 tests in 1.654s OK
+CPC-2 DONE 3ae3b5a tests: Ran 16 tests in 1.132s OK; Ran 14 tests in 2.193s OK
+CPC-3 BLOCKED full suite: [Chunk 12/14] FAILED in 71.89s (rc=1, failures=1, errors=13)
+[Chunk 13/14] OK in 239.98s (1269 tests, 0 skipped)
+[Chunk 14/14] OK in 150.84s (548 tests, 0 skipped)
+[Total tests run: 7636 | Failures: 3 | Errors: 182 | Skipped: 17 | Time: 649.43s]
+[RESULT: FAILED; known twelve-format/marketing failures: test_all_twelve_registered_formats_have_a_profile, test_all_twelve_registered_formats_are_covered, test_15_pack_with_launch_lowercase]
+PATH-C DONE
