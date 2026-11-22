@@ -263,11 +263,19 @@ def lint_folder(pack_folder, name=None):
     """Lint one pack folder's listing.txt -> (results, ok)."""
     pack_folder = Path(pack_folder)
     path = pack_folder / "listing.txt"
+    if not path.is_file() and (pack_folder / "listing.md").is_file():
+        path = pack_folder / "listing.md"
     label = name or pack_folder.name or str(pack_folder)
     if not path.is_file():
         return [("file", "FAIL", "Pack listing.txt file pettandi.")] + quality_checks("", pack_folder), False
     results = quality_checks(path.read_text(encoding="utf-8-sig"), pack_folder)
     ok = not any(level == "FAIL" for _check, level, _message in results)
+    if not ok:
+        fixes = [message for _,level,message in results if level != "PASS"]
+        for index,(check,level,message) in enumerate(results):
+            if level == "FAIL":
+                results[index] = (check,level,message + "\nNext: " + "; ".join(fixes[:3]))
+                break
     return results, ok
 
 
@@ -333,6 +341,8 @@ def quality_report(pack_folder, main_keyword=None):
     """Canonical listing score, using exactly sell_ready's existing lint formula."""
     folder = Path(pack_folder)
     source = folder / "listing.txt"
+    if not source.is_file() and (folder / "listing.md").is_file():
+        source = folder / "listing.md"
     if source.is_file():
         results = quality_checks(source.read_text(encoding="utf-8-sig"), folder, main_keyword)
     else:

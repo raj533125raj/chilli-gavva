@@ -241,6 +241,12 @@ def _cut_title(text: str, max_len: int) -> str:
     return head[:sp].rstrip()
 
 
+def owner_quality_summary(folder: str) -> str:
+    """Owner-only review guidance, separate from the copyable public fields."""
+    from listing_lint import quality_report
+    return quality_report(folder)["tenglish_summary"]
+
+
 def build_blocks(title: str, description: str, tags: str, store: str = "all", whole_text: str = "",
                  member_count: int | None = None) -> str:
     """Return one or more listing blocks, separated by blank lines.
@@ -295,6 +301,7 @@ def main() -> None:
     what_you_get = _section_what_you_get_block(description, text)
     print(instamojo_block(title, description, what_you_get, member_count))
     print()
+    print(owner_quality_summary(folder), file=sys.stderr)
 
 
 if __name__ == "__main__":

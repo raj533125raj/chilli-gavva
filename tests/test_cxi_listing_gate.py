@@ -7,6 +7,7 @@ from pathlib import Path
 import listing_fields
 import listing_lint
 import sell_ready
+import seo_score
 
 TITLE='Weekly Planner Printable Workbook for Calm Daily Focus'
 DESC=('Use this weekly planner to organize priorities and give every task a clear place. '
@@ -40,6 +41,8 @@ class ListingGateTests(unittest.TestCase):
         self.assertTrue(report['ok'],report['fixes'])
         self.assertEqual(report['score'],100)
         self.assertEqual(sell_ready.inspect_listing_lint(self.pack)['score'],report['score'])
+        self.assertEqual(seo_score.score_pack_folder(self.pack)['score'],report['score'])
+        self.assertIn(report['next'],listing_fields.owner_quality_summary(self.pack))
 
     def test_weak_pack_has_real_fixes_and_at_most_three_next_actions(self):
         self.write('Title: Pack\nDescription: A file.\nTags: one, ONE\n')
@@ -49,6 +52,12 @@ class ListingGateTests(unittest.TestCase):
         self.assertEqual(len(report['top_fixes']),3)
         self.assertEqual(report['next'],'Next: '+'; '.join(report['top_fixes']))
         self.assertTrue(all(fix.endswith('.') for fix in report['fixes']))
+        ready=sell_ready.inspect_listing_lint(self.pack)
+        self.assertEqual(ready['score'],report['score'])
+        self.assertTrue(any(report['next'] in line for line in ready['issues']))
+        scored=seo_score.score_pack_folder(self.pack)
+        self.assertEqual(scored['score'],report['score'])
+        self.assertEqual(scored['next'],report['next'])
 
     def test_title_length_and_keyword_are_independent(self):
         for title in ('Short title','x'*81):
@@ -102,6 +111,13 @@ class ListingGateTests(unittest.TestCase):
         text=GOOD.replace('Title: '+TITLE,'# '+TITLE).replace('Description: '+DESC,'## Description\n'+DESC)
         text=text.replace('What you get:', '## What you get').replace('Tags:', 'Tags\n')
         self.assertEqual(self.failures(text),{})
+
+    def test_complete_markdown_pack_has_the_same_canonical_score(self):
+        text=GOOD.replace('Title: '+TITLE,'# '+TITLE).replace('Description: '+DESC,'## Description\n'+DESC)
+        (self.pack/'listing.txt').unlink()
+        (self.pack/'listing.md').write_text(text)
+        self.assertEqual(seo_score.score_pack_folder(self.pack)['score'],100)
+        self.assertEqual(sell_ready.inspect_listing_lint(self.pack)['score'],100)
 
 
 if __name__=='__main__':unittest.main()

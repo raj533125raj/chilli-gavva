@@ -536,10 +536,22 @@ def score_pack_folder(pack_dir: Path | str) -> Dict[str, Any]:
         raise FileNotFoundError(f"Neither listing.txt nor listing.md found in {p}")
 
     content = listing_file.read_text(encoding="utf-8-sig", errors="ignore")
-    listing_data = parse_listing_text(content)
-    alt_texts = find_alt_texts(p)
-
-    return score_listing(listing_data, pack_dir=p, alt_texts=alt_texts)
+    from listing_fields import parse_fields
+    from listing_lint import quality_report
+    import secret_guard
+    fields = parse_fields(content)
+    tags = [tag.strip() for tag in re.split(r"[,\n]", fields["tags"]) if tag.strip()]
+    keyword = fields["main_keyword"] or (tags[0] if tags else "")
+    report = quality_report(p)
+    # Upload packs have one canonical score, exactly the value sell_ready
+    # already derives from lint_folder. score_listing still serves callers
+    # evaluating a standalone SEO text without an upload folder.
+    return {"score": report["score"], "main_keyword": secret_guard.scrub_text(keyword),
+            "checks": {name.replace(" ", "_"): {"score": int(level == "PASS"), "max": 1,
+                       "passed": level == "PASS", "reason": message}
+                       for name,level,message in report["checks"]},
+            "tenglish_summary": report["tenglish_summary"], "next": report["next"],
+            "top_fixes": report["top_fixes"], "scoring_method": "100 - 20 per FAIL - 5 per WARN; minimum 0"}
 
 
 def main() -> None:
