@@ -408,11 +408,12 @@ class SellFlowMixin:
         self.assertTrue(any(Path(name).suffix.lower() in {
             ".pdf", ".xlsx", ".docx", ".zip", ".html", ".png"} for name in members))
         listing = (self.pack / "listing.txt").read_text(encoding="utf-8")
-        section = listing.split("What you get:", 1)[1].split("Tags:", 1)[0]
+        from listing_fields import parse_fields
+        section = parse_fields(listing)["what_you_get"]
         items = [line.strip() for line in section.splitlines() if line.strip()]
         self.assertTrue(items)
         for item in items:
-            name = item.split(" — ", 1)[0].strip()
+            name = item.split(" — ", 1)[0].strip().lstrip("-* ")
             self.assertTrue((self.pack / name).is_file() or any(
                 Path(member).name == name for member in members), item)
 

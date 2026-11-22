@@ -225,7 +225,8 @@ class TestBundleMoneyRejection(unittest.TestCase):
         with _BundleFolder(body) as tmp:
             proc = _run_main_on_folder(tmp)
         self.assertNotEqual(proc.returncode, 0)
-        self.assertIn("$9", proc.stderr)
+        self.assertIn("money amount", proc.stderr)
+        self.assertNotIn(chr(36) + str(9), proc.stderr)
         self.assertNotIn("BUNDLE", proc.stdout)
 
 

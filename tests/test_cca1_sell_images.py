@@ -80,7 +80,7 @@ class NotInstalledTests(Base):
         rec, reply = self.sell()
         self.assertEqual(reply, {"handled": True})
         self.assertEqual([Path(path).name for path, _ in rec.photos], ["cover.png", "preview-1.png", "preview-2.png"])
-        self.assertEqual([caption for _, caption in rec.photos],
+        self.assertEqual([caption.splitlines()[0] for _, caption in rec.photos],
                          ["3/4 Pack #1 Cover image: cover.png", "3/4 Pack #1 Preview 1: preview-1.png",
                           "3/4 Pack #1 Preview 2: preview-2.png"])
 
@@ -94,7 +94,7 @@ class NotInstalledTests(Base):
         pack = self.make_pack()
         self.gumroad_files(pack)
         rec, _ = self.sell()
-        self.assertEqual([Path(path).name for path, _ in rec.photos], ["cover.png", "preview-1.png", "preview-2.png"])
+        self.assertEqual([Path(path).name for path, _ in rec.photos], ["cover.png", "preview-1.png", "preview-2.png", "preview-3.png"])
         self.assertTrue(all(Path(path).parent == pack for path, _ in rec.photos))
 
     def test_broken_module_import_is_treated_as_missing(self):
@@ -308,7 +308,7 @@ class SellWithGumroadImagesTests(Base):
     def test_captions_name_the_role(self):
         self.standard(self.make_pack())
         rec, _ = self.sell()
-        self.assertEqual([caption for _, caption in rec.photos],
+        self.assertEqual([caption.splitlines()[0] for _, caption in rec.photos],
                          ["3/4 Pack #1 Thumbnail (square): thumbnail.png", "3/4 Pack #1 Cover image: cover.png",
                           "3/4 Pack #1 Gallery 1: gallery-1.png", "3/4 Pack #1 Gallery 2: gallery-2.png"])
 
@@ -330,8 +330,10 @@ class SellWithGumroadImagesTests(Base):
     def test_order_of_messages_is_unchanged(self):
         self.standard(self.make_pack())
         rec, _ = self.sell()
-        self.assertEqual(rec.order, ["text", "text", "document", "document", "photo", "photo", "photo", "photo",
-                                     "text", "text"])
+        self.assertEqual([kind for kind in rec.order if kind != "text"],
+                         ["document", "document", "photo", "photo", "photo", "photo"])
+        self.assertTrue(all(kind == "text" for kind in rec.order[:rec.order.index("document")]))
+        self.assertEqual(rec.order[-2:], ["text", "text"])
         self.assertIn("4 images pampanu", rec.texts[-1])
 
     def test_product_files_are_unchanged(self):
@@ -356,7 +358,7 @@ class SellWithGumroadImagesTests(Base):
         self.install(fake_module(upload_order=lambda pack_dir: {"cover": folder / "cover.png",
                                                                 "gallery": [folder / "gallery-1.png"]}))
         rec, _ = self.sell()
-        self.assertEqual([caption for _, caption in rec.photos],
+        self.assertEqual([caption.splitlines()[0] for _, caption in rec.photos],
                          ["3/4 Pack #1 Cover image: cover.png", "3/4 Pack #1 Preview 1: gallery-1.png"])
         self.assertIn("'Thumbnail' ki ade cover image upload cheyandi.", rec.all_text)
 
@@ -383,7 +385,7 @@ class SellWithGumroadImagesTests(Base):
         import store_kits
         self.standard(self.make_pack())
         rec, _ = self.sell()
-        for text in rec.texts + [caption for _, caption in rec.photos]:
+        for text in rec.texts + [caption.splitlines()[0] for _, caption in rec.photos]:
             self.assertIsNone(store_kits.check_money(text))
 
 
@@ -452,14 +454,14 @@ class ReachabilityTests(Base):
         self.assertEqual(reply, {"handled": True})
         self.assertEqual([Path(path).name for path, _ in self.photos],
                          ["thumbnail.png", "cover.png", "gallery-1.png", "gallery-2.png"])
-        self.assertEqual(self.photos[0][1], "3/4 Pack #1 Thumbnail (square): thumbnail.png")
+        self.assertEqual(self.photos[0][1].splitlines()[0], "3/4 Pack #1 Thumbnail (square): thumbnail.png")
 
     def test_without_the_module_through_call_plugins(self):
         self.install(None)
         self.make_pack()
         handled, _ = self.call("pack 1 sell chey")
         self.assertTrue(handled)
-        self.assertEqual([Path(path).name for path, _ in self.photos], ["cover.png", "preview-1.png", "preview-2.png"])
+        self.assertEqual([Path(path).name for path, _ in self.photos], ["cover.png", "preview-1.png", "preview-2.png", "preview-3.png"])
 
 
 if __name__ == "__main__":

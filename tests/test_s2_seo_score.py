@@ -229,16 +229,18 @@ Organize tasks effortlessly. Clean and simple design.
     def test_20_score_pack_folder_reads_listing_txt(self):
         pack_path = Path(self.tmp_dir) / "pack_txt"
         pack_path.mkdir()
-        listing = """Title: Daily Routine Checklist Printable
+        listing = """Title: Daily Routine Checklist Printable for Morning and Evening
 Tags: daily routine, checklist, printable, daily planner
 Description:
-Daily routine checklist printable designed for quick morning organization. Follow easy habits. Stay focused.
+Daily routine checklist printable designed for quick morning organization. Follow easy habits. Stay focused. Print the PDF pages on A4 paper, then write your priorities in the spaces provided. The two pages keep your morning and evening notes together, with room to record what you finished and what you want to do next. Personal use only; do not resell or share these files.
 
 What you get:
 - Morning routine sheet
 - Evening wind down list
 """
         (pack_path / "listing.txt").write_text(listing, encoding="utf-8")
+        from tests.listing_fixtures import write_gallery
+        write_gallery(pack_path)
         res = seo_score.score_pack_folder(pack_path)
         self.assertIsInstance(res, dict)
         self.assertIn("score", res)
@@ -248,19 +250,21 @@ What you get:
     def test_21_score_pack_folder_reads_listing_md(self):
         pack_path = Path(self.tmp_dir) / "pack_md"
         pack_path.mkdir()
-        listing = """# Fitness Workout Log Printable
+        listing = """# Fitness Workout Log Printable for Daily Exercise
 
 ## Tags
 fitness workout, workout log, printable log
 
 ## Description
-Fitness workout log printable to record gym exercises. Track sets and reps. Simple to print.
+Fitness workout log printable to record gym exercises. Track sets and reps. Simple to print. Print the PDF pages on A4 paper and write your exercises in the spaces provided. Use the two sheets to keep your upper and lower body notes together, with room for completed sets, repetitions and a short review of your session. Personal use only; do not resell or share these files.
 
 ## What you get
 - Upper body workout sheet
 - Lower body workout sheet
 """
         (pack_path / "listing.md").write_text(listing, encoding="utf-8")
+        from tests.listing_fixtures import write_gallery
+        write_gallery(pack_path)
         res = seo_score.score_pack_folder(pack_path)
         self.assertEqual(res["main_keyword"], "fitness workout")
         self.assertGreater(res["score"], 70)

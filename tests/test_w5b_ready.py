@@ -74,7 +74,7 @@ def create_dummy_zip(zip_path: Path, files: dict[str, str | bytes] | None = None
 def create_mock_pack(
     root: Path,
     pack_name: str = "1-focus-planner",
-    title: str = "Focus Planner Printable Pack",
+    title: str = "Focus Planner Printable Pack for Daily Planning",
     description: str = LONG_DESCRIPTION,
     has_zip: bool = True,
     has_listing: bool = True,
@@ -114,7 +114,7 @@ def create_mock_pack(
         content = (
             f"Title: {title}\n\n"
             f"Description:\n{desc}\n\n"
-            f"Tags: {', '.join(tags)}\n\n"
+            f"Tags: {', '.join(tags[:10])}\n\n"
             f"What you get:\n- A4 PDF file\n- US Letter PDF file\n- Readme guide\n"
         )
         if theme:
@@ -135,6 +135,8 @@ def create_mock_pack(
     # Add dummy cover
     (pack_dir / "cover.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 200)
 
+    for index in range(1, 4):
+        (pack_dir / f"preview-{index}.png").write_bytes((pack_dir / "cover.png").read_bytes())
     return pack_dir
 
 

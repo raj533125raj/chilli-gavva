@@ -167,7 +167,8 @@ class TestMoneyRejectionInstamojo(unittest.TestCase):
         body = SAMPLE_WITH_WYG + "\nDescription: costs $9."
         proc = self._run_main_on_body(body)
         self.assertNotEqual(proc.returncode, 0)
-        self.assertIn("$9", proc.stderr)
+        self.assertIn("money amount", proc.stderr)
+        self.assertNotIn(chr(36) + str(9), proc.stderr)
         self.assertNotIn("INSTAMOJO", proc.stdout)
 
 

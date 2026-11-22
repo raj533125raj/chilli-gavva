@@ -120,7 +120,7 @@ class CardDataTests(Base):
     def test_sellable_pack_not_listed_is_to_list(self):
         self.make_pack("3-focus-planner")
         data = self.data()
-        self.assertEqual(data["to_list"], [{"id": 3, "title": "Focus Planner Printable Pack", "status": "SELLABLE"}])
+        self.assertEqual(data["to_list"], [{"id": 3, "title": "Focus Planner Printable Pack for Daily Planning", "status": "SELLABLE"}])
         self.assertEqual(data["listed"], [])
         self.assertTrue(data["has_work"])
 
@@ -136,7 +136,7 @@ class CardDataTests(Base):
         self.list_pack(3)
         data = self.data()
         self.assertEqual(data["to_list"], [])
-        self.assertEqual(data["listed"], [{"id": 3, "title": "Focus Planner Printable Pack", "launch": "running", "day": 2}])
+        self.assertEqual(data["listed"], [{"id": 3, "title": "Focus Planner Printable Pack for Daily Planning", "launch": "running", "day": 2}])
 
     def test_launch_day_follows_the_listed_date(self):
         self.make_pack("3-focus-planner")
@@ -207,9 +207,9 @@ class CardTextTests(Base):
         text = self.card()
         self.assertEqual(text.splitlines()[0], "🛒 Ee roju ammadaniki em cheyali (14 Nov)")
         self.assertIn("1. Gumroad lo pettali — 1 pack(s) ready, inka list cheyaledu:", text)
-        self.assertIn("   🟢 /sell 3 — Focus Planner Printable Pack", text)
+        self.assertIn("   🟢 /sell 3 — Focus Planner Printable Pack for Daily Planning", text)
         self.assertIn("2. Listed packs — ee roju post (1):", text)
-        self.assertIn("   📌 /launch 5 — Budget Sheet (Day 2/7)", text)
+        self.assertIn("   📌 /launch 5 — Budget Sheet - Digital Download and Pers (Day 2/7)", text)
         self.assertIn("3. Drafts waiting: 1 — /list", text)
         self.assertTrue(text.endswith("Robot edi list / post cheyadu. Anni meere cheyali."))
 
@@ -222,7 +222,7 @@ class CardTextTests(Base):
     def test_listed_pack_without_started_launch(self):
         self.make_pack("3-focus-planner")
         self.list_pack(3, "2099-01-01T00:00:00Z")
-        self.assertIn("/launch 3 — Focus Planner Printable Pack (launch plan start cheyandi)", self.card())
+        self.assertIn("/launch 3 — Focus Planner Printable Pack for Daily P (launch plan start cheyandi)", self.card())
 
     def test_finished_launch_points_to_today(self):
         self.make_pack("3-focus-planner")
@@ -263,7 +263,7 @@ class TalkTests(Base):
         self.add_draft()
         reply = tg_talk.handle("ee roju ammadaniki em cheyali", self.ctx)
         self.assertEqual(reply, {"handled": True})
-        self.assertIn("/sell 3 — Focus Planner Printable Pack", self.texts[0])
+        self.assertIn("/sell 3 — Focus Planner Printable Pack for Daily Planning", self.texts[0])
         self.assertEqual(self.keyboards[0], [["/sell 3", "/launch 5", "/list"]])
 
     def test_nothing_to_do_is_a_plain_text_reply(self):
@@ -397,7 +397,7 @@ class MorningCardTests(Base):
     def test_listed_pack_gets_its_launch_line(self):
         self.list_pack(3)
         self.assertTrue(self.morning(ist(9)))
-        self.assertIn("/launch 3 — Focus Planner Printable Pack (Day 2/7)", self.sent[0]["text"])
+        self.assertIn("/launch 3 — Focus Planner Printable Pack for Daily P (Day 2/7)", self.sent[0]["text"])
 
     def test_only_one_text_goes_out_and_nothing_else(self):
         with mock.patch.object(telegram_inbox, "send_document") as document, \

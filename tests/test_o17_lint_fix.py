@@ -190,6 +190,16 @@ class WriteSuggestionsTests(unittest.TestCase):
         self.assertIn("No suggestions for good-pack", content)
 
 
+def make_quality_listing(**kwargs):
+    kwargs.setdefault("title", "Focus Planner Printable Pack for Daily Planning")
+    kwargs.setdefault("tags", GOOD_TAGS[:10])
+    text = make_listing(**kwargs)
+    if "What you get:\n" in text:
+        head, items = text.split("What you get:\n", 1)
+        text = head + "What you get:\n" + "\n".join("- " + line for line in items.splitlines() if line) + "\n"
+    return text
+
+
 class CliSuggestTests(unittest.TestCase):
     """CLI tests for the --suggest flag."""
 
@@ -201,12 +211,14 @@ class CliSuggestTests(unittest.TestCase):
     def pack(self, name, text=None):
         target = self.root / name
         target.mkdir()
+        from tests.listing_fixtures import write_gallery
+        write_gallery(target)
         if text is not None:
             (target / "listing.txt").write_text(text, encoding="utf-8")
         return target
 
     def test_suggest_single_pack_writes_file(self):
-        pack = self.pack("suggest-pack", make_listing(title="T" * 200))
+        pack = self.pack("suggest-pack", make_quality_listing(title="T" * 200))
         listing_before = (pack / "listing.txt").read_text(encoding="utf-8")
         code, out = run_module([str(pack), "--suggest"])
         self.assertEqual(code, 1)
@@ -218,10 +230,10 @@ class CliSuggestTests(unittest.TestCase):
         suggest_file = suggest_root / "suggest-pack.suggest.txt"
         self.assertTrue(suggest_file.is_file())
         content = suggest_file.read_text(encoding="utf-8")
-        self.assertIn("title too long", content.lower())
+        self.assertIn("40-80", content.lower())
 
     def test_suggest_good_pack_no_suggestions(self):
-        pack = self.pack("good-pack", make_listing())
+        pack = self.pack("good-pack", make_quality_listing())
         code, out = run_module([str(pack), "--suggest"])
         self.assertEqual(code, 0)
         suggest_file = listing_lint.SUGGEST_ROOT / "good-pack.suggest.txt"
@@ -229,8 +241,8 @@ class CliSuggestTests(unittest.TestCase):
         self.assertIn("No suggestions for good-pack", suggest_file.read_text(encoding="utf-8"))
 
     def test_suggest_with_all(self):
-        self.pack("alpha", make_listing(title="T" * 200))
-        self.pack("beta", make_listing(what_get=[]))
+        self.pack("alpha", make_quality_listing(title="T" * 200))
+        self.pack("beta", make_quality_listing(what_get=[]))
         code, out = run_module(["--packs-root", str(self.root), "--all", "--suggest"])
         self.assertEqual(code, 1)
         self.assertIn("== alpha", out)
@@ -241,16 +253,16 @@ class CliSuggestTests(unittest.TestCase):
 
     def test_suggest_duplicate_tags(self):
         tags = GOOD_TAGS[:-1] + ["Focus", "focus"]
-        pack = self.pack("dup-pack", make_listing(tags=tags))
+        pack = self.pack("dup-pack", make_quality_listing(tags=tags))
         code, out = run_module([str(pack), "--suggest"])
         self.assertEqual(code, 1)
-        self.assertIn("duplicate tags", out.lower())
+        self.assertIn("tag duplicates", out.lower())
         suggest_file = listing_lint.SUGGEST_ROOT / "dup-pack.suggest.txt"
         content = suggest_file.read_text(encoding="utf-8")
-        self.assertIn("remove", content.lower())
+        self.assertIn("teeseyandi", content.lower())
 
     def test_suggest_all_caps(self):
-        pack = self.pack("caps-pack", make_listing(what_get=["DAILY PLANNER sheet",
+        pack = self.pack("caps-pack", make_quality_listing(what_get=["DAILY PLANNER sheet",
                                                               "US Letter PDF",
                                                               "Readme and licence"]))
         code, out = run_module([str(pack), "--suggest"])

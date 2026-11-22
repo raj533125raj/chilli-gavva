@@ -41,6 +41,7 @@ def parse_fields(text: str) -> dict:
     current = None
     for raw in str(text).replace("’", "'").splitlines():
         stripped = raw.strip()
+        stripped = re.sub(r"^\*\*([^*]+)\*\*", r"\1", stripped)
         heading = re.match(r"^(#{1,6})\s+(.+?)\s*#*$", stripped)
         label_match = re.match(r"^([A-Za-z][A-Za-z '/-]*):\s*(.*)$", stripped)
         if heading:
@@ -52,7 +53,8 @@ def parse_fields(text: str) -> dict:
         elif label_match and label_match.group(1).lower() in labels:
             current = labels[label_match.group(1).lower()]
             fields[current].append(label_match.group(2))
-        elif label_match:
+        elif label_match and (not label_match.group(2).strip() or label_match.group(1).casefold() in
+                              {"theme", "buyer", "platform", "price", "design theme"}):
             current = None
         elif stripped.rstrip(":").casefold() in labels:
             current = labels[stripped.rstrip(":").casefold()]

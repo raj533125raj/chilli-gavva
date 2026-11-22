@@ -181,11 +181,18 @@ def _description_words(description, existing_tags):
     return words
 
 
-def suggest_for(text, name="listing text"):
+def suggest_for(text, name="listing text", pack_folder=None):
     """Generate a concrete suggestion for each WARN/FAIL check.
 
     Returns a list of suggestion strings, one per failing or warning check.
     """
+    if pack_folder is not None:
+        suggestions = [message for _, level, message in quality_checks(text, pack_folder) if level != "PASS"]
+        caps = _check_caps(text)
+        if caps:
+            words = caps[2].split(":", 1)[-1].strip().split(", ")
+            suggestions.append("all-caps words: use Title Case -> " + ", ".join(word.capitalize() for word in words))
+        return suggestions
     results = lint_text(text, name=name)
     s = parse_listing(text)
     title = s["title"]["inline"]
@@ -324,6 +331,7 @@ def quality_checks(text, pack_folder=None, main_keyword=None):
          "Page count leda size (A4 / Letter) Description lo rayandi."),
         ("how to use", bool(fields["how_to_use"] or re.search(
             r"\bhow to use\b|\binstructions\b|\bdownload\b.{0,160}\b(?:open|print|import)\b"
+            r"|\bprint\b.{0,60}\b(?:A4|A3|A5|Letter)\b"
             r"|\b(?:print|open|import|copy|extract|unzip)\b.{0,100}\b(?:files?|pages?|paper|PDF|CSV|workbook|template|archive|document|copy)\b",
             description, re.I | re.S)),
          "How to use steps rayandi: Download, open, print leda import ela cheyalo cheppandi."),
@@ -397,7 +405,7 @@ def main(argv=None):
             if args.suggest:
                 pack_path = Path(args.packs_root or ALL_PACKS_ROOT) / label
                 text = (pack_path / "listing.txt").read_text(encoding="utf-8-sig")
-                suggestions = suggest_for(text, name=label)
+                suggestions = suggest_for(text, name=label, pack_folder=pack_path)
                 write_suggestions(label, suggestions)
                 for s in suggestions:
                     print(f"  SUGGEST: {s}")
@@ -409,7 +417,7 @@ def main(argv=None):
         if args.suggest:
             pack_path = Path(args.folder)
             text = (pack_path / "listing.txt").read_text(encoding="utf-8-sig")
-            suggestions = suggest_for(text, name=pack_path.name)
+            suggestions = suggest_for(text, name=pack_path.name, pack_folder=pack_path)
             write_suggestions(pack_path.name, suggestions)
             for s in suggestions:
                 print(f"  SUGGEST: {s}")

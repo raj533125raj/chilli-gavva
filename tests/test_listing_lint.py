@@ -168,6 +168,16 @@ class ListingTextTests(unittest.TestCase):
         self.assertIn(("what you get", "FAIL"), levels(results))
 
 
+def make_quality_listing(**kwargs):
+    kwargs.setdefault("title", "Focus Planner Printable Pack for Daily Planning")
+    kwargs.setdefault("tags", GOOD_TAGS[:10])
+    text = make_listing(**kwargs)
+    if "What you get:\n" in text:
+        head, items = text.split("What you get:\n", 1)
+        text = head + "What you get:\n" + "\n".join("- " + line for line in items.splitlines() if line) + "\n"
+    return text
+
+
 class FolderAndCliTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -177,12 +187,14 @@ class FolderAndCliTests(unittest.TestCase):
     def pack(self, name, text=None):
         target = self.root / name
         target.mkdir()
+        from tests.listing_fixtures import write_gallery
+        write_gallery(target)
         if text is not None:
             (target / "listing.txt").write_text(text, encoding="utf-8")
         return target
 
     def test_lint_folder_reads_listing_txt(self):
-        pack = self.pack("good-pack", make_listing())
+        pack = self.pack("good-pack", make_quality_listing())
         results, ok = listing_lint.lint_folder(pack)
         self.assertTrue(ok)
         self.assertTrue(all(level == "PASS" for _c, level, _m in results))
@@ -194,14 +206,14 @@ class FolderAndCliTests(unittest.TestCase):
         self.assertEqual(results[0][:2], ("file", "FAIL"))
 
     def test_cli_three_lines_pass_cli(self):
-        self.pack("cli-pack", make_listing())
+        self.pack("cli-pack", make_quality_listing())
         code, out = run_module(["--packs-root", str(self.root), "--all"])
         self.assertEqual(code, 0)
         self.assertIn("PASS listing lint", out)
 
     def test_cli_exit_1_when_a_pack_has_failures(self):
-        self.pack("good", make_listing())
-        self.pack("bad", make_listing(title="Bad"))
+        self.pack("good", make_quality_listing())
+        self.pack("bad", make_quality_listing(title="Bad"))
         code, out = run_module(["--packs-root", str(self.root), "--all"])
         self.assertEqual(code, 1)
         self.assertIn("== good", out)
@@ -214,25 +226,25 @@ class FolderAndCliTests(unittest.TestCase):
         self.assertIn("no listing.txt packs found", out)
 
     def test_cli_single_pack_folder_exit_1_on_fail(self):
-        self.pack("solo", make_listing(title="Too small"))
+        self.pack("solo", make_quality_listing(title="Too small"))
         code, out = run_module([str(self.root / "solo")])
         self.assertEqual(code, 1)
         self.assertIn("FAIL title", out)
 
     def test_cli_single_pack_folder_exit_0_on_pass(self):
-        self.pack("solo-good", make_listing())
+        self.pack("solo-good", make_quality_listing())
         code, out = run_module([str(self.root / "solo-good")])
         self.assertEqual(code, 0)
         self.assertIn("PASS tags", out)
 
     def test_cli_folder_and_all_conflict_is_usage_error(self):
-        self.pack("both", make_listing())
+        self.pack("both", make_quality_listing())
         with self.assertRaises(SystemExit):
             run_module([str(self.root / "both"), "--all"])
 
     def test_cli_all_lints_packs_in_sorted_order(self):
-        self.pack("alpha", make_listing())
-        self.pack("zulu", make_listing())
+        self.pack("alpha", make_quality_listing())
+        self.pack("zulu", make_quality_listing())
         _code, out = run_module(["--packs-root", str(self.root), "--all"])
         self.assertLess(out.index("== alpha"), out.index("== zulu"))
 
