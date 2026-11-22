@@ -18,6 +18,7 @@ import datetime
 import json
 import re
 import sqlite3
+from collections import Counter
 from typing import Dict, List, Optional, Set, Tuple
 
 import checker
@@ -652,21 +653,109 @@ def waiting_report_text(db_path=None, now=None, max_lines: int = 12) -> str:
     return "\n".join(lines)
 
 
+def queue_digest(db_path=None, now=None):
+    """Actual queue counts for today's morning message, using the supplied UTC day."""
+    now_dt = _as_utc(now)
+    start = now_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = start + datetime.timedelta(days=1)
+    plan = _plan(db_path, now_dt)
+    approved = rejected = 0
+    reasons = Counter(row["why"] for row in plan if row["action"] == "wait")
+    rule_waiting = 0
+    conn = guardrails.connect(db_path)
+    try:
+        for status, ts in conn.execute("SELECT status,decided_ts FROM approvals WHERE status IN ('approved','rejected')"):
+            decided = _parse_item_time(ts)
+            if decided and start <= decided < end:
+                approved += status == "approved"
+                rejected += status == "rejected"
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='learned_rules'").fetchone():
+            for status, created_ts, decided_ts in conn.execute("SELECT status,created_ts,decided_ts FROM learned_rules"):
+                if status == "proposed":
+                    rule_waiting += 1
+                    created = _parse_item_time(created_ts)
+                    reasons["under_24h" if created and now_dt-created < datetime.timedelta(hours=24)
+                            else "proposal"] += 1
+                decided = _parse_item_time(decided_ts)
+                if status in ("approved", "rejected") and decided and start <= decided < end:
+                    approved += status == "approved"
+                    rejected += status == "rejected"
+    finally:
+        conn.close()
+    return {"waiting": len(plan)+rule_waiting, "approved": approved, "rejected": rejected,
+            "decided": approved+rejected, "blocked": sum(reasons.values()), "reasons": dict(reasons),
+            "new_drafts_paused": len(plan) > 10}
+
+
+def queue_digest_line(db_path=None, now=None):
+    """Short Tenglish line; counts come from persisted decisions, never a planned action."""
+    data = queue_digest(db_path, now)
+    labels = {"under_24h": "24h inka kaaledu", "daily_limit": "daily limit", "similar": "duplicate check",
+              "checker_signal": "checker signal", "checker_revise": "Checker changes kavali",
+              "off": "owner OFF pettaru", "paused": "robot pause", "no_time": "Draft time teliyadu",
+              "proposal": "proposal: owner decision kavali"}
+    why = "; ".join(f"{labels.get(reason, reason)} {count}" for reason,count in sorted(data["reasons"].items()))
+    line = (f"Waiting {data['waiting']}; decided today {data['decided']} "
+            f"(approved {data['approved']} / rejected {data['rejected']}); blocked {data['blocked']}")
+    if why:
+        line += f": {why}"
+    if data["new_drafts_paused"]:
+        line += ". Kotha Drafts ee run lo aapamu (waiting 10 minchindi)."
+    return line
+
+
+def _morning_queue_day(db_path=None, now=None):
+    """One owner summary each local day, after the configured morning hour."""
+    now_dt = _as_utc(now)
+    local = now_dt.astimezone(datetime.timezone(datetime.timedelta(hours=5,minutes=30)))
+    if guardrails.is_paused(db_path) or guardrails.is_killed() or not 8 <= local.hour < 22:
+        return None
+    import tg_settings
+    if tg_settings.is_quiet_hour(now_dt, db_path) or local.hour < tg_settings.get_morning_post_hour(db_path):
+        return None
+    day = local.date().isoformat()
+    conn = _state_conn(db_path)
+    try:
+        row = conn.execute("SELECT value FROM telegram_state WHERE key='auto_approve_queue_morning_day'").fetchone()
+        return None if row and row[0] == day else day
+    finally:
+        conn.close()
+
+
+def _mark_morning_queue(day, db_path=None):
+    conn = _state_conn(db_path)
+    try:
+        conn.execute("INSERT INTO telegram_state(key,value) VALUES ('auto_approve_queue_morning_day',?) "
+                     "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (day,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def run_auto_decisions(db_path=None, token=None, owner_chat_id=None, now=None):
     """Run auto-decisions and send exactly one Telegram line per decision to owner chat."""
     decisions = auto_decide_drafts(db_path=db_path, now=now)
-    if not decisions:
-        return 0
-
     configured, cfg_token, cfg_chat_id = notify._telegram_configured()
     tok = token or cfg_token
     chat = owner_chat_id or cfg_chat_id
 
-    for d in decisions:
-        line = d["line"]
+    day = _morning_queue_day(db_path, now)
+    summary = queue_digest_line(db_path, now) if day else None
+    messages = [d["line"] for d in decisions]
+    if summary:
+        if messages:
+            messages[0] += "\n" + summary
+        else:
+            messages.append(summary)
+    from tg_menu import owner_reply_pages
+    for index, line in enumerate(messages):
+        line = owner_reply_pages(line, "/autoapprove status pampandi; waiting reasons chudandi.")[0]
+        sent = False
         if tok and chat:
-            telegram_inbox.send_text(tok, chat, line)
+            sent = telegram_inbox.send_text(tok, chat, line)
         elif configured:
-            notify.send(line)
+            sent = notify.send(line)
+        if index == 0 and summary and sent is not False:
+            _mark_morning_queue(day, db_path)
 
     return len(decisions)
