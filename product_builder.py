@@ -1670,6 +1670,10 @@ def build_product(spec, approval_id, out_dir=None, folder_name=None):
         files += pdf_files
         how_to += pdf_how_to
 
+    # Keep the registered format private and stable even when buyer titles are sanitized.
+    with open(os.path.join(folder, "build-format.json"), "w", encoding="utf-8") as handle:
+        json.dump({"format": spec["kind"], "approval_id": approval_id}, handle)
+
     # Extract actual facts from built files and sanitize listing text and instructions
     facts = _delivery_facts(folder)
     spec["listing"]["title"] = _delivery_text(spec["listing"]["title"], spec, facts)

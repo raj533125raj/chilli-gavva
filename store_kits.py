@@ -34,6 +34,7 @@ Safety & constraints:
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from pathlib import Path
 import re
@@ -624,8 +625,10 @@ _PDF_EXT, _IMAGE_EXTS = ".pdf", {".png", ".jpg", ".jpeg", ".webp"}
 _SHEET_EXTS, _DOC_EXTS, _TEXT_EXTS = {".xlsx", ".xls"}, {".docx", ".doc"}, {".md", ".txt"}
 # File types a product type must really contain; otherwise the type is worked out from the files.
 _TYPE_NEEDS = {
+    **{kind: {_PDF_EXT} for kind in ("teacher_planner", "fitness_planner", "baby_tracker",
+                                    "small_business_log", "kids_chore_reward")},
     "sheets": _SHEET_EXTS | {".csv"},
-    "notion": {".md", ".csv"},
+    "notion": {".md", ".csv", ".zip"},
     "resume": _DOC_EXTS | {_PDF_EXT},
     "wall_art": _IMAGE_EXTS | {_PDF_EXT},
     "email_signature": {".html", ".htm", ".txt"} | _IMAGE_EXTS,
@@ -698,9 +701,30 @@ def gumroad_product_type(pack_dir: Path, listing_info: Dict[str, str],
     guess = None
     try:
         import format_registry
-        guess = format_registry.classify(" ".join([listing_info.get("title", ""), listing_info.get("tags", "")]))
-    except Exception:
+        pack_dir = Path(pack_dir)
+        source = pack_dir.parent.parent / pack_dir.name if pack_dir.parent.name == "upload" else pack_dir
+        for name in ("build-format.json", "manifest.json"):
+            manifest = source / name
+            if source.is_symlink() or not manifest.is_file() or manifest.is_symlink() or manifest.stat().st_size > 65536:
+                continue
+            try:
+                metadata = json.loads(manifest.read_text(encoding="utf-8"))
+            except (ValueError, OSError):
+                continue
+            recorded = metadata.get("format") if isinstance(metadata, dict) else None
+            if recorded in GUMROAD_PRODUCT_TYPES and format_registry.get_format_info(recorded):
+                guess = recorded
+                break
+    except (OSError, ValueError, TypeError):
         guess = None
+    # Built metadata survives honest title sanitization; older and external
+    # packs (including unreadable metadata) still use their listing words.
+    if guess is None:
+        try:
+            import format_registry
+            guess = format_registry.classify(" ".join([listing_info.get("title", ""), listing_info.get("tags", "")]))
+        except Exception:
+            guess = None
     if guess in GUMROAD_TYPES and guess != "digital_pack":
         needed = _TYPE_NEEDS.get(guess)
         if needed is None or (exts & needed):

@@ -152,7 +152,7 @@ CUSTOM_SPECS = {
     'fitness_planner': _custom('fitness_planner', 'Fitness Planner Printable', 'fitness-planner'),
     'baby_tracker': _custom('baby_tracker', 'Baby Tracker Printable', 'baby-tracker'),
     'small_business_log': _custom('small_business_log', 'Small Business Log Printable', 'small-business-log'),
-    'kids_chore_reward': _custom('kids_chore_reward', 'Kids Chore Chart and Reward Pack Printable', 'kids-chore-reward'),
+    'kids_chore_reward': _custom('kids_chore_reward', 'Kids Chore and Reward Pack Printable', 'kids-chore-reward'),
 }
 
 

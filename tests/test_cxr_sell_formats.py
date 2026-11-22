@@ -27,6 +27,17 @@ class RegistryCoverageTests(unittest.TestCase):
 
 @unittest.skipUnless(Image is not None, 'needs Pillow')
 class NewFormatsSellTests(unittest.TestCase):
+    def test_upload_pack_uses_its_recorded_buyer_profile_after_title_sanitization(self):
+        import store_kits
+        with tempfile.TemporaryDirectory() as tmp:
+            row = sell_proof.prove('kids_chore_reward', Path(tmp))
+            self.assertIn(row['status'], ('SELLABLE','ALMOST'), row)
+            pack = Path(row['pack'])
+            info = store_kits.parse_listing_file(pack/'listing.txt')
+            self.assertEqual(store_kits.gumroad_product_type(pack,info),'kids_chore_reward')
+            self.assertEqual(store_kits.gumroad_copy(pack,info)['who_for'],
+                             store_kits.GUMROAD_TYPES['kids_chore_reward']['audience'])
+
     def check_format(self, kind):
         with tempfile.TemporaryDirectory() as tmp:
             from tests.test_och_niche_sweep import build_variant

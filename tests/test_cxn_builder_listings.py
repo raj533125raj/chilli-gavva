@@ -6,6 +6,7 @@ from pathlib import Path
 import listing_lint
 import product_builder
 import upload_pack
+import store_kits
 from tools import sell_proof
 
 
@@ -22,6 +23,8 @@ class BuilderListingTests(unittest.TestCase):
                     self.assertEqual(result["verdict"], "ready", result)
                     pack = root / "upload" / name
                     self.assertTrue((pack / "product.zip").is_file())
+                    copy = store_kits.gumroad_copy(pack, store_kits.parse_listing_file(pack / "listing.txt"))
+                    self.assertEqual(copy["product_type"], kind, (kind, copy))
                     report = listing_lint.quality_report(pack)
                     self.assertEqual(report["fixes"], [], (kind, report))
                     self.assertGreaterEqual(len(list(pack.glob("preview-*.png"))), 3)
