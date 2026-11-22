@@ -1,6 +1,6 @@
 """tools/sell_proof.py — proof that every product type can be sold (CCC-10).
 
-Builds ONE pack of each of the 12 product types in a temporary folder through the robot's real path:
+Builds ONE pack of each registered product type in a temporary folder through the robot's real path:
   product_builder.build_product -> product_builder.truth_check_folder (Truth Checker + upload pack +
   the listed buyer files in product.zip) -> store_kits (Gumroad kit) -> gumroad_images -> marketing_auto
   (private marketing files) -> sell_ready.evaluate_pack (the /sell evaluation) -> tg_sell (/sell message).
@@ -33,11 +33,10 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-FORMAT_ORDER = [
-    "sheets", "planner", "notion", "resume", "dated_planner",
-    "event_planner", "flashcards", "habit_tracker", "recipe_book",
-    "email_signature", "study_planner", "wall_art",
-]
+import format_registry
+
+FORMAT_ORDER = format_registry.list_registered_formats()
+
 TAGS = ["printable", "organizer", "planner", "checklist", "worksheet", "digital download", "personal use",
         "simple layout", "productivity", "routine", "goal setting", "home office", "template"]
 BASE_DESC = ("A carefully designed digital product that helps you stay organised at home, at work and on the go. "
@@ -149,6 +148,11 @@ CUSTOM_SPECS = {
     "email_signature": _custom("email_signature", "Email Signature Templates Pack", "email-signature"),
     "study_planner": _custom("study_planner", "Exam and Study Planner Printable", "study-planner"),
     "wall_art": _custom("wall_art", "Mindful Wall Art Print Set", "wall-art"),
+    'teacher_planner': _custom('teacher_planner', 'Teacher Planner Printable', 'teacher-planner'),
+    'fitness_planner': _custom('fitness_planner', 'Fitness Planner Printable', 'fitness-planner'),
+    'baby_tracker': _custom('baby_tracker', 'Baby Tracker Printable', 'baby-tracker'),
+    'small_business_log': _custom('small_business_log', 'Small Business Log Printable', 'small-business-log'),
+    'kids_chore_reward': _custom('kids_chore_reward', 'Kids Chore Chart and Reward Pack Printable', 'kids-chore-reward'),
 }
 
 

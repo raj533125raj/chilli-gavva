@@ -1,4 +1,4 @@
-"""CCB-1: covers and preview images use the pack's pdf_themes theme, for all 12 product types.
+"""CCB-1: covers and preview images use the pack's pdf_themes theme, for all registered product types.
 
 Every product type is really built once (temp folder, shared by the tests of this module) with the
 theme "Ocean". The images are opened and their colours compared with the theme's own colours.
@@ -33,12 +33,11 @@ READY = HAS_PIL and mockups.available()
 THEME = "Ocean"
 BUILTIN = {"sheets": "Budget Sheets Agent", "planner": "ADHD Planners Agent", "dated_planner": "2027 Planners Agent",
            "resume": "Resume Bundle Agent", "notion": "Notion Templates Agent"}
-REGISTERED = ("habit_tracker", "study_planner", "recipe_book", "flashcards", "event_planner", "email_signature",
-              "wall_art")
-ALL_KINDS = tuple(BUILTIN) + REGISTERED
-# CCC-8: no builder writes its PDF in the old Style A any more - every type uses the pack's theme.
-# (Kept as an empty tuple: if a builder ever falls back to Style A, the images must match THAT PDF.)
-STYLE_A_PDF = ()
+import format_registry
+ALL_KINDS = tuple(format_registry.list_registered_formats())
+REGISTERED = tuple(kind for kind in ALL_KINDS if kind not in BUILTIN)
+# Copilot builders use the existing Style A PDF; their listing images must follow that PDF.
+STYLE_A_PDF = ("small_business_log", "kids_chore_reward")
 SIZES = {"cover.png": (1280, 720), "preview-1.png": (1280, 720), "preview-2.png": (1280, 720),
          "preview-3.png": (1280, 720), "pinterest.png": (1000, 1500), "thumbnail.png": (600, 600)}
 _BUILT = {}
@@ -112,7 +111,7 @@ def expected(kind):
 
 @unittest.skipUnless(READY, "needs Pillow and pdftoppm")
 class EveryProductTypeTests(unittest.TestCase):
-    """Filled below: five checks for each of the 12 product types."""
+    """Filled below: five checks for each registered product type."""
 
     def check_all_six_images_exist_with_the_right_size(self, kind):
         folder, _spec = built(kind)
@@ -168,11 +167,10 @@ _attach()
 
 
 class TypeListTests(unittest.TestCase):
-    def test_all_twelve_registered_formats_are_covered(self):
+    def test_all_registered_formats_are_covered(self):
         import format_registry
         format_registry.discover_builders()
         self.assertEqual(sorted(ALL_KINDS), sorted(format_registry.list_registered_formats()))
-        self.assertEqual(len(ALL_KINDS), 12)
 
 
 @unittest.skipUnless(READY, "needs Pillow and pdftoppm")

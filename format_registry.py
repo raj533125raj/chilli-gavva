@@ -103,6 +103,11 @@ def register_format(format_id: str, keywords: list[str], build_fn=None,
             if isinstance(kw, str) and kw.strip():
                 clean_kws.append(kw.strip().lower())
 
+    # The human-readable registered name is also a stable classification alias.
+    alias = fid.replace("_", " ")
+    if alias not in clean_kws:
+        clean_kws.append(alias)
+
     _REGISTRY[fid] = {
         "format": fid,
         "keywords": clean_kws,

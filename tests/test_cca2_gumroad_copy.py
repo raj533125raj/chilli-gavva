@@ -49,6 +49,19 @@ TYPES = {
     "wall_art": ("Minimal Quote Wall Art Print Set", "wall art, printable art, IKEA frame size, quote print",
                  ["art_01_a4.png", "art_02_a4.png", "wall_art_set.pdf", "PRINTING.txt"], "Excel spreadsheet version"),
 }
+TYPES.update({
+    'teacher_planner': ('Teacher Planner Printable', 'teacher planner, lesson planner, printable',
+        ['teacher_planner_a4.pdf', 'teacher_planner_letter.pdf', "README.txt"], "Word document version"),
+    'fitness_planner': ('Fitness Planner Printable', 'fitness planner, workout planner, printable',
+        ['fitness_planner_a4.pdf', 'fitness_planner_letter.pdf', "README.txt"], "Word document version"),
+    'baby_tracker': ('Baby Tracker Printable', 'baby tracker, baby log, printable',
+        ['baby_tracker_a4.pdf', 'baby_tracker_letter.pdf', "README.txt"], "Word document version"),
+    'small_business_log': ('Small Business Log Printable', 'small business log, business tracker, printable',
+        ['small_business_log_a4.pdf', 'small_business_log_letter.pdf', "README.txt"], "Word document version"),
+    'kids_chore_reward': ('Kids Chore And Reward Chart Printable', 'kids chore chart, reward chart, printable',
+        ['kids_chore_reward_a4.pdf', 'kids_chore_reward_letter.pdf', "README.txt"], "Word document version"),
+})
+
 DESCRIPTION = ("A calm, simple set of pages made to keep things clear. Open the files, fill them in and "
                "keep going at your own pace. Made for everyday use at home or at work.")
 
@@ -106,7 +119,7 @@ class Base(unittest.TestCase):
 
 
 class EveryProductTypeTests(Base):
-    """Filled below: seven checks for each of the 12 product types."""
+    """Filled below: seven checks for each registered product type."""
 
     def check_type_is_detected(self, product_type):
         self.assertEqual(self.copy(self.make_pack(product_type))["product_type"], product_type)
@@ -179,13 +192,12 @@ _attach()
 
 
 class TypeTableTests(unittest.TestCase):
-    def test_all_twelve_registered_formats_have_a_profile(self):
+    def test_all_registered_formats_have_a_profile(self):
         import format_registry
         format_registry.discover_builders()
         self.assertEqual(sorted(store_kits.GUMROAD_PRODUCT_TYPES), sorted(format_registry.list_registered_formats()))
-        self.assertEqual(len(store_kits.GUMROAD_PRODUCT_TYPES), 12)
 
-    def test_this_test_file_covers_all_twelve(self):
+    def test_this_test_file_covers_all_registered_formats(self):
         self.assertEqual(sorted(TYPES), sorted(store_kits.GUMROAD_PRODUCT_TYPES))
 
     def test_every_profile_is_complete_and_clean(self):

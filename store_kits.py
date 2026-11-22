@@ -585,6 +585,31 @@ GUMROAD_TYPES: Dict[str, Dict[str, Any]] = {
         "tags": ["wall art", "printable art", "poster print", "quote print", "home decor", "digital print",
                  "office decor", "printable poster"],
     },
+    'teacher_planner': {
+        "label": 'teacher planner',
+        "audience": ['Teachers organizing lessons, classes and school weeks', 'Educators keeping classroom plans and notes on paper'],
+        "tags": ['teacher planner', 'lesson planner', 'classroom planner', 'school organizer', 'teacher printable', 'class roster', 'lesson plan', 'teaching planner'],
+    },
+    'fitness_planner': {
+        "label": 'fitness planner',
+        "audience": ['People recording workouts and daily routines', 'Anyone organizing exercise notes on printable pages'],
+        "tags": ['fitness planner', 'workout planner', 'exercise log', 'workout tracker', 'fitness journal', 'routine planner', 'training log', 'printable workout'],
+    },
+    'baby_tracker': {
+        "label": 'baby tracker',
+        "audience": ['Parents recording feeding, sleep and daily care', 'Caregivers sharing written baby routine notes'],
+        "tags": ['baby tracker', 'baby log', 'feeding log', 'sleep tracker', 'newborn tracker', 'baby routine', 'caregiver notes', 'printable baby log'],
+    },
+    'small_business_log': {
+        "label": 'small business log',
+        "audience": ['Small business owners organizing orders and stock', 'Freelancers keeping customer and weekly work notes'],
+        "tags": ['small business log', 'business tracker', 'order log', 'inventory log', 'customer notes', 'business planner', 'stock tracker', 'printable business'],
+    },
+    'kids_chore_reward': {
+        "label": 'kids chore and reward chart',
+        "audience": ['Families organizing age appropriate chores', 'Parents tracking routines and rewards together with children'],
+        "tags": ['kids chore chart', 'reward chart', 'chore tracker', 'kids routine', 'family chores', 'printable rewards', 'routine chart', 'chore planner'],
+    },
     "digital_pack": {
         "label": "digital download",
         "audience": ["Anyone who wants ready-made files to download and use",
