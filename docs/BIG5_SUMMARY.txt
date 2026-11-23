@@ -1,0 +1,10 @@
+BIG-5 work is complete on branch robot-cx5.
+The GitHub-style check uses clean Python 3.11, UTC and four test workers.
+The full suite passed 8835 tests with zero failures, zero errors and 18 skips.
+All three clock checks passed 2348 tests each, with seven skips each.
+Visual checks covered 19 formats, 655 PDF pages and all previews with zero flags.
+Sell-test uploads include two checked titles, buyer-focused copy, real file lists and search tags.
+Free samples name the full paid pack and include its saved link.
+The three-day test replay reached nine ready kits; this is not live inventory.
+The daily report shows ready-kit progress and blockers; the owner controls publishing and posts.
+Use docs/SELL-TEST-TENGLISH.md or /selltest help for the 14-day steps; everything is committed and nothing was pushed.
