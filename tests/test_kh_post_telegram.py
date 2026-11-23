@@ -113,7 +113,7 @@ class KhPostTelegramTests(unittest.TestCase):
 
     # 1. /today slash command with plan
     def test_01_today_slash_command(self):
-        today_str = datetime.date.today().isoformat()
+        today_str = post_planner.owner_today().isoformat()
         self._setup_sample_plan(today_str)
         with mock.patch.object(post_planner, "PLAN_PATH", self.plan_path):
             self.run_updates([_upd(1, "/today")])
@@ -127,7 +127,7 @@ class KhPostTelegramTests(unittest.TestCase):
 
     # 2. "ee roju posts" Tenglish
     def test_02_ee_roju_posts_tenglish(self):
-        today_str = datetime.date.today().isoformat()
+        today_str = post_planner.owner_today().isoformat()
         self._setup_sample_plan(today_str)
         with mock.patch.object(post_planner, "PLAN_PATH", self.plan_path):
             self.run_updates([_upd(1, "ee roju posts")])
@@ -136,7 +136,7 @@ class KhPostTelegramTests(unittest.TestCase):
 
     # 3. "eroju posts" Tenglish variant
     def test_03_eroju_posts_tenglish(self):
-        today_str = datetime.date.today().isoformat()
+        today_str = post_planner.owner_today().isoformat()
         self._setup_sample_plan(today_str)
         with mock.patch.object(post_planner, "PLAN_PATH", self.plan_path):
             self.run_updates([_upd(1, "eroju posts")])
@@ -145,7 +145,7 @@ class KhPostTelegramTests(unittest.TestCase):
 
     # 4. "today posts" English
     def test_04_today_posts_english(self):
-        today_str = datetime.date.today().isoformat()
+        today_str = post_planner.owner_today().isoformat()
         self._setup_sample_plan(today_str)
         with mock.patch.object(post_planner, "PLAN_PATH", self.plan_path):
             self.run_updates([_upd(1, "today posts")])
@@ -154,7 +154,7 @@ class KhPostTelegramTests(unittest.TestCase):
 
     # 5. "posted 2" English
     def test_05_posted_2_english(self):
-        today_str = datetime.date.today().isoformat()
+        today_str = post_planner.owner_today().isoformat()
         self._setup_sample_plan(today_str)
         with mock.patch.object(post_planner, "PLAN_PATH", self.plan_path):
             self.run_updates([_upd(1, "posted 2")])
@@ -171,7 +171,7 @@ class KhPostTelegramTests(unittest.TestCase):
 
     # 6. "post chesa 3" Tenglish
     def test_06_post_chesa_3_tenglish(self):
-        today_str = datetime.date.today().isoformat()
+        today_str = post_planner.owner_today().isoformat()
         self._setup_sample_plan(today_str)
         with mock.patch.object(post_planner, "PLAN_PATH", self.plan_path):
             self.run_updates([_upd(1, "post chesa 3")])
@@ -182,7 +182,7 @@ class KhPostTelegramTests(unittest.TestCase):
 
     # 7. "post chesanu 1" Tenglish variant
     def test_07_post_chesanu_1_tenglish(self):
-        today_str = datetime.date.today().isoformat()
+        today_str = post_planner.owner_today().isoformat()
         self._setup_sample_plan(today_str)
         with mock.patch.object(post_planner, "PLAN_PATH", self.plan_path):
             self.run_updates([_upd(1, "post chesanu okati")])
@@ -192,7 +192,7 @@ class KhPostTelegramTests(unittest.TestCase):
 
     # 8. Slash command /posted 1
     def test_08_slash_posted_command(self):
-        today_str = datetime.date.today().isoformat()
+        today_str = post_planner.owner_today().isoformat()
         self._setup_sample_plan(today_str)
         with mock.patch.object(post_planner, "PLAN_PATH", self.plan_path):
             self.run_updates([_upd(1, "/posted 1")])
@@ -201,7 +201,7 @@ class KhPostTelegramTests(unittest.TestCase):
 
     # 9. Bad N: missing number in /posted
     def test_09_bad_n_missing_in_slash_command(self):
-        today_str = datetime.date.today().isoformat()
+        today_str = post_planner.owner_today().isoformat()
         self._setup_sample_plan(today_str)
         with mock.patch.object(post_planner, "PLAN_PATH", self.plan_path):
             self.run_updates([_upd(1, "/posted")])
@@ -210,7 +210,7 @@ class KhPostTelegramTests(unittest.TestCase):
 
     # 10. Bad N: missing number in plain text "posted"
     def test_10_bad_n_missing_in_plain_text(self):
-        today_str = datetime.date.today().isoformat()
+        today_str = post_planner.owner_today().isoformat()
         self._setup_sample_plan(today_str)
         with mock.patch.object(post_planner, "PLAN_PATH", self.plan_path):
             self.run_updates([_upd(1, "posted")])
@@ -219,7 +219,7 @@ class KhPostTelegramTests(unittest.TestCase):
 
     # 11. Bad N: zero "posted 0"
     def test_11_bad_n_zero(self):
-        today_str = datetime.date.today().isoformat()
+        today_str = post_planner.owner_today().isoformat()
         self._setup_sample_plan(today_str)
         with mock.patch.object(post_planner, "PLAN_PATH", self.plan_path):
             self.run_updates([_upd(1, "posted 0")])
@@ -228,7 +228,7 @@ class KhPostTelegramTests(unittest.TestCase):
 
     # 12. Bad N: out of range "posted 99"
     def test_12_bad_n_out_of_range(self):
-        today_str = datetime.date.today().isoformat()
+        today_str = post_planner.owner_today().isoformat()
         self._setup_sample_plan(today_str)
         with mock.patch.object(post_planner, "PLAN_PATH", self.plan_path):
             self.run_updates([_upd(1, "posted 99")])
@@ -237,7 +237,7 @@ class KhPostTelegramTests(unittest.TestCase):
 
     # 13. Bad N: negative in slash command /posted -5
     def test_13_bad_n_negative(self):
-        today_str = datetime.date.today().isoformat()
+        today_str = post_planner.owner_today().isoformat()
         self._setup_sample_plan(today_str)
         with mock.patch.object(post_planner, "PLAN_PATH", self.plan_path):
             # Parse command returns positive ints, but test mark_post_done_text directly with -5
@@ -252,7 +252,7 @@ class KhPostTelegramTests(unittest.TestCase):
         missing_plan = os.path.join(self.tmp.name, "nonexistent_plan.json")
         with mock.patch.object(post_planner, "PLAN_PATH", missing_plan):
             reply = ti.today_posts_text(plan_path=missing_plan, products_dir=empty_dir)
-            today_str = datetime.date.today().isoformat()
+            today_str = post_planner.owner_today().isoformat()
             self.assertEqual(reply.splitlines()[0], f"No posts scheduled for {today_str}.")
         self.assertTrue(reply.splitlines()[-1].startswith("Next:"))
 
@@ -353,7 +353,7 @@ class KhPostTelegramTests(unittest.TestCase):
 
     # 24. Multiple marks increment week summary done count
     def test_24_week_summary_increments_with_multiple_posts(self):
-        today_str = datetime.date.today().isoformat()
+        today_str = post_planner.owner_today().isoformat()
         self._setup_sample_plan(today_str)
         with mock.patch.object(post_planner, "PLAN_PATH", self.plan_path):
             self.run_updates([_upd(1, "posted 1")])

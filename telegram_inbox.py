@@ -1210,7 +1210,7 @@ def pipeline_text(db_path=None):
     total_quotas = plan_info["total_quotas"]
 
     # Calculate done today per stage
-    today_str = datetime.date.today().isoformat()
+    today_str = guardrails.today()
     conn = workforce.connect(db_path)
     done_rows = conn.execute(
         "SELECT kind, COUNT(*) FROM tasks WHERE status = 'done' AND finished_ts LIKE ? GROUP BY kind",

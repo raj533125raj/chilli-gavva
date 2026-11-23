@@ -79,7 +79,7 @@ def connect(db_path=None):
 
 
 def today():
-    return datetime.date.today().isoformat()
+    return datetime.datetime.now(datetime.timezone.utc).date().isoformat()
 
 
 # ---- kill switch -----------------------------------------------------------

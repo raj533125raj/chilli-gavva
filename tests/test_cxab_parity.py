@@ -36,3 +36,27 @@ class ParityTests(unittest.TestCase):
     def test_refuses_repository_as_workspace(self):
         with self.assertRaises(ValueError):
             ci_parity.sync_checkout(ci_parity.ROOT)
+
+class CalendarRegressionTests(unittest.TestCase):
+    def test_cli_defaults_to_owner_day(self):
+        from unittest import mock
+        import post_planner
+        import datetime
+        with tempfile.TemporaryDirectory() as temp, \
+                mock.patch.object(post_planner, 'owner_today', return_value=datetime.date(2026,11,24)), \
+                mock.patch.object(post_planner, 'today_text', return_value='Owner day') as today, \
+                mock.patch.object(post_planner, 'load_plan', return_value=[]):
+            self.assertEqual(post_planner.main(['--today','--plan-path',str(Path(temp)/'plan.json')]),0)
+            self.assertEqual(today.call_args.args[1], '2026-11-24')
+
+    def test_usage_day_is_utc_even_when_owner_day_has_changed(self):
+        import datetime
+        from unittest import mock
+        import guardrails
+        real = datetime.datetime
+        class Clock(real):
+            @classmethod
+            def now(cls, tz=None):
+                return real(2026,11,23,19,45,tzinfo=datetime.timezone.utc).astimezone(tz)
+        with mock.patch.object(guardrails.datetime, 'datetime', Clock):
+            self.assertEqual(guardrails.today(),'2026-11-23')

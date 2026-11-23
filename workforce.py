@@ -792,7 +792,7 @@ def get_daily_pipeline_plan(db_path=None):
         }
 
     return {
-        "date": datetime.date.today().isoformat(),
+        "date": guardrails.today(),
         "cap": cap,
         "calls_today": calls,
         "health_mult": health_mult,
@@ -864,7 +864,7 @@ def run_once(max_tasks=5, db_path=None, llm=None, rng=None, max_time_seconds=MAX
 def ensure_daily_plan(db_path=None):
     """Enqueue at most one plan task per day, so the cloud runner never floods the queue."""
     conn = connect(db_path)
-    day = datetime.date.today().isoformat()
+    day = guardrails.today()
     exists = conn.execute("SELECT 1 FROM tasks WHERE kind = 'plan' AND ts LIKE ?", (day + "%",)).fetchone()
     conn.close()
     if exists:

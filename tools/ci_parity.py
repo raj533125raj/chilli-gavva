@@ -69,6 +69,7 @@ def sensitive_modules(repo):
         if any(isinstance(n, ast.Call) and (
             isinstance(n.func, ast.Attribute) and n.func.attr in
             {'now', 'utcnow', 'today', 'time', 'strftime', 'localtime', 'gmtime', 'timestamp', 'process_time', 'perf_counter'} or
+            isinstance(n.func, ast.Attribute) and re.search(r'(today|now|clock|daily|morning|due)', n.func.attr) or
             isinstance(n.func, ast.Name) and re.search(r'(today|now|clock|daily|morning|due)', n.func.id)
         ) for n in ast.walk(tree)) or path.name == 'test_cxaa_clock_safety.py':
             modules.append('tests.' + path.stem)
@@ -111,6 +112,9 @@ def main(argv=None):
         if not hosted.is_symlink():
             hosted.symlink_to(python)
         shutil.copy2(venv / 'pyvenv.cfg', hosted.parent.parent / 'pyvenv.cfg')
+        library = hosted.parent.parent / 'lib'
+        if not library.exists():
+            library.symlink_to(venv / 'lib', target_is_directory=True)
         env = clean_env(work, hosted)
         subprocess.run([str(hosted), '-c', 'import PIL, mockups; assert mockups.available(); print("Pillow", PIL.__version__)'],
                        cwd=repo, env=env, check=True)

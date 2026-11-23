@@ -908,7 +908,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     plan_file = args.plan_path
     prod_dir = args.products_dir
     mkt_dir = args.marketing_dir
-    target_date = args.date or datetime.date.today().isoformat()
+    target_date = args.date or owner_today().isoformat()
 
     if args.refresh:
         result = refresh_ready_plan(prod_dir, plan_path=plan_file)

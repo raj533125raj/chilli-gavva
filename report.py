@@ -16,7 +16,7 @@ REPORT_DIR = os.path.join(BASE_DIR, "reports")
 
 
 def build(db_path=None, day=None):
-    day = day or datetime.date.today().isoformat()
+    day = day or guardrails.today()
     conn = workforce.connect(db_path)
     conn.execute("CREATE TABLE IF NOT EXISTS campaigns (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, "
                  "niche TEXT, content_title TEXT, clicks INTEGER, earnings REAL, status TEXT, "
@@ -48,7 +48,7 @@ def build(db_path=None, day=None):
 
 def write_daily(db_path=None, report_dir=None, day=None):
     """Write today's report once. Returns the path if newly written, else None."""
-    day = day or datetime.date.today().isoformat()
+    day = day or guardrails.today()
     report_dir = report_dir or REPORT_DIR
     os.makedirs(report_dir, exist_ok=True)
     path = os.path.join(report_dir, f"{day}.md")
@@ -60,6 +60,6 @@ def write_daily(db_path=None, report_dir=None, day=None):
 
 
 if __name__ == "__main__":
-    p = write_daily() or os.path.join(REPORT_DIR, datetime.date.today().isoformat() + ".md")
+    p = write_daily() or os.path.join(REPORT_DIR, guardrails.today() + ".md")
     print(open(p, encoding="utf-8").read())
     sys.exit(0)
