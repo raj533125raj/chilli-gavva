@@ -1102,8 +1102,8 @@ def run_scout(db_path=None, llm=None):
             if len(top_5) == 5:
                 break
 
-    # Four earning-focused slots plus one discovery slot retain the expanded
-    # builder formats without allowing them to dominate the sell-test shortlist.
+    # Preserve an expanded-builder candidate when earning-focused ranking
+    # would otherwise omit those formats; niche and audience caps still apply.
     discovery_types={'teacher_planner','fitness_planner','baby_tracker','small_business_log','kids_chore_reward'}
     def candidate_kind(item):
         import format_registry

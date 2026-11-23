@@ -6,7 +6,6 @@ Robot files, Drafts, Pins prepare chestundi. Pack, Price, Publish, posts decisio
 
 ## Phone lo quick steps
 
-<!-- SELL_TEST_STEPS_START -->
 ```text
 14-day Sell test: India rojulu; files, Store, posts meere review cheyandi.
 Day 0: /ready; /list; /view N chusi /approve N tho meere decide cheyandi.
@@ -22,7 +21,6 @@ Day 14: stats save chesi /selltest list lo Keep, Change, Drop reasons chudandi.
 Upload, listed, stats lo N Pack number; Price, Publish, next rotation meere decide cheyandi.
 Next: /selltest pampandi.
 ```
-<!-- SELL_TEST_STEPS_END -->
 
 ## Day 0 — Packs, Store siddham cheyandi
 
@@ -34,12 +32,12 @@ Next: /selltest pampandi.
 ## Day 1 — Paid listing, free sample, modati Pins
 
 1. `/selltest` pampandi. `/selltest list` lo selected Packs chudandi. List lo unna Pack N prathidaniki migilina steps cheyandi.
-2. `/upload N` pampandi. Buyer ZIP, Cover, Thumbnail, moodu Previews, `listing.txt`, `listing-ab.txt` save cheyandi.
-3. Gumroad product editor lo ee mapping follow avvandi. Paid listing ki `listing-ab.txt` lo **Title A** use cheyandi; ade file lo Description, What you get, usage, license, file details, Tags unnayi.
+2. `/upload N` pampandi. Buyer ZIP, Cover, Thumbnail, moodu Previews, `listing.txt`, **listing-ab.txt** save cheyandi.
+3. Gumroad product editor lo ee mapping follow avvandi. Paid listing ki **listing-ab.txt** lo **Title A** use cheyandi; ade file lo Description, What you get, usage, license, file details, Tags unnayi.
 
 | Gumroad field | Emi pettali |
 |---|---|
-| Name | `listing-ab.txt` lo Title A line taruvatha unna title |
+| Name | **listing-ab.txt** lo Title A line taruvatha unna title |
 | Description | Ade file lo Description, What you get, How to use, License, File format, File size sections copy cheyandi |
 | Content / buyer download | `product.zip` upload cheyandi |
 | Cover | `cover.png` mundu add cheyandi; `preview-1.png`, `preview-2.png`, `preview-3.png` kuda product previews ga add cheyandi |
@@ -68,7 +66,7 @@ Cover, previews, Thumbnail setup ki [official Gumroad image help](https://gumroa
 | Day 4 | Daily routine; sample PDF lo Full version page, paid link open chusi chudandi. |
 | Day 5 | Daily routine; paid Pack prathidaniki aa roju totals save cheyandi. |
 | Day 6 | Daily routine; day 7 review kosam missing roju numbers unte mee records chudandi. |
-| Day 7 | Rojuki totals save chesi `/selltest list` lo Keep/Change reasons chudandi. Title B test cheyalanukunna Pack ki `/selltest swap-title N` pampandi. `/upload N` lo updated `listing-ab.txt` chusi **Title B** ni Gumroad Name field lo meere replace chesi save cheyandi. Daily routine continue cheyandi. |
+| Day 7 | Rojuki totals save chesi `/selltest list` lo Keep/Change reasons chudandi. Title B test cheyalanukunna Pack ki `/selltest swap-title N` pampandi. `/upload N` lo updated **listing-ab.txt** chusi **Title B** ni Gumroad Name field lo meere replace chesi save cheyandi. Daily routine continue cheyandi. |
 | Day 8 | Daily routine; Title B save chesina Packs ni mee notes lo gurthu pettukondi. |
 | Day 9 | Daily routine; links, published Pins chusi chudandi. |
 | Day 10 | Daily routine; prathi selected Pack ki numbers record cheyandi. |

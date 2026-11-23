@@ -15,7 +15,7 @@ class GuideTests(unittest.TestCase):
     def test_all_days_and_shared_quick_steps_are_present(self):
         text=(ROOT/'docs/SELL-TEST-TENGLISH.md').read_text()
         for day in range(15):self.assertRegex(text,rf'\bDay {day}\b')
-        block=text.split('<!-- SELL_TEST_STEPS_START -->')[1].split('<!-- SELL_TEST_STEPS_END -->')[0]
+        block=text.split('```text\n',1)[1].split('```',1)[0]
         self.assertIn(selltest.help_text(),block)
         self.assertLessEqual(len(selltest.help_text().splitlines()),15)
         self.assertTrue(selltest.help_text().splitlines()[-1].startswith('Next:'))

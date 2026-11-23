@@ -24,7 +24,6 @@ from typing import Dict, List, Optional, Set, Tuple
 import checker
 import guardrails
 import notify
-import telegram_inbox
 
 AUTO_APPROVE_HOURS = 24
 DEFAULT_SCORE_THRESHOLD = 75
@@ -752,6 +751,7 @@ def run_auto_decisions(db_path=None, token=None, owner_chat_id=None, now=None):
         line = owner_reply_pages(line, "/autoapprove status pampandi; waiting reasons chudandi.")[0]
         sent = False
         if tok and chat:
+            import telegram_inbox
             sent = telegram_inbox.send_text(tok, chat, line)
         elif configured:
             sent = notify.send(line)
