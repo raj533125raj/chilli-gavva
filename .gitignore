@@ -31,3 +31,6 @@ team/
 logs/
 # NOT ignored on purpose: .scheduler_locks/ - the "Save state" step must commit the night-run locks, and
 # `git add .scheduler_locks` fails (exit 1) when that folder is in .gitignore.
+
+# Local worker queues and notes
+.jobs/
