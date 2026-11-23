@@ -82,3 +82,8 @@ Day 2: 8/8 READY upload kits; preferred niches 8; formats {'sheets': 3, 'planner
 Day 3: 9/8 READY upload kits; preferred niches 8; formats {'sheets': 3, 'planner': 3, 'notion': 1, 'resume': 1, 'dated_planner': 1}
 Failed runs: 0; captured errors: 0; owner commands: 0; temporary simulation removed.
 CAPACITY: PASS
+
+CXAE-2
+Ran 39 tests in 13.911s
+OK
+Daily report target uses approved, gated, complete kits; missing/corrupt kits and failed/held database states do not count. Blockers name kit files, checker revisions, policy limits or required drafts. Rejected/orphan records do not inflate blockers.

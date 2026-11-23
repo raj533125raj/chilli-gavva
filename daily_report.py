@@ -17,6 +17,7 @@ from zoneinfo import ZoneInfo
 
 import guardrails
 import daily_receipts
+import product_counts
 
 SEND_AFTER = datetime.time(3, 30)   # UTC
 IST = ZoneInfo("Asia/Kolkata")
@@ -231,6 +232,7 @@ def daily_text(db_path=None, now=None, status_fn=None, products_dir=None):
              built_line,
              *product_path_lines(db_path, now, include_built=False),
              upload_packs_line(products_dir=products_dir, db_path=db_path, now=now),
+             product_counts.sell_test_line(db_path, products_dir, now),
              _minutes(reply=clock),
              door_bell_line(clock),
              f"Button presses received in the last 24h: {buttons}",
