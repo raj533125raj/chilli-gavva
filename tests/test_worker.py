@@ -148,7 +148,7 @@ class RecoveryTests(WorkerBase):
         workforce.enqueue("plan", {"topic": "x"}, db_path=self.db)
         task = workforce.claim_next(self.db)                     # now 'running', as if the worker crashed
         conn = workforce.connect(self.db)
-        old = (datetime.datetime.now() - datetime.timedelta(minutes=30)).isoformat()
+        old = (datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) - datetime.timedelta(minutes=30)).isoformat()
         conn.execute("UPDATE tasks SET started_ts = ? WHERE id = ?", (old, task["id"]))
         conn.commit(); conn.close()
         self.assertEqual(workforce.recover_stuck(self.db), 1)
@@ -166,7 +166,7 @@ class RecoveryTests(WorkerBase):
         for _ in range(workforce.MAX_ATTEMPTS):
             task = workforce.claim_next(self.db)
             conn = workforce.connect(self.db)
-            old = (datetime.datetime.now() - datetime.timedelta(minutes=30)).isoformat()
+            old = (datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) - datetime.timedelta(minutes=30)).isoformat()
             conn.execute("UPDATE tasks SET started_ts = ? WHERE id = ?", (old, task["id"]))
             conn.commit(); conn.close()
             workforce.recover_stuck(self.db)
@@ -192,7 +192,7 @@ class LockAndHeartbeatTests(WorkerBase):
         workforce.heartbeat("ok", self.db)
         self.assertTrue(workforce.worker_status(self.db)["running"])
         conn = workforce.connect(self.db)
-        old = (datetime.datetime.now() - datetime.timedelta(minutes=10)).isoformat(timespec="seconds")
+        old = (datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) - datetime.timedelta(minutes=10)).isoformat(timespec="seconds")
         conn.execute("UPDATE heartbeat SET ts = ?", (old,))
         conn.commit(); conn.close()
         self.assertFalse(workforce.worker_status(self.db)["running"])

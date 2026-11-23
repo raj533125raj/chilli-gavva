@@ -23,12 +23,19 @@ def main(modules):
                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=900)
             return module, result
         ok = True
+        count = failures = errors = skipped = 0
+        from tools.run_tests_chunked import parse_unittest_output
         with ThreadPoolExecutor(max_workers=4) as pool:
             for module, result in pool.map(run, modules):
                 print(module + ': ' + ('OK' if result.returncode == 0 else 'FAIL'), flush=True)
+                stats = parse_unittest_output(result.stdout)
+                count += stats['run']; failures += stats['failures']
+                errors += stats['errors']; skipped += stats['skipped']
                 if result.returncode:
                     print(result.stdout, flush=True)
                     ok = False
+        print(f'Ran {count} tests; failures={failures}; errors={errors}; skipped={skipped}', flush=True)
+        print('OK' if ok else 'FAILED', flush=True)
         return 0 if ok else 1
 
 

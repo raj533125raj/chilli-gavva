@@ -69,7 +69,7 @@ class TestThroughputTask(unittest.TestCase):
         conn = workforce.connect(self.db)
         conn.execute(
             "INSERT INTO tasks (ts, kind, status, attempts, agent) VALUES (?, 'research', 'queued', 2, 'Research Worker')",
-            (datetime.datetime.now().isoformat(),)
+            (datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).isoformat(),)
         )
         conn.commit()
         conn.close()

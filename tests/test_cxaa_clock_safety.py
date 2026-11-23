@@ -18,9 +18,9 @@ MOMENTS = [dt.datetime(2026,11,23,h,m,tzinfo=dt.timezone.utc) for h,m in ((19,45
 @contextmanager
 def frozen(moment):
     import telegram_inbox, post_planner, daily_report, guardrails, product_builder, product_pipeline, marketing_auto
-    class ClockType(type):
+    class ClockType(type(dt.datetime)):
         def __instancecheck__(cls,value):return isinstance(value,dt.datetime)
-    class DayType(type):
+    class DayType(type(dt.date)):
         def __instancecheck__(cls,value):return isinstance(value,dt.date)
     class Clock(dt.datetime,metaclass=ClockType):
         @classmethod

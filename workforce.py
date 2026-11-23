@@ -26,6 +26,11 @@ CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 MAX_ATTEMPTS = 3
 DEFAULT_TOPIC = "a free mini-tool page (calculator or prompt generator) that helps small creators"
 
+def _utcnow():
+    """Naive UTC, matching database timestamps on both cloud and owner machines."""
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+
+
 def get_machine_id():
     """Stable identifier for this machine — hostname + last 4 chars of MAC.
     Used to tag tasks and heartbeats so two machines can share a DB without confusion."""
@@ -122,7 +127,7 @@ def connect(db_path=None):
 def enqueue(kind, payload=None, priority=5, db_path=None):
     conn = connect(db_path)
     cur = conn.execute("INSERT INTO tasks (ts, kind, payload, priority) VALUES (?, ?, ?, ?)",
-                       (datetime.datetime.now().isoformat(), kind, json.dumps(payload or {}), priority))
+                       (_utcnow().isoformat(), kind, json.dumps(payload or {}), priority))
     conn.commit()
     task_id = cur.lastrowid
     conn.close()
@@ -178,7 +183,7 @@ def claim_next(db_path=None):
     parsed_payload = json.loads(payload or "{}")
     agent = get_routing_agent(kind, parsed_payload, db_path, conn)
     conn.execute("UPDATE tasks SET status = 'running', attempts = attempts + 1, agent = ?, started_ts = ?, machine_id = ? "
-                 "WHERE id = ?", (agent, datetime.datetime.now().isoformat(), MACHINE_ID, task_id))
+                 "WHERE id = ?", (agent, _utcnow().isoformat(), MACHINE_ID, task_id))
     conn.commit()
     conn.close()
     return {"id": task_id, "kind": kind, "payload": parsed_payload,
@@ -188,7 +193,7 @@ def claim_next(db_path=None):
 def complete(task_id, result, db_path=None):
     conn = connect(db_path)
     conn.execute("UPDATE tasks SET status = 'done', result = ?, finished_ts = ?, error = NULL WHERE id = ?",
-                 (json.dumps(secret_guard.scrub_data(result)), datetime.datetime.now().isoformat(), task_id))
+                 (json.dumps(secret_guard.scrub_data(result)), _utcnow().isoformat(), task_id))
     conn.commit()
     conn.close()
 
@@ -227,7 +232,7 @@ def fail(task_id, attempts, error, db_path=None):
     status = "queued" if attempts < MAX_ATTEMPTS else "failed"
     conn = connect(db_path)
     conn.execute("UPDATE tasks SET status = ?, error = ?, finished_ts = ? WHERE id = ?",
-                 (status, secret_guard.scrub_text(error)[:500], datetime.datetime.now().isoformat(), task_id))
+                 (status, secret_guard.scrub_text(error)[:500], _utcnow().isoformat(), task_id))
     conn.commit()
     row = conn.execute("SELECT agent, kind FROM tasks WHERE id = ?", (task_id,)).fetchone()
     conn.close()
@@ -642,7 +647,7 @@ def sync_human_decisions(db_path=None):
 # ---- crash recovery and heartbeat -------------------------------------------------
 def recover_stuck(db_path=None, max_age_minutes=10):
     """A task left 'running' after a crash goes back to the queue (it keeps its attempt count)."""
-    cutoff = (datetime.datetime.now() - datetime.timedelta(minutes=max_age_minutes)).isoformat()
+    cutoff = (_utcnow() - datetime.timedelta(minutes=max_age_minutes)).isoformat()
     conn = connect(db_path)
     cur = conn.execute("UPDATE tasks SET status = CASE WHEN attempts >= ? THEN 'failed' ELSE 'queued' END, "
                        "error = 'recovered after a crash or stop' "
@@ -658,7 +663,7 @@ def heartbeat(info="alive", db_path=None, name="worker"):
     conn = connect(db_path)
     conn.execute("INSERT INTO heartbeat (name, ts, info, machine_id) VALUES (?, ?, ?, ?) "
                  "ON CONFLICT(name) DO UPDATE SET ts = excluded.ts, info = excluded.info, machine_id = excluded.machine_id",
-                 (name, datetime.datetime.now().isoformat(timespec="seconds"), secret_guard.scrub_text(info), MACHINE_ID))
+                 (name, _utcnow().isoformat(timespec="seconds"), secret_guard.scrub_text(info), MACHINE_ID))
     conn.commit()
     conn.close()
 
@@ -669,7 +674,7 @@ def worker_status(db_path=None, stale_after_seconds=180, name="worker"):
     conn.close()
     if not row:
         return {"running": False, "last_seen": None, "age_seconds": None, "info": "never started"}
-    age = (datetime.datetime.now() - datetime.datetime.fromisoformat(row[0])).total_seconds()
+    age = (_utcnow() - datetime.datetime.fromisoformat(row[0])).total_seconds()
     running = age <= stale_after_seconds and not row[1].startswith("stopped")
     return {"running": running, "last_seen": row[0], "age_seconds": int(age), "info": row[1]}
 

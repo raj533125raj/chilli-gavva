@@ -83,7 +83,7 @@ def clean_env(work, python):
     return dict(HOME=str(home), TMPDIR=str(tmp), PATH=os.pathsep.join(
         [str(python.parent), '/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin']),
         TZ='UTC', CHILLI_TEST='1', GITHUB_ACTIONS='true', CI='true',
-        PYTHONNOUSERSITE='1', PYTHONHASHSEED='0', CHILLI_TEST_JOBS='4', LANG='en_US.UTF-8')
+        PYTHONNOUSERSITE='1', PYTHONUNBUFFERED='1', PYTHONHASHSEED='0', CHILLI_TEST_JOBS='4', LANG='en_US.UTF-8')
 
 
 def run_checked(cmd, env, cwd, log):
@@ -116,7 +116,7 @@ def main(argv=None):
         if not library.exists():
             library.symlink_to(venv / 'lib', target_is_directory=True)
         env = clean_env(work, hosted)
-        subprocess.run([str(hosted), '-c', 'import PIL, mockups; assert mockups.available(); print("Pillow", PIL.__version__)'],
+        subprocess.run([str(hosted), '-c', 'import PIL, mockups, sys; assert mockups.available(); assert "hostedtoolcache" in sys.executable; print(sys.executable, "Pillow", PIL.__version__)'],
                        cwd=repo, env=env, check=True)
         ok = run_checked([str(hosted), 'tools/run_tests_chunked.py', '--jobs', '4'], env, repo, work / 'full.log')
         print('\n'.join((work / 'full.log').read_text().splitlines()[-18:]), flush=True)

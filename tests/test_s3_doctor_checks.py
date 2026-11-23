@@ -182,6 +182,8 @@ class TestDoctorIntegrityChecks(unittest.TestCase):
     def test_stale_locks_fresh_lock_ok(self):
         lock = self.locks_dir / "worker.lock"
         lock.write_text("locked")
+        stamp = time.time()
+        os.utime(lock, (stamp, stamp))  # same clock as the injected age check
         res = doctor.check_stale_state_locks(str(self.locks_dir), max_age_seconds=7200.0)
         self.assertEqual(res["status"], "ok")
 

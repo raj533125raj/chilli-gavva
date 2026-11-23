@@ -60,3 +60,22 @@ class CalendarRegressionTests(unittest.TestCase):
                 return real(2026,11,23,19,45,tzinfo=datetime.timezone.utc).astimezone(tz)
         with mock.patch.object(guardrails.datetime, 'datetime', Clock):
             self.assertEqual(guardrails.today(),'2026-11-23')
+
+    def test_task_timestamps_match_utc_day_in_both_host_timezones(self):
+        import os
+        code = '''import datetime as d, tempfile
+from tools.robot_sim_world import install_clock
+install_clock(d.datetime(2026,11,23,19,45,tzinfo=d.timezone.utc).timestamp())
+import workforce, guardrails
+with tempfile.TemporaryDirectory() as temp:
+ db=temp+'/test.db'
+ workforce.enqueue('plan',{},db_path=db)
+ conn=workforce.connect(db)
+ print(conn.execute('SELECT ts FROM tasks').fetchone()[0][:16],guardrails.today())
+ conn.close()
+'''
+        for zone in ('UTC','Asia/Kolkata'):
+            result=subprocess.run([sys.executable,'-c',code],cwd=ci_parity.ROOT,
+                                  env=dict(os.environ,TZ=zone,CHILLI_TEST='1'),
+                                  capture_output=True,text=True,check=True)
+            self.assertEqual(result.stdout.strip(),'2026-11-23T19:45 2026-11-23')

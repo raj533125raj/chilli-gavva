@@ -14,7 +14,7 @@ import workforce  # noqa: E402
 
 
 def days_ago(n):
-    return (datetime.datetime.now() - datetime.timedelta(days=n)).isoformat()
+    return (datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) - datetime.timedelta(days=n)).isoformat()
 
 
 class MaintenanceTests(unittest.TestCase):

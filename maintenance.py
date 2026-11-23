@@ -24,8 +24,13 @@ USAGE_DAYS = 90
 MIN_LOGS_KEPT = 200          # always keep the newest logs even if old
 
 
+def _utcnow():
+    """Naive UTC, matching database timestamps on both cloud and owner machines."""
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+
+
 def _cutoff(days):
-    return (datetime.datetime.now() - datetime.timedelta(days=days)).isoformat()
+    return (_utcnow() - datetime.timedelta(days=days)).isoformat()
 
 
 def _has(conn, table):
@@ -37,7 +42,7 @@ def backup(db_path=None, backup_dir=None, keep=KEEP_BACKUPS):
     backup_dir = backup_dir or (os.path.join(os.path.dirname(os.path.abspath(db_path)), "backups") if db_path else BACKUP_DIR)
     db_path = db_path or DB_PATH
     os.makedirs(backup_dir, exist_ok=True)
-    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    stamp = _utcnow().strftime("%Y%m%d-%H%M%S")
     target = os.path.join(backup_dir, f"agent_data-{stamp}.db")
     src = sqlite3.connect(db_path)
     dst = sqlite3.connect(target)
@@ -70,7 +75,7 @@ def prune(db_path=None, dry_run=False):
             if not dry_run:
                 conn.execute(f"DELETE FROM tasks WHERE {sql}", (_cutoff(TASK_DAYS),))
         if _has(conn, "usage_log"):
-            day = (datetime.date.today() - datetime.timedelta(days=USAGE_DAYS)).isoformat()
+            day = (_utcnow().date() - datetime.timedelta(days=USAGE_DAYS)).isoformat()
             counts["usage_log"] = conn.execute("SELECT COUNT(*) FROM usage_log WHERE day < ?", (day,)).fetchone()[0]
             if not dry_run:
                 conn.execute("DELETE FROM usage_log WHERE day < ?", (day,))
@@ -119,12 +124,12 @@ def run_if_due(db_path=None, backup_dir=None, every_hours=24):
     last = conn.execute("SELECT ts FROM maintenance_log ORDER BY id DESC LIMIT 1").fetchone()
     conn.commit()
     conn.close()
-    if last and datetime.datetime.fromisoformat(last[0]) > datetime.datetime.now() - datetime.timedelta(hours=every_hours):
+    if last and datetime.datetime.fromisoformat(last[0]) > _utcnow() - datetime.timedelta(hours=every_hours):
         return None
     report = run(db_path, backup_dir)
     conn = sqlite3.connect(db_path or DB_PATH)
     conn.execute("INSERT INTO maintenance_log (ts, summary) VALUES (?, ?)",
-                 (datetime.datetime.now().isoformat(), str(report.get("pruned", report.get("stopped")))[:300]))
+                 (_utcnow().isoformat(), str(report.get("pruned", report.get("stopped")))[:300]))
     conn.commit()
     conn.close()
     return report
