@@ -538,7 +538,7 @@ CAPACITY_SUBJECTS = [
 
 
 def _capacity_subject(prompt):
-    if not _load('model_profile.json',{}).get('distinct_subjects'):
+    if not SIM_DIR or not _load('model_profile.json',{}).get('distinct_subjects'):
         return None
     low=prompt.casefold()
     named=next((entry for entry in CAPACITY_SUBJECTS if entry[1].casefold() in low),None)
@@ -606,7 +606,7 @@ def fake_llm_reply(prompt):
             "Side project expense log for hobby crafters who sell at weekend fairs",
             "Moving house budget checklist sheet for first-time renters"])
     if "qa checker" in low:
-        if _load("model_profile.json",{}).get("distinct_subjects"):
+        if SIM_DIR and _load("model_profile.json",{}).get("distinct_subjects"):
             import hashlib
             score=88+int(hashlib.sha256(prompt.encode()).hexdigest()[:4],16)%9
             return "qa",json.dumps({"score":score,"verdict":"pass","issues":[]})

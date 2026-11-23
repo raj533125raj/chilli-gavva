@@ -75,3 +75,10 @@ CXAE-1 baseline and part 1
 Baseline 24-cycle/72-hour replay: 4, 5, 5 ready; 0 failed runs. Found proposals and owner-only duplicate/revision drafts occupying the automatic work limit. Corrected automatic-lane counts while preserving pending owner decisions, duplicate/Checker/limit/pause gates. Added an opt-in healthy-model replay with six distinct real workbook table structures and varied provider reviews; default broken/duplicate replay remains unchanged.
 Ran 169 tests in 7.249s
 OK
+
+CXAE-1 final 72-hour / 24-cycle healthy-model replay
+Day 1: 4/8 READY upload kits; preferred niches 4; formats {'sheets': 1, 'planner': 1, 'notion': 1, 'resume': 1}
+Day 2: 8/8 READY upload kits; preferred niches 8; formats {'sheets': 3, 'planner': 3, 'notion': 1, 'resume': 1}
+Day 3: 9/8 READY upload kits; preferred niches 8; formats {'sheets': 3, 'planner': 3, 'notion': 1, 'resume': 1, 'dated_planner': 1}
+Failed runs: 0; captured errors: 0; owner commands: 0; temporary simulation removed.
+CAPACITY: PASS

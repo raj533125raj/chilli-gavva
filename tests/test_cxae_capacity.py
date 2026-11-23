@@ -70,3 +70,9 @@ class DraftCapacityTests(unittest.TestCase):
             specs=[world._capacity_spec(subject) for subject in world.CAPACITY_SUBJECTS]
         self.assertEqual(len({tuple(tab['name'] for tab in spec['sheets']) for spec in specs}),6)
         self.assertTrue(all(len(spec['sheets'])==3 for spec in specs))
+
+    def test_capacity_profile_never_reads_from_current_directory(self):
+        from tools import robot_sim_world as world
+        with mock.patch.object(world,'SIM_DIR',''),mock.patch.object(world,'_load',side_effect=AssertionError('No relative reads')):
+            self.assertIsNone(world._capacity_subject('irregular-income'))
+            self.assertEqual(__import__('json').loads(world.fake_llm_reply('You are the QA Checker')[1])['score'],88)
