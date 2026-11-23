@@ -131,6 +131,14 @@ def _send_handoff(pack_id, pack, ctx):
         for name in gumroad_handoff.FILES:
             if sender(str(folder/name),caption="Gumroad hand-upload: "+name) is False:
                 return _reply("Pack #"+str(pack_id)+" lo "+name+" send avvaledu; /upload "+str(pack_id)+" malli try cheyandi.",ctx)
+        import selltest_listings
+        variants=selltest_listings.write(pack_id,pack,folder,ctx.get('db_path'))
+        if variants is not None:
+            if sender(str(variants),caption='Sell test Title A, Title B, Description, files, Tags copy cheyandi') is False:
+                return _reply('Listing copy send avvaledu. Next: /upload '+str(pack_id)+' malli pampandi.',ctx)
+            copy=selltest_listings.make(pack)
+            _reply('Title A: '+copy['A']+'\nTitle B: '+copy['B']+
+                   '\nSell test kosam listing-ab.txt fields copy cheyandi. Day 7: /selltest swap-title '+str(pack_id),ctx)
         return _reply("Pack #"+str(pack_id)+" Gumroad files oke folder lo ready: "+str(folder)+
                       "\nBuyer ZIP, Cover, Thumbnail, 3 Previews, listing.txt pampanu. Gumroad lo files meere drag-and-drop cheyandi. "
                       "Price meere set chesi Publish meere click cheyandi.",ctx)

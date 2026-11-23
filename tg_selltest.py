@@ -34,6 +34,10 @@ def handle(text,ctx):
         elif len(args)==6 and args[0]=='stats' and args[2]=='views' and args[4]=='sales' and all(re.fullmatch(r'\d{1,9}',args[i]) for i in (1,3,5)):
             day = selltest.save_stats(int(args[1]),int(args[3]),int(args[5]),db,now)
             return {'text':f"Pack #{args[1]} {day} totals save chesanu. Malli pampithe ee roju totals replace avuthayi.\n"+selltest.report_block(db,now,products)}
+        elif len(args)==2 and args[0]=='swap-title' and re.fullmatch(r'\d{1,9}',args[1]):
+            copy=selltest.swap_title(int(args[1]),db,products,now)
+            return {'text':'Title B enchukunnaru: '+copy['B']+
+                    '\nGumroad Name field lo meere replace chesi save cheyandi.\nNext: /upload '+args[1]+' lo updated listing-ab.txt chudandi.'}
         elif args == ['list']:
             run = selltest.active(db)
             if not run:
@@ -46,7 +50,10 @@ def handle(text,ctx):
         if not args or args[0]=='swap':
             import free_sample
             prepared=free_sample.ensure_all(products,db)
+            import selltest_listings
+            copies=selltest_listings.ensure_all(products,db)
             sample_note=f"Free samples {sum(prepared.values())}/{len(prepared)} ready; /upload N sample pampandi."
+            sample_note+=f" Listing copy {sum(not value.startswith('Blocked:') for value in copies.values())}/{len(copies)} ready."
             import post_planner
             post_planner.refresh_ready_plan(selltest.products_root(products),now=now,db_path=db)
         lines = selltest.plan_text(run,now).splitlines()

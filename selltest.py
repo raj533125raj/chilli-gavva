@@ -236,3 +236,29 @@ def review_block(db_path=None, now=None):
         lines.append(f"#{p['id']} {p['action']}: {p['views']} Views, {p['sales']} Sales; {p['reason']} Missing days {p['missing_days']}.")
     lines.append('Next: Meeru decide cheyandi; /selltest list lo Packs chudandi.')
     return '\n'.join(lines)
+
+
+def title_variant(aid, db_path=None):
+    path=Path(_db(db_path))
+    if not path.is_file():return 'A'
+    with closing(sqlite3.connect(path)) as conn:
+        if not conn.execute("SELECT 1 FROM sqlite_master WHERE name='sell_test_titles'").fetchone():return 'A'
+        row=conn.execute('SELECT variant FROM sell_test_titles WHERE approval_id=?',(aid,)).fetchone()
+    return row[0] if row else 'A'
+
+
+def swap_title(aid,db_path=None,products_dir=None,now=None):
+    """Save the owner's choice of B from day seven; the owner updates the store."""
+    import selltest_listings
+    run=active(db_path)
+    if not run or not 7<=day_number(run,now)<=DAYS:raise ValueError('Day 7 nunchi day 14 lopala Title B enchukondi.')
+    pack=next((p for p in run['packs'] if p['id']==aid),None)
+    if pack is None:raise ValueError('Ee Pack active Sell test lo ledu.')
+    if Path(pack['folder']).name!=pack['folder']:raise ValueError('Invalid Pack folder')
+    folder=products_root(products_dir)/'upload'/pack['folder']
+    copy=selltest_listings.make(folder,pack['format'])
+    with _connect(db_path) as conn:
+        conn.execute("CREATE TABLE IF NOT EXISTS sell_test_titles (approval_id INTEGER PRIMARY KEY, variant TEXT NOT NULL CHECK(variant IN ('A','B')))")
+        conn.execute("INSERT INTO sell_test_titles VALUES(?,'B') ON CONFLICT(approval_id) DO UPDATE SET variant='B'",(aid,))
+    selltest_listings.write(aid,folder,folder/'gumroad-upload',db_path)
+    return copy

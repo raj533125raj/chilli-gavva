@@ -58,3 +58,8 @@ wall_art | 6 pages | 3 previews | 0 flags
 Ran 149 tests in 152.943s
 OK
 Writing rules in Calm Sage darkened for reduced previews and print readability; thresholds unchanged. Reviewed new A4 cover/body and Letter instruction renders.
+
+CXAD-1
+Ran 32 tests in 99.636s
+OK
+All nineteen real buyer archives: both titles pass the unchanged listing gate; file lists match archive entries. Real plugin loader sends the A/B document; day-seven B choice persists; buyer ZIP stays identical.
