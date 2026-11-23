@@ -7,8 +7,8 @@ import selltest
 PRIORITY = 30
 
 COMMANDS = [{'cmd':'/selltest','words':['selltest'], 'category':'Sell',
-             'help_en':'Start or list the 14-day test; swap packs with /selltest swap A B',
-             'help_te':'14-day Sell test Packs enchukondi; /selltest list leda /selltest swap A B pampandi.'}]
+             'help_en':'Owner steps: /selltest help; start or list the 14-day test',
+             'help_te':'14-day steps kosam /selltest help; Packs kosam /selltest list pampandi.'}]
 
 
 def handle(text,ctx):
@@ -23,7 +23,9 @@ def handle(text,ctx):
     db = ctx.get('db_path'); products = ctx.get('products_dir'); now = ctx.get('now')
     args = [w.lower() for w in words[1:]]
     try:
-        if not args:
+        if args == ['help']:
+            return {'text':selltest.help_text()}
+        elif not args:
             run = selltest.start(db,products,now)
         elif len(words)==4 and args[0]=='sample' and re.fullmatch(r'\d{1,9}',args[1]):
             import free_sample

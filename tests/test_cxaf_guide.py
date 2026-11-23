@@ -51,3 +51,21 @@ class GuideTests(unittest.TestCase):
                             plugins=[tg_selltest,tg_upload,tg_listed,tg_posts])
                         self.assertTrue(handled)
                         self.assertNotIn('Command sarigga',str(reply))
+
+
+class HelpTests(unittest.TestCase):
+    def test_help_routes_matches_guide_and_does_not_start_an_experiment(self):
+        import telegram_inbox,tg_selltest
+        with tempfile.TemporaryDirectory() as temp:
+            db=str(Path(temp)/'owner.db')
+            ctx={'db_path':db,'chat_id':CHAT,'now':NOW,'products_dir':temp}
+            with mock.patch.dict(os.environ,{'TELEGRAM_CHAT_ID':CHAT}), \
+                    mock.patch.object(selltest,'start',side_effect=AssertionError('Help must not start')), \
+                    mock.patch.object(telegram_inbox,'build_plugin_ctx',return_value=ctx):
+                handled,reply=telegram_inbox.call_plugins('/selltest help','unused',CHAT,db_path=db,now=NOW,plugins=[tg_selltest])
+                self.assertTrue(handled)
+                self.assertEqual(reply['text'],selltest.help_text())
+                self.assertLessEqual(len(reply['text'].splitlines()),15)
+                self.assertTrue(reply['text'].splitlines()[-1].startswith('Next:'))
+                self.assertIsNone(tg_selltest.handle('/selltest help',dict(ctx,chat_id='other')))
+            self.assertIsNone(selltest.active(db))
