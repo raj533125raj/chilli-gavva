@@ -2671,6 +2671,10 @@ def send_morning_post_plan(token, owner_chat_id, db_path=None, now=None, plan_pa
     if ist_hour < 8 or ist_hour >= 22:
         return False
 
+    import selltest
+    run = selltest.active(db_path)
+    if run and 1 <= selltest.day_number(run, now_dt) <= selltest.DAYS:
+        return False  # The single sell-test checklist includes today's posting steps.
     last_sent_date = get_state("last_morning_post_date", None, db_path)
     if last_sent_date == ist_date_str:
         return False
@@ -2716,8 +2720,15 @@ def send_morning_sell_card(token, owner_chat_id, db_path=None, now=None):
     ist_date_str = ist_dt.date().isoformat()
     if get_state(MORNING_SELL_CARD_STATE, None, db_path) == ist_date_str:
         return False
-    import tg_talk
+    import selltest_today
     ctx = build_plugin_ctx(token, owner_chat_id, db_path=db_path, now=now_dt)
+    today = selltest_today.checklist(db_path, ctx.get('products_dir'), now_dt)
+    if today:
+        if not send_text(token, owner_chat_id, today):
+            return False
+        set_state(MORNING_SELL_CARD_STATE, ist_date_str, db_path)
+        return True
+    import tg_talk
     data = tg_talk.sell_card_data(ctx)
     if not data["has_work"]:
         set_state(MORNING_SELL_CARD_STATE, ist_date_str, db_path)      # looked today; stay quiet

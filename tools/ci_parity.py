@@ -96,6 +96,7 @@ def run_checked(cmd, env, cwd, log):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--workspace', default='/private/tmp/chilli-ci-parity')
+    parser.add_argument('--modules', nargs='+', help='Focused unittest modules; always includes the three guards')
     args = parser.parse_args(argv)
     work = Path(args.workspace).resolve()
     try:
@@ -118,6 +119,13 @@ def main(argv=None):
         env = clean_env(work, hosted)
         subprocess.run([str(hosted), '-c', 'import PIL, mockups, sys; assert mockups.available(); assert "hostedtoolcache" in sys.executable; print(sys.executable, "Pillow", PIL.__version__)'],
                        cwd=repo, env=env, check=True)
+        if args.modules:
+            modules = list(dict.fromkeys(args.modules + ['tests.test_r22_markdown_currency', 'tests.test_secret_guard', 'tests.test_autofix_control_copy']))
+            log = work / 'focused.log'
+            ok = run_checked([str(hosted), '-m', 'unittest', *modules], env, repo, log)
+            print('\n'.join(log.read_text().splitlines()[-18:]), flush=True)
+            print('CI PARITY FOCUSED: ' + ('PASS' if ok else 'FAIL'), flush=True)
+            return 0 if ok else 1
         ok = run_checked([str(hosted), 'tools/run_tests_chunked.py', '--jobs', '4'], env, repo, work / 'full.log')
         print('\n'.join((work / 'full.log').read_text().splitlines()[-18:]), flush=True)
         modules = sensitive_modules(repo)
