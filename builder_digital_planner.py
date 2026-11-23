@@ -8,6 +8,7 @@ No stock images, no currency amounts, no network.
 
 from __future__ import annotations
 
+import calendar
 import hashlib
 import json
 import re
@@ -151,7 +152,7 @@ class LinkPdf:
 
     def text(self, x, y, s: str, size: float = 10, bold: bool = False, color: str = COL["ink"]):
         font = "/F2" if bold else "/F1"
-        self._ops.append(f"BT {_c(color)} {font} {size:.2f} Tf {x:.2f} {y:.2f} Td ({_pdf_escape(s)}) Tj ET 0 g")
+        self._ops.append(f"{_c(color)}\nBT {font} {size:.2f} Tf {x:.2f} {y:.2f} Td ({_pdf_escape(s)}) Tj ET\n0 g")
 
     def text_center(self, cx, y, s: str, size: float = 10, bold: bool = False, color: str = COL["ink"]):
         # rough centering with Helvetica average width
@@ -299,8 +300,8 @@ def _draw_month(pdf: LinkPdf, norm: Dict[str, Any], month_idx: int, targets: Dic
     _draw_tabs(pdf, targets, active=f"month:{month_idx}")
     left = MARGIN
     top = pdf.h - 100
-    # calendar grid placeholder (undated structure)
-    pdf.text(left, top + 10, "Monthly planner (undated) — use with any note app.", 10, color=COL["muted"])
+    # Calendar dates follow the selected year; weekly and daily note pages stay undated.
+    pdf.text(left, top + 10, "Monthly calendar - use with any PDF notes app.", 10, color=COL["muted"])
     grid_w = (pdf.w - TAB_W - 24 - 2 * MARGIN) * 0.68
     grid_h = pdf.h - 170
     cell_w = grid_w / 7
@@ -311,12 +312,15 @@ def _draw_month(pdf: LinkPdf, norm: Dict[str, Any], month_idx: int, targets: Dic
         pdf.fill(gx + i * cell_w, gy + grid_h - 24, cell_w, 24, COL["soft"])
         pdf.rect(gx + i * cell_w, gy + grid_h - 24, cell_w, 24, COL["line"], 0.6)
         pdf.text(gx + i * cell_w + 8, gy + grid_h - 17, wd, 9, bold=True, color=COL["accent"])
+    first_weekday, days_in_month = calendar.monthrange(norm["year"], month_idx + 1)
     for r in range(6):
         for c in range(7):
             x = gx + c * cell_w
             y = gy + (5 - r) * cell_h
             pdf.rect(x, y, cell_w, cell_h, COL["line"], 0.5)
-            pdf.text(x + 6, y + cell_h - 14, str(r * 7 + c + 1), 8, color=COL["muted"])
+            day = r * 7 + c - first_weekday + 1
+            if 1 <= day <= days_in_month:
+                pdf.text(x + 6, y + cell_h - 14, str(day), 8, color=COL["muted"])
     # right panel links
     px = left + grid_w + 18
     pw = pdf.w - TAB_W - 24 - px - 8

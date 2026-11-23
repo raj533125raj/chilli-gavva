@@ -50,6 +50,10 @@ TYPES = {
                  ["art_01_a4.png", "art_02_a4.png", "wall_art_set.pdf", "PRINTING.txt"], "Excel spreadsheet version"),
 }
 TYPES.update({
+    "digital_planner": ("Digital Planner With Month Tabs", "digital planner, tablet planner, month tabs",
+        ["digital_planner.pdf", "README.txt", "LICENSE.txt"], "Excel spreadsheet version"),
+    "biz_sheets": ("Small Business Spreadsheet Workbook", "small business spreadsheet, order tracker spreadsheet, inventory spreadsheet",
+        ["biz_sheets.xlsx", "Orders.csv", "README.txt", "LICENSE.txt"], "Printable PDF version"),
     'teacher_planner': ('Teacher Planner Printable', 'teacher planner, lesson planner, printable',
         ['teacher_planner_a4.pdf', 'teacher_planner_letter.pdf', "README.txt"], "Word document version"),
     'fitness_planner': ('Fitness Planner Printable', 'fitness planner, workout planner, printable',

@@ -508,6 +508,10 @@ def _monthly_summary_page(pdf: Any, norm: Dict[str, Any]) -> None:
         if y < 90:
             break
 
+    while y >= 80:
+        pdf.line(left, y, right, y, color=_col("line"), width=0.6)
+        y -= 22
+
 
 def _stretch_mobility_page(pdf: Any, norm: Dict[str, Any]) -> None:
     _heading(pdf, "Stretch & Mobility Log", "Track warm-up, stretching, and recovery sessions.")

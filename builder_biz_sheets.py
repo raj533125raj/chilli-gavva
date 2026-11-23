@@ -139,7 +139,7 @@ def _readme(norm: Dict[str, Any]) -> str:
         "HOW TO OPEN",
         "1. Open the .xlsx file in Microsoft Excel or Google Sheets.",
         "2. In Google Sheets, choose File, Import, and upload the workbook.",
-        "3. Type in the blue and white entry cells.",
+        "3. Type dates as real spreadsheet dates in the white entry cells.",
         "4. Keep formula cells grey and let the workbook calculate.",
         "5. Use the CSV files if you need one tab at a time.",
         "",
@@ -232,7 +232,7 @@ def build(spec: Dict[str, Any], out_dir: Union[str, Path]) -> List[str]:
             Workbook.put(sheet, row, 2, None, 0,
                          f'=SUMIFS(Orders!F$2:F$101,Orders!A$2:A$101,">="&DATE(2027,{month_index},1),Orders!A$2:A$101,"<"&EDATE(DATE(2027,{month_index},1),1))')
             Workbook.put(sheet, row, 3, None, 0,
-                         f'=SUMIFS(Orders!G$2:G$101,Orders!A$2:A$101,">="&DATE(2027,{month_index},1),Orders!A$2:A$101,"<"&EDATE(DATE(2027,{month_index},1),1))')
+                         f'=SUMIFS(Orders!G$2:G$101,Orders!A$2:A$101,">="&DATE(2027,{month_index},1),Orders!A$2:A$101,"<"&EDATE(DATE(2027,{month_index},1),1))+SUMIFS(Expenses!D$2:D$101,Expenses!A$2:A$101,">="&DATE(2027,{month_index},1),Expenses!A$2:A$101,"<"&EDATE(DATE(2027,{month_index},1),1))')
             Workbook.put(sheet, row, 4, None, 0, f'=C{row}-D{row}')
         _add_csv(temp_dir / "Monthly_Summary.csv", summary_headers,
                  [[month_name, "", "", "", ""] for month_name in month_names], "Monthly Summary")

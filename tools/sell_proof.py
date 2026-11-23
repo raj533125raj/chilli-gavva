@@ -140,6 +140,8 @@ def builtin_specs() -> Dict[str, tuple]:
 
 
 CUSTOM_SPECS = {
+    "digital_planner": _custom("digital_planner", "Tablet PDF Planner with Month Tabs", "digital-planner", year=2027, instructions=["Import the PDF into a tablet notes app and tap the month tabs. The weekly and daily pages are undated."]),
+    "biz_sheets": _custom("biz_sheets", "Small Business Order and Profit Workbook", "business-workbook"),
     "event_planner": _custom("event_planner", "Indian Wedding Planner Printable", "wedding-planner",
                              event_type="wedding", edition="indian"),
     "flashcards": _custom("flashcards", "Alphabet Flashcards for Kids", "alphabet-flashcards", topic="alphabet"),

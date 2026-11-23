@@ -611,6 +611,16 @@ GUMROAD_TYPES: Dict[str, Dict[str, Any]] = {
         "audience": ['Families organizing age appropriate chores', 'Parents tracking routines and rewards together with children'],
         "tags": ['kids chore chart', 'reward chart', 'chore tracker', 'kids routine', 'family chores', 'printable rewards', 'routine chart', 'chore planner'],
     },
+    "digital_planner": {
+        "label": "hyperlinked digital planner",
+        "audience": ["People planning on a tablet with a PDF notes app", "Anyone wanting clickable month and index tabs"],
+        "tags": ["digital planner", "hyperlinked planner", "tablet planner", "monthly planner", "digital journal", "weekly planner", "pdf planner", "year planner"],
+    },
+    "biz_sheets": {
+        "label": "small business workbook",
+        "audience": ["Small business owners tracking orders and inventory", "Shop owners reviewing expenses and monthly profit"],
+        "tags": ["business spreadsheet", "order tracker", "inventory spreadsheet", "profit workbook", "small business", "expense tracker", "customer tracker", "shop workbook"],
+    },
     "digital_pack": {
         "label": "digital download",
         "audience": ["Anyone who wants ready-made files to download and use",
@@ -627,6 +637,8 @@ _SHEET_EXTS, _DOC_EXTS, _TEXT_EXTS = {".xlsx", ".xls"}, {".docx", ".doc"}, {".md
 _TYPE_NEEDS = {
     **{kind: {_PDF_EXT} for kind in ("teacher_planner", "fitness_planner", "baby_tracker",
                                     "small_business_log", "kids_chore_reward")},
+    "digital_planner": {_PDF_EXT},
+    "biz_sheets": _SHEET_EXTS,
     "sheets": _SHEET_EXTS | {".csv"},
     "notion": {".md", ".csv", ".zip"},
     "resume": _DOC_EXTS | {_PDF_EXT},

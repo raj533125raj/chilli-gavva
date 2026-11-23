@@ -405,7 +405,7 @@ def _sanitize_text(text, spec, facts=None):
     text = re.sub(r"\bfillable\b", "printable", text, flags=re.I)
     text = re.sub(r"\beditable pdf\b", "printable PDF", text, flags=re.I)
     text = re.sub(r"\btype (?:on|into) the pdf\b", "write on the printed PDF", text, flags=re.I)
-    text = re.sub(r"\bhyperlinks?|hyperlinked|clickable\b", "printable", text, flags=re.I)
+    text = re.sub(r"\b(?:hyperlinked|hyperlinks?|clickable)\b", "printable", text, flags=re.I)
 
     text = re.sub(r"\bstickers?\b", "labels", text, flags=re.I)
     text = re.sub(r"\bgoodnotes\b|\bnotability\b|\btablet version\b", "printable version", text, flags=re.I)
@@ -1162,6 +1162,13 @@ def _proof_lines(folder, facts, counts):
         n = min(counts)
         lines.append(f"{n} printable pages in every PDF" if len(set(counts)) == 1
                      else f"At least {n} printable pages in every PDF")
+    if counts and not set(facts.get("pdf_sizes", [])) & {"A4", "Letter"}:
+        for title in facts.get("titles", []):
+            if re.fullmatch(r"[A-Z][A-Za-z0-9 &-]{2,55}", title) and not re.search(r"planner|hyperlink|digital", title, re.I):
+                title = re.sub(r"\s+\d.*", "", title).strip()
+                lines.append(f"{title} page included")
+                if len(lines) >= 3:
+                    break
     sheets = list(facts.get("sheets") or [])
     if sheets and len(sheets) <= 99:
         named = [name for name in (_plain_tab_name(tab, facts.get("kind")) for tab in sheets) if name]
