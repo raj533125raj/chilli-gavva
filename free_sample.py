@@ -82,7 +82,10 @@ def build(aid,products_dir=None,db_path=None):
     evaluation=sell_ready.evaluate_pack(upload,products/'marketing')
     if evaluation['status'] not in ('SELLABLE','ALMOST'):raise ValueError('Full Pack is not READY')
     listed=tg_listed.get_listed(aid,db_path);link=listed['url'] if listed else ''
-    fingerprint=hashlib.sha256((pack['title']+link).encode())
+    import selltest_listings
+    full_copy=selltest_listings.make(upload,pack['format'])
+    full_title=full_copy[selltest.title_variant(aid,db_path)]
+    fingerprint=hashlib.sha256(('sample-copy-v2'+full_title+link).encode())
     for path in sorted(source.iterdir()):
         if path.is_file() and not path.is_symlink() and path.suffix.lower() in ('.pdf','.xlsx','.docx','.html'):
             fingerprint.update(path.name.encode());fingerprint.update(path.read_bytes())
@@ -98,8 +101,8 @@ def build(aid,products_dir=None,db_path=None):
     destination.parent.mkdir(parents=True,exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='.free-sample-',dir=destination.parent) as temp:
         stage=Path(temp)/'kit';stage.mkdir()
-        provenance=sample_pdf.make(source,stage/'sample.pdf',pack['title'],link)
-        (stage/'README.txt').write_text('FREE SAMPLE\n'+pack['title']+'\nThree real content previews and a full-version page.\nOriginal PDF page numbering is preserved where present.\nFull version: '+pack['title']+'\n'+link+'\nPersonal use only.\n')
+        provenance=sample_pdf.make(source,stage/'sample.pdf',full_title,link)
+        (stage/'README.txt').write_text('FREE SAMPLE\n'+pack['title']+'\nThree real content previews and a full-version page.\nOriginal PDF page numbering is preserved where present.\nFull version: '+full_title+'\n'+link+'\nPersonal use only.\n')
         (stage/'LICENSE.txt').write_text('Personal use only. Do not resell or redistribute.\n')
         with zipfile.ZipFile(stage/'product.zip','w',zipfile.ZIP_DEFLATED) as archive:
             for filename in ('sample.pdf','README.txt','LICENSE.txt'):archive.write(stage/filename,filename)
@@ -110,14 +113,17 @@ def build(aid,products_dir=None,db_path=None):
             draw.text((40,22),'FREE SAMPLE - '+pack['title'][:52],fill='white',font=mockups.font('bold',26))
             cover.save(stage/'cover.png','PNG');ImageOps.fit(cover,(600,600)).save(stage/'thumbnail.png','PNG')
         title=('Free sample: '+pack['title'][:43]+' - Preview PDF')[:80]
-        description=('Try three real content pages from '+pack['title']+'. This free sample contains a four-page PDF: '
+        description=('Not sure whether this layout fits your needs? Try three real content pages from '+pack['title']+'. This free sample contains a four-page PDF: '
                      'three product content previews followed by a page naming the full version. Download and unzip the files, '
                      'open sample.pdf in a PDF reader, and read the included guide. Workbook and HTML products are shown as rendered '
                      'previews of their actual content. The full product is separate. Personal use only; do not resell or share. '
                      'PDF page count: 4. Download size '+str(max(1,(stage/'product.zip').stat().st_size//1024))+' KB.')
+        description+=' Get the full pack, '+full_title+', from the same shop for the complete files.'
+        description+=(' Open the Full version page in sample.pdf for the full-pack link.' if link else
+                      ' Look for that full-pack title in this shop; this sample contains previews only.')
         listing='Title: '+title+'\n\nDescription:\n'+description+'\n\nWhat you get:\n- sample.pdf\n- README.txt\n- LICENSE.txt\n\nHow to use:\nDownload, unzip and open the PDF.\n\nLicense:\nPersonal use only.\n\nTags: free sample, pdf preview, sample pages, digital download\n'
         (stage/'listing.txt').write_text(listing)
-        (stage/'sample.json').write_text(json.dumps({'free_sample':True,'full_pack_id':aid,'source_digest':digest,'source_pages':provenance},indent=2))
+        (stage/'sample.json').write_text(json.dumps({'free_sample':True,'full_pack_id':aid,'full_pack_title':full_title,'source_digest':digest,'source_pages':provenance},indent=2))
         validate(stage)
         backup=Path(temp)/'previous'
         if destination.exists():os.replace(destination,backup)

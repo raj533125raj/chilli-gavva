@@ -63,3 +63,10 @@ CXAD-1
 Ran 32 tests in 99.636s
 OK
 All nineteen real buyer archives: both titles pass the unchanged listing gate; file lists match archive entries. Real plugin loader sends the A/B document; day-seven B choice persists; buyer ZIP stays identical.
+
+CXAD-2
+Ran 19 tests in 104.469s
+OK
+Final copy/README checks and guards: Ran 16 tests in 8.041s
+OK
+All nineteen sample formats pass the original listing gate. Copy names the real paid title; saved paid URLs appear on the Full version page and README. Missing links are described honestly; link/title changes invalidate cached samples.
