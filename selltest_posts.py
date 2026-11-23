@@ -19,6 +19,8 @@ def _assets(products, packs, links, now, sample_ids=()):
         link=links.get(pack['id'])
         if not link:
             continue
+        from selltest_site import tracked_link
+        link=tracked_link(link,'pinterest')
         source=products/('samples' if pack['id'] in sample_ids else 'upload')/pack['folder']
         target=products/'marketing'/pack['folder']
         if not source.is_dir() or source.is_symlink():
@@ -45,6 +47,7 @@ def build(products_dir, run, old_plan, db_path=None, now=None):
     import free_sample
     sample_links=free_sample.links(db_path)
     links.update(sample_links)
+    from selltest_site import tracked_link
     packs=run['packs']; _assets(products,packs,links,now,sample_links)
     assets=planner.ready_items(products)
     groups={}
@@ -85,7 +88,7 @@ def build(products_dir, run, old_plan, db_path=None, now=None):
                     base='Free sample: '+base
                 title=planner.clean_caption(base+': '+HOOKS[occurrence%len(HOOKS)],100)
                 item.update(row);row=item
-                row.update(title=title,caption_short=title,link=link)
+                row.update(title=title,caption_short=title,link=tracked_link(link,'pinterest') if channel=='pinterest' else link)
                 if channel=='carousel':
                     row['caption']=title+'\nLink: '+link
             plan.append(row)

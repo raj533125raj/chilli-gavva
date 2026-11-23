@@ -40,7 +40,7 @@ class SellPlanTests(unittest.TestCase):
         self.assertLessEqual(max(sum(p['pack_id']==f for p in pins) for f in {p['pack_id'] for p in pins}),6)
         for row in plan:
             index=next(i for i,p in enumerate(self.packs) if p['folder']==row['pack_id'])
-            self.assertEqual(row['link'],'https://example.gumroad.com/l/focus-'+str(index))
+            self.assertEqual(row['link'],'https://example.gumroad.com/l/focus-'+str(index)+('?utm_source=pinterest&utm_campaign=selltest' if row['channel']=='pinterest' else ''))
             self.assertTrue(Path(row['asset']).is_file())
         self.assertTrue(post_planner.mark_posted(plan,date=NOW.date(),n=1,now=NOW))
         post_planner.save_plan(plan,post_planner.plan_path_for(self.products))
@@ -64,4 +64,4 @@ class SellPlanTests(unittest.TestCase):
         self.assertTrue(handled);self.assertTrue(any('first /listed' in t for t in texts))
         self.assertEqual(len(photos),2)
         tg_listed.set_listed(aid,'https://example.gumroad.com/l/relinked',self.db,NOW)
-        self.assertEqual(self.refresh()[0]['link'],'https://example.gumroad.com/l/relinked')
+        self.assertEqual(self.refresh()[0]['link'],'https://example.gumroad.com/l/relinked?utm_source=pinterest&utm_campaign=selltest')

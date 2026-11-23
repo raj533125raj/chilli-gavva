@@ -62,7 +62,7 @@ def connect(db_path=None):
     return conn
 
 
-def build(db_path=None, site_dir=None):
+def build(db_path=None, site_dir=None, products_dir=None):
     site_dir = site_dir or SITE_DIR
     os.makedirs(site_dir, exist_ok=True)
     conn = connect(db_path)
@@ -83,11 +83,13 @@ def build(db_path=None, site_dir=None):
     conn.commit()
     pages = conn.execute("SELECT slug FROM site_pages ORDER BY approval_id").fetchall()
     conn.close()
-    if pages:
-        items = "\n".join(f'<li><a href="{html.escape(s)}/">{html.escape(s)}</a></li>' for (s,) in pages)
-        with open(os.path.join(site_dir, "index.html"), "w", encoding="utf-8") as f:
-            f.write(PAGE.format(title="Pages", body=f"<h1>Pages</h1>\n<ul>\n{items}\n</ul>"))
-    return built
+    import selltest_site
+    landing = selltest_site.build_approved(db_path, site_dir, products_dir)
+    all_slugs = [s for (s,) in pages] + landing
+    items = '\n'.join(f'<li><a href="{html.escape(s)}/">{html.escape(s)}</a></li>' for s in all_slugs)
+    with open(os.path.join(site_dir, "index.html"), "w", encoding="utf-8") as stream:
+        stream.write(PAGE.format(title="Pages", body="<h1>Pages</h1><ul>"+items+"</ul>"))
+    return built + landing
 
 
 if __name__ == "__main__":

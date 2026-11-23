@@ -79,7 +79,7 @@ class SampleTests(unittest.TestCase):
             self.assertEqual(tg_listed.get_listed(aid,db)['url'],'https://example.gumroad.com/l/full-pack')
             import selltest_posts
             plan=selltest_posts.build(products,selltest.active(db),[],db,NOW)
-            self.assertTrue(all(p.get('link')=='https://example.gumroad.com/l/free-sample' for p in plan))
+            self.assertTrue(all(p.get('link')=='https://example.gumroad.com/l/free-sample'+('?utm_source=pinterest&utm_campaign=selltest' if p['channel']=='pinterest' else '') for p in plan))
             self.assertTrue(all(p.get('title','').startswith('Free sample:') for p in plan))
             with self.assertRaises(ValueError):free_sample.set_link(aid,'https://example.com/bad',db)
 
