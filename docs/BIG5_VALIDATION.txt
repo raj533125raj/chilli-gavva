@@ -87,3 +87,19 @@ CXAE-2
 Ran 39 tests in 13.911s
 OK
 Daily report target uses approved, gated, complete kits; missing/corrupt kits and failed/held database states do not count. Blockers name kit files, checker revisions, policy limits or required drafts. Rejected/orphan records do not inflate blockers.
+
+CXAG-1 final GitHub twin validation
+Total tests run: 8835 | Failures: 0 | Errors: 0 | Skipped: 18 | Time: 730.19s
+Last 5 full-suite lines:
+   76.17s - chunk_25_test_ccb1_theme_images
+   73.21s - chunk_192_test_occ_sell_flow_e2e
+----------------------------------------------------------------------
+RESULT: PASSED
+======================================================================
+UTC 19:45, 86 clock-sensitive modules: Ran 2348 tests; failures=0; errors=0; skipped=7 | OK
+UTC 01:15, 86 clock-sensitive modules: Ran 2348 tests; failures=0; errors=0; skipped=7 | OK
+UTC 07:00, 86 clock-sensitive modules: Ran 2348 tests; failures=0; errors=0; skipped=7 | OK
+CI PARITY: PASS
+Tracked .jobs files: 0
+Protected data/lock files changed: 0
+No push. One persistent test checkout: /private/tmp/chilli-ci-parity/repo.
