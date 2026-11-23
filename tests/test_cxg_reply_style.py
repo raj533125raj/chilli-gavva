@@ -79,7 +79,8 @@ class EveryOwnedCommandTests(ReplyStyleFixture, unittest.TestCase):
     def test_discovery_covers_every_owned_handler(self):
         discovered = {plugin.__name__ for plugin in ti.discover_plugins()}
         self.assertEqual(discovered - EXCLUDED, {plugin.__name__ for plugin in OWNED})
-        self.assertEqual(len(OWNED), 17)
+        self.assertEqual(len(OWNED), 18)
+        self.assertIn("tg_selltest", {plugin.__name__ for plugin in OWNED})
 
 
 for plugin in OWNED:
