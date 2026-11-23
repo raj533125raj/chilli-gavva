@@ -21,10 +21,16 @@ class PageParser(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.tags = []; self.refs = []; self.stack = []
         self.feed(text); self.close()
+        if self.stack: raise ValueError('Unclosed HTML tags: '+str(self.stack))
     def handle_starttag(self, tag, attrs):
         self.tags.append((tag, dict(attrs)))
+        if tag not in ('area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr'):
+            self.stack.append(tag)
         for key, value in attrs:
             if key in ('href', 'src'): self.refs.append(value)
+
+    def handle_endtag(self, tag):
+        if not self.stack or self.stack.pop() != tag: raise ValueError('Unbalanced HTML: '+tag)
 
 
 @unittest.skipUnless(Image is not None, 'Pillow required')
@@ -56,9 +62,11 @@ class LandingTests(unittest.TestCase):
                 self.assertEqual(model['files'], sorted(n for n in archive.namelist() if not n.endswith('/')))
             for name in model['files']: self.assertIn(name, text)
             self.assertIn('Frequently', text)
+            readme = next(name for name in model['files'] if Path(name).name.lower().startswith('readme.'))
+            self.assertIn('Read '+readme, text)
             parser = PageParser(text)
             self.assertIn('h1', [tag for tag, _ in parser.tags])
-            links = [r for r in parser.refs if r.startswith('https:')]
+            links = [attrs['href'] for tag, attrs in parser.tags if tag == 'a' and attrs.get('href', '').startswith('https:')]
             self.assertTrue(links)
             self.assertTrue(all('utm_source=site' in link and 'utm_campaign=selltest' in link for link in links))
             for ref in parser.refs:
@@ -117,3 +125,44 @@ class LandingTests(unittest.TestCase):
         link = self.products/'unsafe'; link.symlink_to(self.site)
         with self.assertRaises(ValueError): pages.safe_path(self.products, 'unsafe/index.html')
         with self.assertRaises(ValueError): pages.public_check(chr(36)+str(9))
+
+    def test_sitemap_schema_and_open_graph_only_reference_approved_real_pages(self):
+        import re
+        import site_builder
+        import xml.etree.ElementTree as ET
+        pages.set_base('https://example.com/shop', self.db)
+        ids = self.drafts()
+        for aid in ids: guardrails.decide(aid, True, self.db)
+        slugs = site_builder.build(self.db, self.site, self.products)
+        urls = [element.text for element in ET.parse(self.site/'sitemap.xml').getroot().iter() if element.tag.endswith('}loc')]
+        self.assertEqual(set(urls), {'https://example.com/shop/'+slug+'/' for slug in slugs})
+        for slug in ('selltest-27-pack', 'selltest-27-sample'):
+            text = (self.site/slug/'index.html').read_text()
+            schema = json.loads(re.search(r'<script type="application/ld\+json">(.*?)</script>', text, re.S)[1])
+            self.assertEqual(schema['@type'], 'Product')
+            self.assertNotRegex(json.dumps(schema).lower(), r'price|currency|offers')
+            self.assertEqual(schema['url'], 'https://example.com/shop/'+slug+'/')
+            parser = PageParser(text)
+            og = next(attrs['content'] for tag, attrs in parser.tags if tag == 'meta' and attrs.get('property') == 'og:image')
+            self.assertEqual(og, schema['url']+'cover.png')
+            self.assertTrue((self.site/slug/'cover.png').is_file())
+            self.assertIn('rel="canonical"', text)
+        guardrails.decide(ids[1], False, self.db)  # already approved cannot silently change
+        self.assertIn('/sitemap.xml', (self.site/'robots.txt').read_text())
+        for unsafe in ('http://example.com', 'https://name@example.com', 'https://example.com/?key=private', 'https://example.com/../private'):
+            with self.assertRaises(ValueError): pages.set_base(unsafe, self.db)
+
+    def test_preview_renders_actual_html_content_and_loader_sends_png(self):
+        import telegram_inbox, tg_site
+        path = pages.preview(27, False, self.products, self.db)
+        with Image.open(path) as image:
+            image.load(); self.assertEqual(image.width, 900); self.assertGreater(image.height, 2000)
+            self.assertGreater(len(image.getcolors(image.width*image.height)), 100)
+        sent = []
+        ctx = {'db_path':self.db, 'products_dir':self.products, 'chat_id':CHAT, 'now':NOW,
+               'send_document':lambda p, caption='':sent.append((Path(p).name, Path(p).read_bytes())) or True}
+        with mock.patch.dict(os.environ, {'TELEGRAM_CHAT_ID':CHAT}), \
+             mock.patch.object(telegram_inbox, 'build_plugin_ctx', return_value=ctx):
+            handled, reply = telegram_inbox.call_plugins('/site preview 27 sample', 'unused', CHAT, db_path=self.db, plugins=[tg_site])
+        self.assertTrue(handled); self.assertTrue(reply['handled'])
+        self.assertTrue(sent[0][0].endswith('.png')); self.assertTrue(sent[0][1].startswith(b'\x89PNG'))

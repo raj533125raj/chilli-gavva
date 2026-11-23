@@ -84,14 +84,16 @@ def page_model(aid, sample=False, products_dir=None, db_path=None):
         if not files or any(Path(n).is_absolute() or '..' in Path(n).parts for n in files):
             raise ValueError('Buyer ZIP file list unsafe')
     images = ['cover.png', 'preview-1.png', 'preview-2.png', 'preview-3.png']
+    readme = next((name for name in files if Path(name).name.lower().startswith('readme.')), None)
+    how = 'Download the archive and unzip it.' + (' Read '+readme+' before opening your files.' if readme else ' Open the included files in a compatible viewer.')
     faq = [('What will I download?', 'The download contains: '+', '.join(files)+'.'),
-           ('How do I start?', 'Download the archive, unzip it and read README.txt before opening your files.'),
+           ('How do I start?', how),
            ('Can I share these files?', 'Personal use only. Do not resell or redistribute.'),
            ('Is this the complete pack?', 'This is a free preview sample. The full pack is a separate download.' if sample
             else 'This page describes the complete pack. Review the real previews and file list before choosing.')]
     return dict(title=title, description=description, tags=tags, files=files, images=images,
                 faq=faq, link=tracked_link(url, 'site') if url else '', sample=sample, pack_id=aid,
-                folder=pack['folder'])
+                folder=pack['folder'], url=base_url(db_path)+f"/selltest-{aid}-{'sample' if sample else 'pack'}/")
 
 
 def render(model):
@@ -103,6 +105,17 @@ def render(model):
     else:
         page = page.replace('<a href="[STORE LINK]" class="cta-btn">[STORE LINK]</a>',
                             '<p>Store link pending owner review.</p>')
+    import re
+    schema = {'@context':'https://schema.org', '@type':'Product', 'name':model['title'],
+              'description':landing_page.make_meta_description(model['description'], model['title']),
+              'url':model['url'], 'image':[model['url']+name for name in model['images']]}
+    schema_json = json.dumps(schema).replace('<', '\\u003c').replace('>', '\\u003e')
+    page = re.sub(r'<script type="application/ld\+json">.*?</script>', '', page, flags=re.S)
+    page = page.replace('content="./index.html"', 'content="'+html.escape(model['url'], quote=True)+'"')
+    page = page.replace('property="og:image" content="cover.png"',
+                        'property="og:image" content="'+html.escape(model['url']+'cover.png', quote=True)+'"')
+    page = page.replace('</head>', '<link rel="canonical" href="'+html.escape(model['url'], quote=True)+'">\n'+
+                        '<script type="application/ld+json">'+schema_json+'</script>\n</head>')
     public_check(page)
     return page
 
@@ -190,6 +203,10 @@ def build_approved(db_path=None, site_dir=None, products_dir=None):
             path = safe_path(source, name)
             if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
                 raise ValueError('Approved landing snapshot changed')
+        model = json.loads((source/'page.json').read_text())
+        if model.get('url') != base_url(db_path)+'/'+slug+'/':
+            if dest.exists(): shutil.rmtree(dest)
+            continue
         public_check((source/'index.html').read_text())
         dest.mkdir(parents=True, exist_ok=True)
         for name in payload['hashes']:
@@ -198,3 +215,121 @@ def build_approved(db_path=None, site_dir=None, products_dir=None):
                 shutil.copyfile(source/name, target)
         built.append(slug)
     return built
+
+
+def base_url(db_path=None):
+    import os
+    path = Path(selltest._db(db_path))
+    if path.is_file():
+        with closing(sqlite3.connect(path)) as conn:
+            if conn.execute("SELECT 1 FROM sqlite_master WHERE name='sell_test_site_config'").fetchone():
+                row = conn.execute('SELECT base_url FROM sell_test_site_config WHERE id=1').fetchone()
+                if row:
+                    return validate_base(row[0])
+    # Default is this repository's actual GitHub Pages project path; custom domains use /site base.
+    return validate_base(os.environ.get('SITE_BASE_URL', 'https://raj533125raj.github.io/chilli-gavva'))
+
+
+def validate_base(url):
+    import re
+    from urllib.parse import urlsplit
+    parts = urlsplit(url)
+    if (parts.scheme != 'https' or not parts.hostname or parts.username or parts.password or
+            parts.query or parts.fragment or parts.port or not re.fullmatch(r'[a-zA-Z0-9.-]+', parts.netloc) or
+            not re.fullmatch(r'(?:/[a-zA-Z0-9_.-]+)*/?', parts.path) or '..' in parts.path or
+            '.' not in parts.hostname or parts.hostname.endswith(('.local', '.invalid'))):
+        raise ValueError('Public https Site URL kavali; query leda login vivaralu undakudadhu.')
+    public_check(url)
+    return url.rstrip('/')
+
+
+def set_base(url, db_path=None):
+    url = validate_base(url)
+    with closing(guardrails.connect(db_path)) as conn, conn:
+        conn.execute('CREATE TABLE IF NOT EXISTS sell_test_site_config (id INTEGER PRIMARY KEY CHECK(id=1), base_url TEXT NOT NULL)')
+        conn.execute('INSERT INTO sell_test_site_config VALUES(1,?) ON CONFLICT(id) DO UPDATE SET base_url=excluded.base_url', (url,))
+    return url
+
+
+def sitemap(site_dir, db_path=None):
+    """Index only rendered approved public pages, never the private drafts directory."""
+    import xml.etree.ElementTree as ET
+    site = Path(site_dir)
+    namespace = 'http://www.sitemaps.org/schemas/sitemap/0.9'
+    ET.register_namespace('', namespace)
+    tree = ET.Element('{'+namespace+'}urlset')
+    for page in sorted(site.glob('*/index.html')):
+        if page.is_symlink() or page.parent.is_symlink():
+            raise ValueError('Public Site symlink refused')
+        entry = ET.SubElement(tree, '{'+namespace+'}url')
+        ET.SubElement(entry, '{'+namespace+'}loc').text = base_url(db_path)+'/'+page.parent.name+'/'
+    target = safe_path(site, 'sitemap.xml')
+    ET.ElementTree(tree).write(target, encoding='utf-8', xml_declaration=True)
+    safe_path(site, 'robots.txt').write_text('User-agent: *\nAllow: /\nSitemap: '+base_url(db_path)+'/sitemap.xml\n')
+
+
+def preview(aid, sample=False, products_dir=None, db_path=None):
+    """Render the actual saved HTML body as a full-content PNG using Pillow.
+
+    This is a readable content proof, not a browser/CSS screenshot. It includes every
+    heading, paragraph, file, image, FAQ and button from the immutable draft HTML.
+    """
+    from html.parser import HTMLParser
+    from PIL import Image, ImageDraw
+    import mockups
+    import re
+    aid_draft = draft(aid, sample, products_dir, db_path)
+    payload = next(data for number, _, data in snapshots(db_path) if number == aid_draft)
+    source = safe_path(selltest.products_root(products_dir), payload['directory'])
+
+    class Content(HTMLParser):
+        def __init__(self):
+            super().__init__(); self.body = False; self.blocks = []; self.current = None
+        def handle_starttag(self, tag, attrs):
+            attrs = dict(attrs)
+            if tag == 'body': self.body = True
+            if not self.body: return
+            if tag in ('h1', 'h2', 'h3', 'p', 'li', 'a') or tag == 'span' and attrs.get('class') == 'tag-badge':
+                self.current = [tag, '']; self.blocks.append(self.current)
+            elif tag == 'img':
+                self.blocks.append(['img', attrs['src']])
+        def handle_endtag(self, tag):
+            if tag == 'body': self.body = False
+            if self.current and tag == self.current[0]: self.current = None
+        def handle_data(self, data):
+            if self.body and self.current: self.current[1] += data
+
+    parser = Content(); parser.feed((source/'index.html').read_text())
+    width = 900; padding = 48; available = width-2*padding
+    measurement = ImageDraw.Draw(Image.new('RGB', (1, 1)))
+    operations = []; y = padding
+    for tag, content in parser.blocks:
+        if tag == 'img':
+            with Image.open(safe_path(source, content)) as image:
+                picture = image.convert('RGB'); picture.thumbnail((available, 440))
+                operations.append(('img', y, picture.copy())); y += picture.height+24
+            continue
+        text = re.sub(r'\s+', ' ', content).strip()
+        if not text: continue
+        size = {'h1':34, 'h2':27, 'h3':22}.get(tag, 20)
+        font = mockups.font('bold' if tag.startswith('h') or tag == 'a' else 'regular', size)
+        words = text.split(); lines = []; line = ''
+        for word in words:
+            candidate = (line+' '+word).strip()
+            if measurement.textlength(candidate, font=font) > available-24 and line:
+                lines.append(line); line = word
+            else: line = candidate
+        if line: lines.append(line)
+        height = len(lines)*(size+9)+16
+        operations.append(('text', y, (lines, font, size, tag, height))); y += height+16
+    canvas = Image.new('RGB', (width, y+padding), '#f5f8f7'); draw = ImageDraw.Draw(canvas)
+    for kind, top, value in operations:
+        if kind == 'img': canvas.paste(value, ((width-value.width)//2, top))
+        else:
+            lines, font, size, tag, height = value
+            if tag == 'a': draw.rounded_rectangle((padding-12, top-4, width-padding+12, top+height), radius=10, fill='#264b49')
+            for i, line in enumerate(lines):
+                draw.text((padding, top+i*(size+9)), line, font=font, fill='white' if tag == 'a' else '#243e3d')
+    target = safe_path(source.parent, source.name+'-preview.png')
+    canvas.save(target, 'PNG')
+    return target

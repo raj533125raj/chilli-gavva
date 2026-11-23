@@ -89,6 +89,7 @@ def build(db_path=None, site_dir=None, products_dir=None):
     items = '\n'.join(f'<li><a href="{html.escape(s)}/">{html.escape(s)}</a></li>' for s in all_slugs)
     with open(os.path.join(site_dir, "index.html"), "w", encoding="utf-8") as stream:
         stream.write(PAGE.format(title="Pages", body="<h1>Pages</h1><ul>"+items+"</ul>"))
+    selltest_site.sitemap(site_dir, db_path)
     return built + landing
 
 
