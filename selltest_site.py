@@ -140,9 +140,9 @@ def draft(aid, sample=False, products_dir=None, db_path=None):
     payload = json.dumps({'directory': str(relative), 'hashes': hashes, 'slug': slug,
                           'pack_id': aid, 'sample': sample, 'linked': bool(model['link'])}, sort_keys=True)
     with closing(guardrails.connect(db_path)) as conn:
-        previous = conn.execute('SELECT id,payload FROM approvals WHERE kind=? ORDER BY id DESC', (KIND,)).fetchall()
-        latest = next(((aid, raw) for aid, raw in previous if json.loads(raw)['slug'] == slug), None)
-        old = latest if latest and latest[1] == payload else None
+        previous = conn.execute('SELECT id,payload,status FROM approvals WHERE kind=? ORDER BY id DESC', (KIND,)).fetchall()
+        latest = next(((aid, raw, status) for aid, raw, status in previous if json.loads(raw)['slug'] == slug), None)
+        old = latest if latest and latest[1] == payload and latest[2] != 'rejected' else None
     if target.exists():
         for name, data in contents.items():
             if safe_path(target, name).read_bytes() != data:

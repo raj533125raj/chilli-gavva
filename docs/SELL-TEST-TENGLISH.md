@@ -83,3 +83,13 @@ Cover, previews, Thumbnail setup ki [official Gumroad image help](https://gumroa
 - Stats lo views, sales whole counts pettandi; sales count views ni minchakudadhu. Meeru enter chesina numbers tho review vasthundi.
 - Title B command day 7 nunchi day 14 varaku pani chestundi. Store Name field meere save cheyandi.
 - Robot public uploads, Publish, Pins, emails automatic ga cheyyadu. Mee Store, posts meere control cheyandi.
+
+### Daily check, Site Drafts, email Drafts, learning
+
+`/today` lo ee roju Pack steps, ✅ done marks chudandi. `/doctor selltest` lo prathi Pack kit, sample, saved links, Pins, Site, stats status tho exact fix command untundi.
+
+Paid link `/listed N <link>`, free sample link `/selltest sample N <link>` save chesaka `/site prepare N` pampandi. Paid, sample rendu Landing Draft IDs vasthayi. `/site preview N` leda `/site preview N sample` tho full content PNG chudandi; idi HTML content proof. `/view ID`, `/approve ID` tho meere review/approve cheyandi. Kotha link, copy leda Site URL ki kotha Draft approval kavali. Site URL marchadaniki `/site base https://example.com/shop` pampandi. Approved pages ni existing publish-content flow lo meere publish cheyandi.
+
+`/upload N sample` lo **emails.txt** kuda vasthundi: sample download taruvatha Day 0, Day 3, Day 7 email Drafts. Paid link save ayyaka Drafts ready avuthayi. Subject, Body review chesi Gumroad email tool lo meere paste chesi timing/send decide cheyandi.
+
+`/selltest numbers` ee roju numbers chupisthundi; `/selltest numbers N views 120 sales 1` kuda stats command laga pani chesthundi. Day 7, Day 14 nunchi `/selltest learn` lo entered numbers tho rules, missing days, listing/traffic fix tasks chudandi. Sales unna niche/format/style ki Scout preference untundi. Day 14 lo kanisam seven entered days, 200 views unna Sales leni Pack ki kotha Pins aaguthayi; already posted history untundi. Store changes, posts, emails anni meere cheyandi.
