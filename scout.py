@@ -945,6 +945,12 @@ def run_scout(db_path=None, llm=None):
     elif not guardrails.can_call_llm(db_path):
         llm = None
 
+    import selltest_learning
+    sell_rules = selltest_learning.rules(db_path)
+    bias = selltest_learning.prompt(sell_rules)
+    if llm is not None and bias:
+        original_llm = llm
+        llm = lambda message, **kw: original_llm(message+bias, **kw)
     candidates = get_candidate_ideas(llm, db_path=db_path)
     # Keep the six-item fallback API stable, while the real queue uses the full
     # registered-format pool for buyer rotation and niche caps.
@@ -1020,6 +1026,8 @@ def run_scout(db_path=None, llm=None):
         except Exception:
             pass
 
+        adjusted = selltest_learning.tune(adjusted, sell_rules)
+        base_score += adjusted["selltest_boost"]
         adjusted["total_score"] = base_score
         adjusted["learning_weight"] = learned_weight
 
@@ -1133,6 +1141,9 @@ def run_scout(db_path=None, llm=None):
                         f"Niche: {item['niche']}\n"
                         f"Audience: {item.get('audience', 'general')}\n"
                         f"Format: {item.get('format', 'template')}\n"
+                        + (f"Design theme: {item['style']}\n" if item.get("style") else "")
+                        + (f"Sell test evidence: {item['selltest_why']}\n" if item.get("selltest_why") else "")
+                        +
                         f"Scores: Demand={item['demand_score']}/25, Competition={item['competition_score']}/25, "
                         f"Fit={item['fit_score']}/25, Effort={item['effort_score']}/25 (Total: {item['total_score']}/100)\n"
                         f"Why this sells: {item['why_sells']}\n"

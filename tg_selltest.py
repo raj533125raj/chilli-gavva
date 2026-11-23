@@ -25,6 +25,12 @@ def handle(text,ctx):
     try:
         if args == ['help']:
             return {'text':selltest.help_text()}
+        elif args == ['learn']:
+            import selltest_learning
+            return {'text':selltest_learning.text(db,products,now)}
+        elif args == ['numbers']:
+            import selltest_learning
+            return {'text':selltest.report_block(db,now,products) or (selltest_learning.text(db,products,now) if selltest.active(db) else 'Sell test start cheyandi.\nNext: /selltest pampandi.')}
         elif not args:
             run = selltest.start(db,products,now)
         elif len(words)==4 and args[0]=='sample' and re.fullmatch(r'\d{1,9}',args[1]):
@@ -33,8 +39,10 @@ def handle(text,ctx):
             import post_planner
             post_planner.refresh_ready_plan(selltest.products_root(products),now=now,db_path=db)
             return {'text':'Free sample link save chesanu: '+url+'\nNext: /post today pampandi; sample Pins chudandi.'}
-        elif len(args)==6 and args[0]=='stats' and args[2]=='views' and args[4]=='sales' and all(re.fullmatch(r'\d{1,9}',args[i]) for i in (1,3,5)):
+        elif len(args)==6 and args[0] in ('stats','numbers') and args[2]=='views' and args[4]=='sales' and all(re.fullmatch(r'\d{1,9}',args[i]) for i in (1,3,5)):
             day = selltest.save_stats(int(args[1]),int(args[3]),int(args[5]),db,now)
+            import selltest_learning
+            selltest_learning.record(db,products,now)
             return {'text':f"Pack #{args[1]} {day} totals save chesanu. Malli pampithe ee roju totals replace avuthayi.\n"+selltest.report_block(db,now,products)}
         elif len(args)==2 and args[0]=='swap-title' and re.fullmatch(r'\d{1,9}',args[1]):
             copy=selltest.swap_title(int(args[1]),db,products,now)

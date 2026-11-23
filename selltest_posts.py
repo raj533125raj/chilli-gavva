@@ -94,4 +94,5 @@ def build(products_dir, run, old_plan, db_path=None, now=None):
             plan.append(row)
     # Preserve actual posting history, including posts from before the experiment.
     history=[r for r in old_plan if r.get('status')=='done' and r.get('post_id') not in seen]
-    return history+plan
+    import selltest_learning
+    return selltest_learning.stop_pins(history+plan,selltest_learning.rules(db_path,products,now),now)

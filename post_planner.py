@@ -877,9 +877,14 @@ def refresh_ready_plan(products_dir: Union[str, Path], plan_path: Optional[Union
         return {"changed":changed,"posts":sum(r.get('status')=='todo' and r.get('channel')!='action' and r.get('date','')>=today for r in plan),
                 "ready":sum(r.get('ready',False) for r in plan)}
     items = ready_items(products_dir)
+    import selltest_learning
+    learned = selltest_learning.rules(db_path,products_dir,now)
+    dropped = {row['folder'] for row in learned if row['action']=='Drop'}
+    items = [item for item in items if not (item.get('channel')=='pinterest' and item.get('pack_id') in dropped)]
     if not items and not any(row.get("ready") for row in old):
         return {"changed": False, "posts": 0, "ready": 0}
     plan = build_ready_plan(products_dir, old, now=now, items=items)
+    plan = selltest_learning.stop_pins(plan,learned,now)
     today = owner_today(now).isoformat()
     upcoming = sum(1 for r in plan if str(r.get("date")) >= today and r.get("status") == "todo")
     changed = plan != old
