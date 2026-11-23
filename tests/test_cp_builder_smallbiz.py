@@ -52,7 +52,15 @@ class SmallBusinessBuilderTests(unittest.TestCase):
     def test_pdf_page_counts(self):
         for paper in ("a4", "letter"):
             path = self.tmp / f"small_business_log_{paper}.pdf"
-            self.assertGreaterEqual(pdf_pages(path), 12)
+            self.assertGreaterEqual(pdf_pages(path), 24)
+
+    def test_real_page_content_is_present(self):
+        for paper in ("a4", "letter"):
+            data = (self.tmp / f"small_business_log_{paper}.pdf").read_bytes()
+            self.assertIn(b"Customer Order Form 10", data)
+            self.assertIn(b"Inventory Log 3", data)
+            self.assertIn(b"Weekly Planner 4", data)
+            self.assertIn(b"Monthly Review 12", data)
 
     def test_pdf_headers(self):
         for paper in ("a4", "letter"):
@@ -66,9 +74,12 @@ class SmallBusinessBuilderTests(unittest.TestCase):
             path = self.tmp / name
             with Image.open(path) as image:
                 self.assertEqual(image.format, "PNG")
+                self.assertEqual(image.size, (1200, 800))
                 self.assertGreater(len(set(image.getdata())), 5)
             hashes.add(hash(path.read_bytes()))
         self.assertEqual(len(hashes), 4)
+        self.assertNotEqual(hash((self.tmp / "cover.png").read_bytes()),
+                            hash((self.tmp / "preview_1.png").read_bytes()))
 
     def test_manifest_and_license(self):
         manifest = json.loads((self.tmp / "manifest.json").read_text(encoding="utf-8"))

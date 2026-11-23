@@ -66,24 +66,73 @@ def _cover_image(path: Path, norm: Dict[str, Any], preview: int = 0) -> None:
     draw = ImageDraw.Draw(im)
     accent = "#7059a6"
     draw.rounded_rectangle([24, 24, w - 24, h - 24], radius=24, outline=accent, width=5)
-    draw.rounded_rectangle([24, 24, w - 24, 92], radius=20, fill=accent)
-    draw.text((48, 48), "CHILLI GAVVA · KIDS CHART PACK", fill="#ffffff", font=_font(20, True))
-    draw.text((60, 130), norm["title"][:42], fill="#3e3557", font=_font(38, True))
-    draw.text((60, 184), norm["child_name"][:30], fill=accent, font=_font(22))
-
-    stars = ["★", "★", "★", "★", "★"]
-    top = 260
-    for i in range(7):
-        x = 70 + i * 155
-        color = "#e09b67" if (i + preview) % 3 == 0 else "#7059a6"
-        draw.rounded_rectangle([x, top, x + 125, top + 95], radius=14, fill="#f5f0fb", outline="#d7cde8", width=3)
-        draw.text((x + 42, top + 18), stars[i % len(stars)], fill=color, font=_font(28, True))
-        draw.text((x + 22, top + 58), "Done", fill="#3e3557", font=_font(14, True))
-    draw.rounded_rectangle([70, 430, 1130, 650], radius=18, fill="#ffffff", outline="#d7cde8", width=3)
-    draw.text((100, 470), "Chores", fill="#3e3557", font=_font(22, True))
-    draw.text((100, 518), "Reading · Routines · Homework · Screen time", fill="#718096", font=_font(18))
-    preview_label = ["Cover", "Chore & Rewards", "Reading & Routine", "Certificate & Logs"][preview % 4]
-    draw.text((880, 720), preview_label, fill=accent, font=_font(16, True))
+    if preview == 0:
+        draw.rounded_rectangle([24, 24, w - 24, 92], radius=20, fill=accent)
+        draw.text((48, 48), "CHILLI GAVVA · KIDS CHART PACK", fill="#ffffff", font=_font(20, True))
+        draw.text((60, 130), norm["title"][:42], fill="#3e3557", font=_font(38, True))
+        draw.text((60, 184), norm["child_name"][:30], fill=accent, font=_font(22))
+        draw.text((60, 230), "24 printable pages · A4 + US Letter", fill="#718096", font=_font(18, True))
+        layouts = [
+            ("CHORE CHART", ["Chore", "Mon", "Tue", "Wed"]),
+            ("READING LOG", ["Date", "Book", "Pages"]),
+            ("ROUTINE CARD", ["1. Wake up", "2. Get dressed", "3. Pack"]),
+        ]
+        for i, (label, lines) in enumerate(layouts):
+            x = 60 + i * 360
+            draw.rounded_rectangle([x, 290, x + 320, 680], radius=16, fill="#ffffff", outline="#d7cde8", width=3)
+            draw.rectangle([x + 18, 308, x + 302, 360], fill="#f5f0fb")
+            draw.text((x + 32, 326), label, fill=accent, font=_font(17, True))
+            for r, line in enumerate(lines):
+                y = 390 + r * 70
+                draw.text((x + 30, y), line, fill="#3e3557", font=_font(15, True))
+                draw.line((x + 30, y + 42, x + 290, y + 42), fill="#d7cde8", width=2)
+        draw.text((60, 724), "Real charts, logs and cut-ready routine cards", fill=accent, font=_font(16, True))
+    elif preview == 1:
+        draw.rectangle([24, 24, w - 24, 100], fill=accent)
+        draw.text((55, 48), "WEEKLY CHORE CHART · REAL PAGE", fill="#ffffff", font=_font(24, True))
+        headers = ["Chore", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        widths = [240, 120, 120, 120, 120, 120, 120, 120]
+        left, top = 55, 150
+        x = left
+        for i, header in enumerate(headers):
+            draw.rectangle([x, top, x + widths[i], top + 55], fill="#f5f0fb", outline="#d7cde8")
+            draw.text((x + 10, top + 18), header, fill=accent, font=_font(13, True))
+            x += widths[i]
+        for r in range(9):
+            y = top + 55 + r * 58
+            x = left
+            for width in widths:
+                draw.rectangle([x, y, x + width, y + 58], outline="#d7cde8")
+                x += width
+    elif preview == 2:
+        draw.rectangle([24, 24, w - 24, 100], fill=accent)
+        draw.text((55, 48), "READING LOG · REAL PAGE", fill="#ffffff", font=_font(24, True))
+        headers = ["Date", "Book", "Pages", "Minutes", "Favorite part"]
+        widths = [180, 300, 150, 150, 300]
+        left, top = 55, 150
+        x = left
+        for i, header in enumerate(headers):
+            draw.rectangle([x, top, x + widths[i], top + 55], fill="#f5f0fb", outline="#d7cde8")
+            draw.text((x + 12, top + 18), header, fill=accent, font=_font(14, True))
+            x += widths[i]
+        for r in range(9):
+            y = top + 55 + r * 58
+            x = left
+            for width in widths:
+                draw.rectangle([x, y, x + width, y + 58], outline="#d7cde8")
+                x += width
+    else:
+        draw.rectangle([24, 24, w - 24, 100], fill=accent)
+        draw.text((55, 48), "MORNING ROUTINE CARDS · REAL PAGE", fill="#ffffff", font=_font(24, True))
+        items = ["Wake up", "Get dressed", "Eat breakfast", "Pack bag", "Brush teeth", "Clean up"]
+        for i, item in enumerate(items):
+            col, row = i % 2, i // 2
+            x, y = 55 + col * 560, 150 + row * 190
+            draw.rounded_rectangle([x, y, x + 520, y + 150], radius=14, fill="#fffaf5", outline="#d7cde8", width=3)
+            draw.text((x + 24, y + 24), f"{i + 1:02d}", fill="#e09b67", font=_font(20, True))
+            draw.text((x + 90, y + 30), item, fill="#3e3557", font=_font(22, True))
+            draw.line((x + 24, y + 105, x + 490, y + 105), fill="#d7cde8", width=2)
+            draw.text((x + 24, y + 112), "Done:  ____________", fill="#718096", font=_font(14))
     im.save(str(path), format="PNG", optimize=True)
 
 
@@ -170,20 +219,25 @@ def _build_pdf(path: Path, paper: str, norm: Dict[str, Any]) -> None:
     for _ in range(8):
         y -= 24
         pdf.line(pdf_design.MARGIN, y, pdf.w - pdf_design.MARGIN, y, color=_COLORS["line"], width=0.4)
-    pdf.new_page()
-    _table(pdf, "Weekly Chore Chart", "Mark a box after each chore is finished.", ["Chore", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], 10)
-    pdf.new_page()
-    _table(pdf, "Reward Chart", "Use stars or stickers for each completed goal.", ["Goal", "Star 1", "Star 2", "Star 3", "Star 4", "Star 5"], 12)
-    pdf.new_page()
-    _table(pdf, "Reading Log", "Write the book title and record the pages or minutes.", ["Date", "Book", "Pages", "Minutes", "Favorite part"], 14)
-    pdf.new_page()
-    _routine_cards(pdf, "Morning Routine Cards")
-    pdf.new_page()
-    _routine_cards(pdf, "Evening Routine Cards")
-    pdf.new_page()
-    _table(pdf, "Homework Tracker", "Write one task and its check-off status.", ["Date", "Subject", "Task", "Done", "Next step"], 14)
-    pdf.new_page()
-    _table(pdf, "Screen-Time Log", "Keep an honest record of screen time.", ["Day", "Activity", "Start", "Finish", "Minutes"], 14)
+    for index in range(1, 5):
+        pdf.new_page()
+        _table(pdf, f"Weekly Chore Chart {index}", "Mark a box after each chore is finished.", ["Chore", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], 10)
+    for index in range(1, 4):
+        pdf.new_page()
+        _table(pdf, f"Reward Chart {index}", "Use stars or stickers for each completed goal.", ["Goal", "Star 1", "Star 2", "Star 3", "Star 4", "Star 5"], 12)
+    for index in range(1, 5):
+        pdf.new_page()
+        _table(pdf, f"Reading Log {index}", "Write the book title and record the pages or minutes.", ["Date", "Book", "Pages", "Minutes", "Favorite part"], 14)
+    for index in range(1, 5):
+        pdf.new_page()
+        title = "Morning Routine Cards" if index <= 2 else "Evening Routine Cards"
+        _routine_cards(pdf, f"{title} {index}")
+    for index in range(1, 3):
+        pdf.new_page()
+        _table(pdf, f"Homework Tracker {index}", "Write one task and its check-off status.", ["Date", "Subject", "Task", "Done", "Next step"], 14)
+    for index in range(1, 3):
+        pdf.new_page()
+        _table(pdf, f"Screen-Time Log {index}", "Keep an honest record of screen time.", ["Day", "Activity", "Start", "Finish", "Minutes"], 14)
     pdf.new_page()
     _heading(pdf, "Weekly Reflection", "Notice effort, helping, and one goal for next week.")
     y = pdf.h - 130
@@ -208,7 +262,7 @@ def _readme(norm: Dict[str, Any]) -> str:
         "",
         "WHAT YOU GET",
         "- A4 PDF and US Letter PDF",
-        "- 12 printable pages",
+        "- 24 printable pages",
         "- Weekly chore chart and reward chart",
         "- Reading log and morning/evening routine cards",
         "- Homework and screen-time trackers",
@@ -261,7 +315,7 @@ def build(spec: Dict[str, Any], out_dir: Union[str, Path]) -> List[str]:
             "title": norm["title"],
             "child_name": norm["child_name"],
             "paper_sizes": list(PAPER_SIZES),
-            "pages_per_pdf": 12,
+            "pages_per_pdf": 24,
             "files": sorted(names + ["manifest.json"]),
         }
         (temp_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
