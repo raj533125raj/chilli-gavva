@@ -262,3 +262,24 @@ def swap_title(aid,db_path=None,products_dir=None,now=None):
         conn.execute("INSERT INTO sell_test_titles VALUES(?,'B') ON CONFLICT(approval_id) DO UPDATE SET variant='B'",(aid,))
     selltest_listings.write(aid,folder,folder/'gumroad-upload',db_path)
     return copy
+
+
+SELL_TEST_STEPS = (
+    '14-day Sell test: India rojulu; files, Store, posts meere review cheyandi.',
+    'Day 0: /ready; /list; /view N chusi /approve N tho meere decide cheyandi.',
+    'Day 1: /selltest pampandi; /selltest list lo selected Pack numbers chudandi.',
+    'Prathi Pack: /upload N; listing-ab.txt nunchi Title A, Description, Tags copy cheyandi.',
+    'Gumroad lo ZIP, Cover, Thumbnail, Previews add chesi meere Publish; /listed N <link>.',
+    '/upload N sample; free listing meere chesi /selltest sample N <link> pampandi.',
+    'Day 1-14: /post today; Pin images, captions, links tho meere post cheyandi.',
+    'Post chesaka /posted N pampandi; ikkada N ee roju Post number.',
+    'Rojuku paid Pack totals: /selltest stats N views 120 sales 1; mee numbers pettandi.',
+    'Day 7: /selltest swap-title N; /upload N lo Title B ni Store Name lo meere save cheyandi.',
+    'Day 14: stats save chesi /selltest list lo Keep, Change, Drop reasons chudandi.',
+    'Upload, listed, stats lo N Pack number; Price, Publish, next rotation meere decide cheyandi.',
+    'Next: /selltest pampandi.',
+)
+
+
+def help_text():
+    return '\n'.join(SELL_TEST_STEPS)
