@@ -29,3 +29,45 @@ Sample emails use the saved paid link and stay outside the buyer ZIP.
 Measured day-seven and day-fourteen rules preserve missing-data distinctions and posting history.
 Stopped Pin slots never become owner posting instructions or false completion marks.
 The sell-test Doctor checks real kit, sample, link, Pin, page and daily-number records.
+
+10-line simple-English summary
+BIG-6 work is complete on branch robot-cx6.
+The owner gets one short sell-test checklist each morning.
+The today command marks saved links, confirmed posts and entered numbers as done.
+Paid packs and free samples have private landing drafts that need owner approval.
+The site build checks approved files and current links before including a page.
+Pages include real previews, search metadata, a sitemap and PNG content previews.
+Sample uploads include three email drafts for the owner to review and send.
+Entered views and sales guide Scout and stop new Pins for measured losers.
+The sell-test Doctor shows missing kits, links, pages and daily numbers with repair commands.
+The 8875-test suite and three clock checks passed; everything is committed and nothing was pushed.
+
+git log --oneline origin/main..HEAD (before the summary commit)
+73e18f6 CXAM-1 record final full suite and three-clock parity proof
+665b579 CXAM-1 part 2 keep stopped Pin slots out of owner posting instructions
+b6c04cb CXAM-1 part 1 close stale-link and empty-site gaps and cover new handlers
+b4c9fef CXAL-1 diagnose every sell-test kit link page Pin and daily number
+2a80beb CXAK-1 learn milestone fixes and draft preferences from measured sales
+a12d6a5 CXAJ-1 include three owner-sent email drafts in real sample upload kits
+8c5ca62 CXAI-2 add approved sitemap metadata and real page-content PNG previews
+16f27cc CXAI-1 prepare gated paid and sample landing drafts with tracked links
+78fb02a CXAH-2 show durable completion marks in today for fourteen days
+eb01d7e CXAH-1 send one compact sell-test morning action plan
+d59eba8 CXAG-2 summarize completed BIG-5 work
+a310cc1 CXAG-1 record passing full suite and three-clock parity
+78976fe CXAG-1 part 1 keep queue inspection independent of Telegram UI
+57b1d8a CXAF-2 serve the shared thirteen line owner sell test guide in Telegram
+c9111d0 CXAF-1 document the complete owner run fourteen day sell test in Tenglish
+fb4f172 CXAE-2 report the eight pack target and actual readiness blockers
+d65f760 CXAE-1 prove eight ready kits by day two with all approval gates intact
+23fdccc CXAE-1 part 1 keep owner review backlogs from starving sell test drafts
+f0ee9de CXAD-2 connect honest free sample copy to the real full pack
+926ed62 CXAD-1 prepare gated buyer focused A B copy and owner title switching
+a15b8bb CXAC-2 preserve visible writing rules and require zero flags in all formats
+042bf1b CXAC-1 render all product pages and report measurable visual defects
+3358af9 CXAB-3 record passing full CI parity and all three UTC sweeps
+a7d99e5 CXAB-3 part 3 allow simulator reloads under injected test clocks
+56bb0c5 CXAB-3 part 2 exercise clock runner directly in a clean environment
+21f3bec CXAB-3 part 1 normalize UTC records and support nested clock tests
+40cd2b2 CXAB-2 remove host calendar assumptions and audit machine dependent tests
+85c891e CXAB-1 reproduce CI isolation hosted Python and three UTC clocks
