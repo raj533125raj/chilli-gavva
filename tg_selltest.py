@@ -3,6 +3,9 @@ import os
 import re
 import selltest
 
+# Own the command before the legacy natural-language sales parser sees its numbers.
+PRIORITY = 30
+
 COMMANDS = [{'cmd':'/selltest','words':['selltest'], 'category':'Sell',
              'help_en':'Start or list the 14-day test; swap packs with /selltest swap A B',
              'help_te':'14-day Sell test Packs enchukondi; /selltest list leda /selltest swap A B pampandi.'}]
@@ -22,6 +25,9 @@ def handle(text,ctx):
     try:
         if not args:
             run = selltest.start(db,products,now)
+        elif len(args)==6 and args[0]=='stats' and args[2]=='views' and args[4]=='sales' and all(re.fullmatch(r'\d{1,9}',args[i]) for i in (1,3,5)):
+            day = selltest.save_stats(int(args[1]),int(args[3]),int(args[5]),db,now)
+            return {'text':f"Pack #{args[1]} {day} totals save chesanu. Malli pampithe ee roju totals replace avuthayi.\n"+selltest.report_block(db,now,products)}
         elif args == ['list']:
             run = selltest.active(db)
             if not run:

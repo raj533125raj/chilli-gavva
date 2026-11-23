@@ -120,3 +120,75 @@ def plan_text(run, now=None):
         lines.append('14 rojulu poorthi; saved numbers tho results chudandi.')
     lines.append('Next: /selltest list; Pack marchadaniki /selltest swap A B (Pack numbers).')
     return '\n'.join(lines)
+
+
+def save_stats(aid, views, sales, db_path=None, now=None):
+    """Replace this owner's daily totals, never add a resubmission twice."""
+    import post_planner
+    run = active(db_path)
+    if not run or not 1 <= day_number(run,now) <= DAYS or aid not in {p['id'] for p in run['packs']}:
+        raise ValueError('Ee Pack active Sell test lo ledu leda 14 rojulu poorthi ayyayi.')
+    if any(type(n) is not int or not 0 <= n <= 999999999 for n in (views,sales)) or sales > views:
+        raise ValueError('Views, Sales positive whole numbers leda zero ivvandi; Sales Views ni minchakudadhu.')
+    day = post_planner.owner_today(now).isoformat()
+    with _connect(db_path) as conn:
+        conn.execute('CREATE TABLE IF NOT EXISTS sell_test_stats (approval_id INTEGER NOT NULL, day TEXT NOT NULL, '
+                     'views INTEGER NOT NULL CHECK(views>=0), sales INTEGER NOT NULL CHECK(sales>=0 AND sales<=views), '
+                     'PRIMARY KEY(approval_id,day))')
+        conn.execute('INSERT INTO sell_test_stats VALUES(?,?,?,?) ON CONFLICT(approval_id,day) '
+                     'DO UPDATE SET views=excluded.views,sales=excluded.sales',(aid,day,views,sales))
+    return day
+
+
+def stats(db_path=None):
+    path = Path(_db(db_path))
+    if not path.is_file():
+        return []
+    with closing(sqlite3.connect(path)) as conn:
+        if not conn.execute("SELECT 1 FROM sqlite_master WHERE name='sell_test_stats'").fetchone():
+            return []
+        return [dict(zip(('id','day','views','sales'),row)) for row in
+                conn.execute('SELECT approval_id,day,views,sales FROM sell_test_stats ORDER BY day,approval_id')]
+
+
+def pins_posted(aid, day, products_dir=None):
+    """Count only owner-confirmed Pins on the actual India posting date."""
+    import post_planner
+    plan = post_planner.load_plan(post_planner.plan_path_for(products_root(products_dir)))
+    seen = set()
+    for i,row in enumerate(plan):
+        if row.get('status') != 'done' or row.get('channel') != 'pinterest':
+            continue
+        if str(row.get('pack_id','')).split('-')[0] != str(aid):
+            continue
+        posted_day = row.get('date')
+        if row.get('posted_at'):
+            try:
+                stamp = dt.datetime.fromisoformat(row['posted_at'].replace('Z','+00:00'))
+                posted_day = post_planner.owner_today(stamp).isoformat()
+            except (ValueError,TypeError):
+                continue
+        if posted_day == day:
+            seen.add(row.get('post_id') or str(i))
+    return len(seen)
+
+
+def report_block(db_path=None, now=None, products_dir=None):
+    import post_planner
+    run = active(db_path)
+    if not run or not 1 <= day_number(run,now) <= DAYS:
+        return ''
+    day = post_planner.owner_today(now).isoformat()
+    rows = {r['id']:r for r in stats(db_path) if r['day']==day}
+    lines = [f"Sell test day {day_number(run,now)}/14 ({day})"]
+    for pack in run['packs']:
+        row = rows.get(pack['id'])
+        pins = pins_posted(pack['id'],day,products_dir)
+        if row is None:
+            numbers = 'Views - | Sales - | Conversion - (numbers inka ivvaledu)'
+        else:
+            conversion = 100*row['sales']/row['views'] if row['views'] else 0
+            numbers = f"Views {row['views']} | Sales {row['sales']} | Conversion {conversion:.1f}%"
+        lines.append(f"#{pack['id']}: {numbers} | Pins posted {pins}")
+    lines.append('Next: /selltest stats N views 120 sales 1 (ee roju totals) pampandi.')
+    return '\n'.join(lines)

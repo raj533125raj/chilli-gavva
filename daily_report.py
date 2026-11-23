@@ -238,6 +238,10 @@ def daily_text(db_path=None, now=None, status_fn=None, products_dir=None):
              next_step]
     if paused:
         lines.append("Status: PAUSED (send /resume to start again)")
+    import selltest
+    block = selltest.report_block(db_path, now, products_dir)
+    if block:
+        lines.append(block)
     return "\n".join(lines)
 
 
