@@ -34,3 +34,18 @@ No faketime installed: tests pin module clocks and event timestamps in their own
 Covered real owner journey, owner week, ready post plan, post today, daily report, urgent Telegram and selltest.
 Ran 29 tests in 28.586s OK (fifteen clock cases plus fourteen mandatory guards).
 
+CXAA-3 Python 3.11, clean environment, CHILLI_TEST=1
+Total tests run: 8800 | Failures: 0 | Errors: 0 | Skipped: 18 | Time: 525.04s
+Last 5 lines:
+   61.18s - chunk_187_test_ocf_owner_journey
+   57.20s - chunk_184_test_occ_sell_flow_e2e
+----------------------------------------------------------------------
+RESULT: PASSED
+======================================================================
+Slowest 5 chunks:
+  203.74s - chunk_188_test_ocg_all_commands_real_packs
+  202.42s - chunk_192_test_och_secret_sweep
+  201.65s - chunk_94_test_cxw_product_integration
+  100.05s - chunk_37_test_cce_robot_day
+   99.56s - chunk_190_test_och_niche_sweep
+
