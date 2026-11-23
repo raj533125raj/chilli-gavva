@@ -34,3 +34,27 @@ wall_art | 6 pages | 3 previews | 0 flags
 VISUAL QA: 19 formats, 655 PDF pages, 10 flags
 
 Detector tests: Ran 18 tests in 1.680s OK (required guards included).
+
+CXAC-2 final visual check
+baby_tracker | 82 pages | 6 previews | 0 flags
+biz_sheets | 0 pages | 6 previews | 0 flags
+dated_planner | 30 pages | 3 previews | 0 flags
+digital_planner | 158 pages | 6 previews | 0 flags
+email_signature | 14 pages | 3 previews | 0 flags
+event_planner | 28 pages | 3 previews | 0 flags
+fitness_planner | 48 pages | 6 previews | 0 flags
+flashcards | 19 pages | 6 previews | 0 flags
+habit_tracker | 10 pages | 6 previews | 0 flags
+kids_chore_reward | 48 pages | 6 previews | 0 flags
+notion | 10 pages | 3 previews | 0 flags
+planner | 6 pages | 3 previews | 0 flags
+recipe_book | 16 pages | 6 previews | 0 flags
+resume | 0 pages | 3 previews | 0 flags
+sheets | 0 pages | 3 previews | 0 flags
+small_business_log | 70 pages | 6 previews | 0 flags
+study_planner | 12 pages | 6 previews | 0 flags
+teacher_planner | 98 pages | 6 previews | 0 flags
+wall_art | 6 pages | 3 previews | 0 flags
+Ran 149 tests in 152.943s
+OK
+Writing rules in Calm Sage darkened for reduced previews and print readability; thresholds unchanged. Reviewed new A4 cover/body and Letter instruction renders.

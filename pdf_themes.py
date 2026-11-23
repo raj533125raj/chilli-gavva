@@ -74,7 +74,7 @@ PREMIUM_THEMES: Dict[str, Dict[str, Any]] = {
             "ink": "#1e2d24",
             "muted": "#526356",
             "faded": "#9eaba1",
-            "line": "#cfdcd0",
+            "line": "#8ca58f",  # writing rules remain visible in reduced previews and printed copies
             "border": "#b8c9ba",
             "cell": "#d4e2d6",
             "highlight": "#f2e8cf",

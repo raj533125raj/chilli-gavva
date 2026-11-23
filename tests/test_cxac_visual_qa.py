@@ -49,3 +49,15 @@ class VisualDetectionTests(unittest.TestCase):
 
     def test_report_must_not_be_inside_repository(self):
         with self.assertRaises(ValueError):qa.audit(qa.ROOT/'visual-report',[])
+
+@unittest.skipUnless(qa.available(),'Pillow and Poppler required')
+class AllFormatsVisualTests(unittest.TestCase):
+    def test_every_page_and_preview_of_every_registered_format_has_zero_flags(self):
+        import format_registry
+        with tempfile.TemporaryDirectory() as temp:
+            rows=qa.audit(Path(temp)/'audit')
+            self.assertEqual({r['format'] for r in rows},set(format_registry.list_registered_formats()))
+            self.assertEqual(len(rows),19)
+            self.assertGreater(sum(r['pdf_pages'] for r in rows),600)
+            self.assertTrue(all(r['previews']>=3 for r in rows))
+            self.assertEqual({r['format']:r['flags'] for r in rows if r['flags']},{})
