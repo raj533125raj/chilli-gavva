@@ -1,0 +1,15 @@
+CXW-3 Python 3.11, clean environment, CHILLI_TEST=1
+Total tests run: 8761 | Failures: 0 | Errors: 0 | Skipped: 18 | Time: 488.35s
+Last 5 lines:
+   59.17s - chunk_178_test_occ_sell_flow_e2e
+   51.95s - chunk_28_test_ccc_sell_proof
+----------------------------------------------------------------------
+RESULT: PASSED
+======================================================================
+Slowest 5 chunks:
+  210.10s - chunk_182_test_ocg_all_commands_real_packs
+  206.49s - chunk_186_test_och_secret_sweep
+  205.97s - chunk_93_test_cxw_product_integration
+  103.00s - chunk_184_test_och_niche_sweep
+   97.98s - chunk_37_test_cce_robot_day
+
