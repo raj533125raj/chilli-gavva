@@ -28,3 +28,9 @@ Slowest 5 chunks:
    97.58s - chunk_189_test_och_niche_sweep
    94.98s - chunk_37_test_cce_robot_day
 
+CXAA-2 clock safety
+No faketime installed: tests pin module clocks and event timestamps in their own process.
+2026-11-23 19:45 UTC, 01:15 UTC, 07:00 UTC: all fifteen clock cases passed.
+Covered real owner journey, owner week, ready post plan, post today, daily report, urgent Telegram and selltest.
+Ran 29 tests in 28.586s OK (fifteen clock cases plus fourteen mandatory guards).
+
