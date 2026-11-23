@@ -97,7 +97,10 @@ def build(aid,products_dir=None,db_path=None):
     except (OSError,ValueError):
         cached={}
     if cached.get('source_digest')==digest:
-        return validate(destination)
+        validate(destination)
+        import selltest_emails
+        selltest_emails.write(aid,destination,db_path)
+        return destination
     destination.parent.mkdir(parents=True,exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='.free-sample-',dir=destination.parent) as temp:
         stage=Path(temp)/'kit';stage.mkdir()
@@ -131,6 +134,8 @@ def build(aid,products_dir=None,db_path=None):
         except OSError:
             if backup.exists():os.replace(backup,destination)
             raise
+    import selltest_emails
+    selltest_emails.write(aid,destination,db_path)
     return destination
 
 

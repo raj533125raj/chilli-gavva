@@ -173,6 +173,13 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
             for name in free_sample.FILES:
                 if sender(str(folder/name),caption='Free sample hand-upload: '+name) is False:
                     return _reply('Sample file send avvaledu. Next: /upload '+str(pack_id)+' sample malli pampandi.',ctx)
+            import selltest_emails
+            emails=selltest_emails.write(pack_id,folder,ctx.get('db_path'))
+            if emails is not None:
+                if sender(str(emails),caption='Day 0, 3, 7 email DRAFTS; review chesi meere pampandi.') is False:
+                    return _reply('Email Draft file send avvaledu. Next: /upload '+str(pack_id)+' sample malli pampandi.',ctx)
+            else:
+                _reply('Email Drafts kosam paid link kavali. Next: /listed '+str(pack_id)+' <link>; /upload '+str(pack_id)+' sample malli pampandi.',ctx)
             return _reply('Free sample: 3 real content pages + Full version page pampanu. Gumroad lo free ga meere list cheyandi.\nNext: /selltest sample '+str(pack_id)+' <link> pampandi; Pin destination save cheyandi.',ctx)
         except (OSError,ValueError,RuntimeError,ImportError,zipfile.BadZipFile):
             return _reply('Sample kit ready kaaledu. Next: /ready '+str(pack_id)+' lo Full Pack fixes chudandi.',ctx)

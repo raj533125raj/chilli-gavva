@@ -74,7 +74,7 @@ class SampleTests(unittest.TestCase):
                  'send_text':lambda t,**k:texts.append(t)}
             with mock.patch.object(telegram_inbox,'build_plugin_ctx',return_value=ctx),mock.patch.dict('os.environ',{'TELEGRAM_CHAT_ID':CHAT}):
                 handled,_=telegram_inbox.call_plugins(f'/upload {aid} sample','unused',CHAT,db_path=db,now=NOW,plugins=[tg_upload])
-            self.assertTrue(handled);self.assertEqual([n for n,data in sent],list(free_sample.FILES))
+            self.assertTrue(handled);self.assertEqual([n for n,data in sent],list(free_sample.FILES)+['emails.txt'])
             free_sample.set_link(aid,'https://example.gumroad.com/l/free-sample',db)
             self.assertEqual(tg_listed.get_listed(aid,db)['url'],'https://example.gumroad.com/l/full-pack')
             import selltest_posts
