@@ -93,7 +93,7 @@ def sim_now_iso():
 
 
 # ---- clock ------------------------------------------------------------------------------------
-class _ClockMeta(type):
+class _ClockMeta(type(_REAL_DATETIME)):
     """isinstance(x, datetime.datetime) stays true for real datetime objects."""
 
     def __instancecheck__(cls, obj):

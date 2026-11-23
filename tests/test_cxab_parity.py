@@ -89,3 +89,17 @@ with tempfile.TemporaryDirectory() as temp:
                               cwd=tempfile.gettempdir(),env=env,capture_output=True,text=True,timeout=60)
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)
         self.assertRegex(result.stdout,r'Ran \d+ tests; failures=0; errors=0;')
+
+    def test_simulator_can_be_loaded_under_an_injected_clock(self):
+        code='''import importlib.util, datetime as d
+from tools import robot_sim_world as world
+world.install_clock(d.datetime(2026,11,23,19,45,tzinfo=d.timezone.utc).timestamp())
+spec=importlib.util.spec_from_file_location('second_world',world.__file__)
+second=importlib.util.module_from_spec(spec)
+spec.loader.exec_module(second)
+print(second.FakeDatetime.now(d.timezone.utc).strftime('%H:%M'))
+'''
+        result=subprocess.run([sys.executable,'-c',code],cwd=ci_parity.ROOT,
+                              capture_output=True,text=True,timeout=60)
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        self.assertEqual(result.stdout.strip(),'19:45')
