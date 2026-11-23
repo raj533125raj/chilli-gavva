@@ -33,6 +33,17 @@ def _is_single_color(path):
     return colors is not None and len(colors) <= 1
 
 
+def _is_mostly_one_color(path, threshold=0.92):
+    with Image.open(path) as im:
+        rgb = im.convert("RGB")
+        colors = rgb.getcolors(maxcolors=1_000_000) or []
+    if not colors:
+        return True
+    total = sum(count for count, _ in colors)
+    dominant = max(count for count, _ in colors)
+    return (dominant / max(1, total)) >= threshold
+
+
 @unittest.skipUnless(HAS_PILLOW, "Pillow is required for teacher planner builds")
 class TeacherBuilderTests(unittest.TestCase):
     @classmethod
@@ -74,22 +85,28 @@ class TeacherBuilderTests(unittest.TestCase):
             path = self.tmp / f"teacher_planner_{paper}.pdf"
             data = path.read_bytes()
             self.assertTrue(data.startswith(b"%PDF"), paper)
-            self.assertEqual(_pdf_pages(path), 12, paper)
+            self.assertGreaterEqual(_pdf_pages(path), 24, paper)
 
     def test_previews_not_one_colour(self):
         for name in ("cover.png", "preview_1.png", "preview_2.png", "preview_3.png"):
             with Image.open(self.tmp / name) as im:
-                self.assertEqual(im.size, (1200, 800), name)
+                self.assertGreaterEqual(im.size[0], 1200, name)
+                self.assertGreaterEqual(im.size[1], 800, name)
             self.assertFalse(_is_single_color(self.tmp / name), name)
+            self.assertFalse(_is_mostly_one_color(self.tmp / name), name)
+            self.assertFalse(_is_mostly_one_color(self.tmp / name), name)
 
     def test_previews_visually_distinct(self):
-        hashes = {_sha256(self.tmp / n) for n in ("cover.png", "preview_1.png", "preview_2.png", "preview_3.png")}
-        self.assertEqual(len(hashes), 4)
+        hashes = [_sha256(self.tmp / n) for n in ("cover.png", "preview_1.png", "preview_2.png", "preview_3.png")]
+        self.assertEqual(len(set(hashes)), 4)
+        self.assertNotEqual(hashes[0], hashes[1])
+        self.assertNotEqual(hashes[0], hashes[2])
+        self.assertNotEqual(hashes[0], hashes[3])
 
     def test_manifest_records_format_title_files_page_count(self):
         self.assertEqual(self.manifest["format"], "teacher_planner")
         self.assertEqual(self.manifest["title"], self.spec["title"])
-        self.assertEqual(self.manifest["pages_per_pdf"], 12)
+        self.assertGreaterEqual(self.manifest["pages_per_pdf"], 24)
         self.assertEqual(self.manifest["files"], self.files)
         self.assertEqual(self.manifest["paper_sizes"], ["a4", "letter"])
 

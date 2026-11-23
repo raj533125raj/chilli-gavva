@@ -81,6 +81,8 @@ MONTHS = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December",
 ]
+WEEKLY_PAGES = 40
+
 
 
 def _clean_title(value: Any) -> str:
@@ -145,10 +147,53 @@ def _font(size: int, bold: bool = False):
         return ImageFont.load_default()
 
 
+PREVIEW_SIZE = (1600, 1067)
+COVER_SIZE = (1600, 1067)
+
+
+def _draw_mini_page(draw, x, y, w, h, kind: str, ink, accent, soft, line, bg="#ffffff"):
+    draw.rectangle([x, y, x + w, y + h], fill=bg, outline=line, width=2)
+    draw.rectangle([x, y, x + w, y + max(18, h // 12)], fill=accent)
+    draw.text((x + 8, y + 4), kind[:28], fill="#ffffff", font=_font(max(10, h // 20), True))
+    body_top = y + max(22, h // 10)
+    if kind == "Weekly Plan":
+        cols = 6
+        rows = 6
+        cw = (w - 16) / cols
+        rh = (h - (body_top - y) - 12) / rows
+        for r in range(rows):
+            for c in range(cols):
+                cx = x + 8 + c * cw
+                cy = body_top + r * rh
+                fill = soft if r == 0 or c == 0 else "#ffffff"
+                draw.rectangle([cx, cy, cx + cw, cy + rh], outline=line, fill=fill)
+    elif kind == "Year Overview":
+        for i in range(12):
+            cc = i % 4
+            rr = i // 4
+            bx = x + 8 + cc * ((w - 16) / 4)
+            by = body_top + rr * ((h - (body_top - y) - 12) / 3)
+            bw = (w - 24) / 4
+            bh = (h - (body_top - y) - 20) / 3
+            draw.rectangle([bx, by, bx + bw, by + bh], outline=line, fill=soft)
+    elif kind == "Grade Tracker":
+        for r in range(8):
+            ry = body_top + r * ((h - (body_top - y) - 12) / 8)
+            draw.line([x + 8, ry, x + w - 8, ry], fill=line, width=1)
+            if r == 0:
+                draw.rectangle([x + 8, ry, x + w - 8, ry + (h - (body_top - y) - 12) / 8], fill=soft, outline=line)
+    else:
+        for r in range(6):
+            ry = body_top + 8 + r * ((h - (body_top - y) - 24) / 6)
+            draw.line([x + 12, ry, x + w - 12, ry], fill=line, width=1)
+
+
 def _cover_image(path: Path, norm: Dict[str, Any], preview: int = 0) -> None:
     if not HAS_PILLOW:
         raise RuntimeError("Pillow is required for teacher planner images")
-    w, h = 1200, 800
+    labels = ["Cover", "Weekly Lesson Plan", "Roster & Grades", "Substitute Notes"]
+    kind = preview % len(labels)
+    w, h = (COVER_SIZE if kind == 0 else PREVIEW_SIZE)
     bg = "#f7f9fc"
     ink = _col("ink")
     accent = _col("accent")
@@ -156,74 +201,74 @@ def _cover_image(path: Path, norm: Dict[str, Any], preview: int = 0) -> None:
     line = _col("line")
     im = Image.new("RGB", (w, h), color=bg)
     draw = ImageDraw.Draw(im)
-    draw.rectangle([24, 24, w - 24, h - 24], outline=accent, width=3)
-    draw.rectangle([24, 24, w - 24, 72], fill=accent)
-    draw.text((48, 38), "CHILLI GAVVA · TEACHER PLANNER", fill="#ffffff", font=_font(20, True))
-    draw.text((60, 120), norm["title"][:42], fill=ink, font=_font(42, True))
-    draw.text((60, 178), f"{norm['year']} · A4 + US Letter", fill=accent, font=_font(22))
-
-    labels = ["Cover", "Weekly Lesson Plan", "Roster & Grades", "Substitute Notes"]
-    kind = preview % len(labels)
+    draw.rectangle([20, 20, w - 20, h - 20], outline=accent, width=4)
+    draw.rectangle([20, 20, w - 20, 84], fill=accent)
+    draw.text((44, 36), "CHILLI GAVVA · TEACHER PLANNER", fill="#ffffff", font=_font(24, True))
+    draw.text((48, 110), norm["title"][:48], fill=ink, font=_font(46, True))
+    draw.text((48, 170), f"{norm['year']} · 24+ pages · A4 + US Letter", fill=accent, font=_font(24, True))
+    draw.text((48, 206), "For teachers who want clear, printable lesson planning pages", fill=_col("muted"), font=_font(18))
 
     if kind == 0:
-        # year overview mini grid
-        draw.text((60, 240), "YEAR OVERVIEW", fill=accent, font=_font(16, True))
-        for i, month in enumerate(MONTHS):
-            col = i % 4
-            row = i // 4
-            x = 60 + col * 200
-            y = 280 + row * 120
-            draw.rectangle([x, y, x + 180, y + 96], outline=line, fill="#ffffff")
-            draw.rectangle([x, y, x + 180, y + 28], fill=soft)
-            draw.text((x + 10, y + 6), month[:3], fill=accent, font=_font(13, True))
-            for r in range(3):
-                draw.line([x + 10, y + 42 + r * 16, x + 170, y + 42 + r * 16], fill=line, width=1)
+        # Styled cover with mini-collage of 3 real pages
+        collage_y = 260
+        draw.rounded_rectangle([48, collage_y, w - 48, h - 110], radius=18, fill="#ffffff", outline=line, width=2)
+        draw.text((72, collage_y + 18), "INSIDE THE PACK", fill=accent, font=_font(20, True))
+        mini_specs = [("Weekly Plan", 72, collage_y + 62, 430, 420), ("Year Overview", 540, collage_y + 62, 430, 420), ("Grade Tracker", 1008, collage_y + 62, 430, 420)]
+        for mk, mx, my, mw, mh in mini_specs:
+            _draw_mini_page(draw, mx, my, mw, mh, mk, ink, accent, soft, line)
+            draw.text((mx + 8, my + mh + 10), mk, fill=accent, font=_font(16, True))
+        draw.text((72, h - 150), "Weekly lesson pages · Unit plans · Roster · Grades · Parent log · Sub notes", fill=ink, font=_font(18))
     elif kind == 1:
-        draw.text((60, 240), "WEEKLY LESSON PLAN", fill=accent, font=_font(16, True))
+        # Larger real page: weekly lesson plan
+        draw.text((48, 250), "WEEKLY LESSON PLAN", fill=accent, font=_font(22, True))
+        x0, y0 = 48, 296
         cols = ["Period"] + WEEK_DAYS
-        cw = [120, 170, 170, 170, 170, 170]
-        x0, y0 = 60, 280
+        cw = [150, 250, 250, 250, 250, 250]
         for c, label in enumerate(cols):
             x = x0 + sum(cw[:c])
-            draw.rectangle([x, y0, x + cw[c], y0 + 34], outline=line, fill=soft)
-            draw.text((x + 8, y0 + 8), label[:10], fill=accent, font=_font(12, True))
-        for r in range(5):
-            y = y0 + 34 + r * 60
+            draw.rectangle([x, y0, x + cw[c], y0 + 44], outline=line, fill=soft)
+            draw.text((x + 10, y0 + 10), label[:12], fill=accent, font=_font(16, True))
+        for r in range(8):
+            y = y0 + 44 + r * 72
             for c in range(len(cols)):
                 x = x0 + sum(cw[:c])
-                draw.rectangle([x, y, x + cw[c], y + 60], outline=line, fill="#ffffff")
-            draw.text((x0 + 8, y + 20), f"P{r + 1}", fill=ink, font=_font(12))
+                draw.rectangle([x, y, x + cw[c], y + 72], outline=line, fill="#ffffff")
+            draw.text((x0 + 10, y + 24), f"P{r + 1}", fill=ink, font=_font(16))
+            for c in range(1, len(cols)):
+                x = x0 + sum(cw[:c])
+                draw.line([x + 10, y + 36, x + cw[c] - 10, y + 36], fill=line, width=1)
     elif kind == 2:
-        draw.text((60, 240), "ROSTER & GRADE TRACKER", fill=accent, font=_font(16, True))
-        headers = ["Student", "Mon", "Tue", "Wed", "Thu", "Fri", "Grade"]
-        x0, y0 = 60, 280
-        widths = [260, 90, 90, 90, 90, 90, 120]
+        draw.text((48, 250), "ROSTER & GRADE TRACKER", fill=accent, font=_font(22, True))
+        headers = ["Student", "Mon", "Tue", "Wed", "Thu", "Fri", "Grade", "Notes"]
+        x0, y0 = 48, 296
+        widths = [320, 120, 120, 120, 120, 120, 140, 440]
         for c, label in enumerate(headers):
             x = x0 + sum(widths[:c])
-            draw.rectangle([x, y0, x + widths[c], y0 + 34], outline=line, fill=soft)
-            draw.text((x + 8, y0 + 8), label, fill=accent, font=_font(12, True))
-        for r in range(7):
-            y = y0 + 34 + r * 44
+            draw.rectangle([x, y0, x + widths[c], y0 + 44], outline=line, fill=soft)
+            draw.text((x + 10, y0 + 10), label, fill=accent, font=_font(16, True))
+        for r in range(10):
+            y = y0 + 44 + r * 56
             for c in range(len(headers)):
                 x = x0 + sum(widths[:c])
-                draw.rectangle([x, y, x + widths[c], y + 44], outline=line, fill="#ffffff")
-            draw.line([x0 + 14, y + 22, x0 + 220, y + 22], fill=line, width=1)
+                draw.rectangle([x, y, x + widths[c], y + 56], outline=line, fill="#ffffff")
+            draw.line([x0 + 14, y + 28, x0 + 280, y + 28], fill=line, width=1)
     else:
-        draw.text((60, 240), "SUBSTITUTE NOTES", fill=accent, font=_font(16, True))
-        draw.rounded_rectangle([60, 280, 760, 620], radius=12, fill="#ffffff", outline=line, width=2)
-        for i, label in enumerate(["Class routine", "Emergency contacts", "Today's plan", "Important notes"]):
-            y = 310 + i * 72
-            draw.text((84, y), label, fill=accent, font=_font(14, True))
-            draw.line([84, y + 34, 720, y + 34], fill=line, width=1)
-        draw.rounded_rectangle([800, 280, 1130, 620], radius=12, fill=soft, outline=line, width=2)
-        draw.text((824, 304), "QUICK CHECKLIST", fill=accent, font=_font(14, True))
-        for i, item in enumerate(["Attendance done", "Work collected", "Note left for teacher"]):
-            y = 350 + i * 54
-            draw.rectangle([824, y, 848, y + 24], outline=accent, width=2, fill="#ffffff")
-            draw.text((860, y + 2), item, fill=ink, font=_font(13))
+        draw.text((48, 250), "SUBSTITUTE TEACHER NOTES", fill=accent, font=_font(22, True))
+        draw.rounded_rectangle([48, 296, 980, h - 110], radius=16, fill="#ffffff", outline=line, width=2)
+        for i, label in enumerate(["Class routine", "Emergency contacts", "Today's plan", "Materials needed", "Important notes"]):
+            y = 336 + i * 108
+            draw.text((76, y), label, fill=accent, font=_font(18, True))
+            draw.line([76, y + 40, 940, y + 40], fill=line, width=1)
+            draw.line([76, y + 74, 940, y + 74], fill=line, width=1)
+        draw.rounded_rectangle([1020, 296, w - 48, h - 110], radius=16, fill=soft, outline=line, width=2)
+        draw.text((1048, 326), "QUICK CHECKLIST", fill=accent, font=_font(18, True))
+        for i, item in enumerate(["Attendance done", "Work collected", "Materials ready", "Note left for teacher", "Room locked"]):
+            y = 386 + i * 72
+            draw.rectangle([1048, y, 1078, y + 30], outline=accent, width=2, fill="#ffffff")
+            draw.text((1092, y + 2), item, fill=ink, font=_font(16))
 
-    draw.text((60, 700), "Year overview · Weekly plans · Unit plan · Roster · Grades · Parent log · Sub notes", fill=_col("muted"), font=_font(15))
-    draw.text((880, 720), labels[kind], fill=accent, font=_font(14, True))
+    draw.text((48, h - 72), "Year overview · 40 weekly lesson pages · Unit plans · Roster · Grades · Parent log · Sub notes", fill=_col("muted"), font=_font(16))
+    draw.text((w - 260, h - 72), labels[kind], fill=accent, font=_font(18, True))
     im.save(str(path), format="PNG", optimize=True)
 
 
@@ -282,26 +327,24 @@ def _year_overview_page(pdf: Any, norm: Dict[str, Any]) -> None:
 
 
 def _weekly_lesson_page(pdf: Any, norm: Dict[str, Any], week_no: int) -> None:
-    _heading(pdf, f"Weekly Lesson Plan — Week {week_no}", "Plan five days across class periods.")
+    _heading(pdf, f"Weekly Lesson Plan — Week {week_no}", "Plan five days across class periods. Use one page per week.")
     pdf.text(pdf_design.MARGIN, pdf.h - 114, "Week of: ____________________", 9, color=_col("muted"))
     pdf.text(pdf.w / 2, pdf.h - 114, "Focus / theme: ______________________________", 9, color=_col("muted"))
 
     left = pdf_design.MARGIN
     right = pdf.w - pdf_design.MARGIN
     top = pdf.h - 136
-    bottom = 76
+    bottom = 96
     cols = ["Period"] + WEEK_DAYS
     p_w = 64
     day_w = (right - left - p_w) / 5
     row_h = (top - bottom - 22) / len(norm["periods"])
-    # header
     pdf.fill(left, top - 22, right - left, 22, _col("soft"))
     pdf.rect(left, top - 22, right - left, 22, color=_col("line"), width=0.7)
     pdf.text(left + 4, top - 15, "Period", 8, bold=True, color=_col("accent"))
     for i, day in enumerate(WEEK_DAYS):
         x = left + p_w + i * day_w
         pdf.text(x + 4, top - 15, day, 8, bold=True, color=_col("accent"))
-    # grid
     for r, period in enumerate(norm["periods"]):
         y = top - 22 - (r + 1) * row_h
         pdf.rect(left, y, right - left, row_h, color=_col("line"), width=0.6)
@@ -310,7 +353,16 @@ def _weekly_lesson_page(pdf: Any, norm: Dict[str, Any], week_no: int) -> None:
         for i in range(5):
             x = left + p_w + i * day_w
             pdf.line(x, y, x, y + row_h, color=_col("line"), width=0.5)
-    pdf.text(left, 60, "Notes: ________________________________________________________________________________", 8, color=_col("muted"))
+            # light writing lines inside cells
+            for ln in (0.33, 0.66):
+                ly = y + row_h * ln
+                pdf.line(x + 4, ly, x + day_w - 4, ly, color=_col("line"), width=0.3)
+    # bottom notes area fills remaining space
+    pdf.text(left, bottom - 10, "Notes / homework / reminders:", 8, bold=True, color=_col("accent"))
+    for ln in range(3):
+        ly = bottom - 24 - ln * 14
+        if ly > 58:
+            pdf.line(left, ly, right, ly, color=_col("line"), width=0.5)
 
 
 def _unit_plan_page(pdf: Any, norm: Dict[str, Any]) -> None:
@@ -456,14 +508,38 @@ def _student_notes_page(pdf: Any, norm: Dict[str, Any]) -> None:
         pdf.line(left + 6, y + row_h / 2 - 4, left + 105, y + row_h / 2 - 4, color=_col("line"), width=0.4)
 
 
+def _unit_plan_page(pdf: Any, norm: Dict[str, Any], page_no: int = 1) -> None:
+    label = "Unit Plan" if page_no == 1 else f"Unit Plan — Page {page_no}"
+    _heading(pdf, label, "Map one unit from goals to assessment.")
+    left = pdf_design.MARGIN
+    right = pdf.w - pdf_design.MARGIN
+    y = pdf.h - 128
+    fields = [
+        ("Unit title / subject", 1), ("Dates / term focus", 1),
+        ("Learning goals", 3), ("Key activities and lessons", 5),
+        ("Materials / resources", 3), ("Assessment / check for understanding", 3),
+        ("Reflection / next steps", 2),
+    ]
+    for label, lines in fields:
+        pdf.text(left, y, label, 9, bold=True, color=_col("accent"))
+        y -= 14
+        for _ in range(lines):
+            pdf.line(left, y, right, y, color=_col("line"), width=0.6)
+            y -= 18
+        y -= 6
+        if y < 90:
+            break
+
+
 def _build_pdf(path: Path, paper: str, norm: Dict[str, Any]) -> None:
     size = PAPER_SIZES[paper]
     pdf = pdf_design.Pdf(size, footer=f"{norm['title']} · {norm['year']}", style=_STYLE["name"])
     pdf.new_page(); _title_page(pdf, norm)
     pdf.new_page(); _year_overview_page(pdf, norm)
-    for week in range(1, 5):
+    for week in range(1, WEEKLY_PAGES + 1):
         pdf.new_page(); _weekly_lesson_page(pdf, norm, week)
-    pdf.new_page(); _unit_plan_page(pdf, norm)
+    pdf.new_page(); _unit_plan_page(pdf, norm, 1)
+    pdf.new_page(); _unit_plan_page(pdf, norm, 2)
     pdf.new_page(); _roster_attendance_page(pdf, norm)
     pdf.new_page(); _grade_tracker_page(pdf, norm)
     pdf.new_page(); _parent_contact_page(pdf, norm)
@@ -480,22 +556,23 @@ def _readme(norm: Dict[str, Any]) -> str:
         "WHAT IS INSIDE",
         "- A4 PDF and US Letter PDF",
         "- Year overview page",
-        "- 4 weekly lesson plan pages (5 days x periods)",
-        "- Unit plan page",
+        f"- {WEEKLY_PAGES} undated weekly lesson plan pages (5 days x periods)",
+        "- 2 unit plan pages",
         "- Class roster and attendance page",
         "- Grade tracker page",
         "- Parent contact log page",
         "- Substitute teacher notes page",
+        "- Student notes and observations page",
         "- cover.png and three preview images",
         "",
         "HOW TO PRINT",
         "1. Open the PDF for your paper size.",
         "2. Print at 100% scale (Actual Size).",
-        "3. Print extra weekly lesson plan pages as needed.",
+        "3. Use one weekly lesson plan page per week.",
         "4. Keep the substitute notes page ready in your classroom folder.",
         "",
         "PAGE COUNT",
-        "- 12 pages per PDF (A4 and US Letter included)",
+        f"- {2 + WEEKLY_PAGES + 7} pages per PDF (A4 and US Letter included)",
         "",
         "LICENSE",
         "Personal use only. Do not resell or redistribute the files.",
@@ -545,6 +622,7 @@ def build(spec: Dict[str, Any], out_dir: Union[str, Path]) -> List[str]:
         _write_text(temp_dir / "README.txt", _readme(norm))
         _write_text(temp_dir / "LICENSE.txt", _license(norm))
 
+        page_count = 2 + WEEKLY_PAGES + 7
         manifest = {
             "format": FORMAT,
             "title": norm["title"],
@@ -552,7 +630,8 @@ def build(spec: Dict[str, Any], out_dir: Union[str, Path]) -> List[str]:
             "subjects": norm["subjects"],
             "periods": norm["periods"],
             "paper_sizes": list(PAPER_SIZES),
-            "pages_per_pdf": 12,
+            "pages_per_pdf": page_count,
+            "weekly_pages": WEEKLY_PAGES,
             "files": sorted(names + ["manifest.json"]),
         }
         _write_text(temp_dir / "manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")

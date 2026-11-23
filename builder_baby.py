@@ -74,6 +74,9 @@ KEYWORDS = [
 DEFAULT_TITLE = "Newborn Daily Routine Tracker"
 PAPER_SIZES = {"a4": "A4", "letter": "Letter"}
 WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+DAILY_LOG_PAGES = 30
+COVER_SIZE = (1600, 1067)
+PREVIEW_SIZE = (1600, 1067)
 
 
 def _clean_title(value: Any) -> str:
@@ -110,10 +113,23 @@ def _font(size: int, bold: bool = False):
         return ImageFont.load_default()
 
 
+def _draw_mini(draw, x, y, w, h, title, accent, soft, line):
+    draw.rectangle([x, y, x + w, y + h], fill="#ffffff", outline=line, width=2)
+    draw.rectangle([x, y, x + w, y + 24], fill=accent)
+    draw.text((x + 8, y + 5), title, fill="#ffffff", font=_font(12, True))
+    for i in range(6):
+        ly = y + 40 + i * ((h - 48) / 6)
+        draw.line([x + 10, ly, x + w - 10, ly], fill=line, width=1)
+        if i == 0:
+            draw.rectangle([x + 10, y + 28, x + w - 10, ly], fill=soft, outline=line)
+
+
 def _cover_image(path: Path, norm: Dict[str, Any], preview: int = 0) -> None:
     if not HAS_PILLOW:
         raise RuntimeError("Pillow is required for baby tracker images")
-    w, h = 1200, 800
+    labels = ["Cover", "Daily Log", "Weekly Summary", "Milestones & Dates"]
+    kind = preview % len(labels)
+    w, h = COVER_SIZE if kind == 0 else PREVIEW_SIZE
     bg = "#fdfaf8"
     ink = _col("ink")
     accent = _col("accent")
@@ -121,69 +137,62 @@ def _cover_image(path: Path, norm: Dict[str, Any], preview: int = 0) -> None:
     line = _col("line")
     im = Image.new("RGB", (w, h), color=bg)
     draw = ImageDraw.Draw(im)
-    draw.rectangle([24, 24, w - 24, h - 24], outline=accent, width=3)
-    draw.rectangle([24, 24, w - 24, 72], fill=accent)
-    draw.text((48, 38), "CHILLI GAVVA · NEWBORN TRACKER", fill="#ffffff", font=_font(20, True))
-    draw.text((60, 120), norm["title"][:42], fill=ink, font=_font(42, True))
-    draw.text((60, 178), "A4 + US Letter · Daily routine pages", fill=accent, font=_font(22))
-    labels = ["Cover", "Feeding & Sleep Log", "Diaper & Checklist", "Milestones & Dates"]
-    kind = preview % len(labels)
-
+    draw.rectangle([20, 20, w - 20, h - 20], outline=accent, width=4)
+    draw.rectangle([20, 20, w - 20, 84], fill=accent)
+    draw.text((44, 36), "CHILLI GAVVA · NEWBORN TRACKER", fill="#ffffff", font=_font(24, True))
+    draw.text((48, 110), norm["title"][:48], fill=ink, font=_font(46, True))
+    draw.text((48, 170), "24+ pages · A4 + US Letter", fill=accent, font=_font(24, True))
+    draw.text((48, 206), "For caregivers who want a simple daily newborn routine log", fill=_col("muted"), font=_font(18))
     if kind == 0:
-        draw.text((60, 240), "DAILY ROUTINE", fill=accent, font=_font(16, True))
-        cards = ["Feeding log", "Sleep log", "Diaper log", "Routine checklist", "Doctor notes", "Milestones"]
-        for i, label in enumerate(cards):
-            col = i % 3
-            row = i // 3
-            x = 60 + col * 360
-            y = 280 + row * 170
-            draw.rounded_rectangle([x, y, x + 320, y + 130], radius=12, fill="#ffffff", outline=line, width=2)
-            draw.text((x + 18, y + 16), label, fill=accent, font=_font(15, True))
-            for ln in range(3):
-                draw.line([x + 18, y + 52 + ln * 22, x + 290, y + 52 + ln * 22], fill=line, width=1)
+        draw.rounded_rectangle([48, 260, w - 48, h - 110], radius=18, fill="#ffffff", outline=line, width=2)
+        draw.text((72, 280), "INSIDE THE PACK", fill=accent, font=_font(20, True))
+        _draw_mini(draw, 72, 330, 430, 420, "Daily Log", accent, soft, line)
+        _draw_mini(draw, 540, 330, 430, 420, "Weekly Summary", accent, soft, line)
+        _draw_mini(draw, 1008, 330, 430, 420, "Milestones", accent, soft, line)
+        draw.text((72, 780), "30 daily logs · Weekly summaries · Milestones · Doctor notes · Date table", fill=ink, font=_font(18))
     elif kind == 1:
-        draw.text((60, 240), "FEEDING & SLEEP LOG", fill=accent, font=_font(16, True))
-        headers = ["Time", "Feed type", "Amount / Side", "Sleep start", "Sleep end", "Notes"]
-        widths = [90, 130, 150, 130, 130, 250]
-        x0, y0 = 60, 280
+        draw.text((48, 250), "DAILY LOG", fill=accent, font=_font(22, True))
+        headers = ["Time", "Feed", "Sleep", "Diaper", "Notes"]
+        widths = [140, 260, 260, 220, 620]
+        x0, y0 = 48, 296
         for c, label in enumerate(headers):
             x = x0 + sum(widths[:c])
-            draw.rectangle([x, y0, x + widths[c], y0 + 34], outline=line, fill=soft)
-            draw.text((x + 8, y0 + 8), label[:14], fill=accent, font=_font(11, True))
-        for r in range(7):
-            y = y0 + 34 + r * 46
+            draw.rectangle([x, y0, x + widths[c], y0 + 44], outline=line, fill=soft)
+            draw.text((x + 10, y0 + 10), label, fill=accent, font=_font(16, True))
+        for r in range(10):
+            y = y0 + 44 + r * 58
             for c in range(len(headers)):
                 x = x0 + sum(widths[:c])
-                draw.rectangle([x, y, x + widths[c], y + 46], outline=line, fill="#ffffff")
+                draw.rectangle([x, y, x + widths[c], y + 58], outline=line, fill="#ffffff")
     elif kind == 2:
-        draw.text((60, 240), "DIAPER LOG & DAILY CHECKLIST", fill=accent, font=_font(16, True))
-        draw.rounded_rectangle([60, 280, 560, 620], radius=12, fill="#ffffff", outline=line, width=2)
-        draw.text((84, 300), "Diaper Log", fill=accent, font=_font(15, True))
-        for r in range(6):
-            y = 344 + r * 40
-            draw.line([84, y, 530, y], fill=line, width=1)
-        draw.rounded_rectangle([600, 280, 1130, 620], radius=12, fill=soft, outline=line, width=2)
-        draw.text((624, 300), "Daily Checklist", fill=accent, font=_font(15, True))
-        for i, item in enumerate(["Feeding times noted", "Sleep noted", "Diapers noted", "Tummy time", "Supplies ready"]):
-            y = 350 + i * 48
-            draw.rectangle([624, y, 648, y + 24], outline=accent, width=2, fill="#ffffff")
-            draw.text((660, y + 2), item, fill=ink, font=_font(13))
+        draw.text((48, 250), "WEEKLY SUMMARY", fill=accent, font=_font(22, True))
+        draw.rounded_rectangle([48, 296, 980, h - 110], radius=16, fill="#ffffff", outline=line, width=2)
+        for i, label in enumerate(["Feeding patterns", "Sleep patterns", "Diaper notes", "Questions for care team"]):
+            y = 336 + i * 132
+            draw.text((76, y), label, fill=accent, font=_font(18, True))
+            for ln in range(2):
+                draw.line([76, y + 42 + ln * 34, 940, y + 42 + ln * 34], fill=line, width=1)
+        draw.rounded_rectangle([1020, 296, w - 48, h - 110], radius=16, fill=soft, outline=line, width=2)
+        draw.text((1048, 326), "SUPPLIES CHECK", fill=accent, font=_font(18, True))
+        for i, item in enumerate(["Diapers", "Wipes", "Bottles / feeding", "Clothes / swaddles", "Notes"]):
+            y = 386 + i * 86
+            draw.rectangle([1048, y, 1078, y + 30], outline=accent, width=2, fill="#ffffff")
+            draw.text((1092, y + 2), item, fill=ink, font=_font(16))
     else:
-        draw.text((60, 240), "MILESTONES & DATE TABLE", fill=accent, font=_font(16, True))
-        draw.rounded_rectangle([60, 280, 560, 620], radius=12, fill="#ffffff", outline=line, width=2)
-        draw.text((84, 300), "Milestones", fill=accent, font=_font(15, True))
-        for r in range(6):
-            y = 344 + r * 40
-            draw.line([84, y, 530, y], fill=line, width=1)
-        draw.rounded_rectangle([600, 280, 1130, 620], radius=12, fill="#ffffff", outline=line, width=2)
-        draw.text((624, 300), "Vaccine Date Table", fill=accent, font=_font(15, True))
-        draw.text((624, 330), "Dates only - no medical advice", fill=_col("muted"), font=_font(11))
-        for r in range(5):
-            y = 360 + r * 44
-            draw.line([624, y, 1100, y], fill=line, width=1)
-
-    draw.text((60, 700), "Feeding · Sleep · Diapers · Daily checklist · Doctor notes · Milestones · Date table", fill=_col("muted"), font=_font(15))
-    draw.text((880, 720), labels[kind], fill=accent, font=_font(14, True))
+        draw.text((48, 250), "MILESTONES & DATE TABLE", fill=accent, font=_font(22, True))
+        draw.rounded_rectangle([48, 296, 760, h - 110], radius=16, fill="#ffffff", outline=line, width=2)
+        draw.text((76, 326), "Milestones & memories", fill=accent, font=_font(18, True))
+        for i in range(8):
+            ly = 380 + i * 52
+            draw.line([76, ly, 720, ly], fill=line, width=1)
+        draw.rounded_rectangle([800, 296, w - 48, h - 110], radius=16, fill="#ffffff", outline=line, width=2)
+        draw.text((828, 326), "Vaccine date table", fill=accent, font=_font(18, True))
+        draw.text((828, 352), "Dates only - no medical advice", fill=_col("muted"), font=_font(14))
+        for i in range(8):
+            ly = 390 + i * 48
+            draw.line([828, ly, w - 88, ly], fill=line, width=1)
+    draw.text((48, h - 72), "30 daily logs · Weekly summaries · Milestones · Doctor notes · Date table (dates only)", fill=_col("muted"), font=_font(16))
+    draw.text((w - 260, h - 72), labels[kind], fill=accent, font=_font(18, True))
     im.save(str(path), format="PNG", optimize=True)
 
 
@@ -219,45 +228,89 @@ def _title_page(pdf: Any, norm: Dict[str, Any]) -> None:
     pdf.text(left + 14, bottom + 20, "Print at 100% scale (Actual Size). Reprint daily log pages as needed.", 8.5, color=_col("muted"))
 
 
-def _feeding_log_page(pdf: Any, norm: Dict[str, Any], page_no: int) -> None:
-    _heading(pdf, f"Feeding Log — Page {page_no}", "Record feeding time, type, amount or side, and notes.")
+def _daily_log_page(pdf: Any, norm: Dict[str, Any], day_no: int) -> None:
+    _heading(pdf, f"Daily Log — Day {day_no}", "Track feeding, sleep, diapers, and notes for one day.")
     left = pdf_design.MARGIN
     right = pdf.w - pdf_design.MARGIN
     top = pdf.h - 128
-    bottom = 80
-    headers = ["Date", "Time", "Feed type", "Amount / Side", "Duration", "Notes"]
-    widths = [55, 50, 80, 90, 60, right - left - 335]
-    row_h = (top - bottom - 22) / 16
-    pdf.fill(left, top - 22, right - left, 22, _col("soft"))
-    pdf.rect(left, top - 22, right - left, 22, color=_col("line"), width=0.7)
+    # Feeding block
+    pdf.text(left, top + 2, "Feeding", 9, bold=True, color=_col("accent"))
+    fh_headers = ["Time", "Type / side", "Amount / duration", "Notes"]
+    fh_widths = [55, 95, 110, right - left - 260]
+    fh_rows = 6
+    fh_row_h = 22
+    fh_y = top - 16
+    pdf.fill(left, fh_y - 18, right - left, 18, _col("soft"))
+    pdf.rect(left, fh_y - 18, right - left, 18, color=_col("line"), width=0.6)
     x = left
-    for htxt, w in zip(headers, widths):
-        pdf.text(x + 3, top - 15, htxt, 7.5, bold=True, color=_col("accent"))
+    for htxt, w in zip(fh_headers, fh_widths):
+        pdf.text(x + 3, fh_y - 13, htxt, 7, bold=True, color=_col("accent"))
         x += w
-    for r in range(16):
-        y = top - 22 - (r + 1) * row_h
-        pdf.rect(left, y, right - left, row_h, color=_col("line"), width=0.5)
+    for r in range(fh_rows):
+        y = fh_y - 18 - (r + 1) * fh_row_h
+        pdf.rect(left, y, right - left, fh_row_h, color=_col("line"), width=0.4)
         x = left
-        for w in widths:
-            pdf.line(x, y, x, y + row_h, color=_col("line"), width=0.4)
+        for w in fh_widths:
+            pdf.line(x, y, x, y + fh_row_h, color=_col("line"), width=0.3)
             x += w
+    # Sleep block
+    sy = fh_y - 18 - fh_rows * fh_row_h - 24
+    pdf.text(left, sy + 2, "Sleep", 9, bold=True, color=_col("accent"))
+    sh_headers = ["Start", "Wake", "Total", "Where / notes"]
+    sh_widths = [70, 70, 70, right - left - 210]
+    sh_rows = 4
+    sh_row_h = 22
+    pdf.fill(left, sy - 18, right - left, 18, _col("soft"))
+    pdf.rect(left, sy - 18, right - left, 18, color=_col("line"), width=0.6)
+    x = left
+    for htxt, w in zip(sh_headers, sh_widths):
+        pdf.text(x + 3, sy - 13, htxt, 7, bold=True, color=_col("accent"))
+        x += w
+    for r in range(sh_rows):
+        y = sy - 18 - (r + 1) * sh_row_h
+        pdf.rect(left, y, right - left, sh_row_h, color=_col("line"), width=0.4)
+        x = left
+        for w in sh_widths:
+            pdf.line(x, y, x, y + sh_row_h, color=_col("line"), width=0.3)
+            x += w
+    # Diaper block
+    dy = sy - 18 - sh_rows * sh_row_h - 24
+    pdf.text(left, dy + 2, "Diapers", 9, bold=True, color=_col("accent"))
+    dh_headers = ["Time", "Wet", "Dirty", "Mixed", "Notes"]
+    dh_widths = [60, 50, 50, 50, right - left - 210]
+    dh_rows = 5
+    dh_row_h = 22
+    pdf.fill(left, dy - 18, right - left, 18, _col("soft"))
+    pdf.rect(left, dy - 18, right - left, 18, color=_col("line"), width=0.6)
+    x = left
+    for htxt, w in zip(dh_headers, dh_widths):
+        pdf.text(x + 3, dy - 13, htxt, 7, bold=True, color=_col("accent"))
+        x += w
+    for r in range(dh_rows):
+        y = dy - 18 - (r + 1) * dh_row_h
+        pdf.rect(left, y, right - left, dh_row_h, color=_col("line"), width=0.4)
+        x = left
+        for wi, w in enumerate(dh_widths):
+            pdf.line(x, y, x, y + dh_row_h, color=_col("line"), width=0.3)
+            if wi in (1, 2, 3):
+                pdf.rect(x + w / 2 - 5, y + dh_row_h / 2 - 5, 10, 10, color=_col("line"), width=0.5)
+            x += w
+    # Notes fill bottom
+    ny = dy - 18 - dh_rows * dh_row_h - 24
+    pdf.text(left, ny + 2, "Notes / mood / supplies needed", 9, bold=True, color=_col("accent"))
+    for i in range(4):
+        ly = ny - 14 - i * 16
+        if ly > 64:
+            pdf.line(left, ly, right, ly, color=_col("line"), width=0.5)
+
+
+# Backward-compatible aliases for tests/imports that may reference old names
+def _feeding_log_page(pdf: Any, norm: Dict[str, Any], page_no: int) -> None:
+    _daily_log_page(pdf, norm, page_no)
 
 
 def _sleep_log_page(pdf: Any, norm: Dict[str, Any], page_no: int) -> None:
-    _heading(pdf, f"Sleep Log — Page {page_no}", "Track sleep start, wake time, total time, and notes.")
-    left = pdf_design.MARGIN
-    right = pdf.w - pdf_design.MARGIN
-    top = pdf.h - 128
-    bottom = 80
-    headers = ["Date", "Sleep start", "Wake time", "Total time", "Where", "Notes"]
-    widths = [55, 75, 75, 70, 70, right - left - 345]
-    row_h = (top - bottom - 22) / 16
-    pdf.fill(left, top - 22, right - left, 22, _col("soft"))
-    pdf.rect(left, top - 22, right - left, 22, color=_col("line"), width=0.7)
-    x = left
-    for htxt, w in zip(headers, widths):
-        pdf.text(x + 3, top - 15, htxt, 7.5, bold=True, color=_col("accent"))
-        x += w
+    _daily_log_page(pdf, norm, page_no + DAILY_LOG_PAGES)
     for r in range(16):
         y = top - 22 - (r + 1) * row_h
         pdf.rect(left, y, right - left, row_h, color=_col("line"), width=0.5)
@@ -401,12 +454,12 @@ def _vaccine_date_table_page(pdf: Any, norm: Dict[str, Any]) -> None:
     pdf.text(left, 64, "This table is for date tracking only. Ask your child's care team for medical guidance.", 8, color=_col("muted"))
 
 
-def _weekly_overview_page(pdf: Any, norm: Dict[str, Any]) -> None:
-    _heading(pdf, "Weekly Overview", "A quick weekly snapshot of routines and notes.")
+def _weekly_overview_page(pdf: Any, norm: Dict[str, Any], week_no: int = 1) -> None:
+    _heading(pdf, f"Weekly Summary — Week {week_no}", "A quick weekly snapshot of routines, patterns, and questions.")
     left = pdf_design.MARGIN
     right = pdf.w - pdf_design.MARGIN
     top = pdf.h - 128
-    bottom = 80
+    bottom = 170
     headers = ["Day"] + ["Feeding", "Sleep", "Diapers", "Notes"]
     widths = [70, 90, 90, 70, right - left - 320]
     row_h = (top - bottom - 22) / 7
@@ -424,6 +477,12 @@ def _weekly_overview_page(pdf: Any, norm: Dict[str, Any]) -> None:
             pdf.line(x, y, x, y + row_h, color=_col("line"), width=0.4)
             x += w
         pdf.text(left + 4, y + row_h / 2 - 3, day, 7.5, color=_col("ink"))
+    # bottom notes
+    pdf.text(left, bottom - 10, "Patterns noticed / questions for care team:", 9, bold=True, color=_col("accent"))
+    for i in range(5):
+        ly = bottom - 26 - i * 18
+        if ly > 64:
+            pdf.line(left, ly, right, ly, color=_col("line"), width=0.5)
 
 
 def _important_contacts_page(pdf: Any, norm: Dict[str, Any]) -> None:
@@ -452,15 +511,13 @@ def _build_pdf(path: Path, paper: str, norm: Dict[str, Any]) -> None:
     size = PAPER_SIZES[paper]
     pdf = pdf_design.Pdf(size, footer=f"{norm['title']} · Printable routine tracker", style=_STYLE["name"])
     pdf.new_page(); _title_page(pdf, norm)
-    pdf.new_page(); _feeding_log_page(pdf, norm, 1)
-    pdf.new_page(); _feeding_log_page(pdf, norm, 2)
-    pdf.new_page(); _sleep_log_page(pdf, norm, 1)
-    pdf.new_page(); _sleep_log_page(pdf, norm, 2)
-    pdf.new_page(); _diaper_log_page(pdf, norm)
-    pdf.new_page(); _daily_checklist_page(pdf, norm)
-    pdf.new_page(); _weekly_overview_page(pdf, norm)
-    pdf.new_page(); _doctor_notes_page(pdf, norm)
+    for day in range(1, DAILY_LOG_PAGES + 1):
+        pdf.new_page(); _daily_log_page(pdf, norm, day)
+    for week in range(1, 6):
+        pdf.new_page(); _weekly_overview_page(pdf, norm, week)
     pdf.new_page(); _milestones_page(pdf, norm)
+    pdf.new_page(); _milestones_page(pdf, norm)  # extra milestone page
+    pdf.new_page(); _doctor_notes_page(pdf, norm)
     pdf.new_page(); _vaccine_date_table_page(pdf, norm)
     pdf.new_page(); _important_contacts_page(pdf, norm)
     pdf.save(str(path), title=norm["title"])
@@ -473,13 +530,10 @@ def _readme(norm: Dict[str, Any]) -> str:
         "",
         "WHAT IS INSIDE",
         "- A4 PDF and US Letter PDF",
-        "- 2 feeding log pages (time, type, amount/side)",
-        "- 2 sleep log pages",
-        "- Diaper log page",
-        "- Daily routine checklist page",
-        "- Weekly overview page",
+        f"- {DAILY_LOG_PAGES} daily log pages (feeding, sleep, diapers, notes)",
+        "- 5 weekly summary pages",
+        "- 2 milestones and memories pages",
         "- Doctor visit notes page",
-        "- Milestones and memories page",
         "- Vaccine date table page (dates only, no medical advice)",
         "- Important contacts and notes page",
         "- cover.png and three preview images",
@@ -491,7 +545,7 @@ def _readme(norm: Dict[str, Any]) -> str:
         "4. Use the date table for tracking only and follow your care team for guidance.",
         "",
         "PAGE COUNT",
-        "- 12 pages per PDF (A4 and US Letter included)",
+        f"- {1 + DAILY_LOG_PAGES + 5 + 5} pages per PDF (A4 and US Letter included)",
         "",
         "LICENSE",
         "Personal use only. Do not resell or redistribute the files.",
@@ -537,13 +591,15 @@ def build(spec: Dict[str, Any], out_dir: Union[str, Path]) -> List[str]:
         names.extend(["README.txt", "LICENSE.txt"])
         _write_text(temp_dir / "README.txt", _readme(norm))
         _write_text(temp_dir / "LICENSE.txt", _license(norm))
+        page_count = 1 + DAILY_LOG_PAGES + 5 + 5
         manifest = {
             "format": FORMAT,
             "title": norm["title"],
             "baby_name": norm["baby_name"],
             "caregiver": norm["caregiver"],
             "paper_sizes": list(PAPER_SIZES),
-            "pages_per_pdf": 12,
+            "pages_per_pdf": page_count,
+            "daily_log_pages": DAILY_LOG_PAGES,
             "files": sorted(names + ["manifest.json"]),
         }
         _write_text(temp_dir / "manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
