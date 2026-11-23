@@ -19,15 +19,23 @@ def checklist(db_path=None, products_dir=None, now=None):
     for pack in run['packs']:
         aid = pack['id']
         tasks = []
-        if aid not in paid:
+        if aid in paid:
+            tasks.append('✅ /listed '+str(aid))
+        else:
             tasks.append(f'/upload {aid} → Gumroad lo meere pettandi; /listed {aid} <link>')
-        if aid not in samples:
+        if aid in samples:
+            tasks.append('✅ sample link')
+        else:
             tasks.append(f'/upload {aid} sample → meere pettandi; /selltest sample {aid} <link>')
         pending = [str(i) for i, r in enumerate(posts, 1)
                    if r.get('pack_id') == pack['folder'] and r.get('status') != 'done']
         if pending:
             tasks.append('/post today → meere post chesi ' + ', '.join('/posted '+i for i in pending))
-        if aid not in measured:
+        if not pending and any(r.get('pack_id') == pack['folder'] for r in posts):
+            tasks.append('✅ Posts')
+        if aid in measured:
+            tasks.append('✅ stats')
+        else:
             tasks.append(f'/selltest stats {aid} views <views> sales <sales>')
         lines.append(f"Pack #{aid}: " + ' → '.join(tasks or ['Ee roju pani poorthi.']))
     lines.append('Next: paina unna modati command pampandi; upload, posts meere cheyandi.')

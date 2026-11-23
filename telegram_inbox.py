@@ -1933,6 +1933,10 @@ def handle_command(cmd, ids, db_path=None):
         res = autofix.run_drill()
         return f"Auto-fix drill: {res['verdict']}\n{res['summary']}"
     if cmd == "today":
+        import selltest_today
+        checklist = selltest_today.checklist(db_path)
+        if checklist:
+            return checklist
         return today_posts_text() + "\n\n" + today_product_text(db_path)
     if cmd == "posted":
         n = ids[0] if ids else None

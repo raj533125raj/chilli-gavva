@@ -41,3 +41,40 @@ class TodayTests(unittest.TestCase):
             self.assertEqual(send.call_count, 1)
             self.assertIn('/upload 1', send.call_args.args[2])
             self.assertFalse(inbox.send_morning_sell_card('unused', CHAT, self.db, NOW.replace(hour=1)))
+
+    def test_fourteen_days_same_checklist_actual_confirmation_records(self):
+        import free_sample
+        import guardrails
+        import post_planner
+        import tg_listed
+        import tg_posts
+        import tg_selltest
+        import telegram_inbox as inbox
+        for pack in choices(8):
+            aid = guardrails.request_approval('public_draft', pack['title'], '{}', db_path=self.db)
+            self.assertEqual(aid, pack['id'])
+            guardrails.decide(aid, True, db_path=self.db)
+            self.assertTrue(tg_listed.set_listed(aid, 'https://example.gumroad.com/l/full-'+str(aid), self.db)['ok'])
+            free_sample.set_link(aid, 'https://example.gumroad.com/l/sample-'+str(aid), self.db)
+        self.products.mkdir(parents=True)
+        planpath = post_planner.plan_path_for(self.products)
+        for offset in range(14):
+            now = NOW + dt.timedelta(days=offset)
+            day = post_planner.owner_today(now).isoformat()
+            post_planner.save_plan([{'day':offset+1, 'pack_id':'1-focus', 'date':day,'channel':'pinterest','status':'todo'}], planpath)
+            ctx = {'products_dir':self.products,'db_path':self.db,'chat_id':CHAT,'now':now}
+            with mock.patch.dict(os.environ, {'TELEGRAM_CHAT_ID':CHAT}), \
+                 mock.patch.object(inbox, 'build_plugin_ctx', return_value=ctx):
+                # Exercise the real /posted and /selltest stats command handlers.
+                self.assertIn('done', tg_posts.handle_posted_n(1, ctx, plan_path=planpath)['text'])
+                tg_selltest.handle('/selltest stats 1 views 2 sales 1', ctx)
+            text = selltest_today.checklist(self.db, self.products, now)
+            first = text.splitlines()[1]
+            self.assertIn('✅ /listed 1', first); self.assertIn('✅ sample link', first)
+            self.assertIn('✅ Posts', first); self.assertIn('✅ stats', first)
+            self.assertNotIn('✅ stats', text.splitlines()[2])
+            self.assertIn(f'day {offset+1}/14', text)
+            self.assertLessEqual(len(text.splitlines()), 10)
+        with mock.patch.object(selltest_today, 'checklist', return_value=text) as checklist:
+            self.assertEqual(inbox.handle_command('today', [], self.db), text)
+            checklist.assert_called_once_with(self.db)
