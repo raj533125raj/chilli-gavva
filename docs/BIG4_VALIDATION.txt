@@ -13,3 +13,18 @@ Slowest 5 chunks:
   103.00s - chunk_184_test_och_niche_sweep
    97.98s - chunk_37_test_cce_robot_day
 
+CXAA-1 Python 3.11, clean environment, CHILLI_TEST=1
+Total tests run: 8785 | Failures: 0 | Errors: 0 | Skipped: 18 | Time: 500.09s
+Last 5 lines:
+   57.40s - chunk_186_test_ocf_owner_journey
+   53.20s - chunk_183_test_occ_sell_flow_e2e
+----------------------------------------------------------------------
+RESULT: PASSED
+======================================================================
+Slowest 5 chunks:
+  197.19s - chunk_191_test_och_secret_sweep
+  196.74s - chunk_187_test_ocg_all_commands_real_packs
+  194.65s - chunk_93_test_cxw_product_integration
+   97.58s - chunk_189_test_och_niche_sweep
+   94.98s - chunk_37_test_cce_robot_day
+
