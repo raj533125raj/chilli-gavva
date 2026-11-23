@@ -1,0 +1,31 @@
+BIG-6 validation on robot-cx6
+Validated functional source: 665b579
+Command: scripts/ci_parity.sh (full mode; clean Python 3.11, UTC, four workers)
+
+Total tests run: 8875 | Failures: 0 | Errors: 0 | Skipped: 18 | Time: 734.33s
+Last 5 full-suite lines:
+   76.00s - chunk_25_test_ccb1_theme_images
+   71.16s - chunk_197_test_occ_sell_flow_e2e
+----------------------------------------------------------------------
+RESULT: PASSED
+======================================================================
+
+UTC 19:45, 88 clock-sensitive modules: Ran 2361 tests; failures=0; errors=0; skipped=7 | OK
+UTC 01:15, 88 clock-sensitive modules: Ran 2361 tests; failures=0; errors=0; skipped=7 | OK
+UTC 07:00, 88 clock-sensitive modules: Ran 2361 tests; failures=0; errors=0; skipped=7 | OK
+CI PARITY: PASS
+
+Tracked .jobs files: 0
+Protected files changed since BIG-6 start d59eba8: 0
+One persistent test checkout was reused throughout BIG-6.
+Nothing was pushed or published.
+
+The owner controls approval, store uploads, posts and email sending.
+Landing drafts preserve gated copy, real buyer-file lists and actual preview images.
+The site build requires exact approved files, current saved links and the current Site URL.
+Product metadata has no price fields; only approved pages enter the sitemap.
+PNG previews show the actual saved HTML content and real images.
+Sample emails use the saved paid link and stay outside the buyer ZIP.
+Measured day-seven and day-fourteen rules preserve missing-data distinctions and posting history.
+Stopped Pin slots never become owner posting instructions or false completion marks.
+The sell-test Doctor checks real kit, sample, link, Pin, page and daily-number records.
