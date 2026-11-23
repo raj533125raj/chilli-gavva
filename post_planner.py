@@ -312,7 +312,7 @@ def build_plan(
     - status ("todo")
     """
     if start_date is None:
-        cur_date = datetime.date.today()
+        cur_date = owner_today()
     elif isinstance(start_date, str):
         cur_date = datetime.date.fromisoformat(start_date)
     else:
@@ -574,7 +574,7 @@ def today_text(plan: List[Dict[str, Any]], date: Optional[Union[datetime.date, s
     No money, no file paths outside the pack, <= 1200 chars.
     """
     if date is None:
-        target_date = datetime.date.today().isoformat()
+        target_date = owner_today().isoformat()
     elif isinstance(date, datetime.date):
         target_date = date.isoformat()
     else:
@@ -632,7 +632,7 @@ def mark_posted(
 ) -> bool:
     """Mark the n-th post (1-indexed) of given date as status='done' and remember when (posted_at, UTC)."""
     if date is None:
-        target_date = datetime.date.today().isoformat()
+        target_date = owner_today().isoformat()
     elif isinstance(date, datetime.date):
         target_date = date.isoformat()
     else:
@@ -662,7 +662,7 @@ def week_summary(
         return "This week: 0 of 0 posts done"
 
     if date is None:
-        ref_date = datetime.date.today()
+        ref_date = owner_today()
     elif isinstance(date, str):
         ref_date = datetime.date.fromisoformat(date)
     else:
