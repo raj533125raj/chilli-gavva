@@ -1,0 +1,12 @@
+CXAB-3 GitHub twin validation
+Total tests run: 8809 | Failures: 0 | Errors: 0 | Skipped: 18 | Time: 702.10s
+Last 5 full-suite lines:
+   79.11s - chunk_25_test_ccb1_theme_images
+   76.30s - chunk_185_test_occ_sell_flow_e2e
+----------------------------------------------------------------------
+RESULT: PASSED
+======================================================================
+UTC 19:45, 84 clock-sensitive modules: Ran 2339 tests; failures=0; errors=0; skipped=7 | OK
+UTC 01:15, 84 clock-sensitive modules: Ran 2339 tests; failures=0; errors=0; skipped=7 | OK
+UTC 07:00, 84 clock-sensitive modules: Ran 2339 tests; failures=0; errors=0; skipped=7 | OK
+CI PARITY: PASS
