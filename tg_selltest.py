@@ -25,6 +25,12 @@ def handle(text,ctx):
     try:
         if not args:
             run = selltest.start(db,products,now)
+        elif len(words)==4 and args[0]=='sample' and re.fullmatch(r'\d{1,9}',args[1]):
+            import free_sample
+            url=free_sample.set_link(int(args[1]),words[3],db)
+            import post_planner
+            post_planner.refresh_ready_plan(selltest.products_root(products),now=now,db_path=db)
+            return {'text':'Free sample link save chesanu: '+url+'\nNext: /post today pampandi; sample Pins chudandi.'}
         elif len(args)==6 and args[0]=='stats' and args[2]=='views' and args[4]=='sales' and all(re.fullmatch(r'\d{1,9}',args[i]) for i in (1,3,5)):
             day = selltest.save_stats(int(args[1]),int(args[3]),int(args[5]),db,now)
             return {'text':f"Pack #{args[1]} {day} totals save chesanu. Malli pampithe ee roju totals replace avuthayi.\n"+selltest.report_block(db,now,products)}
@@ -36,10 +42,16 @@ def handle(text,ctx):
             run = selltest.swap(int(args[1]),int(args[2]),db,products,now)
         else:
             return {'text':'Command sarigga ivvandi.\nNext: /selltest, /selltest list leda /selltest swap A B pampandi.'}
+        sample_note=''
         if not args or args[0]=='swap':
+            import free_sample
+            prepared=free_sample.ensure_all(products,db)
+            sample_note=f"Free samples {sum(prepared.values())}/{len(prepared)} ready; /upload N sample pampandi."
             import post_planner
             post_planner.refresh_ready_plan(selltest.products_root(products),now=now,db_path=db)
         lines = selltest.plan_text(run,now).splitlines()
+        if sample_note:
+            lines.insert(-1,sample_note)
         decisions = selltest.review(db,now)
         if decisions:
             lines[0] += f" | day {selltest.day_number(run,now)} review"

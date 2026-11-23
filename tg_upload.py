@@ -24,7 +24,7 @@ COMMANDS = [
     },
 ]
 
-_WITH_ID = re.compile(r"^(?:/upload(?:@\w+)?|upload)(?:\s+(?:pack\s+)?#?(\d+))?$", re.IGNORECASE)
+_WITH_ID = re.compile(r"^(?:/upload(?:@\w+)?|upload)(?:\s+(?:pack\s+)?#?(\d+)(?:\s+(sample))?)?$", re.IGNORECASE)
 _STEPS = (
     "Gumroad website lo New product click cheyandi.",
     "Digital product select cheyandi.",
@@ -155,6 +155,19 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
         return _help(ctx)
 
     pack_id = int(match.group(1))
+    if match.group(2):
+        import free_sample
+        try:
+            folder=free_sample.build(pack_id,ctx.get('products_dir'),ctx.get('db_path'))
+            sender=ctx.get('send_document')
+            if not callable(sender):
+                return _reply('Sample files pampadaniki callback kavali. Next: /upload '+str(pack_id)+' sample malli pampandi.',ctx)
+            for name in free_sample.FILES:
+                if sender(str(folder/name),caption='Free sample hand-upload: '+name) is False:
+                    return _reply('Sample file send avvaledu. Next: /upload '+str(pack_id)+' sample malli pampandi.',ctx)
+            return _reply('Free sample: 3 real content pages + Full version page pampanu. Gumroad lo free ga meere list cheyandi.\nNext: /selltest sample '+str(pack_id)+' <link> pampandi; Pin destination save cheyandi.',ctx)
+        except (OSError,ValueError,RuntimeError,ImportError,zipfile.BadZipFile):
+            return _reply('Sample kit ready kaaledu. Next: /ready '+str(pack_id)+' lo Full Pack fixes chudandi.',ctx)
     pack = tg_preflight._find_pack(pack_id, ctx)
     if pack is None:
         return _reply(f"Pack #{pack_id} kanipinchaledu. `/upload` ani pampithe help vastundi.", ctx)

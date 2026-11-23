@@ -7,17 +7,19 @@ import selltest
 
 HOOKS = ('Plan a calmer week','Try a simple daily reset','Keep important details together',
          'Make room for your priorities','Start your next week prepared','Review your progress',
-         'Build a routine that fits','Organize one small task today')
+         'Build a routine that fits','Organize one small task today',
+         'Keep your next step visible','Turn notes into a clear plan','Make space for focus',
+         'Track what matters this week','Prepare for a fresh start','Choose one useful routine')
 
 
-def _assets(products, packs, links, now):
+def _assets(products, packs, links, now, sample_ids=()):
     import pin_ready
     import carousel_maker
     for pack in packs:
         link=links.get(pack['id'])
         if not link:
             continue
-        source=products/'upload'/pack['folder']
+        source=products/('samples' if pack['id'] in sample_ids else 'upload')/pack['folder']
         target=products/'marketing'/pack['folder']
         if not source.is_dir() or source.is_symlink():
             continue
@@ -40,7 +42,10 @@ def build(products_dir, run, old_plan, db_path=None, now=None):
     import tg_listed
     products=Path(products_dir)
     links={p['id']:p['url'] for p in tg_listed.all_listed(db_path)}
-    packs=run['packs']; _assets(products,packs,links,now)
+    import free_sample
+    sample_links=free_sample.links(db_path)
+    links.update(sample_links)
+    packs=run['packs']; _assets(products,packs,links,now,sample_links)
     assets=planner.ready_items(products)
     groups={}
     for item in assets:
@@ -75,7 +80,9 @@ def build(products_dir, run, old_plan, db_path=None, now=None):
                 row.update(channel='action',caption_short=notice,notice=notice,ready=False,asset='')
             else:
                 item=dict(available[occurrence%len(available)])
-                base=planner.clean_caption(pack['title'],58)
+                base=planner.clean_caption(pack['title'],45 if aid in sample_links else 58)
+                if aid in sample_links:
+                    base='Free sample: '+base
                 title=planner.clean_caption(base+': '+HOOKS[occurrence%len(HOOKS)],100)
                 item.update(row);row=item
                 row.update(title=title,caption_short=title,link=link)
