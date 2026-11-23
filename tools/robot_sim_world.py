@@ -519,7 +519,62 @@ DRAFT_KINDS = [
 ]
 
 
+# Healthy capacity replay: distinct requested subjects must produce distinct drafts
+# and real tables. This profile is opt-in; bad-day fixtures retain their defaults.
+CAPACITY_SUBJECTS = [
+ (('irregular-income',), 'Irregular Income Budget', 'freelancers with changing income',
+  [('Income Schedule',['Income Source','Date','Expected Month','Amount','Status']),('Monthly Commitments',['Commitment','Date','Category','Amount','Status']),('Buffer Records',['Buffer Goal','Date','Purpose','Amount','Status'])]),
+ (('shared budget','split bills'), 'Shared Household Bills', 'couples sharing household bills',
+  [('Shared Bills',['Bill','Due Date','Responsible Partner','Amount','Status']),('Partner Contributions',['Contributor','Date','Shared Goal','Amount','Status']),('Joint Goals',['Goal','Date','Notes','Amount','Status'])]),
+ (('debt snowball',), 'Debt Payment Records', 'adults recording debt payments',
+  [('Account Register',['Account','Date','Reference','Amount','Status']),('Payment History',['Payment Reference','Date','Account Name','Amount','Status']),('Review Notes',['Review Topic','Date','Next Check','Notes'])]),
+ (('invoice tracker',), 'Freelancer Invoice Follow Up', 'freelancers following up invoices',
+  [('Invoice Register',['Invoice Reference','Due Date','Client','Amount','Status']),('Client Directory',['Client Name','Contact Notes','Project','Next Action']),('Follow Up Log',['Follow Up','Date','Invoice Reference','Notes'])]),
+ (('profit calculator',), 'Small Shop Income And Expenses', 'small shop owners keeping records',
+  [('Shop Income',['Order Reference','Date','Sales Channel','Amount','Status']),('Shop Expenses',['Expense Category','Date','Receipt Reference','Amount','Status']),('Monthly Review',['Review Month','Date','Business Notes','Next Action'])]),
+ (('inventory and order',), 'Shop Inventory And Orders', 'small online shops organizing stock',
+  [('Stock Register',['Item Code','Item Name','Stock Notes','Reorder Notes']),('Order Register',['Order Reference','Date','Item Code','Amount','Status']),('Supplier Records',['Supplier Name','Item Code','Order Notes','Next Action'])]),
+]
+
+
+def _capacity_subject(prompt):
+    if not _load('model_profile.json',{}).get('distinct_subjects'):
+        return None
+    low=prompt.casefold()
+    named=next((entry for entry in CAPACITY_SUBJECTS if entry[1].casefold() in low),None)
+    if named or 'you are the product builder' in low:return named
+    return next((entry for entry in CAPACITY_SUBJECTS if any(term in low for term in entry[0])),None)
+
+
+def _capacity_draft(subject):
+    _,name,buyer,tabs=subject
+    inside=' '.join(tab+' tab: record '+', '.join(columns)+'.' for tab,columns in tabs)
+    # Section contents describe the actual tables returned by the model replay.
+    return re.sub(r'(?m)^PRICE:.*$', 'PRICE: [amount]', DRAFT.format(
+        name=name,buyer=buyer,kind='spreadsheet',inside=inside,
+        tags='record workbook, spreadsheet, organizer, business records, printable guide'))
+
+
+def _capacity_spec(subject):
+    _,name,buyer,tabs=subject
+    spec=_sell_proof().builtin_specs()['sheets'][0]
+    spec['name']=name;spec['short_name']=re.sub('[^a-z0-9]+','-',name.casefold()).strip('-')
+    spec['listing']['title']=name+' Spreadsheet Workbook'
+    spec['listing']['buyer']=buyer
+    spec['listing']['description']='Keep your records together in this workbook. Included tabs: '+', '.join(tab for tab,_ in tabs)+'. Replace example text with your own records. Read the included instructions before making entries. Personal use only.'
+    spec['instructions']=['Open the workbook and choose a tab.','Replace the example text with your own records.','Enter values in the labelled columns; review totals on tables that contain amounts.']
+    spec['sheets']=[]
+    for tab,columns in tabs:
+        table={'name':tab,'columns':[{'name':column,'type':'money' if column=='Amount' else 'date' if 'Date' in column else 'text'} for column in columns],
+               'rows':[['Example '+letter if i==0 else '' for i,_ in enumerate(columns)] for letter in ('A','B')]}
+        if 'Amount' in columns:table['balance']={'in':'Amount','out':''}
+        spec['sheets'].append(table)
+    return spec
+
+
 def _draft_for(prompt):
+    subject=_capacity_subject(prompt)
+    if subject:return _capacity_draft(subject)
     low = prompt.lower()
     for key, name, buyer, kind, inside, tags in DRAFT_KINDS:
         if key in low:
@@ -532,6 +587,8 @@ def fake_llm_reply(prompt):
     """A plausible answer for each robot prompt type (labels match the robot's own prompt wording)."""
     low = prompt.lower()
     if "you are the product builder" in low:
+        subject=_capacity_subject(prompt)
+        if subject:return "kind",json.dumps(_capacity_spec(subject))
         match = re.search(r"product type:\s*([a-z_]+)", low)
         kind = match.group(1) if match else "sheets"
         try:
@@ -549,6 +606,10 @@ def fake_llm_reply(prompt):
             "Side project expense log for hobby crafters who sell at weekend fairs",
             "Moving house budget checklist sheet for first-time renters"])
     if "qa checker" in low:
+        if _load("model_profile.json",{}).get("distinct_subjects"):
+            import hashlib
+            score=88+int(hashlib.sha256(prompt.encode()).hexdigest()[:4],16)%9
+            return "qa",json.dumps({"score":score,"verdict":"pass","issues":[]})
         return "qa", json.dumps({"score": 88, "verdict": "pass", "issues": []})
     if "product council critic" in low:
         return "council", json.dumps({"weaknesses": [], "verdict": "OK"})

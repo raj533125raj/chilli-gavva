@@ -70,3 +70,8 @@ OK
 Final copy/README checks and guards: Ran 16 tests in 8.041s
 OK
 All nineteen sample formats pass the original listing gate. Copy names the real paid title; saved paid URLs appear on the Full version page and README. Missing links are described honestly; link/title changes invalidate cached samples.
+
+CXAE-1 baseline and part 1
+Baseline 24-cycle/72-hour replay: 4, 5, 5 ready; 0 failed runs. Found proposals and owner-only duplicate/revision drafts occupying the automatic work limit. Corrected automatic-lane counts while preserving pending owner decisions, duplicate/Checker/limit/pause gates. Added an opt-in healthy-model replay with six distinct real workbook table structures and varied provider reviews; default broken/duplicate replay remains unchanged.
+Ran 169 tests in 7.249s
+OK

@@ -112,7 +112,7 @@ def _queue_full(db_path=None):
     try:
         import guardrails
         import workforce
-        return len(guardrails.pending(db_path)) >= workforce.MAX_PENDING_APPROVALS
+        return workforce.active_draft_backlog(db_path) >= workforce.MAX_PENDING_APPROVALS
     except Exception:
         return False
 

@@ -407,10 +407,21 @@ def _ask(ctx, prompt, size=None):
     return fn(prompt)
 
 
+def active_draft_backlog(db_path=None):
+    """Count work eligible for the automatic lane; owner-review drafts stay pending.
+
+    A known duplicate or Checker REVISE needs an owner decision, and cannot
+    progress in the automatic lane. Keep both approval statuses and gates intact.
+    """
+    import auto_approve
+    report=auto_approve.waiting_report(db_path)
+    return sum(row['why'] not in ('similar','checker_revise') for row in report['drafts'])
+
+
 def step_plan(task, ctx):
     """Plan the day's drafts. Stops adding drafts when too many wait for the human."""
     topic = task["payload"].get("topic") or DEFAULT_TOPIC
-    waiting = len(guardrails.pending(ctx["db_path"]))
+    waiting = active_draft_backlog(ctx["db_path"])
     wanted = max(1, min(len(ANGLES), _config_int("daily_drafts", 2)))
     if waiting >= MAX_PENDING_APPROVALS:
         return {"summary": f"Skipped: {waiting} drafts already wait for approval", "next": []}
@@ -448,7 +459,7 @@ def step_research(task, ctx):
 
 
 def step_draft(task, ctx):
-    waiting = len(guardrails.pending(ctx["db_path"]))
+    waiting = active_draft_backlog(ctx["db_path"])
     if waiting > MAX_PENDING_APPROVALS:
         return {"summary": f"Waiting {waiting}; kotha Drafts ee run lo aapamu; mundu waiting Drafts decide avvali.",
                 "next": []}

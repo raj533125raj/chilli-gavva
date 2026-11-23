@@ -337,7 +337,8 @@ def _clamp_score(val, default=20):
 
 # Prefer proven shop niches (budget sheets, small-business trackers, ADHD planners,
 # Notion templates, resume bundles) and the five newly registered printable formats.
-PREFERRED_FORMATS = {'sheets','planner','notion','resume','teacher_planner','fitness_planner',
+SELL_TEST_FORMATS = {'sheets','biz_sheets','planner','notion','resume','digital_planner'}
+PREFERRED_FORMATS = SELL_TEST_FORMATS | {'teacher_planner','fitness_planner',
                      'baby_tracker','small_business_log','kids_chore_reward'}
 _UNBUILDABLE = re.compile(r"\b(?:app|apps|software|saas|physical(?: products?)?|shipped|shipping|courses?|"
                           r"webinars?|coaching|videos?|podcasts?|audio|mp3|mp4)\b",re.I)
@@ -381,7 +382,7 @@ def candidate_priority(candidate):
     kind=(candidate.get('format') if format_registry.get_format_info(candidate.get('format'))
           else format_registry.classify(candidate['idea']))
     new_types={'teacher_planner','fitness_planner','baby_tracker','small_business_log','kids_chore_reward'}
-    return candidate['total_score']+(12 if kind in new_types else 8 if kind in PREFERRED_FORMATS else 0)
+    return candidate['total_score']+(16 if kind in SELL_TEST_FORMATS else 12 if kind in new_types else 8 if kind in PREFERRED_FORMATS else 0)
 
 def _clean_idea_title(text: str) -> str:
     """Strip prefixes and formatting to get base idea title."""
@@ -1099,6 +1100,26 @@ def run_scout(db_path=None, llm=None):
             if aud:
                 session_audience_counts[aud] = session_audience_counts.get(aud, 0) + 1
             if len(top_5) == 5:
+                break
+
+    # Four earning-focused slots plus one discovery slot retain the expanded
+    # builder formats without allowing them to dominate the sell-test shortlist.
+    discovery_types={'teacher_planner','fitness_planner','baby_tracker','small_business_log','kids_chore_reward'}
+    def candidate_kind(item):
+        import format_registry
+        return (item.get('format') if format_registry.get_format_info(item.get('format'))
+                else format_registry.classify(item['idea']))
+    if len(top_5)==5 and not any(candidate_kind(item) in discovery_types for item in top_5):
+        kept=top_5[:-1]
+        for item in filtered_candidates:
+            if candidate_kind(item) not in discovery_types or item in kept:
+                continue
+            audience=item.get('audience') or detect_audience(item['idea'])
+            niche_count=sum(other['niche']==item['niche'] for other in kept)
+            audience_count=weekly_audience_counts.get(audience,0)+sum(
+                (other.get('audience') or detect_audience(other['idea']))==audience for other in kept)
+            if niche_count<MAX_IDEAS_PER_NICHE_PER_DAY and (not audience or audience_count<MAX_IDEAS_PER_AUDIENCE_PER_WEEK):
+                top_5=kept+[item]
                 break
 
     now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
