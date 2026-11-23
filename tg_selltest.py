@@ -36,6 +36,12 @@ def handle(text,ctx):
             run = selltest.swap(int(args[1]),int(args[2]),db,products,now)
         else:
             return {'text':'Command sarigga ivvandi.\nNext: /selltest, /selltest list leda /selltest swap A B pampandi.'}
-        return {'text':selltest.plan_text(run,now)}
+        lines = selltest.plan_text(run,now).splitlines()
+        decisions = selltest.review(db,now)
+        if decisions:
+            lines[0] += f" | day {selltest.day_number(run,now)} review"
+            for i, decision in enumerate(decisions,2):
+                lines[i] += ' | '+decision['action']+': '+decision['reason']
+        return {'text':'\n'.join(lines)}
     except ValueError as exc:
         return {'text':str(exc)+'\nNext: /ready pampandi; READY Packs chudandi.'}

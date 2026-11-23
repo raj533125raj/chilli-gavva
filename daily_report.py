@@ -242,6 +242,9 @@ def daily_text(db_path=None, now=None, status_fn=None, products_dir=None):
     block = selltest.report_block(db_path, now, products_dir)
     if block:
         lines.append(block)
+    review = selltest.review_block(db_path, now)
+    if review:
+        lines.append(review)
     return "\n".join(lines)
 
 

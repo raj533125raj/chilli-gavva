@@ -192,3 +192,47 @@ def report_block(db_path=None, now=None, products_dir=None):
         lines.append(f"#{pack['id']}: {numbers} | Pins posted {pins}")
     lines.append('Next: /selltest stats N views 120 sales 1 (ee roju totals) pampandi.')
     return '\n'.join(lines)
+
+
+def review(db_path=None, now=None):
+    """Conservative day-7/day-14 decisions from entered daily totals, with missing data explicit.
+
+    Any sale -> keep; zero measured traffic -> improve traffic; traffic without sales -> change
+    listing/title/cover/price positioning. Only day 14 with at least 200 measured views and no
+    sales recommends dropping from the next rotation. No product is deleted or published.
+    """
+    import post_planner
+    run = active(db_path)
+    if not run or day_number(run,now) not in (7,14):
+        return []
+    today = post_planner.owner_today(now).isoformat()
+    rows = [r for r in stats(db_path) if run['start_day'] <= r['day'] <= today]
+    decisions=[]
+    for pack in run['packs']:
+        entries=[r for r in rows if r['id']==pack['id']]
+        views=sum(r['views'] for r in entries);sales=sum(r['sales'] for r in entries)
+        if not entries:
+            action,reason='Change','Numbers mundu record cheyandi; result inka teliyadu.'
+        elif sales:
+            action,reason='Keep','Sales unnayi; ade Pack ki traffic konasaginchandi.'
+        elif views==0:
+            action,reason='Change','Traffic problem: keyword Pins, boards, link check cheyandi.'
+        elif day_number(run,now)==14 and views>=200 and len(entries)>=7:
+            action,reason='Drop','Views unna Sales levu; next rotation nunchi pakkana pettandi.'
+        else:
+            action,reason='Change','Listing problem: Title, Cover, benefits, Price positioning review cheyandi.'
+        decisions.append(dict(pack,action=action,reason=reason,views=views,sales=sales,
+                              entered_days=len(entries),missing_days=day_number(run,now)-len(entries)))
+    return decisions
+
+
+def review_block(db_path=None, now=None):
+    decisions=review(db_path,now)
+    if not decisions:
+        return ''
+    run=active(db_path)
+    lines=[f"Sell test day {day_number(run,now)} review (entered numbers matrame)"]
+    for p in decisions:
+        lines.append(f"#{p['id']} {p['action']}: {p['views']} Views, {p['sales']} Sales; {p['reason']} Missing days {p['missing_days']}.")
+    lines.append('Next: Meeru decide cheyandi; /selltest list lo Packs chudandi.')
+    return '\n'.join(lines)
