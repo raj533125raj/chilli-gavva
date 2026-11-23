@@ -36,6 +36,9 @@ def handle(text,ctx):
             run = selltest.swap(int(args[1]),int(args[2]),db,products,now)
         else:
             return {'text':'Command sarigga ivvandi.\nNext: /selltest, /selltest list leda /selltest swap A B pampandi.'}
+        if not args or args[0]=='swap':
+            import post_planner
+            post_planner.refresh_ready_plan(selltest.products_root(products),now=now,db_path=db)
         lines = selltest.plan_text(run,now).splitlines()
         decisions = selltest.review(db,now)
         if decisions:

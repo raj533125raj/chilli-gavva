@@ -449,6 +449,10 @@ def handle_post_today(ctx: dict, plan_path: Optional[Union[str, Path]] = None, p
         msg = f"Quiet hours lo unnam ({quiet_reason}). Phone notifications silent ga unchandi. /post today repu morning pampistha, leda quiet mode off cheyandi."
         return {"text": msg}
 
+    import selltest
+    if selltest.active(ctx.get('db_path')):
+        base=products_dir or ctx.get('products_dir') or selltest.products_root()
+        post_planner.refresh_ready_plan(base,plan_path=plan_path,now=now_utc,db_path=ctx.get('db_path'))
     plan = post_planner.load_plan(plan_path, products_dir=products_dir)
     if not plan:
         return {"text": "Post plan ledu. Upload packs ready ayyaka robot auto plan chestundi."}
@@ -487,6 +491,9 @@ def handle_post_today(ctx: dict, plan_path: Optional[Union[str, Path]] = None, p
             send_text(f"Post {post_num} ({channel}) - [{pack_id}] already posted ✓", keyboard)
             continue
 
+        if channel == 'action':
+            send_text(post.get('notice') or post.get('caption_short',''))
+            continue
         effective_products = products_dir or ctx.get("products_dir")
         mkt_dir = (_resolve_marketing_directory(pack_id, str(Path(effective_products) / "marketing")) if effective_products else _resolve_marketing_directory(pack_id))
         pack_dir = (_resolve_pack_directory(pack_id, effective_products) if effective_products else _resolve_pack_directory(pack_id))
@@ -664,7 +671,7 @@ def handle_posted_n(n: int, ctx: dict, plan_path: Optional[Union[str, Path]] = N
     if n < 1 or n > len(day_posts):
         return {"text": f"Invalid post number {n}. Ee roju 1 nunchi {len(day_posts)} daka unnai."}
 
-    ok = post_planner.mark_posted(plan, date=today_str, n=n)
+    ok = post_planner.mark_posted(plan, date=today_str, n=n, now=now_utc)
     if not ok:
         return {"text": f"Post {n} mark cheyatam kudaraledu."}
 

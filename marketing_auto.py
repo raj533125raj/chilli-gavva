@@ -926,16 +926,16 @@ def run_ready(db_path=None, products_dir: Optional[Path | str] = None, limit: in
         log.warning("marketing_auto: READY hook failed: %s", clean_error(f"{type(error).__name__}: {error}"))
     # the real plan in the robot folder is never touched by a test run (tests pass their own products_dir)
     if products_dir is not None or os.environ.get("CHILLI_TEST") != "1":
-        refresh_post_plan(products_dir, now)
+        refresh_post_plan(products_dir, now, db_path=db_path)
     return lines
 
 
-def refresh_post_plan(products_dir=None, now=None) -> Dict[str, Any]:
+def refresh_post_plan(products_dir=None, now=None, db_path=None) -> Dict[str, Any]:
     """CCH-4: keep the 30-day post plan (<products>/post_plan.json) made of ready posts only. Never raises."""
     try:
         import post_planner
         import product_builder
-        return post_planner.refresh_ready_plan(Path(products_dir or product_builder.PRODUCTS_DIR), now=now)
+        return post_planner.refresh_ready_plan(Path(products_dir or product_builder.PRODUCTS_DIR), now=now, db_path=db_path)
     except Exception as error:
         log.warning("marketing_auto: post plan refresh failed: %s", clean_error(f"{type(error).__name__}: {error}"))
         return {"changed": False, "posts": 0, "ready": 0}

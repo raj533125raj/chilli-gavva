@@ -51,7 +51,7 @@ class SelectionTests(unittest.TestCase):
 
     def test_real_loader_reaches_command_with_fake_senders(self):
         import telegram_inbox
-        with mock.patch.object(telegram_inbox,'send_text',return_value=True):
+        with mock.patch.object(telegram_inbox,'send_text',return_value=True), mock.patch.object(telegram_inbox,'build_plugin_ctx',return_value=self.ctx):
             handled, reply = telegram_inbox.call_plugins('/selltest','unused',CHAT,db_path=self.db,now=NOW)
         self.assertTrue(handled); self.assertIn('/upload 1',reply['text'])
 

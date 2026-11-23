@@ -642,6 +642,8 @@ def mark_posted(
     if not day_posts or n < 1 or n > len(day_posts):
         return False
 
+    if day_posts[n - 1].get("channel") == "action":
+        return False
     day_posts[n - 1]["status"] = "done"
     stamp = now or datetime.datetime.now(datetime.timezone.utc)
     if stamp.tzinfo is not None:
@@ -855,7 +857,7 @@ def build_ready_plan(products_dir: Union[str, Path], old_plan: Optional[List[Dic
 
 
 def refresh_ready_plan(products_dir: Union[str, Path], plan_path: Optional[Union[str, Path]] = None,
-                       now: Optional[datetime.datetime] = None) -> Dict[str, Any]:
+                       now: Optional[datetime.datetime] = None, db_path=None) -> Dict[str, Any]:
     """Rebuild the plan file from ready posts (keeping history) and save it only when it changed.
 
     Returns {"changed", "posts" (rows planned today or later, not done), "ready" (ready posts found)}.
@@ -863,6 +865,17 @@ def refresh_ready_plan(products_dir: Union[str, Path], plan_path: Optional[Union
     """
     path = Path(plan_path) if plan_path else plan_path_for(products_dir)
     old = load_plan(path) if path.is_file() else []
+    import selltest
+    run = selltest.active(db_path)
+    if run and 1 <= selltest.day_number(run,now) <= 14:
+        import selltest_posts
+        plan = selltest_posts.build(products_dir,run,old,db_path,now)
+        changed = plan != old
+        if changed:
+            save_plan(plan,path)
+        today = owner_today(now).isoformat()
+        return {"changed":changed,"posts":sum(r.get('status')=='todo' and r.get('channel')!='action' and r.get('date','')>=today for r in plan),
+                "ready":sum(r.get('ready',False) for r in plan)}
     items = ready_items(products_dir)
     if not items and not any(row.get("ready") for row in old):
         return {"changed": False, "posts": 0, "ready": 0}
