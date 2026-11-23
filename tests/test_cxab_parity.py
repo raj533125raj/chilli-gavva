@@ -79,3 +79,13 @@ with tempfile.TemporaryDirectory() as temp:
                                   env=dict(os.environ,TZ=zone,CHILLI_TEST='1'),
                                   capture_output=True,text=True,check=True)
             self.assertEqual(result.stdout.strip(),'2026-11-23T19:45 2026-11-23')
+
+    def test_clock_script_works_without_pythonpath(self):
+        import os
+        env=dict(os.environ,CHILLI_TEST='1',CI_PARITY_NOW=ci_parity.CLOCKS[0])
+        env.pop('PYTHONPATH',None)
+        result=subprocess.run([sys.executable,str(ci_parity.ROOT/'tools/ci_clock.py'),
+                               'tests.test_r22_markdown_currency'],
+                              cwd=tempfile.gettempdir(),env=env,capture_output=True,text=True,timeout=60)
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        self.assertRegex(result.stdout,r'Ran \d+ tests; failures=0; errors=0;')

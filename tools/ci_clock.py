@@ -10,6 +10,8 @@ def main(modules):
     if os.environ.get('CHILLI_TEST') != '1' or not os.environ.get('CI_PARITY_NOW'):
         raise SystemExit('Clock injection requires CHILLI_TEST=1 and CI_PARITY_NOW')
     root = Path(__file__).resolve().parents[1]
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
     with tempfile.TemporaryDirectory(prefix='parity-clock-') as temp:
         Path(temp, 'sitecustomize.py').write_text(
             'import os, datetime\n'
