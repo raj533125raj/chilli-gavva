@@ -296,7 +296,12 @@ class BadWorkflowStepDrillTests(Flow):
         self.assertEqual(self.problem(), "Problem: setup problem: required file or tool")
         self.assertEqual(run_failure.setup_problem(
             "python3: can't open file '/home/runner/work/x/content_exprot.py': [Errno 2] No such file or directory"),
-            "setup problem: python3")
+            "setup problem: required file or tool")
+        self.assertEqual(run_failure.setup_problem(
+            "/opt/hostedtoolcache/Python/3.11.9/x64/bin/python3: can't open file '/x/y.py': [Errno 2] No such file "
+            "or directory"), "setup problem: required file or tool")
+        self.assertEqual(run_failure.setup_problem("bash: line 1: pdftoppm: command not found"),
+                         "setup problem: pdftoppm")
         self.assertEqual(run_failure.setup_problem(
             "/opt/Python.framework/Versions/3.11/Python: can't open file '/x/y.py': [Errno 2] No such file or "
             "directory"), "setup problem: required file or tool")

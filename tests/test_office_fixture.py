@@ -162,9 +162,10 @@ class TestOfficeFixture(unittest.TestCase):
         self.assertNotEqual(json1, json3)
 
     def test_full_size_generation_under_10_seconds(self):
-        t0 = time.time()
+        # CPU time, not wall time: CI runs 4 test chunks side by side, so wall time depends on the neighbours.
+        t0 = time.process_time()
         snap = make_office_fixture.generate_office_fixture(size="full", seed=42, validate=True)
-        elapsed = time.time() - t0
+        elapsed = time.process_time() - t0
 
         self.assertLess(
             elapsed,

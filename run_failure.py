@@ -107,6 +107,10 @@ def owner_send(message):
 def setup_problem(output):
     # Only fixed tool names cross into alerts; paths and arbitrary module names stay private.
     for line in output.splitlines():
+        # "<interpreter>: can't open file '...'": the interpreter exists, the named FILE is missing. Its name/path
+        # differs per machine (python3, python3.11, /opt/hostedtoolcache/.../python3), so never report the tool.
+        if re.search(r"can't open file .*No such file or directory", line, re.I):
+            continue
         if re.search(r"FileNotFoundError|command not found|not found|No such file|missing tool", line, re.I):
             for tool in ("pdftoppm", "pdftocairo", "poppler-utils", "python3", "bash", "git", "openssl"):
                 if re.search(r"(?<![\w.-])" + re.escape(tool) + r"(?![\w.-])", line):
