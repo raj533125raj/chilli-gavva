@@ -187,6 +187,9 @@ def build_approved(db_path=None, site_dir=None, products_dir=None):
     """Called by the existing publish-content build, never from the robot cycle."""
     products = selltest.products_root(products_dir)
     site = Path(site_dir)
+    import free_sample, tg_listed
+    paid_links = {row['id']:row['url'] for row in tg_listed.all_listed(db_path)}
+    sample_links = free_sample.links(db_path)
     latest = {}
     for aid, status, payload in snapshots(db_path):
         latest[payload['slug']] = (aid, status, payload)
@@ -204,7 +207,9 @@ def build_approved(db_path=None, site_dir=None, products_dir=None):
             if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
                 raise ValueError('Approved landing snapshot changed')
         model = json.loads((source/'page.json').read_text())
-        if model.get('url') != base_url(db_path)+'/'+slug+'/':
+        current_link = (sample_links if payload['sample'] else paid_links).get(payload['pack_id'])
+        if (model.get('url') != base_url(db_path)+'/'+slug+'/' or not current_link or
+                model.get('link') != tracked_link(current_link, 'site')):
             if dest.exists(): shutil.rmtree(dest)
             continue
         public_check((source/'index.html').read_text())

@@ -166,3 +166,27 @@ class LandingTests(unittest.TestCase):
             handled, reply = telegram_inbox.call_plugins('/site preview 27 sample', 'unused', CHAT, db_path=self.db, plugins=[tg_site])
         self.assertTrue(handled); self.assertTrue(reply['handled'])
         self.assertTrue(sent[0][0].endswith('.png')); self.assertTrue(sent[0][1].startswith(b'\x89PNG'))
+
+    def test_publish_refuses_a_changed_or_removed_saved_link_without_reapproval(self):
+        import site_builder, tg_listed
+        ids = self.drafts()
+        for aid in ids: guardrails.decide(aid, True, self.db)
+        site_builder.build(self.db, self.site, self.products)
+        tg_listed.set_listed(27, 'https://example.gumroad.com/l/changed-at-store', self.db, NOW)
+        built = site_builder.build(self.db, self.site, self.products)
+        self.assertNotIn('selltest-27-pack', built)
+        self.assertFalse((self.site/'selltest-27-pack').exists())
+        self.assertNotIn('selltest-27-pack', (self.site/'index.html').read_text())
+        tg_listed.remove_listed(27, self.db)
+        self.assertNotIn('selltest-27-pack', site_builder.build(self.db, self.site, self.products))
+
+    def test_existing_publish_workflow_builds_with_standard_library_only(self):
+        import subprocess, sys
+        for aid in self.drafts(): guardrails.decide(aid, True, self.db)
+        script = ("import sys, importlib.util; assert importlib.util.find_spec('PIL') is None; "
+                  "import site_builder; result=site_builder.build(*sys.argv[1:]); "
+                  "assert 'selltest-27-pack' in result and 'selltest-27-sample' in result; print('Approved pages built without Pillow')")
+        result = subprocess.run([sys.executable, '-S', '-c', script, self.db, str(self.site), str(self.products)],
+                                cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
+        self.assertIn('without Pillow', result.stdout)

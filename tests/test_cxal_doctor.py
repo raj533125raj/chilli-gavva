@@ -38,7 +38,8 @@ class MissingTests(unittest.TestCase):
                 handled, reply = telegram_inbox.call_plugins('/doctor selltest', 'unused', CHAT, db_path=db)
                 self.assertTrue(handled); self.assertEqual(reply['text'], text)
                 self.assertIsNone(tg_selltest_doctor.handle('/doctor selltest', dict(ctx, chat_id='other')))
-                self.assertIsNone(tg_selltest_doctor.handle('/doctor', ctx))
+                self.assertIn('Next: /doctor selltest', tg_selltest_doctor.handle('/doctor', ctx)['text'])
+                self.assertIsNone(tg_selltest_doctor.handle('/doctor errors', ctx))
 
 
 @unittest.skipUnless(Image is not None, 'Pillow required')

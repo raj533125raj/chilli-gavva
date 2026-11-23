@@ -87,8 +87,11 @@ def build(db_path=None, site_dir=None, products_dir=None):
     landing = selltest_site.build_approved(db_path, site_dir, products_dir)
     all_slugs = [s for (s,) in pages] + landing
     items = '\n'.join(f'<li><a href="{html.escape(s)}/">{html.escape(s)}</a></li>' for s in all_slugs)
-    with open(os.path.join(site_dir, "index.html"), "w", encoding="utf-8") as stream:
-        stream.write(PAGE.format(title="Pages", body="<h1>Pages</h1><ul>"+items+"</ul>"))
+    index = selltest_site.safe_path(site_dir, "index.html")
+    if all_slugs:
+        index.write_text(PAGE.format(title="Pages", body="<h1>Pages</h1><ul>"+items+"</ul>"), encoding="utf-8")
+    elif index.exists():
+        index.unlink()
     selltest_site.sitemap(site_dir, db_path)
     return built + landing
 
