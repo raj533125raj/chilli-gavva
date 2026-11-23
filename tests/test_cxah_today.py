@@ -78,3 +78,19 @@ class TodayTests(unittest.TestCase):
         with mock.patch.object(selltest_today, 'checklist', return_value=text) as checklist:
             self.assertEqual(inbox.handle_command('today', [], self.db), text)
             checklist.assert_called_once_with(self.db)
+
+    def test_stopped_and_missing_asset_slots_are_not_owner_posting_instructions(self):
+        import post_planner
+        import selltest_learning
+        day = post_planner.owner_today(NOW).isoformat()
+        plan = [{'day':1,'date':day,'pack_id':'1-focus','channel':'pinterest','status':'todo','asset':'pin.png'},
+                {'day':1,'date':day,'pack_id':'2-focus','channel':'pinterest','status':'todo','asset':'pin2.png'},
+                {'day':1,'date':day,'pack_id':'3-focus','channel':'action','status':'todo','notice':'Missing assets'}]
+        stopped = selltest_learning.stop_pins(plan, [{'folder':'1-focus','id':1,'action':'Drop'}], NOW)
+        post_planner.save_plan(stopped, post_planner.plan_path_for(self.products))
+        lines = selltest_today.checklist(self.db, self.products, NOW).splitlines()
+        self.assertIn('/selltest learn', lines[1])
+        self.assertNotIn('/posted', lines[1]); self.assertNotIn('✅ Posts', lines[1])
+        self.assertIn('/posted 2', lines[2]); self.assertNotIn('/posted 1', lines[2])
+        self.assertNotIn('/posted', lines[3]); self.assertNotIn('✅ Posts', lines[3])
+        self.assertIn('missing Post steps', lines[3])

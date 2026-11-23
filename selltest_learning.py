@@ -122,7 +122,7 @@ def stop_pins(plan, learned, now=None):
                 row.get('status') != 'done' and row.get('date', '') >= today):
             item = dropped[row['pack_id']]
             notice = f"Pack #{item['id']} Drop: kotha Pins aapamu. Next: /selltest learn tho listing fix chudandi."
-            row = dict(row, channel='action', ready=False, asset='', notice=notice, caption_short=notice)
+            row = dict(row, channel='action', ready=False, asset='', notice=notice, caption_short=notice, selltest_stopped=True)
             for key in ('assets', 'image', 'images', 'link'):
                 row.pop(key, None)
         result.append(row)

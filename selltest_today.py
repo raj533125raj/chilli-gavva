@@ -27,11 +27,17 @@ def checklist(db_path=None, products_dir=None, now=None):
             tasks.append('✅ sample link')
         else:
             tasks.append(f'/upload {aid} sample → meere pettandi; /selltest sample {aid} <link>')
-        pending = [str(i) for i, r in enumerate(posts, 1)
-                   if r.get('pack_id') == pack['folder'] and r.get('status') != 'done']
+        pack_posts = [(i, row) for i, row in enumerate(posts, 1) if row.get('pack_id') == pack['folder']]
+        pending = [str(i) for i, row in pack_posts
+                   if row.get('channel') != 'action' and row.get('status') != 'done']
+        blocked = [row for _, row in pack_posts if row.get('channel') == 'action' and row.get('status') != 'done']
+        if any(row.get('selltest_stopped') for row in blocked):
+            tasks.append('Pins aapamu; /selltest learn lo listing fix chudandi')
+        elif blocked:
+            tasks.append('/post today lo missing Post steps chudandi')
         if pending:
             tasks.append('/post today → meere post chesi ' + ', '.join('/posted '+i for i in pending))
-        if not pending and any(r.get('pack_id') == pack['folder'] for r in posts):
+        if pack_posts and all(row.get('status') == 'done' for _, row in pack_posts):
             tasks.append('✅ Posts')
         if aid in measured:
             tasks.append('✅ stats')
