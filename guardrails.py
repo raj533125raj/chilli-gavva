@@ -75,7 +75,27 @@ def connect(db_path=None):
     conn.execute("CREATE TABLE IF NOT EXISTS control (key TEXT PRIMARY KEY, value TEXT)")
     if "reason" not in [r[1] for r in conn.execute("PRAGMA table_info(approvals)").fetchall()]:
         conn.execute("ALTER TABLE approvals ADD COLUMN reason TEXT")  # why a human rejected a draft
+    # Older Scout versions used a proposal kind even for checked, structured
+    # product candidates. Preserve every decision; only repair the kind.
+    rows = conn.execute("SELECT id, title, payload FROM approvals WHERE kind='scout_idea'").fetchall()
+    for aid, title, payload in rows:
+        if scout_product(title, payload):
+            conn.execute("UPDATE approvals SET kind='public_draft' WHERE id=?", (aid,))
+    if rows:
+        conn.commit()
     return conn
+
+
+def scout_product(title, payload):
+    """A structured Scout product is a draft; unstructured ideas remain proposals."""
+    if not str(title or '').startswith('[Scout Idea] '):
+        return False
+    match = re.search(r'^Format:\s*([^\n]+)', payload or '', re.M)
+    if not match:
+        return False
+    import format_registry
+    return bool(format_registry.can_build({'kind': match.group(1).strip()})
+                or format_registry.classify(match.group(1).strip()))
 
 
 def today():
@@ -196,6 +216,8 @@ def record_call(db_path=None):
 
 # ---- approvals ---------------------------------------------------------------
 def request_approval(kind, title, payload, review=None, db_path=None):
+    if kind == 'scout_idea' and scout_product(title, payload):
+        kind = 'public_draft'
     conn = connect(db_path)
     cur = conn.execute(
         "INSERT INTO approvals (ts, kind, title, payload, review) VALUES (?, ?, ?, ?, ?)",
