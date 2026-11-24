@@ -28,3 +28,15 @@ The decrypted 24-Nov live database was unavailable locally. The report gives an 
 Legacy council logs do not identify AI versus fallback decisions, so an exact live cause split was not invented.
 The read-only audit and twenty-row fixtures document the source causes and recovery behavior in .jobs/PROGRESS.md.
 No live credentials were requested or changed. All posting, publishing and store changes remain owner actions.
+
+10-line simple-English summary
+BIG-8 is complete on branch robot-cx8.
+AI reports give safe failure reasons and clear owner fixes.
+The robot remembers working models, waits for rate limits, and needs owner opt-in for GitHub Models.
+Approved drafts wait for AI, get one improvement, or receive a clear rejection.
+Sell tests start with one ready pack and add new ready packs up to eight.
+Each pack gets its own fourteen-day clock and results.
+Builds rotate across the approved product niches that are available.
+Phone commands give short Tenglish replies and the next useful step.
+The 8987-test full suite and all three UTC clock checks passed with real packs present.
+Every task is committed locally; .jobs stayed out of Git, publishing stays with the owner, and nothing was pushed.
