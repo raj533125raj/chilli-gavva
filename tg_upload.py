@@ -1,6 +1,7 @@
 """Telegram plugin for preparing and sending a price-free Gumroad upload pack."""
 from __future__ import annotations
 
+from tg_menu import owner_reply
 import os
 import re
 import shutil
@@ -109,7 +110,7 @@ def _send_prepared(pack_id: int, pack: Path, ctx: dict) -> dict:
                                   ctx)
             message = (f"Gumroad hand-upload steps — Pack #{pack_id}\n"
                        + "\n".join(f"{index}. {step}" for index, step in enumerate(_STEPS, 1)))
-            return _reply(message, ctx)
+            return _reply(message + f"\nNext: /listed {pack_id} <link> pampandi; meere Publish chesina link save cheyandi.", ctx)
     except (OSError, ValueError, zipfile.BadZipFile, ET.ParseError, RuntimeError) as exc:
         return _reply(f"Upload files prepare cheyalekapoyam ({type(exc).__name__}). "
                       "Pack files check chesi malli `/upload " + str(pack_id) + "` try cheyandi.", ctx)
@@ -141,10 +142,12 @@ def _send_handoff(pack_id, pack, ctx):
                    '\nSell test kosam listing-ab.txt fields copy cheyandi. Day 7: /selltest swap-title '+str(pack_id),ctx)
         return _reply("Pack #"+str(pack_id)+" Gumroad files oke folder lo ready: "+str(folder)+
                       "\nBuyer ZIP, Cover, Thumbnail, 3 Previews, listing.txt pampanu. Gumroad lo files meere drag-and-drop cheyandi. "
-                      "Price meere set chesi Publish meere click cheyandi.",ctx)
+                      "Price meere set chesi Publish meere click cheyandi."+
+                      f"\nNext: /listed {pack_id} <link> pampandi; mee Store link save cheyandi.",ctx)
     except (OSError,ValueError,zipfile.BadZipFile,RuntimeError):
         return _reply("Pack #"+str(pack_id)+" upload kit ready kaaledu; /ready "+str(pack_id)+" lo fixes chudandi.",ctx)
 
+@owner_reply
 def handle(text: str, ctx: dict) -> Optional[dict]:
     if not isinstance(text, str):
         return None

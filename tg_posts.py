@@ -792,6 +792,9 @@ def handle(text: str, ctx: dict) -> dict | None:
 
     # Specific slash commands
     if norm.startswith("/today"):
+        import selltest_today
+        checklist = selltest_today.checklist(ctx.get('db_path'),ctx.get('products_dir'),ctx.get('now'))
+        if checklist: return {'text': checklist}
         return handle_post_today(ctx)
 
     if norm.startswith("/tomorrow"):

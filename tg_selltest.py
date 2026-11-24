@@ -1,4 +1,5 @@
 """Owner Telegram entry point for the private sales experiment."""
+from tg_menu import owner_reply
 import os
 import re
 import selltest
@@ -11,6 +12,7 @@ COMMANDS = [{'cmd':'/selltest','words':['selltest'], 'category':'Sell',
              'help_te':'14-day steps kosam /selltest help; Packs kosam /selltest list pampandi.'}]
 
 
+@owner_reply
 def handle(text,ctx):
     if not isinstance(text,str):
         return None
@@ -43,7 +45,7 @@ def handle(text,ctx):
             day = selltest.save_stats(int(args[1]),int(args[3]),int(args[5]),db,now)
             import selltest_learning
             selltest_learning.record(db,products,now)
-            return {'text':f"Pack #{args[1]} {day} totals save chesanu. Malli pampithe ee roju totals replace avuthayi.\n"+selltest.report_block(db,now,products)}
+            return {'text':f"Pack #{args[1]} {day} totals save chesanu. Malli pampithe ee roju totals replace avuthayi.\n"+selltest.report_block(db,now,products).rsplit('Next:',1)[0]+'Next: /doctor selltest pampandi; missing steps chudandi.'}
         elif len(args)==2 and args[0]=='swap-title' and re.fullmatch(r'\d{1,9}',args[1]):
             copy=selltest.swap_title(int(args[1]),db,products,now)
             return {'text':'Title B enchukunnaru: '+copy['B']+
@@ -72,6 +74,8 @@ def handle(text,ctx):
             import post_planner
             post_planner.refresh_ready_plan(selltest.products_root(products),now=now,db_path=db)
         lines = selltest.plan_text(run,now).splitlines()
+        if not args or args == ['start']:
+            lines[-1] = 'Next: /today pampandi; ee roju pani chudandi.'
         if sample_note:
             lines.insert(-1,sample_note)
         decisions = selltest.review(db,now)

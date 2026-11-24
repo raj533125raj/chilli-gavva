@@ -94,6 +94,42 @@ def owner_reply_pages(text, next_step="/menu pampandi; command enchukondi.", lim
     return pages
 
 
+def owner_flow_next(text, ctx):
+    """The owner's first sell-test day, using actual selected Pack/Post numbers."""
+    words = str(text or '').strip().split()
+    if not words: return None
+    cmd = words[0].split('@')[0].lower().lstrip('/')
+    aid = words[1] if len(words)>1 and words[1].isdigit() else None
+    if cmd == 'storekit':
+        import selltest
+        run = selltest.active(ctx.get('db_path'))
+        packs = run['packs'] if run else selltest.candidates(ctx.get('db_path'),ctx.get('products_dir'),ctx.get('now'))
+        return f"/sell {packs[0]['id']} pampandi; modati Pack chudandi." if packs else '/ready pampandi; READY Pack kavali.'
+    if cmd == 'sell' and aid: return f'/upload {aid} pampandi; Gumroad files techukondi.'
+    if cmd == 'upload' and aid: return f'/upload {aid} malli pampandi; files poorthiga techukondi.'
+    if cmd == 'listed' and aid and len(words)>2: return '/selltest start pampandi; READY Packs tho test modalupettandi.'
+    if cmd == 'selltest' and (len(words)==1 or words[1].lower()=='start'): return '/today pampandi; ee roju pani chudandi.'
+    if cmd == 'today' and len(words)==1:
+        import selltest
+        if selltest.running(selltest.active(ctx.get('db_path')),ctx.get('now')):
+            return '/post today pampandi; ready Posts techukondi.'
+    if cmd in ('post','posted'):
+        import post_planner
+        path = post_planner.plan_path_for(ctx['products_dir']) if ctx.get('products_dir') else post_planner.PLAN_PATH
+        day = post_planner.owner_today(ctx.get('now')).isoformat()
+        rows = [r for r in post_planner.load_plan(path) if r.get('date')==day]
+        valid = [(i,r) for i,r in enumerate(rows,1) if r.get('channel')!='action']
+        if cmd=='post' and valid:
+            return f"/posted {valid[0][0]} pampandi; meere post chesaka mark cheyandi."
+        if cmd=='posted' and aid and 1<=int(aid)<=len(rows):
+            pack = str(rows[int(aid)-1].get('pack_id','')).split('-')[0]
+            if pack.isdigit(): return f'/selltest stats {pack} views <views> sales <sales> pampandi; mee totals ivvandi.'
+    if cmd=='selltest' and len(words)>1 and words[1].lower()=='stats': return '/doctor selltest pampandi; missing steps chudandi.'
+    if cmd=='doctor' and len(words)>1:
+        return '/doctor promises pampandi; robot pani check cheyandi.' if words[1].lower()=='selltest' else '/today pampandi; ee roju pani chudandi.'
+    return None
+
+
 def owner_reply(handler):
     """Keep all owned plugins' reply text and media captions phone friendly."""
     @functools.wraps(handler)
@@ -104,10 +140,13 @@ def owner_reply(handler):
         # exemption never reaches public listings, files or other plugins.
         allow_money = handler.__module__ == "tg_sales"
 
+        flow_next = []
         def pages_for(value, next_step, limit=3400):
             from owner_private import OwnerPrivateText
             private = allow_money or isinstance(value, OwnerPrivateText)
-            pages = owner_reply_pages(value, next_step, limit, allow_money=private)
+            if not flow_next:
+                flow_next.append(owner_flow_next(text, original))
+            pages = owner_reply_pages(value, flow_next[0] or next_step, limit, allow_money=private)
             if private:
                 return [OwnerPrivateText(page) for page in pages]
             return pages
@@ -471,6 +510,12 @@ def find_suggestions(text: str, max_suggestions=3, commands=None):
 def format_unknown_suggestions(text: str, max_suggestions=3, commands=None) -> str:
     """Format 3 closest suggestions for unknown text instead of only 'Ardam kaaledu'."""
     suggs = find_suggestions(text, max_suggestions=max_suggestions, commands=commands)
+    if not re.search(r'[a-zA-Z]', text) or not suggs or suggs[0][0] > 2:
+        return ('Meeru cheppindi ardam kaaledu:\nIvi try cheyandi:\n'
+                '• /storekit — Store setup Draft techukondi\n'
+                '• /selltest start — READY Packs tho test modalupettandi\n'
+                '• /today — Ee roju pani chudandi\n'
+                'Next: /storekit pampandi; Store setup chudandi.')
     s_lines = [f"• {cmd} — {desc}" for _, cmd, desc in suggs]
     return (
         f"Meeru cheppindi ardam kaaledu: '{text[:50]}'.\n"
@@ -547,7 +592,4 @@ def handle(text: str, ctx: dict) -> dict | None:
             }
 
     # If the text starts with a slash or question word or typo word, or explicitly unknown fallback requested:
-    if raw.startswith("/"):
-        return {"text": format_unknown_suggestions(raw)}
-
-    return None
+    return {"text": format_unknown_suggestions(raw)}

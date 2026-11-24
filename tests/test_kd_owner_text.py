@@ -214,8 +214,11 @@ class KdOwnerTextTests(unittest.TestCase):
         self.assertEqual(len(self.sent), 1)
         chat, text, buttons = self.sent[0]
         self.assertEqual(chat, OWNER)
-        self.assertIn("Ardam kaaledu", text)
-        self.assertIn(owner_commands.TENGLISH_UNKNOWN_HINT, text)
+        self.assertIn("ardam kaaledu", text.lower())
+        for command in ('/storekit','/selltest start','/today'):
+            self.assertIn(command,text)
+        self.assertLessEqual(len(text.splitlines()),15)
+        self.assertTrue(text.splitlines()[-1].startswith('Next:'))
 
     # 8. Non-owner message is ignored
     def test_non_owner_ignored(self):

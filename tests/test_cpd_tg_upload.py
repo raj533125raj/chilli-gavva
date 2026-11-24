@@ -252,7 +252,8 @@ class TelegramUploadTests(unittest.TestCase):
         (self.pack / "unexpected").mkdir()
         (handled, _), _ = self.run_upload()
         self.assertTrue(handled)
-        self.assertIn("ValueError", self.sent[-1][1])
+        self.assertIn("Upload files prepare cheyalekapoyam", self.sent[-1][1])
+        self.assertTrue(self.sent[-1][1].splitlines()[-1].startswith("Next: /upload 1"))
         self.assertEqual(self.sent_files(), [])
 
     def test_symlink_in_product_folder_is_refused(self):
@@ -261,14 +262,16 @@ class TelegramUploadTests(unittest.TestCase):
         (self.pack / "external-link.txt").symlink_to(target)
         (handled, _), _ = self.run_upload()
         self.assertTrue(handled)
-        self.assertIn("ValueError", self.sent[-1][1])
+        self.assertIn("Upload files prepare cheyalekapoyam", self.sent[-1][1])
+        self.assertTrue(self.sent[-1][1].splitlines()[-1].startswith("Next: /upload 1"))
         self.assertEqual(self.sent_files(), [])
 
     def test_upload_pack_failure_is_reported_without_files(self):
         with mock.patch.object(upload_pack, "make", side_effect=ValueError("private diagnostic")):
             (handled, _), _ = self.run_upload()
         self.assertTrue(handled)
-        self.assertIn("ValueError", self.sent[-1][1])
+        self.assertIn("Upload files prepare cheyalekapoyam", self.sent[-1][1])
+        self.assertTrue(self.sent[-1][1].splitlines()[-1].startswith("Next: /upload 1"))
         self.assertNotIn("private diagnostic", self.sent[-1][1])
         self.assertEqual(self.sent_files(), [])
 

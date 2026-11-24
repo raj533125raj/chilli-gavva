@@ -121,5 +121,6 @@ def report(db_path=None, products_dir=None, now=None):
         command = f'/selltest stats {aid} views <views> sales <sales>' if 1 <= selltest.day_number(run, now, pack) <= 14 else '/selltest learn'
         field('Stats', aid in measured, command)
         lines.append(f"#{aid}: " + ' | '.join(fields))
-    lines.append('Next: '+(first_fix or '/today')+' pampandi.')
+    if first_fix: lines[0] += ' Modati fix: '+first_fix+' pampandi.'
+    lines.append('Next: /doctor promises pampandi; robot pani check cheyandi.')
     return '\n'.join(lines)

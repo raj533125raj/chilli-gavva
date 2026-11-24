@@ -45,5 +45,5 @@ def checklist(db_path=None, products_dir=None, now=None):
         else:
             tasks.append(f'/selltest stats {aid} views <views> sales <sales>')
         lines.append(f"Pack #{aid}: " + ' → '.join(tasks or ['Ee roju pani poorthi.']))
-    lines.append('Next: paina unna modati command pampandi; upload, posts meere cheyandi.')
+    lines.append('Next: /post today pampandi; ready Posts techukondi; missing upload/link steps paina chudandi.')
     return '\n'.join(lines)

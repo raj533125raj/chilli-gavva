@@ -1,4 +1,5 @@
 """Owner-only diagnostic subcommand; no repairs or publishing happen here."""
+from tg_menu import owner_reply
 import os
 import re
 import selltest_doctor
@@ -9,6 +10,7 @@ COMMANDS = [{'cmd':'/doctor', 'words':['doctor selltest'],
              'help_te':'Sell test missing steps kosam /doctor selltest pampandi.'}]
 
 
+@owner_reply
 def handle(text, ctx):
     if not isinstance(text, str): return None
     match = re.fullmatch(r'/?doctor(?:@\w+)?(?:\s+(selltest|promises))?', text.strip(), re.I)
