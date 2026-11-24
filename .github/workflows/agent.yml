@@ -383,6 +383,8 @@ jobs:
           DB_KEY: ${{ secrets.DB_KEY }}
         run: |
           python3 run_failure.py run save -- bash -e -o pipefail <<'ROBOT_STEP'
+          # Monthly drill uses fake data/key only, and saves its month before encryption.
+          python3 backup_check.py drill
           # Secret guard: never save a token, key, password, chat id or personal email (blocks the save).
           python3 sanitize_state.py
           python3 secret_guard.py --save
@@ -395,6 +397,7 @@ jobs:
           rc=$?
           set -e
           if [ "$rc" = "3" ]; then
+            python3 backup_check.py
             echo "Nothing real changed: not saving."
             exit 0
           fi
@@ -404,6 +407,8 @@ jobs:
           fi
           # Encrypt the database. Only the encrypted file (agent_data.db.enc) is committed, never the plaintext.
           python3 scripts/db_crypt.py encrypt
+          # Refuse to save an unreadable, empty, incomplete or stale encrypted backup.
+          python3 backup_check.py
           # Add each path on its own: one missing folder must not stop everything else being saved
           for p in agent_data.db.enc products.tar.gz.enc web/data/status.json .scheduler_locks; do
             if [ -e "$p" ]; then git add "$p"; fi
@@ -494,6 +499,8 @@ jobs:
           python3 sanitize_state.py
           python3 secret_guard.py agent_data.db
           python3 scripts/db_crypt.py encrypt
+          # Refuse to save an unreadable, empty, incomplete or stale encrypted backup.
+          python3 backup_check.py --saved-products
           git config user.name "chilli-gavva-bot"
           git config user.email "chilli-gavva-bot@users.noreply.github.com"
           git add agent_data.db.enc
