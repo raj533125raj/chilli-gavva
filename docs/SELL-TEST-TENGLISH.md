@@ -93,3 +93,12 @@ Paid link `/listed N <link>`, free sample link `/selltest sample N <link>` save 
 `/upload N sample` lo **emails.txt** kuda vasthundi: sample download taruvatha Day 0, Day 3, Day 7 email Drafts. Paid link save ayyaka Drafts ready avuthayi. Subject, Body review chesi Gumroad email tool lo meere paste chesi timing/send decide cheyandi.
 
 `/selltest numbers` ee roju numbers chupisthundi; `/selltest numbers N views 120 sales 1` kuda stats command laga pani chesthundi. Day 7, Day 14 nunchi `/selltest learn` lo entered numbers tho rules, missing days, listing/traffic fix tasks chudandi. Sales unna niche/format/style ki Scout preference untundi. Day 14 lo kanisam seven entered days, 200 views unna Sales leni Pack ki kotha Pins aaguthayi; already posted history untundi. Store changes, posts, emails anni meere cheyandi.
+
+Store setup Draft kosam `/storekit` pampandi. Name ideas, Bio, About, Refund/FAQ,
+profile + cover pictures, actual Pack order vastayi; online Settings meere marchandi.
+`/buyercheck` prathi test Pack ki six buyer rules, Score, top three fixes chupistundi.
+Adi pampe `listing.txt` lo six-word buyer Title B main untundi; `gallery-first.png`
+real inside page nunchi vastundi. Ee private Draft files owner review chesi Store lo
+meere replace cheyandi. Existing A/B choice, buyer ZIP, approved Site pages marchavu.
+`/doctor promises` approved-but-unbuilt Drafts, missing kits, waiting decisions,
+unanswered buttons, missing Sell test numbers ki cause + next command chupistundi.

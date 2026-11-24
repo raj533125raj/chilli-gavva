@@ -62,9 +62,12 @@ def handle(text,ctx):
             prepared=free_sample.ensure_all(products,db)
             import selltest_listings
             copies=selltest_listings.ensure_all(products,db)
+            import buyer_check
+            buyer_results=buyer_check.prepare_all(db,products)
             import selltest_site
             selltest_site.prepare(products_dir=products,db_path=db)
             sample_note=f"Free samples {sum(prepared.values())}/{len(prepared)} ready; /upload N sample pampandi."
+            sample_note+=f" Buyer check {sum('blocked' not in row for row in buyer_results)}/{len(buyer_results)} checked; /buyercheck lo score + top fixes."
             sample_note+=f" Listing copy {sum(not value.startswith('Blocked:') for value in copies.values())}/{len(copies)} ready."
             import post_planner
             post_planner.refresh_ready_plan(selltest.products_root(products),now=now,db_path=db)
