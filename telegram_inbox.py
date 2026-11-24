@@ -32,6 +32,9 @@ CLI:
   python3 telegram_inbox.py status   # show config state (no network calls)
 """
 import json
+import contextvars
+
+_BUTTON_RECEIPT = contextvars.ContextVar("button_receipt", default=None)
 import os
 import base64
 import binascii
@@ -323,7 +326,12 @@ def send_text(token, chat_id, text, buttons=None, keyboard=None):
 
     try:
         result = _call(token, "sendMessage", params)
-        return isinstance(result, dict) and result.get("ok") is True
+        ok = isinstance(result, dict) and result.get("ok") is True
+        receipt = _BUTTON_RECEIPT.get()
+        if ok and receipt:
+            import promise_check
+            promise_check.button_answered(*receipt)
+        return ok
     except Exception:
         diagnostics.record("sendMessage", kind="unexpected")
         return False
@@ -2331,6 +2339,8 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                     stats["first_button_age_min"] = max(0, int((time.time() - sent_at) // 60))
                 stats["_first_button_seen"] = True
             log_button(db_path)
+            import promise_check
+            promise_check.button_received(update_id, db_path)
             # Always answer the press (stops the spinning clock on the owner's button). Telegram refuses
             # answers older than a few minutes; that is harmless, the reply message below still goes out.
             try:
@@ -2342,6 +2352,7 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                 pass
             msg_id = (cb.get("message") or {}).get("message_id")
             data = cb.get("data") if isinstance(cb.get("data"), str) else ""
+            receipt_context = _BUTTON_RECEIPT.set((update_id, db_path))
             try:
                 reply = handle_callback(token, owner_chat_id, data, db_path, message_id=msg_id)
             except Exception as exc:
@@ -2351,11 +2362,14 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                 send_text(token, owner_chat_id, button_failed_text(data))
                 handled += 1
                 continue
+            finally:
+                _BUTTON_RECEIPT.reset(receipt_context)
             if reply is not None:
                 handled += 1
             else:
                 stats["skipped"]["unknown button"] += 1
-                send_text(token, owner_chat_id, UNKNOWN_BUTTON_TEXT)
+                if send_text(token, owner_chat_id, UNKNOWN_BUTTON_TEXT):
+                    promise_check.button_answered(update_id, db_path)
             continue
         msg = upd.get("message")
         if not msg:
@@ -2958,6 +2972,12 @@ def _run(db_path=None, recovery=False, stats=None):
     except Exception as exc:
         print(f"Daily report / improver loop skipped: {type(exc).__name__}")
         daily = False
+    if os.environ.get("CHILLI_TEST") != "1":
+        try:
+            import promise_check
+            promise_check.send_daily(lambda text: send_text(token, chat_id, text), db_path)
+        except Exception as exc:
+            print(f"Promise check failed: {type(exc).__name__}")
     print(f"Telegram inbox: {commands} command(s) handled, {alerts} new draft(s) announced"
           + (", daily report sent." if daily else ".")
           + (" morning post plan sent." if morning_sent else "")
