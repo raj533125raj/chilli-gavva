@@ -24,3 +24,15 @@ No decrypted live database was available locally, and no key was requested or us
 The owner can use /restore N for an accidentally timed-out structured Scout product; manual rejections are preserved.
 The updated Worker source must be deployed by the owner for stale-run fallback and measured button observations.
 Store setup, buyer copy and gallery improvements remain private drafts for the owner to apply.
+
+10-line simple-English summary
+BIG-7 work is complete on branch robot-cx7.
+Scout product drafts stay in the product queue, and owners can restore accidental timeouts.
+Reports explain approved build queues and show how long ago the robot ran.
+A backup alarm handles stale runs while respecting the hard run budget.
+Daily promise checks and the doctor show missing builds, kits, decisions, replies and numbers.
+The store kit includes original artwork, store copy and the selected test-pack order.
+Buyer checks cover all 19 formats and prepare checked titles and real inside previews.
+Backups are reopened and compared, with a monthly restore drill using fake data.
+Unchanged manual and door-bell runs can skip tests; measured button delays appear in reports.
+The full 8961-test suite and three clock checks passed; all work is local and nothing was pushed.
