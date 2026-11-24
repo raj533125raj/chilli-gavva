@@ -21,6 +21,10 @@ on:
         description: "Run even if the Mac worker is alive (yes/no)"
         required: false
         default: "no"
+      full_tests:
+        description: "Force full test suite even when code is unchanged (yes/no)"
+        required: false
+        default: "no"
       health:
         description: "Run the AI health check first (yes/no)"
         required: false
@@ -168,24 +172,13 @@ jobs:
         continue-on-error: true
         timeout-minutes: 1
         shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          REASON: ${{ github.event.inputs.reason || 'manual' }}
+          FULL_TESTS: ${{ github.event.inputs.full_tests || 'no' }}
         run: |
-          head=$(git rev-parse HEAD)
-          echo "head=$head" >> "$GITHUB_OUTPUT"
-          run=true
-          if [ "$GITHUB_EVENT_NAME" = schedule ] && [ -f "$RUNNER_TEMP/robot-green-sha.txt" ]; then
-            base=$(cat "$RUNNER_TEMP/robot-green-sha.txt")
-            if [[ "$base" =~ ^[0-9a-f]{40}$ ]] && git merge-base --is-ancestor "$base" "$head"; then
-              # Everything except known state/docs counts as code, including tests,
-              # workflows, recipes, configuration and future file types.
-              if git diff --quiet "$base" "$head" -- . \
-                ':!agent_data.db.enc' ':!products.tar.gz.enc' ':!web/data/status.json' \
-                ':!.scheduler_locks' ':(exclude,glob)docs/**/*.md' ':!README.md'; then
-                run=false
-              fi
-            fi
-          fi
-          echo "run=$run" >> "$GITHUB_OUTPUT"
-          echo "Full unit suite required: $run"
+          python3 tools/ci_test_plan.py --baseline-file "$RUNNER_TEMP/robot-green-sha.txt" \
+            --event "$EVENT" --reason "$REASON" --force "$FULL_TESTS"
 
       # Preserve image-test coverage on full test runs, even without a pending build.
       - name: Install test dependencies
