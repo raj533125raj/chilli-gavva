@@ -43,6 +43,7 @@ import urllib.error
 import urllib.request
 import contextvars
 import functools
+import email.utils
 from contextlib import nullcontext
 
 import guardrails
@@ -199,10 +200,32 @@ def _failure_kind(exc, description=""):
     return "provider_error"
 
 
+def _reset_seconds(headers):
+    """Retry-After seconds/date or a reset epoch; absent reset uses bounded rest."""
+    now = _now().replace(tzinfo=datetime.timezone.utc).timestamp()
+    raw = headers.get("Retry-After") or headers.get("retry-after")
+    try:
+        if raw is not None:
+            try:
+                return max(0, float(raw))
+            except ValueError:
+                return max(0, email.utils.parsedate_to_datetime(raw).timestamp() - now)
+        reset = headers.get("x-ratelimit-reset") or headers.get("X-RateLimit-Reset")
+        if reset:
+            return max(0, float(reset) - now)
+    except (ValueError, TypeError, OverflowError):
+        pass
+    return COOLDOWN_MINUTES * 60
+
+
+def _ordered_models(provider, models):
+    return provider_state.model_order(provider, models, _state_path())
+
+
 def _request_json(req, provider, model, timeout, parse):
     """All runtime HTTP attempts share reservations, breakers and safe diagnostics."""
     _LAST_FAILURE_KIND.set("")
-    if provider == "Cloudflare" and in_cooldown(provider, _ROUTER_DB.get()):
+    if in_cooldown(provider, _ROUTER_DB.get()):
         return None, None
     if _public_model(model) != model or not provider_state.reserve(
             provider, model, _model_cap(provider, model), _state_path()):
@@ -225,14 +248,16 @@ def _request_json(req, provider, model, timeout, parse):
     except Exception as exc:
         if getattr(exc, "code", None) == 429:
             try:
-                _RETRY_AFTER.set(max(0.0, min(float(exc.headers.get("retry-after", "5")), 20.0)))
+                _RETRY_AFTER.set(_reset_seconds(exc.headers))
             except (ValueError, TypeError, AttributeError):
-                _RETRY_AFTER.set(5.0)
+                _RETRY_AFTER.set(COOLDOWN_MINUTES * 60)
         _PROCESS_OUTCOMES["failed"] += 1
         description = _describe(exc)
         kind = _failure_kind(exc, description)
         _LAST_FAILURE_KIND.set(kind)
         provider_state.observe(provider, model, False, kind, _TASK.get(), _state_path())
+        if getattr(exc, "code", None) == 429 and kind in ("rate_limit", "quota"):
+            set_cooldown(provider, minutes=_RETRY_AFTER.get() / 60, db_path=_ROUTER_DB.get())
         if provider == "Cloudflare" and kind == "quota":
             now = _now()
             midnight = (now + datetime.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -401,7 +426,8 @@ def _groq_models(size: str) -> list[str]:
     small = os.environ.get("GROQ_MODEL_SMALL", "openai/gpt-oss-20b")
     large = os.environ.get("GROQ_MODEL_LARGE", "openai/gpt-oss-120b")
     # Large falls back to small (e.g. when the large model's daily free limit is used up)
-    return [large, small] if size == LARGE else [small]
+    return list(dict.fromkeys(m.strip() for value in ([large, small] if size == LARGE else [small])
+                              for m in value.split(",") if m.strip()))
 
 
 def _groq(prompt: str, size: str = SMALL) -> str | None:
@@ -409,7 +435,7 @@ def _groq(prompt: str, size: str = SMALL) -> str | None:
     if not api_key or api_key.startswith("YOUR_"):
         return None
     timeout = _TIMEOUT_LARGE if size == LARGE else _TIMEOUT
-    for model in _groq_models(size):
+    for model in _ordered_models("Groq", _groq_models(size)):
         result = _groq_call(prompt, api_key, model, timeout=timeout)
         if result:
             return result
@@ -435,7 +461,7 @@ def _groq_call(prompt: str, api_key: str, model: str, timeout: float = _TIMEOUT)
         if _LAST_FAILURE_KIND.get() == "quota":
             _note_429("Groq")
             return None
-        if attempt == 1:
+        if attempt == 1 and _RETRY_AFTER.get() <= 1:
             time.sleep(_RETRY_AFTER.get())
         else:
             _note_429("Groq")
@@ -473,7 +499,7 @@ def _gemini(prompt: str, timeout: float = _TIMEOUT) -> str | None:
     url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
     for api_key in keys_to_try:
         statuses = []
-        for model in _gemini_models():
+        for model in _ordered_models("Gemini", _gemini_models()):
             text, status = _openai_style_call(url, api_key, model, prompt, "Gemini", timeout=timeout)
             if text:
                 _RATE_LIMITED.discard("Gemini")
@@ -496,9 +522,14 @@ def _openrouter(prompt: str) -> str | None:
     if not api_key or api_key.startswith("YOUR_") or not model:
         return None
     url = "https://openrouter.ai/api/v1/chat/completions"
-    text, _ = _openai_style_call(url, api_key, model, prompt, "OpenRouter",
-                                 extra_headers={"X-Title": "Chilli Gavva"})
-    return text
+    for candidate in _ordered_models("OpenRouter", model.split(",")):
+        text, status = _openai_style_call(url, api_key, candidate.strip(), prompt, "OpenRouter",
+                                        extra_headers={"X-Title": "Chilli Gavva"})
+        if text:
+            return text
+        if status in (401, 403, 429):
+            break
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -554,7 +585,7 @@ def _cloudflare(prompt: str, size: str | None = None) -> str | None:
         return None
     body = {"messages": [{"role": "user", "content": prompt}], "max_tokens": output_tokens}
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json", **_UA}
-    for model in _cloudflare_models():
+    for model in _ordered_models("Cloudflare", _cloudflare_models()):
         url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{model}"
         req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers)
         text, status = _request_json(req, "Cloudflare", model, timeout, _cf_parse)
@@ -591,7 +622,7 @@ def github_models_enabled() -> bool:
 def _github_models(prompt: str, timeout: float = _TIMEOUT) -> str | None:
     if not github_models_enabled():
         return None
-    for model in _github_models_list():
+    for model in _ordered_models("GitHubModels", _github_models_list()):
         text, status = _openai_style_call(_GITHUB_MODELS_URL, _github_models_token(), model, prompt,
                                           "GitHubModels", timeout=timeout)
         if text:
@@ -687,7 +718,7 @@ def chat(prompt: str, *, db_path=None, size: str | None = None, task_kind: str |
             except Exception:
                 pass
             return result
-        if name in _RATE_LIMITED:
+        if name in _RATE_LIMITED and not in_cooldown(name, db_path) and _ATTEMPTS.get() == before_attempts:
             set_cooldown(name, db_path=db_path)
 
     return None
@@ -744,7 +775,7 @@ def chat_vision(image_bytes: bytes, mime_type: str, prompt: str = "Describe and 
 
     for api_key in keys_to_try:
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", **_UA}
-        for model in _gemini_models():
+        for model in _ordered_models("Gemini", _gemini_models()):
             # OpenAI style vision payload
             body = {
                 "model": model,
@@ -823,7 +854,7 @@ def chat_audio(audio_bytes: bytes, mime_type: str, prompt: str = "Transcribe and
     b64_data = base64.b64encode(audio_bytes).decode("ascii")
 
     for api_key in keys_to_try:
-        for model in _gemini_models():
+        for model in _ordered_models("Gemini", _gemini_models()):
             native_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
             native_body = {
                 "contents": [{
@@ -1015,7 +1046,7 @@ def _targets():
     key = os.environ.get("GEMINI_API_KEY", "")
     if key and not key.startswith("YOUR_"):
         headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json", **_UA}
-        for model in _gemini_models():
+        for model in _ordered_models("Gemini", _gemini_models()):
             out.append(("Gemini", model, "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
                         headers, _chat_parse))
     key, model = os.environ.get("OPENROUTER_API_KEY", ""), os.environ.get("OPENROUTER_MODEL", "").strip()
@@ -1026,7 +1057,7 @@ def _targets():
     tok, acc = os.environ.get("CF_API_TOKEN", ""), os.environ.get("CF_ACCOUNT_ID", "")
     if tok and acc and not tok.startswith("YOUR_"):
         headers = {"Authorization": f"Bearer {tok}", "Content-Type": "application/json", **_UA}
-        for model in _cloudflare_models():
+        for model in _ordered_models("Cloudflare", _cloudflare_models()):
             url = f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/{model}"
             out.append(("Cloudflare", model, url, headers, _cf_parse))
     return [target for target in out if _public_model(target[1]) == target[1]]

@@ -187,3 +187,13 @@ def health(provider, model, cap, path=None):
             "last_ok": state.get("last_ok"), "observed_at": state.get("observed_at", 0),
             "failure_reasons": {k: {"count": count, "reason": REASONS[k]}
                                 for k, count in state["failures"].items() if k in REASONS}}
+
+
+def model_order(provider, models, path=None):
+    """Remember successful models across processes; retired models follow untried ones."""
+    states = {m: s for p, m, s in snapshots(path) if p == provider}
+    def rank(model):
+        state = states.get(model, {})
+        return (state.get("last_kind") == "invalid_model" and not state.get("last_ok"),
+                -state.get("observed_at", 0) if state.get("last_ok") else 0)
+    return sorted(dict.fromkeys(models), key=rank)

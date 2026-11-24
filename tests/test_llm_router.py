@@ -149,8 +149,8 @@ class TestGroqProvider(RouterTestCase):
 
         with patch.dict("os.environ", {"GROQ_API_KEY": "gsk_real"}):
             with patch("urllib.request.urlopen", side_effect=side_effect):
-                with patch("time.sleep"):
-                    result = llm_router._groq("hello")
+                # Let the tiny reset actually elapse before the second HTTP call.
+                result = llm_router._groq("hello")
         self.assertEqual(result, "retry worked")
         self.assertEqual(call_count[0], 2)
 
