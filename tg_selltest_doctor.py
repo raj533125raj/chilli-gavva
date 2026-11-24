@@ -11,10 +11,13 @@ COMMANDS = [{'cmd':'/doctor', 'words':['doctor selltest'],
 
 def handle(text, ctx):
     if not isinstance(text, str): return None
-    match = re.fullmatch(r'/?doctor(?:@\w+)?(?:\s+(selltest))?', text.strip(), re.I)
+    match = re.fullmatch(r'/?doctor(?:@\w+)?(?:\s+(selltest|promises))?', text.strip(), re.I)
     if not match: return None
     owner = os.environ.get('TELEGRAM_CHAT_ID', '')
     if owner and str(ctx.get('chat_id')) != owner: return None
     if not match.group(1):
-        return {'text':'Sell test kit, sample, links, Pins, Site, stats check cheyadaniki subcommand pampandi.\nNext: /doctor selltest pampandi.'}
+        return {'text':'Sell test kit, sample, links, Pins, Site, stats check cheyadaniki subcommand pampandi.\nNext: /doctor selltest leda /doctor promises pampandi.'}
+    if match.group(1).lower() == 'promises':
+        import promise_check
+        return {'text':promise_check.report(ctx.get('db_path'), ctx.get('products_dir'), ctx.get('now'))}
     return {'text':selltest_doctor.report(ctx.get('db_path'), ctx.get('products_dir'), ctx.get('now'))}
