@@ -261,6 +261,37 @@ def check_ready_files(db_path=None, out_dir=None, send=None):
     return damaged
 
 
+BUILD_ROTATION = ('sheets', 'planner', 'resume', 'notion', 'digital_planner', 'business_workbook')
+
+
+def queue_niche(title, payload=""):
+    """Use the actual builder identity; separate business workbooks from budget sheets."""
+    niche = product_builder.niche_of(title)
+    kind = product_builder.NICHES[niche]['kind'] if niche else format_registry.classify(title+'\n'+payload)
+    if kind == 'biz_sheets' or 'business workbook' in (title+'\n'+payload).lower():
+        return 'business_workbook'
+    if kind == 'small_business_log':
+        return 'sheets'
+    return kind or 'other'
+
+
+def rotate_queue(items, delivered=()):
+    """Prefer underrepresented niches; retain existing owner/age order within each niche."""
+    from collections import Counter, deque
+    counts = Counter(queue_niche(title or '', payload or '') for title, payload in delivered)
+    groups = {}
+    for index, item in enumerate(items):
+        groups.setdefault(queue_niche(item['title'] or '', item['payload'] or ''), deque()).append((index,item))
+    result = []
+    while groups:
+        kind = min(groups, key=lambda k: (counts[k], groups[k][0][0],
+                                          BUILD_ROTATION.index(k) if k in BUILD_ROTATION else len(BUILD_ROTATION)))
+        result.append(groups[kind].popleft()[1])
+        counts[kind] += 1
+        if not groups[kind]: del groups[kind]
+    return result
+
+
 def pending(db_path=None):
     conn = connect(db_path)
     rows = conn.execute("SELECT a.id, a.title, a.payload, a.review FROM approvals a "
@@ -269,9 +300,15 @@ def pending(db_path=None):
                         # CCG-2: never tried first; then the owner's own approvals before auto-approved ones
                         "ORDER BY COALESCE((SELECT MAX(day) FROM product_delivery_attempts p WHERE p.approval_id=a.id),''), "
                         "COALESCE(a.reason,'') = 'auto-approved', a.id").fetchall()
+    built = set(r[0] for r in conn.execute("SELECT approval_id FROM product_deliveries WHERE status IN ('ready','prepared')"))
+    if conn.execute("SELECT 1 FROM sqlite_master WHERE name='product_builds'").fetchone():
+        built.update(r[0] for r in conn.execute("SELECT approval_id FROM product_builds WHERE status='built'"))
+    delivered = [(title,payload) for aid,title,payload in conn.execute(
+        "SELECT id,title,payload FROM approvals WHERE status='approved' AND kind='public_draft'") if aid in built]
     conn.close()
-    return [dict(zip(("id", "title", "payload", "review"), row)) for row in rows
-            if not product_builder.is_held(row[0], db_path)]
+    items = [dict(zip(("id", "title", "payload", "review"), row)) for row in rows
+             if not product_builder.is_held(row[0], db_path)]
+    return rotate_queue(items, delivered)
 
 
 def buildable(title, payload):

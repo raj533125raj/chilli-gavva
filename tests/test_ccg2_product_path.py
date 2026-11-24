@@ -121,7 +121,8 @@ class UnbuildableDraftsDoNotTakeBuildSlots(Base):
         with mock.patch.object(product_pipeline, "_allowed", return_value=True), \
                 mock.patch("workforce.default_llm", return_value=lambda *a, **k: ""), \
                 mock.patch.object(product_council, "get_council_summary", return_value={"verdict": "FAIL"}), \
-                mock.patch.object(product_council, "run_council", return_value={"verdict": "FAIL"}):
+                mock.patch.object(product_council, "review_approved", return_value={"verdict": "FAIL", "status": "rejected",
+                                                                                     "reason": "Quality still low after improvement"}):
             product_pipeline.run_pending(db_path=self.db, out_dir=out, max_builds=1, day="2026-11-15")
         conn = sqlite3.connect(self.db)
         reserved = [r[0] for r in conn.execute("SELECT approval_id FROM product_delivery_attempts")]
