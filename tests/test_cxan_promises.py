@@ -48,6 +48,20 @@ class PromiseTests(unittest.TestCase):
         selltest.save_stats(built,0,0,self.db,NOW)
         self.assertFalse({'button','stats'} & {key for key,_ in promise_check.check(self.db,self.products,NOW)})
 
+    def test_two_real_fast_cycles_are_caught_before_six_hours(self):
+        self.draft(stamp=(NOW-dt.timedelta(hours=1)).isoformat())
+        promise_check.record_build_cycle(self.db,NOW-dt.timedelta(minutes=45))
+        self.assertEqual(promise_check.report(self.db,self.products,NOW),'Anni promises OK')
+        promise_check.record_build_cycle(self.db,NOW-dt.timedelta(minutes=15))
+        self.assertIn('1 approved Drafts',promise_check.report(self.db,self.products,NOW))
+
+    def test_live_pipeline_records_completed_build_pass(self):
+        import product_pipeline
+        with mock.patch.object(product_pipeline,'_allowed',return_value=True),mock.patch.object(product_pipeline,'_marketing_lines',return_value={}),mock.patch('gumroad_handoff.build_missing',return_value={}):
+            product_pipeline.run_pending(self.db,str(self.products),llm=lambda *a,**k:'',notify_fn=lambda text:True)
+        with guardrails.connect(self.db) as conn:
+            self.assertEqual(conn.execute('SELECT COUNT(*) FROM promise_cycles').fetchone()[0],1)
+
     def test_healthy_and_recent_approval(self):
         self.draft(stamp=NOW.isoformat())
         self.assertEqual(promise_check.report(self.db,self.products,NOW),'Anni promises OK')

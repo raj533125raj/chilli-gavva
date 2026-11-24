@@ -22,6 +22,14 @@ def rows(conn, sql, args=()):
         raise
 
 
+def record_build_cycle(db_path=None, now=None):
+    """Count completed build passes, including faster alarm/door-bell cycles."""
+    with guardrails.connect(db_path) as conn:
+        conn.execute('CREATE TABLE IF NOT EXISTS promise_cycles(stamp TEXT PRIMARY KEY)')
+        conn.execute('INSERT OR IGNORE INTO promise_cycles VALUES(?)',(utc(now).isoformat(),))
+        conn.execute('DELETE FROM promise_cycles WHERE stamp<?',((utc(now)-dt.timedelta(days=30)).isoformat(),))
+
+
 def button_received(update_id, db_path=None, now=None):
     with guardrails.connect(db_path) as conn:
         conn.execute('CREATE TABLE IF NOT EXISTS button_receipts (update_id INTEGER PRIMARY KEY, received_ts TEXT, answered_ts TEXT)')
@@ -47,13 +55,19 @@ def check(db_path=None, products_dir=None, now=None):
         stuck=[]
         for aid,title,payload,decided,status in approved:
             if status == 'built' or not product_pipeline.buildable(title,payload): continue
-            try: old=(now-utc(decided)).total_seconds() > 2*CYCLE_HOURS*3600 if decided else True
+            try:
+                stamp=utc(decided) if decided else None
+                completed=sum(1 for (cycle,) in rows(conn,'SELECT stamp FROM promise_cycles')
+                              if stamp is not None and utc(cycle)>stamp and utc(cycle)<=now)
+                # Legacy databases have no cycle ledger yet: retain a six-hour
+                # wall-clock backstop so their existing stranded work is caught.
+                old=completed>=2 or (now-stamp).total_seconds()>2*CYCLE_HOURS*3600 if stamp else True
             except ValueError: old=True
             if old: stuck.append(aid)
         if stuck:
             causes=rows(conn,"SELECT approval_id,reason FROM product_deliveries WHERE reason != ''")
             reason=next((str(reason)[:100] for aid,reason in causes if aid in stuck),'build step complete kaaledu')
-            problems.append(('build',f"Promise build: {len(stuck)} approved Drafts, 2 cycles daatina files levu; {reason}. Fix: /doctor promises; /view {stuck[0]}"))
+            problems.append(('build',f"Promise build: {len(stuck)} approved Drafts, 2 cycles leda 6h daatina files levu; {reason}. Fix: /doctor promises; /view {stuck[0]}"))
         missing=[]
         for aid,folder in rows(conn,"SELECT approval_id,folder FROM product_builds WHERE status='built'"):
             if not folder or Path(folder).name != folder or not selltest_doctor.kit_ok(products/'upload'/folder): missing.append(aid)
