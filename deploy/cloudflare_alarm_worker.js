@@ -167,7 +167,13 @@ export async function tick(env, now, fetchFn = fetch) {
   }
 
   if (now - (clock.lastDispatch || 0) < s.alarmMinutes * MINUTE - 30 * 1000) return { action: "idle" };
-  if (!alarmAllowed(used, now, s)) return { action: "budget-wait", used };
+  // Pacing must not hide a skipped GitHub cron for hours. Reserve a bounded
+  // stale-run fallback under the hard monthly cap; successful dispatches cool
+  // down even when GitHub fails to start the requested run.
+  const lastRun = Math.max(Number(runs.runStarted) || 0, Number(runs.runEnded) || 0);
+  const stale = lastRun > 0 && now - lastRun >= 210 * MINUTE
+    && now - (clock.lastDispatch || 0) >= 210 * MINUTE;
+  if (!alarmAllowed(used, now, s) && !(stale && used < s.hardCap)) return { action: "budget-wait", used };
   if (runInProgress(runs, now, s)) return { action: "run-in-progress" };
   if (!(await dispatch(env, s, "alarm", fetchFn))) return { action: "alarm-failed" };
   await env.STATE.put("clock", JSON.stringify({ ...clock, lastDispatch: now }));
@@ -227,6 +233,8 @@ export async function handle(request, env, now, fetchFn = fetch) {
       mac_last_seen_minutes: mac ? Math.round((now - Number(mac)) / MINUTE) : null,
       run_in_progress: runInProgress(runs, now, s),
       minutes_since_last_dispatch: clock.lastDispatch ? Math.round((now - clock.lastDispatch) / MINUTE) : null,
+      minutes_since_last_run: Math.max(runs.runStarted || 0, runs.runEnded || 0)
+        ? Math.max(0, Math.round((now - Math.max(runs.runStarted || 0, runs.runEnded || 0)) / MINUTE)) : null,
       month_minutes: monthMinutes(runs, now),
       month_runs: runs.month === monthKey(now) ? runs.runs || 0 : 0,
       budget: s.budget,

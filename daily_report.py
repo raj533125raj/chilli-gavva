@@ -61,13 +61,19 @@ def _clock_status(status_fn=None):
 def door_bell_line(reply):
     """Door bell on/off from the alarm clock status (never shows the token)."""
     if "door_bell" not in reply:
-        return "Door bell: unknown (alarm clock not reachable)"
+        return "Door bell: unknown"
     if not reply.get("door_bell"):
         return "Door bell: off"
     if reply.get("telegram_token_ok") == "no":
         return "Door bell: on, but Telegram does NOT accept its bot token (update it in Cloudflare)"
     return "Door bell: on"
 
+
+def last_run_line(reply):
+    minutes = reply.get('minutes_since_last_run')
+    if not isinstance(minutes, (int, float)) or minutes < 0:
+        return 'Last robot run: unknown'
+    return f'Last robot run: {minutes / 60:.1f} h ago'
 
 
 def _minutes(status_fn=None, reply=None):
@@ -173,7 +179,8 @@ def product_path_lines(db_path=None, now=None, include_built=True):
     if include_built:
         lines.append(f"Built today: {p['built']}")
     import product_pipeline
-    queued = len(product_pipeline.pending(db_path))
+    queued = sum(product_pipeline.buildable(item['title'], item['payload'])
+                 for item in product_pipeline.pending(db_path))
     if queued:
         lines.append(f"Approved build queue: {queued} (ee report tarvata ade run lo build; migilite next run; /packs)")
     lines.append(f"Needs fix today: {p['needs_fix']}" + (f" (top: {p['top_reason']})" if p["needs_fix"] else ""))
@@ -240,6 +247,7 @@ def daily_text(db_path=None, now=None, status_fn=None, products_dir=None):
              product_counts.sell_test_line(db_path, products_dir, now),
              _minutes(reply=clock),
              door_bell_line(clock),
+             last_run_line(clock),
              f"Button presses received in the last 24h: {buttons}",
              "Errors: " + ("; ".join(errors) if errors else "none"),
              next_step]
