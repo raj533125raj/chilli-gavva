@@ -30,7 +30,7 @@ def button_received(update_id, db_path=None, now=None):
 
 def button_answered(update_id, db_path=None, now=None):
     with guardrails.connect(db_path) as conn:
-        conn.execute('UPDATE button_receipts SET answered_ts=COALESCE(answered_ts,?) WHERE update_id=?',(utc(now).isoformat(),update_id))
+        return bool(conn.execute('UPDATE button_receipts SET answered_ts=? WHERE update_id=? AND answered_ts IS NULL',(utc(now).isoformat(),update_id)).rowcount)
 
 
 def check(db_path=None, products_dir=None, now=None):

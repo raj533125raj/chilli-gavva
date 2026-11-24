@@ -81,8 +81,12 @@ export function updateChat(u) {
   return m && m.chat ? String(m.chat.id) : "";
 }
 
-export async function answerPendingButton(env, query, fetchFn) {
+export async function answerPendingButton(env, query, fetchFn, now = Date.now()) {
   if (!query || typeof query.id !== "string" || !query.id || query.id.length > 256) return false;
+  // Telegram's callback message.date is the age of the original message, not
+  // the press. Keep our first observation for honest end-to-end timing.
+  const seenKey = `button-seen:${query.id}`;
+  if (!(await env.STATE.get(seenKey))) await env.STATE.put(seenKey, String(now), { expirationTtl: 604800 });
   const key = `answered-button:${query.id}`;
   if (await env.STATE.get(key)) return false;
   try {
@@ -101,7 +105,7 @@ export async function answerPendingButton(env, query, fetchFn) {
   }
 }
 
-export async function newestOwnerUpdate(env, fetchFn) {
+export async function newestOwnerUpdate(env, fetchFn, now = Date.now()) {
   // No offset => Telegram only shows pending updates and does NOT mark them as read,
   // so telegram_inbox.py still receives every command and button press.
   const allowed = encodeURIComponent(JSON.stringify(ALLOWED_UPDATES));
@@ -112,7 +116,7 @@ export async function newestOwnerUpdate(env, fetchFn) {
   let newest = null;
   for (const u of data.result || []) {
     if (updateChat(u) === String(env.TELEGRAM_CHAT_ID)) {
-      if (u.callback_query) await answerPendingButton(env, u.callback_query, fetchFn);
+      if (u.callback_query) await answerPendingButton(env, u.callback_query, fetchFn, now);
       if (Number.isInteger(u.update_id) && (newest === null || u.update_id > newest)) newest = u.update_id;
     }
   }
@@ -158,7 +162,7 @@ export async function tick(env, now, fetchFn = fetch) {
   const used = monthMinutes(runs, now);
 
   if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID && used < s.hardCap) {
-    const newest = await newestOwnerUpdate(env, fetchFn).catch(() => null);
+    const newest = await newestOwnerUpdate(env, fetchFn, now).catch(() => null);
     if (newest !== null && newest > (clock.lastUpdateId ?? -1)) {
       if (!(await dispatch(env, s, "doorbell", fetchFn))) return { action: "doorbell-failed" };
       await env.STATE.put("clock", JSON.stringify({ ...clock, lastUpdateId: newest, lastDispatch: now }));
@@ -200,6 +204,19 @@ export async function handle(request, env, now, fetchFn = fetch) {
   if (!authorized(request, env)) return json({ error: "unauthorized" }, 401);
   const s = settings(env);
   const body = request.method === "POST" ? await request.json().catch(() => ({})) : {};
+
+  if (url.pathname === "/button-result" && request.method === "POST") {
+    const id = body.query_id;
+    if (typeof id !== "string" || !id || id.length > 256) return json({ error: "invalid button" }, 400);
+    const resultKey = `button-result:${id}`;
+    const previous = await env.STATE.get(resultKey);
+    if (previous) return json(JSON.parse(previous));
+    const observed = Number(await env.STATE.get(`button-seen:${id}`));
+    if (!observed || observed > now || now - observed > 604800000) return json({ minutes: null });
+    const result = { minutes: (now - observed) / MINUTE };
+    await env.STATE.put(resultKey, JSON.stringify(result), { expirationTtl: 604800 });
+    return json(result);
+  }
 
   if (url.pathname === "/heartbeat" && request.method === "POST") {
     if (body.stopping) await env.STATE.delete("mac");

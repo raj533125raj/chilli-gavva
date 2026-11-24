@@ -173,8 +173,8 @@ def product_path_lines(db_path=None, now=None, include_built=True):
     p = product_path(db_path, now)
     lines = [f"Product drafts waiting: {p['drafts_waiting']}"
              + (f" (oldest {p['oldest_hours']}h; enduku: /autoapprove status)" if p["drafts_waiting"] else ""),
-             f"Proposals waiting: {p['proposals_waiting']} + {p['rule_proposals']} Self-Improvement "
-             "(product drafts kaadu, meere decide)",
+             (f"Proposals waiting: {p['proposals_waiting']} + {p['rule_proposals']} Self-Improvement "
+              "(product drafts kaadu, meere decide)" if p['proposals_waiting'] or p['rule_proposals'] else 'Proposals waiting: 0'),
              f"Approved today: {p['approved']} (owner {p['approved_owner']}, auto {p['approved_auto']})"]
     if include_built:
         lines.append(f"Built today: {p['built']}")
@@ -236,6 +236,7 @@ def daily_text(db_path=None, now=None, status_fn=None, products_dir=None):
     if retries:
         errors.append(f"{retries} task(s) waiting to retry")
 
+    import button_timing
     lines = [f"Chilli Gavva daily report ({now:%Y-%m-%d})",
              providers,
              f"Drafts: {made} made, {waiting} waiting, {approved} approved (last 24h)",
@@ -248,6 +249,7 @@ def daily_text(db_path=None, now=None, status_fn=None, products_dir=None):
              _minutes(reply=clock),
              door_bell_line(clock),
              last_run_line(clock),
+             button_timing.line(db_path, now),
              f"Button presses received in the last 24h: {buttons}",
              "Errors: " + ("; ".join(errors) if errors else "none"),
              next_step]

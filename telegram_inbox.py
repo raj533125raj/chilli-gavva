@@ -330,7 +330,14 @@ def send_text(token, chat_id, text, buttons=None, keyboard=None):
         receipt = _BUTTON_RECEIPT.get()
         if ok and receipt:
             import promise_check
-            promise_check.button_answered(*receipt)
+            update_id, db_path, query_id, is_test = receipt
+            changed = promise_check.button_answered(update_id, db_path)
+            if changed and is_test:
+                try:
+                    import button_timing
+                    button_timing.record(query_id, update_id, db_path)
+                except Exception:
+                    pass  # Reply delivery succeeded even if the clock is unavailable.
         return ok
     except Exception:
         diagnostics.record("sendMessage", kind="unexpected")
@@ -2352,7 +2359,7 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                 pass
             msg_id = (cb.get("message") or {}).get("message_id")
             data = cb.get("data") if isinstance(cb.get("data"), str) else ""
-            receipt_context = _BUTTON_RECEIPT.set((update_id, db_path))
+            receipt_context = _BUTTON_RECEIPT.set((update_id, db_path, cb.get("id"), data == "t:ping"))
             try:
                 reply = handle_callback(token, owner_chat_id, data, db_path, message_id=msg_id)
             except Exception as exc:
