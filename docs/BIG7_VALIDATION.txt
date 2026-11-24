@@ -1,0 +1,26 @@
+BIG-7 final validation
+Branch: robot-cx7
+Validated code commit: c90d223
+
+Total tests run: 8961 | Failures: 0 | Errors: 0 | Skipped: 18 | Time: 758.79s
+Last five full-suite lines:
+   76.27s - chunk_25_test_ccb1_theme_images
+   71.39s - chunk_207_test_occ_sell_flow_e2e
+----------------------------------------------------------------------
+RESULT: PASSED
+======================================================================
+
+UTC 19:45, 91 clock-sensitive modules: Ran 2398 tests; failures=0; errors=0; skipped=7 | OK
+UTC 01:15, 91 clock-sensitive modules: Ran 2398 tests; failures=0; errors=0; skipped=7 | OK
+UTC 07:00, 91 clock-sensitive modules: Ran 2398 tests; failures=0; errors=0; skipped=7 | OK
+CI PARITY: PASS
+Tracked .jobs files: 0
+Protected database, encrypted archive, status and lock files changed: 0
+One persistent test checkout: /private/tmp/chilli-ci-parity/repo
+Nothing pushed.
+
+Live-state limits:
+No decrypted live database was available locally, and no key was requested or used to inspect it.
+The owner can use /restore N for an accidentally timed-out structured Scout product; manual rejections are preserved.
+The updated Worker source must be deployed by the owner for stale-run fallback and measured button observations.
+Store setup, buyer copy and gallery improvements remain private drafts for the owner to apply.
