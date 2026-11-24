@@ -95,3 +95,40 @@ class ProviderHealing(RouterTestCase):
                 with patch.object(router, '_now', return_value=now + dt.timedelta(hours=2)), \
                         patch('urllib.request.urlopen', return_value=self.response()):
                     self.assertEqual(router._groq('draft'), 'real fallback answer')
+
+class GitHubHelper(RouterTestCase):
+    def test_workflow_token_probes_even_when_runtime_is_off(self):
+        env = {'GITHUB_TOKEN': 'fake-workflow-credential', 'GITHUB_MODELS_MODEL': 'old,new'}
+        with patch.dict(os.environ, env, clear=True):
+            self.assertFalse(router.github_models_enabled())
+            with patch('urllib.request.urlopen') as network:
+                self.assertIsNone(router._github_models('draft'))
+                network.assert_not_called()
+            seen = []
+            def probe(url, headers, body, timeout, parse):
+                seen.append(body['model'])
+                return body['model'] == 'new', 'Model unavailable or retired', 0.1
+            results = router.health(probe=probe, db_path=self.db)
+            self.assertEqual(seen, ['old', 'new', 'new'])
+            self.assertEqual(router.github_health_line(results),
+                             'GitHub Models OK — owner: repo variable GITHUB_MODELS=on pettandi')
+            with patch.dict(os.environ, {'GITHUB_MODELS': 'on'}), \
+                    patch.object(router.guardrails, 'can_call_llm', return_value=True), \
+                    patch.object(router.guardrails, 'record_call'):
+                from tests.test_llm_router_resilience import answer
+                with patch('urllib.request.urlopen', return_value=answer('working')) as network:
+                    self.assertEqual(router.chat('draft', db_path=self.db), 'working')
+                self.assertIn('models.github.ai', network.call_args.args[0].full_url)
+            self.assertNotIn(env['GITHUB_TOKEN'], router.format_health(results))
+
+    def test_failed_or_missing_github_health_has_safe_reason(self):
+        self.assertIn('key ledu', router.github_health_line([]))
+        rows = [{'provider': 'GitHubModels', 'test': 'tiny', 'ok': False,
+                 'reason': 'Provider credentials or permissions rejected'}]
+        self.assertIn('permissions rejected', router.github_health_line(rows))
+
+    def test_workflow_binds_builtin_token_and_opt_in_variable(self):
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/agent.yml').read_text()
+        self.assertIn('GITHUB_MODELS_TOKEN: ${{ secrets.GITHUB_TOKEN }}', workflow)
+        self.assertIn('GITHUB_MODELS: ${{ vars.GITHUB_MODELS }}', workflow)

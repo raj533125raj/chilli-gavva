@@ -607,7 +607,7 @@ _GITHUB_MODELS_URL = "https://models.github.ai/inference/chat/completions"
 
 
 def _github_models_token() -> str:
-    return os.environ.get("GITHUB_MODELS_TOKEN", "").strip()
+    return (os.environ.get("GITHUB_MODELS_TOKEN") or os.environ.get("GITHUB_TOKEN", "")).strip()
 
 
 def _github_models_list() -> list[str]:
@@ -651,6 +651,7 @@ _PROVIDERS = [
     ("Cloudflare", _cloudflare),
     ("OpenRouter", _openrouter),
     ("FreeLLMAPI", _freellmapi),
+    ("GitHubModels", _github_models),
 ]
 
 
@@ -1060,6 +1061,11 @@ def _targets():
         for model in _ordered_models("Cloudflare", _cloudflare_models()):
             url = f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/{model}"
             out.append(("Cloudflare", model, url, headers, _cf_parse))
+    token = _github_models_token()
+    if token:
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json", **_UA}
+        for model in _ordered_models("GitHubModels", _github_models_list()):
+            out.append(("GitHubModels", model, _GITHUB_MODELS_URL, headers, _chat_parse))
     return [target for target in out if _public_model(target[1]) == target[1]]
 
 
@@ -1170,6 +1176,14 @@ def github_model_names(opener=None) -> list[str]:
     return sorted(set(names))[:15]
 
 
+def github_health_line(results):
+    rows = [r for r in results if r["provider"] == "GitHubModels" and r["test"] == "tiny"]
+    if any(r["ok"] for r in rows):
+        return "GitHub Models OK — owner: repo variable GITHUB_MODELS=on pettandi"
+    reason = next((r["reason"] for r in rows if r["reason"]), "key ledu — run GITHUB_TOKEN kavali")
+    return "GitHub Models FAIL — " + reason
+
+
 def format_health(results):
     if not results:
         return "No AI provider is configured (no API keys found)."
@@ -1183,7 +1197,9 @@ def format_health(results):
 
 if __name__ == "__main__":
     if sys.argv[1:2] == ["health"]:
-        print(format_health(health()))
+        results = health()
+        print(format_health(results))
+        print(github_health_line(results))
         models = gemini_model_names()
         if models:
             print("Gemini models this key can use: " + ", ".join(models))
