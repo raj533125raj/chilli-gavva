@@ -285,7 +285,7 @@ def run_judge(draft_text: str, topic: str, qa_score: int, conviction: int,
 # --- Council Pipeline Execution ---
 def run_council(approval_id: Optional[int], draft_text: str, topic: str = "",
                 ctx: Optional[Dict[str, Any]] = None, db_path: Optional[str] = None,
-                max_rounds: int = 3, max_ai_calls: int = 8) -> Dict[str, Any]:
+                max_rounds: int = 3, max_ai_calls: int = 8, require_ai: bool = False, rewrite: bool = True) -> Dict[str, Any]:
     if guardrails.is_killed() or rest_window.in_rest_window() or not cubes.is_kind_enabled("review", db_path=db_path) or not guardrails.can_call_llm(db_path):
         return {
             "status": "skipped",
@@ -296,7 +296,7 @@ def run_council(approval_id: Optional[int], draft_text: str, topic: str = "",
 
     current_draft = draft_text or ""
     approval = guardrails.get_approval(approval_id, db_path) if approval_id else None
-    may_rewrite = not approval or approval.get("status", "pending") == "pending"
+    may_rewrite = rewrite and (not approval or approval.get("status", "pending") == "pending")
     if approval and approval.get("status") == "approved":
         current_draft = approval.get("payload") or ""
     ai_calls = 0
@@ -367,6 +367,11 @@ def run_council(approval_id: Optional[int], draft_text: str, topic: str = "",
                                        allow_ai=(ai_calls < max_ai_calls))
         ai_calls += j_calls
 
+        if require_ai and any(result.get("fallback") for result in (critic_res, buyer_res, judge_res)):
+            log_debate(approval_id, r, "council_summary", "WAITING_AI", "AI answer unavailable or invalid", db_path=db_path)
+            return {"status": "waiting_ai", "verdict": "WAITING_AI", "draft_text": current_draft,
+                    "reasons": ["AI answer unavailable or invalid"], "ai_calls": ai_calls}
+
         j_verdict = judge_res.get("verdict", "RETRY").upper()
         last_reasons = judge_res.get("reasons") or ["Quality evaluation complete"]
         if judge_res.get("top_fix"):
@@ -433,3 +438,60 @@ def get_council_card_lines(approval_id: int, db_path=None) -> List[str]:
     line3 = f"Reasons: {reasons[:120]}" if reasons else "Reasons: checked against quality guidelines"
 
     return [line1, line2, line3]
+
+
+def review_approved(approval_id, draft_text, topic, ctx=None, db_path=None):
+    """Stage at most one improved approved draft; accept it only after a real AI recheck.
+
+    Original approval is retained through outages. CAS prevents an owner edit or
+    rejection during the review from being overwritten by the staged candidate.
+    """
+    import secret_guard
+    with connect(db_path) as conn:
+        conn.execute("CREATE TABLE IF NOT EXISTS council_approved_reviews (approval_id INTEGER PRIMARY KEY, "
+                     "original TEXT, candidate TEXT, status TEXT, reason TEXT, ts TEXT)")
+        row = conn.execute("SELECT original,candidate FROM council_approved_reviews WHERE approval_id=?",
+                           (approval_id,)).fetchone()
+    candidate = row[1] if row and row[0] == draft_text else ""
+    def remember(status, reason, text=candidate):
+        with connect(db_path) as conn:
+            conn.execute("INSERT INTO council_approved_reviews VALUES(?,?,?,?,?,?) ON CONFLICT(approval_id) "
+                         "DO UPDATE SET original=excluded.original,candidate=excluded.candidate,status=excluded.status,"
+                         "reason=excluded.reason,ts=excluded.ts",
+                         (approval_id, draft_text, text, status, reason,
+                          datetime.datetime.now(datetime.timezone.utc).isoformat()))
+    if not candidate:
+        result = run_council(approval_id, draft_text, topic, ctx=ctx, db_path=db_path,
+                             max_rounds=1, max_ai_calls=3, require_ai=True)
+        if result.get("verdict") in ("PASS", "APPROVED"):
+            return result
+        if result.get("status") in ("skipped", "waiting_ai"):
+            remember("waiting_ai", "AI kosam waiting; next run retry")
+            return dict(result, status="waiting_ai")
+        reasons = "; ".join(result.get("reasons") or ["Council quality checks"])
+        raw = _ask_stage(FIXER_PROMPT.format(topic=topic, weaknesses=reasons,
+                         buyer_feedback="Improve the specific council concerns", draft=draft_text), ctx, db_path)
+        if not raw or len(raw.strip()) < 200:
+            remember("waiting_ai", "Fixer AI answer unavailable or invalid")
+            return {"status": "waiting_ai", "verdict": "WAITING_AI"}
+        candidate = secret_guard.clean_ai_text(raw.strip())
+        # Save before rechecking, so outages and process restarts cannot trigger
+        # repeated rewrites or lose the one improved version.
+        remember("improved", reasons, candidate)
+    result = run_council(None, candidate, topic, ctx=ctx, db_path=db_path,
+                         max_rounds=1, max_ai_calls=3, require_ai=True, rewrite=False)
+    if result.get("status") in ("waiting_ai", "skipped"):
+        remember("improved", "Recheck AI kosam waiting", candidate)
+        return dict(result, status="waiting_ai")
+    if result.get("verdict") in ("PASS", "APPROVED"):
+        with guardrails.connect(db_path) as conn:
+            changed = conn.execute("UPDATE approvals SET payload=?, review=NULL WHERE id=? AND status='approved' AND payload=?",
+                                   (candidate, approval_id, draft_text)).rowcount
+        if not changed:
+            return {"status": "waiting_ai", "verdict": "WAITING_AI"}
+        remember("improved", "One improvement passed real council recheck", candidate)
+        log_debate(approval_id, 2, "council_summary", "PASS", "One improvement passed real AI recheck", db_path=db_path)
+        return dict(result, draft_text=candidate)
+    reason = secret_guard.scrub_text("; ".join(result.get("reasons") or ["Council quality checks failed"]))[:300]
+    remember("rejected", reason, candidate)
+    return dict(result, status="rejected", reason=reason)

@@ -151,6 +151,9 @@ def product_path(db_path=None, now=None):
         approved = _count(conn, f"SELECT COUNT(*) FROM approvals WHERE status = 'approved' AND {PRODUCT} "
                                 "AND decided_ts >= ?", (since,))
         built = _count(conn, "SELECT COUNT(*) FROM product_builds WHERE status = 'built' AND ts >= ?", (since,))
+        council_waiting = _count(conn, "SELECT COUNT(*) FROM product_deliveries WHERE status='waiting_ai'")
+        council_improved = _count(conn, "SELECT COUNT(*) FROM council_approved_reviews WHERE candidate!='' AND ts>=?", (since,))
+        council_rejected = _count(conn, "SELECT COUNT(*) FROM council_approved_reviews WHERE status='rejected' AND ts>=?", (since,))
         fix_notes = [r[0] or "" for r in _q(conn, "SELECT note FROM product_builds WHERE status IN "
                                                   "('needs_fix', 'retry', 'failed') AND ts >= ?", (since,))]
     finally:
@@ -164,7 +167,8 @@ def product_path(db_path=None, now=None):
     return {"drafts_waiting": len(waiting_ts), "oldest_hours": max(ages) if ages else 0,
             "proposals_waiting": proposals, "rule_proposals": rules, "approved": approved,
             "approved_auto": auto, "approved_owner": approved - auto, "built": built,
-            "needs_fix": len(fix_notes), "top_reason": top}
+            "needs_fix": len(fix_notes), "top_reason": top, "council_waiting": council_waiting,
+            "council_improved": council_improved, "council_rejected": council_rejected}
 
 
 def product_path_lines(db_path=None, now=None, include_built=True):
@@ -183,6 +187,8 @@ def product_path_lines(db_path=None, now=None, include_built=True):
                  for item in product_pipeline.pending(db_path))
     if queued:
         lines.append(f"Approved build queue: {queued} (ee report tarvata ade run lo build; migilite next run; /packs)")
+    if p['council_waiting'] or p['council_improved'] or p['council_rejected']:
+        lines.append(f"Council: AI kosam waiting {p['council_waiting']} | improve chesinavi {p['council_improved']} | reject {p['council_rejected']}")
     lines.append(f"Needs fix today: {p['needs_fix']}" + (f" (top: {p['top_reason']})" if p["needs_fix"] else ""))
     return lines
 

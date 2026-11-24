@@ -365,11 +365,34 @@ def run_pending(db_path=None, out_dir=None, llm=None, max_builds=DAILY_BUILDS,
         try:
             summary = product_council.get_council_summary(aid, db_path)
             if not summary or summary["verdict"] not in ("PASS", "APPROVED"):
-                summary = product_council.run_council(aid, payload, title, ctx={"llm": llm},
-                                                      db_path=db_path, max_rounds=1, max_ai_calls=3)
+                summary = product_council.review_approved(aid, payload, title, ctx={"llm": llm}, db_path=db_path)
             if summary.get("verdict") not in ("PASS", "APPROVED"):
-                results.append(_stuck(aid, stage, "Council did not pass the approved draft", db_path))
+                waiting = summary.get("status") != "rejected"
+                status = "waiting_ai" if waiting else "council_rejected"
+                reason = ("AI kosam waiting; next run retry chestondi" if waiting else
+                          "Council malli no cheppindi; oka improvement tarvata reject: " + summary.get("reason", "quality checks"))
+                with connect(db_path) as conn:
+                    conn.execute("UPDATE product_deliveries SET status=?,reason=?,lease_until=0 WHERE approval_id=?",
+                                 (status, reason, aid))
+                    if waiting:
+                        conn.execute("DELETE FROM product_delivery_attempts WHERE day=? AND approval_id=?", (day, aid))
+                    else:
+                        conn.execute("UPDATE approvals SET status='rejected',reason=?,decided_ts=? WHERE id=? AND status='approved'",
+                                     (reason, datetime.datetime.now(datetime.timezone.utc).isoformat(), aid))
+                if not waiting:
+                    import notify
+                    try:
+                        (notify_fn or (lambda text: notify.send(html.escape(text))))(
+                            f"Pack #{aid}: {reason}\nNext: /doctor lo reason chudandi; /list lo vere Draft enchukondi.")
+                    except Exception:
+                        pass
+                product_builder._record(db_path, aid, status, note=reason)
+                results.append({"id": aid, "status": status, "reason": reason})
                 continue
+            saved = guardrails.get_approval(aid, db_path)
+            if not saved or saved['status'] != 'approved':
+                continue
+            payload, review = saved['payload'], saved['review']
             stage = "checker"
             if not checker.review_passes(review):
                 check = checker.check_draft(payload, title, ctx={"llm": llm}, db_path=db_path)
