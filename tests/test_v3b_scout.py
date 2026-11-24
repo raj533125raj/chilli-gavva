@@ -501,7 +501,7 @@ class TestV3BScoutIntegration(unittest.TestCase):
     def test_60_run_scout_includes_why_sells_in_approval_payload_and_review(self):
         ideas = scout.run_scout(db_path=self.db_path)
         conn = guardrails.connect(self.db_path)
-        rows = conn.execute("SELECT payload, review FROM approvals WHERE kind = 'scout_idea'").fetchall()
+        rows = conn.execute("SELECT payload, review FROM approvals WHERE kind = 'public_draft' AND title LIKE '[Scout Idea] %'").fetchall()
         conn.close()
 
         self.assertEqual(len(rows), 5)

@@ -58,7 +58,7 @@ class TestScout(unittest.TestCase):
 
         # Check guardrails pending approvals
         pending = guardrails.pending(db_path=self.db_path)
-        scout_pending = [p for p in pending if p["kind"] == "scout_idea"]
+        scout_pending = [p for p in pending if p["kind"] == "public_draft" and p["title"].startswith("[Scout Idea] ")]
         self.assertEqual(len(scout_pending), 5)
 
     def test_approval_flow_and_sync_to_niche_topics(self):

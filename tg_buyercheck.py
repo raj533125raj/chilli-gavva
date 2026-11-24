@@ -17,6 +17,6 @@ def handle(text,ctx):
     for row in results:
         if 'blocked' in row:continue
         for key in ('listing','image'):
-            if not ctx['send_document'](row[key],caption=f"Pack #{row['id']} buyer Draft; review cheyandi."):
-                return {'text':'Buyer Draft delivery complete kaaledu. Next: /buyercheck malli pampandi.'}
+            if not ctx['send_document'](row[key],caption=f"Pack #{row['id']} buyer Draft; review cheyandi.\nNext: /selltest list pampandi."):
+                return {'text':'Buyer Draft delivery complete kaaledu.\nNext: /buyercheck malli pampandi.'}
     return {'text':buyer_check.text(results)}

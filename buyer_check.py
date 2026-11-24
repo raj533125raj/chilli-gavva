@@ -36,10 +36,37 @@ TITLES={kind:title.replace(' For Organizing ',' Organizing ').replace(' For Reco
         for kind,title in TITLES.items()}
 
 
-def short_title(title,kind):
+def title_choice(pack,kind):
+    """Keep real Freelancer/Student topics when the broad format profile differs."""
+    import product_builder
+    source=sell_ready.truth_source(Path(pack))
+    title=TITLES[kind];buyer=title.split()[0]
+    if source!=Path(pack) and (source/'listing.md').is_file():
+        body=(source/'listing.md').read_text()
+        match=re.search(r'\*\*Buyer:\*\*\s*([^\n]+)',body,re.I)
+        audience=match.group(1).lower() if match else ''
+        name=product_builder.spec_from_folder(str(source))['name'].lower()
+        if kind=='sheets' and 'freelanc' in audience:
+            topic=next((word for word in ('Invoice','Income','Client','Project','Expense') if word.lower() in name),'Work')
+            title=f'Freelancers {topic} Spreadsheet Organizing Daily Records';buyer='Freelancers'
+        elif kind=='notion' and ('student' in audience or 'student' in name):
+            title='Students Workspace Templates Organizing Study Records';buyer='Students'
+    return title,buyer
+
+
+def problem_choice(pack,kind):
+    if kind=='notion' and title_choice(pack,kind)[1]=='Students':
+        return 'Student notes and study plans are hard to follow when they live in separate files.'
+    return selltest_listings.PROFILES[kind][3]
+
+
+def short_title(title,kind,buyer=None):
     words=re.findall(r"[\w'-]+",title)
-    buyer=TITLES[kind].split()[0]
-    return len(words)<=6 and buyer.casefold() in title.casefold() and selltest_listings.PROFILES[kind][0].split()[0].lower() in title.lower()
+    buyer=buyer or TITLES[kind].split()[0]
+    terms={selltest_listings.PROFILES[kind][0].split()[0].lower()}
+    if kind=='sheets':terms.add('spreadsheet')
+    if kind=='notion':terms.add('workspace')
+    return len(words)<=6 and buyer.casefold() in title.casefold() and any(term in title.lower() for term in terms)
 
 
 def inside_image(pack):
@@ -77,9 +104,9 @@ def evaluate(pack,kind,listing=None,first_image=None,expected_image=None,sample=
             with zipfile.ZipFile(Path(sample)/'product.zip') as archive:
                 sample_ok=sample_ok and paid_url in archive.read('README.txt').decode().splitlines() and paid_url.encode() in archive.read('sample.pdf')
         except (OSError,ValueError,zipfile.BadZipFile,KeyError):pass
-    checks=[('title',short_title(fields['title'],kind),'Title lo buyer + product 6 words lopala pettandi.'),
+    checks=[('title',short_title(fields['title'],kind,title_choice(pack,kind)[1]),'Title lo buyer + product 6 words lopala pettandi.'),
             ('inside',bool(first_image and expected_image and Path(first_image).is_file() and Path(first_image).read_bytes()==expected_image),'First gallery image lo real inside page pettandi.'),
-            ('problem',fields['description'].startswith(selltest_listings.PROFILES[kind][3]),'Description first line buyer problem tho start cheyandi.'),
+            ('problem',fields['description'].startswith(problem_choice(pack,kind)),'Description first line buyer problem tho start cheyandi.'),
             ('files',bool(files) and declared==files,'What you get lo actual ZIP file names maatrame pettandi.'),
             ('sample',sample_ok,'Free sample lo current paid Pack link pettandi: /listed N <link>; /upload N sample.'),
             ('amounts',sell_ready.check_money_text(text) is None,'Public text lo amounts teeseyandi.')]
@@ -98,11 +125,19 @@ def prepare(pack,kind,aid,db_path=None,products_dir=None):
     copy=selltest_listings.make(pack,kind)
     image,page=inside_image(pack)
     buffer=io.BytesIO();image.save(buffer,'PNG');image_bytes=buffer.getvalue()
-    copy['B']=TITLES[kind]
+    copy['B'],buyer=title_choice(pack,kind)
+    original_problem=selltest_listings.PROFILES[kind][3]
+    if copy['description'].startswith(original_problem):
+        copy['description']=problem_choice(pack,kind)+copy['description'][len(original_problem):]
     # Use the optimized B as the main staged title. This never changes the live
     # store, buyer archive, A/B experiment choice, or approved Site snapshot.
+    if copy['keyword'].casefold() not in copy['B'].casefold():
+        copy['keyword']=' '.join(copy['B'].split()[1:3])
     listing=selltest_listings.render(copy,'B')
-    if not short_title(copy['B'],kind):raise ValueError('Buyer title rule failed')
+    import listing_lint
+    failures=[name for name,level,_ in listing_lint.quality_checks(listing,pack,copy['keyword']) if level=='FAIL']
+    if failures:raise ValueError('Improved listing gate: '+', '.join(failures))
+    if not short_title(copy['B'],kind,buyer):raise ValueError('Buyer title rule failed')
     products=Path(products_dir) if products_dir else pack.parent.parent
     sample=products/'samples'/pack.name
     paid=next((row['url'] for row in tg_listed.all_listed(db_path) if row['id']==aid),None)
@@ -129,12 +164,12 @@ def prepare_all(db_path=None,products_dir=None):
             if Path(pack['folder']).name!=pack['folder']:raise ValueError('Invalid folder')
             results.append(prepare(products/'upload'/pack['folder'],pack['format'],pack['id'],db_path,products))
         except (OSError,ValueError,KeyError,ImportError,RuntimeError,zipfile.BadZipFile) as exc:
-            results.append({'id':pack['id'],'blocked':type(exc).__name__,'fix':f"/upload {pack['id']}"})
+            results.append({'id':pack['id'],'blocked':'Pack files leda listing evidence incomplete','fix':f"/upload {pack['id']}"})
     return results
 
 
 def text(results):
-    if not results:return 'Sell test Packs levu. Next: /selltest pampandi.'
+    if not results:return 'Sell test Packs levu.\nNext: /selltest pampandi.'
     lines=['Buyer check: private Draft improvements; owner Store lo meere marchandi.']
     for row in results:
         if 'blocked' in row:
@@ -142,4 +177,5 @@ def text(results):
         else:
             fixes=row['after']['top_fixes'] or ['Anni buyer rules OK']
             lines.append(f"#{row['id']}: {row['before']['score']} -> {row['after']['score']}/100; Title B main, real inside first. Top fixes: "+'; '.join(fixes))
+    lines.append('Next: /selltest list pampandi; ee Draft files meere review cheyandi.')
     return '\n'.join(lines)

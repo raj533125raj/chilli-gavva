@@ -8,12 +8,14 @@ COMMANDS = [{'cmd': '/restore', 'words': ['restore'], 'help_en': 'Restore timed-
 
 
 def handle(text, ctx):
-    match = re.fullmatch(r'/restore(?:@\w+)?\s+(\d+)', str(text).strip(), re.I)
+    match = re.fullmatch(r'/?restore(?:@\w+)?(?:\s+(\d+))?', str(text).strip(), re.I)
     if not match:
         return None
     owner = os.environ.get('TELEGRAM_CHAT_ID', '')
     if owner and str(ctx.get('chat_id')) != owner:
         return None
+    if not match.group(1):
+        return {'text':'Timeout ayina Scout product Draft malli waiting lo pettadaniki /restore N pampandi.\nNext: /list'}
     aid = int(match.group(1))
     conn = guardrails.connect(ctx.get('db_path'))
     try:
@@ -29,5 +31,5 @@ def handle(text, ctx):
                     conn.execute("UPDATE scout_ideas SET status='pending', synced=0 WHERE approval_id=?", (aid,))
     finally:
         conn.close()
-    return {'text': (f'Draft #{aid} malli waiting lo undi. Next: /view {aid}' if changed else
-                     'Timeout ayina Scout product Draft maatrame restore cheyagalanu. Next: /list')}
+    return {'text': (f'Draft #{aid} malli waiting lo undi.\nNext: /view {aid}' if changed else
+                     'Timeout ayina Scout product Draft maatrame restore cheyagalanu.\nNext: /list')}

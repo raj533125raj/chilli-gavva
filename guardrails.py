@@ -73,11 +73,13 @@ def connect(db_path=None):
         id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, kind TEXT, title TEXT,
         payload TEXT, status TEXT DEFAULT 'pending', review TEXT, decided_ts TEXT)""")
     conn.execute("CREATE TABLE IF NOT EXISTS control (key TEXT PRIMARY KEY, value TEXT)")
-    if "reason" not in [r[1] for r in conn.execute("PRAGMA table_info(approvals)").fetchall()]:
+    columns = {r[1] for r in conn.execute("PRAGMA table_info(approvals)").fetchall()}
+    if "reason" not in columns:
         conn.execute("ALTER TABLE approvals ADD COLUMN reason TEXT")  # why a human rejected a draft
     # Older Scout versions used a proposal kind even for checked, structured
     # product candidates. Preserve every decision; only repair the kind.
-    rows = conn.execute("SELECT id, title, payload FROM approvals WHERE kind='scout_idea'").fetchall()
+    rows = (conn.execute("SELECT id, title, payload FROM approvals WHERE kind='scout_idea'").fetchall()
+            if {'id','title','payload','kind'} <= columns else [])
     for aid, title, payload in rows:
         if scout_product(title, payload):
             conn.execute("UPDATE approvals SET kind='public_draft' WHERE id=?", (aid,))

@@ -16,8 +16,8 @@ def handle(text,ctx):
         try:
             paths=store_front_kit.build(temp,ctx.get('db_path'),ctx.get('products_dir'),ctx.get('now'))
         except ValueError as exc:
-            return {'text':str(exc)}
+            return {'text':str(exc)+'\nNext: /storekit malli pampandi.'}
         for path in paths:
-            if not ctx['send_document'](str(path),caption='Store setup Draft; owner review cheyandi.'):
-                return {'text':'Store kit delivery complete kaaledu. Next: /storekit malli pampandi.'}
-    return {'text':'Store kit pampanu: 5 Name ideas, Bio, About, FAQ, Refund draft, Pack order, profile + cover pictures. Meere Settings lo pettandi. Next: /selltest list pampandi.'}
+            if not ctx['send_document'](str(path),caption='Store setup Draft; owner review cheyandi.\nNext: /selltest list pampandi.'):
+                return {'text':'Store kit delivery complete kaaledu.\nNext: /storekit malli pampandi.'}
+    return {'text':'Store kit pampanu: 5 Name ideas, Bio, About, FAQ, Refund draft, Pack order, profile + cover pictures. Meere Settings lo pettandi.\nNext: /selltest list pampandi.'}

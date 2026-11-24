@@ -37,6 +37,8 @@ class AllFormatBuyerTests(unittest.TestCase):
                     self.assertTrue(all(ok for key,ok in row['after']['checks'].items() if key!='sample'))
                     fields=__import__('listing_fields').parse_fields(Path(row['listing']).read_text())
                     self.assertEqual(len(fields['title'].split()),6)
+                    import listing_lint
+                    self.assertEqual([name for name,level,_ in listing_lint.quality_checks(Path(row['listing']).read_text(),pack,fields['main_keyword']) if level=='FAIL'],[])
                     with zipfile.ZipFile(pack/'product.zip') as archive:
                         self.assertEqual(sorted(line.removeprefix('- ') for line in fields['what_you_get'].splitlines()),sorted(archive.namelist()))
                     self.assertEqual((pack/'product.zip').read_bytes(),original)
@@ -46,6 +48,19 @@ class AllFormatBuyerTests(unittest.TestCase):
                     report=buyer.evaluate(pack,kind,text,pack/'cover.png',Path(row['image']).read_bytes())
                     self.assertFalse(report['checks']['files']);self.assertFalse(report['checks']['inside'])
                     self.assertLessEqual(len(report['top_fixes']),3)
+
+    def test_freelancer_invoice_and_student_workspace_keep_the_real_buyer_and_topic(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);products=root/'products';db=str(root/'queue.db');guardrails.connect(db).close()
+            for aid,kind,name,audience in [(1,'sheets','Invoice Tracker','freelancers'),(2,'notion','Student Workspace','students')]:
+                spec=sell_proof.spec_for(kind);spec['name']=name;spec['listing']['buyer']=audience
+                folder=product_builder.build_product(spec,aid,str(products))
+                pack=upload_pack.make(products/folder,products/'upload')
+                row=buyer.prepare(pack,kind,aid,db,products)
+                title=__import__('listing_fields').parse_fields(Path(row['listing']).read_text())['title']
+                self.assertIn('Invoice' if kind=='sheets' else 'Study',title)
+                self.assertTrue(title.startswith(audience.title()))
+                self.assertTrue(row['after']['checks']['title'])
 
     def test_current_sample_link_and_real_loader(self):
         # Build one genuine paid source and sample with an owner-saved paid link.

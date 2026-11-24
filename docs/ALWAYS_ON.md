@@ -93,7 +93,7 @@ The door bell starts a run within about a minute when you send a message **or pr
 | KV storage | 1 GB | under 1 KB |
 
 The BIG-7 Worker source also records the first time it sees a test-button press.
-Its authenticated `/button-result` endpoint lets the robot record the delay to a
+Its authenticated button-result HTTP endpoint lets the robot record the delay to a
 confirmed result. The daily `/buttontest median` uses those observations; it shows
 unknown when no measured press is available. Deploy the complete updated Worker
 source to enable this measurement. The original Telegram message date is never
@@ -101,5 +101,5 @@ used as the press time.
 
 If the last actual run is over 210 minutes old, a stale-run fallback can bypass
 soft monthly pacing. It still respects the hard monthly cap, the Mac heartbeat,
-and a 210-minute dispatch cooldown. `/status` exposes actual run age separately
+and a 210-minute dispatch cooldown. The status HTTP endpoint exposes actual run age separately
 from the age of the last dispatch request.

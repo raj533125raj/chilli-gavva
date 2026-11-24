@@ -49,12 +49,13 @@ def artwork(directory):
 
 def copy(db_path=None, products_dir=None, now=None):
     run=selltest.active(db_path)
-    packs=run['packs'] if run else selltest.candidates(db_path,products_dir,now)[:8]
+    packs=run['packs'] if run else []
     lines=['Store name ideas (owner okati enchukondi):',*['- '+name for name in NAMES],
            '', 'Short bio:',BIO,'','About:',ABOUT,'','Refund draft:',REFUND,'','FAQ:',FAQ,
            '',f'Product order: {len(packs)}/8 test Packs available.']
     lines += [f"{i}. Pack #{p['id']}: {p['title']} | /upload {p['id']}" for i,p in enumerate(packs,1)]
-    if len(packs)<8:lines.append('Inka Packs READY ayyaka /selltest list; /storekit malli pampandi.')
+    if not run:lines.append('Sell test inka start kaaledu; actual order kosam /selltest pampandi.')
+    elif len(packs)<8:lines.append('Inka Packs READY ayyaka /selltest list; /storekit malli pampandi.')
     lines += ['', 'Gumroad settings lo ekkada em pettali:',
               '1. Name ideas lo okati meere enchukondi; availability meere check cheyandi.',
               '2. Settings > Username lo handle pettandi; Profile settings lo Name, Bio, profile.png pettandi.',
