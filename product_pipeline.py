@@ -122,6 +122,9 @@ def mark_encrypted(db_path=None, out_dir=None, archive=None):
             conn.execute("UPDATE product_deliveries SET status='ready', reason='' WHERE approval_id=?", (aid,))
         product_builder._record(db_path, aid, "built", folder, "READY; encrypted private pack")
 
+    import selltest
+    selltest.sync_ready(db_path, out_dir)
+
 
 def _marketing_lines(db_path):
     """CC1-1 hook: private marketing files for READY packs (max 3 per run); never stops delivery."""

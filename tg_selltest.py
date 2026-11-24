@@ -31,7 +31,7 @@ def handle(text,ctx):
         elif args == ['numbers']:
             import selltest_learning
             return {'text':selltest.report_block(db,now,products) or (selltest_learning.text(db,products,now) if selltest.active(db) else 'Sell test start cheyandi.\nNext: /selltest pampandi.')}
-        elif not args:
+        elif not args or args == ['start']:
             run = selltest.start(db,products,now)
         elif len(words)==4 and args[0]=='sample' and re.fullmatch(r'\d{1,9}',args[1]):
             import free_sample
@@ -57,7 +57,7 @@ def handle(text,ctx):
         else:
             return {'text':'Command sarigga ivvandi.\nNext: /selltest, /selltest list leda /selltest swap A B pampandi.'}
         sample_note=''
-        if not args or args[0]=='swap':
+        if not args or args[0] in ('start','swap'):
             import free_sample
             prepared=free_sample.ensure_all(products,db)
             import selltest_listings
@@ -77,8 +77,11 @@ def handle(text,ctx):
         decisions = selltest.review(db,now)
         if decisions:
             lines[0] += f" | day {selltest.day_number(run,now)} review"
-            for i, decision in enumerate(decisions,2):
-                lines[i] += ' | '+decision['action']+': '+decision['reason']
+            for decision in decisions:
+                slot = next(p['slot'] for p in run['packs'] if p['id']==decision['id'])
+                for i, line in enumerate(lines):
+                    if line.startswith(str(slot)+'. '):
+                        lines[i] += ' | '+decision['action']+': '+decision['reason']
         return {'text':'\n'.join(lines)}
     except ValueError as exc:
         return {'text':str(exc)+'\nNext: /ready pampandi; READY Packs chudandi.'}

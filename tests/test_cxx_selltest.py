@@ -43,8 +43,8 @@ class SelectionTests(unittest.TestCase):
         self.assertIn('vere READY',tg_selltest.handle('/selltest swap 2 9',self.ctx)['text'])
 
     def test_insufficient_packs_do_not_start_and_wrong_owner_cannot_write(self):
-        with mock.patch.object(selltest,'candidates',return_value=choices(4)):
-            self.assertIn('Kanisam 5',tg_selltest.handle('/selltest',self.ctx)['text'])
+        with mock.patch.object(selltest,'candidates',return_value=choices(0)):
+            self.assertIn('Kanisam 1',tg_selltest.handle('/selltest',self.ctx)['text'])
         self.assertIsNone(selltest.active(self.db))
         self.assertIsNone(tg_selltest.handle('/selltest',dict(self.ctx,chat_id='other')))
         self.assertIsNone(tg_selltest.handle('/stats',self.ctx))

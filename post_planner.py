@@ -866,8 +866,8 @@ def refresh_ready_plan(products_dir: Union[str, Path], plan_path: Optional[Union
     path = Path(plan_path) if plan_path else plan_path_for(products_dir)
     old = load_plan(path) if path.is_file() else []
     import selltest
-    run = selltest.active(db_path)
-    if run and 1 <= selltest.day_number(run,now) <= 14:
+    run = selltest.sync_ready(db_path,products_dir,now)
+    if selltest.running(run,now):
         import selltest_posts
         plan = selltest_posts.build(products_dir,run,old,db_path,now)
         changed = plan != old

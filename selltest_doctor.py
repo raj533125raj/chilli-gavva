@@ -118,7 +118,7 @@ def report(db_path=None, products_dir=None, now=None):
         field('Free link', aid in samples, f'/selltest sample {aid} <link>')
         field('Pins', pin_ok, '/post today')
         field('Site', site_ok, f'/site prepare {aid}', ' '+site_label)
-        command = f'/selltest stats {aid} views <views> sales <sales>' if 1 <= selltest.day_number(run, now) <= 14 else '/selltest learn'
+        command = f'/selltest stats {aid} views <views> sales <sales>' if 1 <= selltest.day_number(run, now, pack) <= 14 else '/selltest learn'
         field('Stats', aid in measured, command)
         lines.append(f"#{aid}: " + ' | '.join(fields))
     lines.append('Next: '+(first_fix or '/today')+' pampandi.')

@@ -195,6 +195,8 @@ def product_path_lines(db_path=None, now=None, include_built=True):
 
 def daily_text(db_path=None, now=None, status_fn=None, products_dir=None):
     now = now or _now()
+    import selltest
+    selltest.sync_ready(db_path, products_dir, now)
     since = (now - datetime.timedelta(days=1)).isoformat()
     conn = guardrails.connect(db_path)
     # CCG-4: "Drafts" are product drafts only; proposals have their own line (product_path_lines)

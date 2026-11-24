@@ -7,7 +7,7 @@ def checklist(db_path=None, products_dir=None, now=None):
     import free_sample
     import tg_listed
     run = selltest.active(db_path)
-    if not run or not 1 <= selltest.day_number(run, now) <= selltest.DAYS:
+    if not selltest.running(run,now):
         return ''
     root = selltest.products_root(products_dir)
     day = post_planner.owner_today(now).isoformat()
@@ -17,6 +17,7 @@ def checklist(db_path=None, products_dir=None, now=None):
     posts = [r for r in post_planner.load_plan(post_planner.plan_path_for(root)) if r.get('date') == day]
     lines = [f"Ee roju 10 nimishala pani | day {selltest.day_number(run, now)}/14"]
     for pack in run['packs']:
+        if not 1 <= selltest.day_number(run,now,pack) <= selltest.DAYS: continue
         aid = pack['id']
         tasks = []
         if aid in paid:

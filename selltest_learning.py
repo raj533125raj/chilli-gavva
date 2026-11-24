@@ -18,14 +18,17 @@ import selltest_site
 
 def rules(db_path=None, products_dir=None, now=None):
     run = selltest.active(db_path)
-    if not run or selltest.day_number(run, now) < 7:
+    if not run:
         return []
-    checkpoint = 14 if selltest.day_number(run, now) >= 14 else 7
-    end = (dt.date.fromisoformat(run['start_day'])+dt.timedelta(days=checkpoint-1)).isoformat()
-    rows = [r for r in selltest.stats(db_path) if run['start_day'] <= r['day'] <= end]
+    rows = selltest.stats(db_path)
     result = []
     for pack in run['packs']:
-        entries = [r for r in rows if r['id'] == pack['id']]
+        day = selltest.day_number(run,now,pack)
+        if day < 7: continue
+        checkpoint = 14 if day >= 14 else 7
+        start = pack.get('start_day', run['start_day'])
+        end = (dt.date.fromisoformat(start)+dt.timedelta(days=checkpoint-1)).isoformat()
+        entries = [r for r in rows if r['id'] == pack['id'] and start <= r['day'] <= end]
         views = sum(r['views'] for r in entries); sales = sum(r['sales'] for r in entries)
         if not entries:
             action, task = 'unknown', f"Numbers levu; /selltest stats {pack['id']} views <views> sales <sales> pampandi."
@@ -49,7 +52,7 @@ def rules(db_path=None, products_dir=None, now=None):
             import product_builder
             selltest_site.safe_path(source, 'listing.md')
             style = product_builder.recorded_theme(source) or style
-        result.append(dict(pack, checkpoint=checkpoint, start_day=run['start_day'], action=action, task=task,
+        result.append(dict(pack, checkpoint=checkpoint, start_day=start, action=action, task=task,
                            views=views, sales=sales, entered_days=len(entries), missing_days=checkpoint-len(entries),
                            niche=niche, style=style))
     return result

@@ -57,12 +57,16 @@ def build(products_dir, run, old_plan, db_path=None, now=None):
     today=planner.owner_today(now).isoformat()
     start=dt.date.fromisoformat(run['start_day'])
     plan=[]; seen=set(); occurrences={}
-    for day_index in range(14):
+    end = max(dt.date.fromisoformat(p.get('start_day',run['start_day']))+dt.timedelta(days=13) for p in packs)
+    for day_index in range((end-start).days+1):
         day=(start+dt.timedelta(days=day_index)).isoformat()
-        selections=[('pinterest',(day_index*3+slot)%len(packs)) for slot in range(3)]
-        selections.append(('carousel',day_index%len(packs)))
+        eligible = [p for p in packs if p.get('start_day',run['start_day']) <= day <=
+                    (dt.date.fromisoformat(p.get('start_day',run['start_day']))+dt.timedelta(days=13)).isoformat()]
+        if not eligible: continue
+        selections=[('pinterest',(day_index*3+slot)%len(eligible)) for slot in range(3)]
+        selections.append(('carousel',day_index%len(eligible)))
         for slot,(channel,pack_index) in enumerate(selections):
-            pack=packs[pack_index];aid=pack['id'];folder=pack['folder']
+            pack=eligible[pack_index];aid=pack['id'];folder=pack['folder']
             occurrence=occurrences.get((aid,channel),0);occurrences[aid,channel]=occurrence+1
             pid=f"selltest:{run['start_day']}:{day}:{slot}:{aid}"
             seen.add(pid)
@@ -77,7 +81,7 @@ def build(products_dir, run, old_plan, db_path=None, now=None):
                 notice=f"Pack #{aid} Post assets ready kaaledu; /marketing {aid} chudandi."
             else:
                 notice=''
-            row={'post_id':pid,'pack_id':folder,'day':day_index+1,'date':day,
+            row={'post_id':pid,'pack_id':folder,'day':(dt.date.fromisoformat(day)-dt.date.fromisoformat(pack.get('start_day',run['start_day']))).days+1,'date':day,
                  'status':'missed' if day<today else 'todo','selltest':True}
             if notice:
                 row.update(channel='action',caption_short=notice,notice=notice,ready=False,asset='')
