@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-24T02:15:23Z",
+ "generated_at": "2026-11-24T08:20:18Z",
  "llm": {
-  "calls_today": 1,
+  "calls_today": 91,
   "cap": 500
  },
  "agents": [
@@ -420,37 +420,37 @@
   {
    "provider": "Groq",
    "model": "openai/gpt-oss-20b",
-   "state": "up",
-   "reason": "Latest request succeeded",
-   "checked_at": "2026-11-24T02:15:23Z"
+   "state": "down",
+   "reason": "Provider request rate exceeded",
+   "checked_at": "2026-11-24T08:20:18Z"
   },
   {
    "provider": "Gemini",
-   "model": "gemini-3.5-flash",
+   "model": "gemini-flash-latest",
    "state": "down",
-   "reason": "Provider request timed out",
-   "checked_at": "2026-11-24T02:15:23Z"
+   "reason": "Provider request failed",
+   "checked_at": "2026-11-24T08:20:18Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "down",
    "reason": "Provider request failed",
-   "checked_at": "2026-11-24T02:15:23Z"
+   "checked_at": "2026-11-24T08:20:18Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-24T02:15:23Z"
+   "checked_at": "2026-11-24T08:20:18Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-24T02:15:23Z"
+   "checked_at": "2026-11-24T08:20:18Z"
   }
  ],
  "minutes": {
@@ -461,36 +461,42 @@
   {
    "id": 111,
    "short_title": "Contract renewal calendar for fr",
-   "has_image": false,
-   "listing_status": "draft",
+   "has_image": true,
+   "listing_status": "ready",
    "truth_check": {
     "verdict": "NEEDS FIX",
     "status": "NEEDS FIX",
-    "reasons": []
+    "reasons": [
+     "Raw ** symbols in the listing images"
+    ]
    },
    "store_url": null
   },
   {
    "id": 110,
    "short_title": "Portfolio performance dashboard",
-   "has_image": false,
-   "listing_status": "draft",
+   "has_image": true,
+   "listing_status": "ready",
    "truth_check": {
     "verdict": "NEEDS FIX",
     "status": "NEEDS FIX",
-    "reasons": []
+    "reasons": [
+     "Raw ** symbols in the listing images"
+    ]
    },
    "store_url": null
   },
   {
    "id": 109,
    "short_title": "Client milestone payment tracker",
-   "has_image": false,
-   "listing_status": "draft",
+   "has_image": true,
+   "listing_status": "ready",
    "truth_check": {
     "verdict": "NEEDS FIX",
     "status": "NEEDS FIX",
-    "reasons": []
+    "reasons": [
+     "Raw ** symbols in the listing images"
+    ]
    },
    "store_url": null
   },
@@ -509,11 +515,11 @@
   {
    "id": 89,
    "short_title": "Skill Showcase\" - helps individuals cr",
-   "has_image": false,
-   "listing_status": "draft",
+   "has_image": true,
+   "listing_status": "ready",
    "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
+    "verdict": "READY",
+    "status": "READY",
     "reasons": []
    },
    "store_url": null
@@ -521,11 +527,11 @@
   {
    "id": 88,
    "short_title": "Reference Request Kit\" - enables job s",
-   "has_image": false,
-   "listing_status": "draft",
+   "has_image": true,
+   "listing_status": "ready",
    "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
+    "verdict": "READY",
+    "status": "READY",
     "reasons": []
    },
    "store_url": null
@@ -533,11 +539,11 @@
   {
    "id": 58,
    "short_title": "Interview Prep Pro\" - provides a set o",
-   "has_image": false,
-   "listing_status": "draft",
+   "has_image": true,
+   "listing_status": "ready",
    "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
+    "verdict": "READY",
+    "status": "READY",
     "reasons": []
    },
    "store_url": null
@@ -546,7 +552,7 @@
    "id": 57,
    "short_title": "Social Media Optimizer\" - aids job see",
    "has_image": false,
-   "listing_status": "draft",
+   "listing_status": "ready",
    "truth_check": {
     "verdict": "NEEDS FIX",
     "status": "NEEDS FIX",
@@ -557,11 +563,11 @@
   {
    "id": 56,
    "short_title": "Personal Brand Builder\" - helps freela",
-   "has_image": false,
-   "listing_status": "draft",
+   "has_image": true,
+   "listing_status": "ready",
    "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
+    "verdict": "READY",
+    "status": "READY",
     "reasons": []
    },
    "store_url": null
@@ -731,19 +737,19 @@
  "reject_reasons": [
   {
    "reason": "Risky or prohibited claim",
-   "count": 89
+   "count": 94
   },
   {
    "reason": "Formatting or rubric issue",
-   "count": 80
+   "count": 90
   },
   {
    "reason": "Target audience unclear",
-   "count": 72
+   "count": 82
   },
   {
    "reason": "Product structure incomplete",
-   "count": 59
+   "count": 65
   },
   {
    "reason": "Unclear value over free template",
@@ -754,7 +760,7 @@
   "drafts_made": 2,
   "drafts_waiting": 16,
   "drafts_approved": 0,
-  "products_built": 0,
+  "products_built": 3,
   "errors": 0
  },
  "workers": [
@@ -819,23 +825,23 @@
    "done": 0
   },
   "research": {
-   "plan": 4,
+   "plan": 2,
    "done": 0
   },
   "drafts": {
-   "plan": 3,
+   "plan": 2,
    "done": 0
   },
   "review": {
-   "plan": 3,
+   "plan": 2,
    "done": 0
   },
   "product_builds": {
-   "plan": 2,
-   "done": 0
+   "plan": 1,
+   "done": 3
   },
   "promotion": {
-   "plan": 2,
+   "plan": 1,
    "done": 0
   }
  },
@@ -863,68 +869,194 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 91,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 91,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 91,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 91,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 91,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 91,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 91,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 91,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 91,
    "calls_limit_today": 500,
    "context_percent": null
   }
  ],
  "loop_events": [
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T08:17:03Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T08:17:03Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T08:17:03Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T08:17:03Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T08:17:03Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T08:17:03Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T08:17:03Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T08:17:03Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T08:17:03Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T08:17:03Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T08:17:03Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T08:17:03Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T08:17:03Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T08:17:03Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T02:18:45Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T02:18:14Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T02:17:46Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T02:17:15Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T02:16:33Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T02:16:01Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-24T02:15:46Z"
+  },
   {
    "agent": "Unknown agent",
    "kind": "error",
@@ -1098,132 +1230,6 @@
    "kind": "error",
    "label": "Recovery check",
    "at": "2026-11-21T18:25:42Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-21T18:08:55Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-21T18:08:51Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-21T18:08:34Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-21T18:08:34Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-15T06:55:57Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-15T06:55:57Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-15T06:47:00Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-15T06:46:57Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-15T06:46:32Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-15T06:46:32Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-15T06:46:32Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-15T06:46:32Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-15T06:46:32Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-14T10:31:23Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-14T10:31:23Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-14T01:39:24Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-14T01:39:21Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-14T01:39:05Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-14T01:39:05Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-12T00:47:59Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-12T00:47:56Z"
   }
  ],
  "activity_events": [
@@ -2389,12 +2395,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-24T02:15:15Z",
-  "last_run_end": "2026-11-24T02:15:23Z",
+  "last_run_start": "2026-11-24T08:17:03Z",
+  "last_run_end": "2026-11-24T08:20:18Z",
   "runner": "github-actions",
-  "run_id": "45310881758"
+  "run_id": "45351700472"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "Lead fix: robot red on GitHub only \u2014 missing-file alert no longer depends on the Python path; office speed test measures CPU time (4 test parts run side by side",
   "CXAA-3 record completed BIG-4 proof and simple-English summary",
@@ -2413,13 +2420,14 @@
   "CXW-0 keep worker notes out of the repo",
   "Merge remote-tracking branch 'origin/main' into HEAD",
   "Lead fix: /today, /posted and week summary use the owner's India date (UTC date after IST midnight showed 'No posts scheduled' and made 4 owner-journey tests fa",
-  "CXV-2 summarize completed BIG-3 work in simple English",
-  "CXV-1 record clean Python 3.11 suite and complete buyer-sweep proof"
+  "CXV-2 summarize completed BIG-3 work in simple English"
  ],
  "daily_report": {
   "date_ist": "2026-11-24",
-  "summary": "No completed work recorded.",
-  "items_done": []
+  "summary": "0 tasks completed; 0 approvals reviewed; 3 products built.",
+  "items_done": [
+   "Product built"
+  ]
  },
  "sunday_letter": null,
  "cubes": [
@@ -2786,8 +2794,8 @@
   "total": 0
  },
  "marketing_kits_count": {
-  "total": 8,
-  "draft": 8,
+  "total": 11,
+  "draft": 11,
   "approved": 0
  }
 }
