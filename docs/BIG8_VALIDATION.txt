@@ -1,0 +1,30 @@
+BIG-8 final validation
+Branch: robot-cx8
+Validated code commit: d865108
+Command: scripts/ci_parity.sh (full mode, isolated Python 3.11, Pillow, four workers)
+REAL PACKS PRESENT: 2 actual ready upload packs
+
+Total tests run: 8987 | Failures: 0 | Errors: 0 | Skipped: 18 | Time: 762.90s
+Last five full-suite lines:
+   75.79s - chunk_25_test_ccb1_theme_images
+   70.80s - chunk_213_test_occ_sell_flow_e2e
+----------------------------------------------------------------------
+RESULT: PASSED
+======================================================================
+
+UTC 19:45, 92 clock-sensitive modules: Ran 2407 tests; failures=0; errors=0; skipped=7 | OK
+UTC 01:15, 92 clock-sensitive modules: Ran 2407 tests; failures=0; errors=0; skipped=7 | OK
+UTC 07:00, 92 clock-sensitive modules: Ran 2407 tests; failures=0; errors=0; skipped=7 | OK
+REAL PACKS RETAINED: 2 valid buyer ZIPs and listings
+CI PARITY: PASS
+Tracked .jobs files: 0
+Protected database, encrypted archive, status and lock files changed since d89f25c: 0
+Frozen Office and workflow files changed since d89f25c: 0
+One persistent test checkout: /private/tmp/chilli-ci-parity/repo
+Nothing pushed.
+
+Live-state limits:
+The decrypted 24-Nov live database was unavailable locally. The report gives an aggregate of twenty needing fixes.
+Legacy council logs do not identify AI versus fallback decisions, so an exact live cause split was not invented.
+The read-only audit and twenty-row fixtures document the source causes and recovery behavior in .jobs/PROGRESS.md.
+No live credentials were requested or changed. All posting, publishing and store changes remain owner actions.
