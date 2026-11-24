@@ -894,6 +894,50 @@ def provider_status(db_path=None) -> list[dict]:
     return status
 
 
+# Fixed vocabulary only: raw HTTP bodies and credentials never enter owner copy.
+_PROVIDER_SECRETS = {
+    "Cloudflare": "CF_API_TOKEN + CF_ACCOUNT_ID", "Gemini": "GEMINI_API_KEY",
+    "Groq": "GROQ_API_KEY", "OpenRouter": "OPENROUTER_API_KEY + OPENROUTER_MODEL",
+    "GitHubModels": "GITHUB_TOKEN", "FreeLLMAPI": "FREELLMAPI_KEY",
+}
+_FAILURE_TE = {
+    "authentication": "key refused (401/403) — owner: GitHub secret {secret} sari choodandi",
+    "invalid_model": "model peru dorakaledu (404) — robot next model try chestondi",
+    "quota": "quota ayipoyindi — reset varaku rest; vere AI try chestondi",
+    "rate_limit": "rate limit (429) — reset varaku rest; vere AI try chestondi",
+    "timeout": "timeout — next run retry chestondi",
+    "network": "connection raaledu — next run retry chestondi",
+    "response_parse": "bad answer — vere AI try chestondi",
+    "empty_response": "bad answer: empty — vere AI try chestondi",
+    "capacity": "AI busy — vere model try chestondi",
+    "request_too_large": "Draft chala peddadi — chinna sections ga retry cheyyali",
+}
+
+
+def provider_reason_lines(db_path=None):
+    """One safe actionable line per helper, including unconfigured helpers."""
+    configured = {r["provider"]: r["configured"] for r in provider_status(db_path)}
+    configured["GitHubModels"] = github_models_enabled()
+    snapshots = provider_state.snapshots(_state_path(db_path))
+    lines = []
+    for name, secret in _PROVIDER_SECRETS.items():
+        observed = [state for p, _, state in snapshots if p == name and state.get("observed_at")]
+        latest = max(observed, key=lambda s: s["observed_at"]) if observed else None
+        if latest and not latest.get("last_ok"):
+            reason = _FAILURE_TE.get(latest.get("last_kind"), "AI fail — next run retry chestondi")
+            reason = reason.format(secret=secret)
+        elif name == "GitHubModels" and not github_models_enabled():
+            reason = "OFF — owner: repo variable GITHUB_MODELS=on pettandi (health OK ayyaka)"
+        elif not configured.get(name):
+            reason = "key ledu — owner: GitHub secret " + secret
+        elif latest:
+            reason = "OK — AI pani chestondi"
+        else:
+            reason = "check inka ledu — owner: AI health check run cheyyandi"
+        lines.append(name + ": " + reason)
+    return lines
+
+
 def get_provider_health(db_path=None, checked_at=None):
     """Public-safe latest observations, usable by /health and ai_health exports.
 

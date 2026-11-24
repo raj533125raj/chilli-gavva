@@ -42,10 +42,10 @@ def _count(conn, sql, args=()):
 def _providers(conn, since_day):
     rows = _q(conn, "SELECT provider, SUM(ok), SUM(fail) FROM provider_log WHERE day >= ? GROUP BY provider "
                     "ORDER BY provider", (since_day,))
-    if not rows:
-        return "AI: not used in the last day"
     parts = [f"{p} {'OK' if ok else 'FAIL'} ({ok} ok, {fail} failed)" for p, ok, fail in rows]
-    return "AI: " + "; ".join(parts)
+    import llm_router
+    header = "AI: " + "; ".join(parts) if parts else "AI: not used in the last day"
+    return header + "\n" + "\n".join(llm_router.provider_reason_lines(conn))
 
 
 def _clock_status(status_fn=None):

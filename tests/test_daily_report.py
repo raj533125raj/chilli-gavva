@@ -65,7 +65,8 @@ class DailyTests(Base):
         self.assertIn("Drafts: 2 made, 2 waiting, 1 approved", text)
         self.assertIn("Products built: 1", text)
         self.assertIn("unknown (alarm clock not reachable)", text)
-        self.assertLess(len(text), 800)
+        # Six actionable provider lines are required by BIG-8.
+        self.assertLess(len(text), 2000)
 
     def test_auto_rejections_include_checker_details_and_timeout_reasons(self):
         for reason in ("Low score (auto)", "Low score (auto): missing buyer instructions", "checker problem", "owner time ayipoyindi"):

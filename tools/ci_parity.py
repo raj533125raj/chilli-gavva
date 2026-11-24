@@ -119,6 +119,8 @@ def main(argv=None):
         env = clean_env(work, hosted)
         subprocess.run([str(hosted), '-c', 'import PIL, mockups, sys; assert mockups.available(); assert "hostedtoolcache" in sys.executable; print(sys.executable, "Pillow", PIL.__version__)'],
                        cwd=repo, env=env, check=True)
+        subprocess.run([str(hosted), "tools/ci_real_packs.py", str(work / "real-products")],
+                       cwd=repo, env=env, check=True)
         if args.modules:
             modules = list(dict.fromkeys(args.modules + ['tests.test_r22_markdown_currency', 'tests.test_secret_guard', 'tests.test_autofix_control_copy']))
             log = work / 'focused.log'
