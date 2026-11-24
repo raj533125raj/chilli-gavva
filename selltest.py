@@ -125,6 +125,7 @@ def start(db_path=None, products_dir=None, now=None):
 
 
 def swap(old_id, new_id, db_path=None, products_dir=None, now=None):
+    import post_planner
     run = active(db_path)
     if not running(run,now):
         raise ValueError('Active 14-day Sell test kavali; /selltest list chudandi.')
@@ -140,8 +141,6 @@ def swap(old_id, new_id, db_path=None, products_dir=None, now=None):
             (new['id'],new['title'],new['folder'],new['format'],new['listing_score'],old['slot'],old_id)).rowcount
         if not changed:
             raise ValueError('Pack selection maarindi; /selltest list malli chudandi.')
-    import post_planner
-    with _connect(db_path) as conn:
         conn.execute('INSERT OR REPLACE INTO sell_test_pack_starts VALUES(?,?)',
                      (new_id, post_planner.owner_today(now).isoformat()))
     return active(db_path)
@@ -217,7 +216,8 @@ def report_block(db_path=None, now=None, products_dir=None):
         return ''
     day = post_planner.owner_today(now).isoformat()
     rows = {r['id']:r for r in stats(db_path) if r['day']==day}
-    lines = [f"Sell test day {day_number(run,now)}/14 ({day})"]
+    label = f"Sell test day {day_number(run,now)}/14" if len({p.get("start_day",run["start_day"]) for p in run["packs"]})==1 else "Sell test: prathi Pack own day"
+    lines = [label+f" ({day})"]
     for pack in run['packs']:
         if not 1 <= day_number(run,now,pack) <= DAYS: continue
         row = rows.get(pack['id'])
@@ -273,7 +273,7 @@ def review_block(db_path=None, now=None):
     run=active(db_path)
     lines=[f"Sell test day {day_number(run,now)} review (entered numbers matrame)"]
     for p in decisions:
-        lines.append(f"#{p['id']} {p['action']}: {p['views']} Views, {p['sales']} Sales; {p['reason']} Missing days {p['missing_days']}.")
+        lines.append(f"#{p['id']} day {day_number(run,now,p)}/14 {p['action']}: {p['views']} Views, {p['sales']} Sales; {p['reason']} Missing days {p['missing_days']}.")
     lines.append('Next: Meeru decide cheyandi; /selltest list lo Packs chudandi.')
     return '\n'.join(lines)
 

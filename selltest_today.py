@@ -15,7 +15,8 @@ def checklist(db_path=None, products_dir=None, now=None):
     samples = free_sample.links(db_path)
     measured = {r['id'] for r in selltest.stats(db_path) if r['day'] == day}
     posts = [r for r in post_planner.load_plan(post_planner.plan_path_for(root)) if r.get('date') == day]
-    lines = [f"Ee roju 10 nimishala pani | day {selltest.day_number(run, now)}/14"]
+    label = f"day {selltest.day_number(run, now)}/14" if len({p.get("start_day",run["start_day"]) for p in run["packs"]})==1 else "prathi Pack own day"
+    lines = ["Ee roju 10 nimishala pani | "+label]
     for pack in run['packs']:
         if not 1 <= selltest.day_number(run,now,pack) <= selltest.DAYS: continue
         aid = pack['id']
@@ -44,6 +45,6 @@ def checklist(db_path=None, products_dir=None, now=None):
             tasks.append('✅ stats')
         else:
             tasks.append(f'/selltest stats {aid} views <views> sales <sales>')
-        lines.append(f"Pack #{aid}: " + ' → '.join(tasks or ['Ee roju pani poorthi.']))
+        lines.append(f"Pack #{aid}: day {selltest.day_number(run,now,pack)}/14 | " + ' → '.join(tasks or ['Ee roju pani poorthi.']))
     lines.append('Next: /post today pampandi; ready Posts techukondi; missing upload/link steps paina chudandi.')
     return '\n'.join(lines)

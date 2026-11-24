@@ -75,3 +75,18 @@ class PartialTest(unittest.TestCase):
         self.assertEqual(selltest.active(self.db)['packs'][0]['start_day'],'2026-11-23')
         with sqlite3.connect(self.db) as conn:
             self.assertFalse(conn.execute("SELECT 1 FROM sqlite_master WHERE name='sell_test_pack_starts'").fetchone())
+
+    def test_mixed_pack_report_never_labels_a_later_pack_as_day_nineteen_of_fourteen(self):
+        import selltest_today
+        selltest.start(self.db,now=NOW)
+        self.packs = choices(4)
+        joined = NOW+dt.timedelta(days=5)
+        selltest.sync_ready(self.db,now=joined)
+        last = joined+dt.timedelta(days=13)
+        for text in (selltest.report_block(self.db,last,self.root),selltest_today.checklist(self.db,self.root,last)):
+            self.assertNotIn('19/14',text)
+            self.assertIn('day 14/14',text)
+        self.packs = choices(5)
+        swap = selltest.swap(4,5,self.db,now=last)
+        pack = next(p for p in swap['packs'] if p['id']==5)
+        self.assertEqual(selltest.day_number(swap,last,pack),1)

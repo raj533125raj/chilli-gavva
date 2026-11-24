@@ -90,3 +90,19 @@ class CouncilRecovery(unittest.TestCase):
         self.assertIn('Buyer instructions', reason)
         self.assertEqual(daily_report.product_path(self.db)['council_rejected'], 1)
         self.assertEqual(pipeline.pending(self.db), [])
+
+    def test_owner_edit_during_recheck_is_never_replaced_or_rejected(self):
+        for passes in (True,False):
+            aid = self.approved(); model, calls = self.model(pass_recheck=passes)
+            owner_text = DRAFT+'\nOwner changed the instructions.'
+            def racing(prompt,**kwargs):
+                answer = model(prompt,**kwargs)
+                if calls['judge']==2:
+                    with guardrails.connect(self.db) as conn:
+                        conn.execute('UPDATE approvals SET payload=? WHERE id=?',(owner_text,aid))
+                return answer
+            result = council.review_approved(aid,DRAFT,'Resume',{'llm':racing},self.db)
+            self.assertEqual(result['status'],'waiting_ai')
+            saved = guardrails.get_approval(aid,self.db)
+            self.assertEqual(saved['status'],'approved')
+            self.assertEqual(saved['payload'],owner_text)

@@ -492,6 +492,9 @@ def review_approved(approval_id, draft_text, topic, ctx=None, db_path=None):
         remember("improved", "One improvement passed real council recheck", candidate)
         log_debate(approval_id, 2, "council_summary", "PASS", "One improvement passed real AI recheck", db_path=db_path)
         return dict(result, draft_text=candidate)
+    saved = guardrails.get_approval(approval_id, db_path)
+    if not saved or saved['status'] != 'approved' or saved['payload'] != draft_text:
+        return {"status": "waiting_ai", "verdict": "WAITING_AI"}
     reason = secret_guard.scrub_text("; ".join(result.get("reasons") or ["Council quality checks failed"]))[:300]
     remember("rejected", reason, candidate)
     return dict(result, status="rejected", reason=reason)

@@ -417,8 +417,12 @@ def run_pending(db_path=None, out_dir=None, llm=None, max_builds=DAILY_BUILDS,
                     if waiting:
                         conn.execute("DELETE FROM product_delivery_attempts WHERE day=? AND approval_id=?", (day, aid))
                     else:
-                        conn.execute("UPDATE approvals SET status='rejected',reason=?,decided_ts=? WHERE id=? AND status='approved'",
-                                     (reason, datetime.datetime.now(datetime.timezone.utc).isoformat(), aid))
+                        changed = conn.execute("UPDATE approvals SET status='rejected',reason=?,decided_ts=? WHERE id=? AND status='approved' AND payload=?",
+                                     (reason, datetime.datetime.now(datetime.timezone.utc).isoformat(), aid, payload)).rowcount
+                        if not changed:
+                            conn.execute("UPDATE product_deliveries SET status='waiting_ai',reason='Owner Draft maarindi; next run recheck',lease_until=0 WHERE approval_id=?", (aid,))
+                            conn.execute("DELETE FROM product_delivery_attempts WHERE day=? AND approval_id=?", (day,aid))
+                            continue
                 if not waiting:
                     import notify
                     try:
