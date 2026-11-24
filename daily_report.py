@@ -69,6 +69,7 @@ def door_bell_line(reply):
     return "Door bell: on"
 
 
+
 def _minutes(status_fn=None, reply=None):
     reply = reply if reply is not None else _clock_status(status_fn)
     if "month_minutes" not in reply:
@@ -171,6 +172,10 @@ def product_path_lines(db_path=None, now=None, include_built=True):
              f"Approved today: {p['approved']} (owner {p['approved_owner']}, auto {p['approved_auto']})"]
     if include_built:
         lines.append(f"Built today: {p['built']}")
+    import product_pipeline
+    queued = len(product_pipeline.pending(db_path))
+    if queued:
+        lines.append(f"Approved build queue: {queued} (ee report tarvata ade run lo build; migilite next run; /packs)")
     lines.append(f"Needs fix today: {p['needs_fix']}" + (f" (top: {p['top_reason']})" if p["needs_fix"] else ""))
     return lines
 
