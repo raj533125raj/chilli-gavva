@@ -84,10 +84,10 @@ def check(db_path=None, products_dir=None, now=None):
         if unanswered:
             problems.append(('button',f'Promise button: {len(unanswered)} received presses ki result delivery confirm kaaledu. Fix: /buttontest; /list'))
         run=selltest.active(db_path)
-        if run and 1 <= selltest.day_number(run,now) <= 14:
+        if selltest.running(run,now):
             today=post_planner.owner_today(now).isoformat()
             measured={r['id'] for r in selltest.stats(db_path) if r['day']==today}
-            missing=[p['id'] for p in run['packs'] if p['id'] not in measured]
+            missing=[p['id'] for p in run['packs'] if 1 <= selltest.day_number(run,now,p) <= 14 and p['id'] not in measured]
             if missing:
                 problems.append(('stats',f'Promise stats: ee Sell test day lo {len(missing)} Packs numbers enter cheyaledu. Fix: /selltest stats {missing[0]} views <views> sales <sales>'))
     finally:

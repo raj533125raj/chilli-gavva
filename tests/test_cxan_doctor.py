@@ -12,6 +12,9 @@ class PromiseDoctorTests(PromiseTests):
         with mock.patch.dict(os.environ,{'TELEGRAM_CHAT_ID':str(CHAT)}),mock.patch.object(telegram_inbox,'build_plugin_ctx',return_value=ctx):
             handled,result=telegram_inbox.call_plugins('/doctor promises','fake',CHAT,self.db,NOW)
         self.assertTrue(handled)
-        self.assertEqual(result['text'],promise_check.report(self.db,self.products,NOW))
+        from tg_menu import owner_reply_pages
+        expected = owner_reply_pages(promise_check.report(self.db,self.products,NOW),
+                                     '/today pampandi; ee roju pani chudandi.')[-1]
+        self.assertEqual(result['text'],expected)
         self.assertIn('4 approved Drafts',result['text'])
         self.assertEqual(promise_check.send_daily(lambda text:True,self.db,self.products,NOW),1)

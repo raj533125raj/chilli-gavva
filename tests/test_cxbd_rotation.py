@@ -52,3 +52,11 @@ class BuildRotation(unittest.TestCase):
         kinds = [pipeline.queue_niche(p['title'],p['payload']) for p in pipeline.pending(self.db)]
         self.assertEqual(tuple(kinds[:6]),pipeline.BUILD_ROTATION)
         self.assertGreaterEqual(len(set(kinds[:8])),4)
+
+
+    def test_legacy_build_counts_without_approval_ids_do_not_break_queue_reads(self):
+        with guardrails.connect(self.db) as conn:
+            conn.execute('CREATE TABLE product_builds(id INTEGER PRIMARY KEY,status TEXT)')
+            conn.execute("INSERT INTO product_builds VALUES(1,'built')")
+        ids = [self.add('resume'),self.add('sheets')]
+        self.assertEqual({p['id'] for p in pipeline.pending(self.db)},set(ids))

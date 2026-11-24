@@ -714,11 +714,13 @@ class CallPluginsTests(TalkBase):
         self.assertTrue(handled)
         self.assertEqual(reply["text"], tg_menu.owner_reply_pages(tg_menu.format_grouped_menu(), "/help <command> pampandi; ela vadalo chudandi.")[-1])
 
-    def test_chatter_is_not_handled_by_talk(self):
+    def test_chatter_gets_menu_guidance_without_running_talk(self):
         with mock.patch.object(tg_talk, "run_command") as run:
             handled, _reply = self.call("nenu bayataki veltunna")
         run.assert_not_called()
-        self.assertFalse(handled)
+        self.assertTrue(handled)
+        self.assertLessEqual(len(_reply["text"].splitlines()),15)
+        self.assertTrue(_reply["text"].splitlines()[-1].startswith("Next:"))
 
     def test_low_confidence_keyboard_through_call_plugins(self):
         handled, reply = self.call("money vishayam")
@@ -855,7 +857,10 @@ class EndToEndTests(TalkBase):
     def test_unknown_chatter_keeps_the_normal_hint(self):
         _handled, texts = self.say("nenu bayataki veltunna")
         self.assertEqual(len(texts), 1)
-        self.assertIn("help", texts[0].lower())
+        for command in ('/storekit','/selltest start','/today'):
+            self.assertIn(command,texts[0])
+        self.assertLessEqual(len(texts[0].splitlines()),15)
+        self.assertTrue(texts[0].splitlines()[-1].startswith('Next:'))
 
     def test_stranger_gets_nothing(self):
         handled, texts = self.say("moodo pack sell chey", chat=STRANGER)

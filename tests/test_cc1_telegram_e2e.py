@@ -427,12 +427,18 @@ class GreetingAndUnknownTests(Inbox):
         handled, texts = self.say("nenu bayataki veltunna")
         self.assertEqual(handled, 1)
         self.assertEqual(len(texts), 1)
-        self.assertIn("help", texts[0].lower())
+        for command in ('/storekit','/selltest start','/today'):
+            self.assertIn(command,texts[0])
+        self.assertLessEqual(len(texts[0].splitlines()),15)
+        self.assertTrue(texts[0].splitlines()[-1].startswith('Next:'))
 
     def test_unknown_slash_command_gets_suggestions(self):
         _handled, texts = self.say("/nosuchcommand")
         self.assertEqual(len(texts), 1)
-        self.assertIn("/menu", texts[0])
+        for command in ("/storekit","/selltest start","/today"):
+            self.assertIn(command,texts[0])
+        self.assertLessEqual(len(texts[0].splitlines()),15)
+        self.assertTrue(texts[0].splitlines()[-1].startswith("Next:"))
 
     def test_typo_gets_a_did_you_mean(self):
         _handled, texts = self.say("/stats")

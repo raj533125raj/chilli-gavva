@@ -855,6 +855,18 @@ def build_plugin_ctx(token, chat_id, db_path=None, now=None, message=None):
     return ctx
 
 
+def _plugin_burst(text, note):
+    """Keep the owner's final action last when a burst is answered once."""
+    if not note: return text
+    lines = text.splitlines()
+    if len(lines)>1 and lines[-1].startswith('Next:'):
+        lines[-2] += ' '+note.strip()
+        value = '\n'.join(lines)
+        from owner_private import OwnerPrivateText
+        return OwnerPrivateText(value) if isinstance(text,OwnerPrivateText) else value
+    return text+note
+
+
 def call_plugins(text, token, chat_id, db_path=None, now=None, plugins=None, message=None):
     """Run loaded plugins on text in sorted order. Returns (handled: bool, reply_dict or None)."""
     if plugins is None:
@@ -2498,7 +2510,7 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                                     and str(early_res.get("text", "")).startswith(_MENU_FALLBACK))
                 if plugin_handled and not is_menu_fallback:
                     if not is_duplicate and isinstance(early_res, dict) and early_res.get("text"):
-                        _send_text_kw(token, owner_chat_id, early_res["text"] + burst_note,
+                        _send_text_kw(token, owner_chat_id, _plugin_burst(early_res["text"], burst_note),
                                       keyboard=early_res.get("keyboard"))
                     handled += 1
                     continue
@@ -2569,7 +2581,7 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                 plugin_handled, plugin_res = call_plugins(message_text, token, owner_chat_id, db_path=db_path)
             if plugin_handled:
                 if not is_duplicate and isinstance(plugin_res, dict) and plugin_res.get("text"):
-                    _send_text_kw(token, owner_chat_id, plugin_res["text"] + burst_note, keyboard=plugin_res.get("keyboard"))
+                    _send_text_kw(token, owner_chat_id, _plugin_burst(plugin_res["text"], burst_note), keyboard=plugin_res.get("keyboard"))
                 handled += 1
                 continue
 
@@ -2601,7 +2613,7 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                     plugin_handled, plugin_res = call_plugins(message_text, token, owner_chat_id, db_path=db_path)
                     if plugin_handled:
                         if isinstance(plugin_res, dict) and plugin_res.get("text"):
-                            _send_text_kw(token, owner_chat_id, plugin_res["text"] + burst_note, keyboard=plugin_res.get("keyboard"))
+                            _send_text_kw(token, owner_chat_id, _plugin_burst(plugin_res["text"], burst_note), keyboard=plugin_res.get("keyboard"))
 
                 if not plugin_handled:
                     reply = handle_command(cmd, ids, db_path) + burst_note

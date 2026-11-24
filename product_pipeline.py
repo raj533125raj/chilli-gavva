@@ -301,7 +301,8 @@ def pending(db_path=None):
                         "ORDER BY COALESCE((SELECT MAX(day) FROM product_delivery_attempts p WHERE p.approval_id=a.id),''), "
                         "COALESCE(a.reason,'') = 'auto-approved', a.id").fetchall()
     built = set(r[0] for r in conn.execute("SELECT approval_id FROM product_deliveries WHERE status IN ('ready','prepared')"))
-    if conn.execute("SELECT 1 FROM sqlite_master WHERE name='product_builds'").fetchone():
+    build_columns = {r[1] for r in conn.execute("PRAGMA table_info(product_builds)")}
+    if {"approval_id", "status"} <= build_columns:
         built.update(r[0] for r in conn.execute("SELECT approval_id FROM product_builds WHERE status='built'"))
     delivered = [(title,payload) for aid,title,payload in conn.execute(
         "SELECT id,title,payload FROM approvals WHERE status='approved' AND kind='public_draft'") if aid in built]

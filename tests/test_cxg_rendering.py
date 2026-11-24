@@ -128,9 +128,11 @@ class OwnerRenderingTests(unittest.TestCase):
         for entry in tg_menu.collect_all_commands():
             self.assertIn(entry["cmd"], reply)
 
-    def test_unknown_command_next_opens_the_menu(self):
+    def test_unknown_command_next_opens_the_store_setup(self):
         text=tg_menu.handle('/missing_cxg_command',{})['text']
-        self.assertIn('/menu',text.splitlines()[-1])
+        self.assertIn('/storekit',text.splitlines()[-1])
+        for command in ('/storekit','/selltest start','/today'):
+            self.assertIn(command,text)
         self.assertNotIn('/missing_cxg_command',text.splitlines()[-1])
 
     def test_owned_word_alias_keeps_its_command_next_action(self):

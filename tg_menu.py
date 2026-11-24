@@ -510,7 +510,7 @@ def find_suggestions(text: str, max_suggestions=3, commands=None):
 def format_unknown_suggestions(text: str, max_suggestions=3, commands=None) -> str:
     """Format 3 closest suggestions for unknown text instead of only 'Ardam kaaledu'."""
     suggs = find_suggestions(text, max_suggestions=max_suggestions, commands=commands)
-    if not re.search(r'[a-zA-Z]', text) or not suggs or suggs[0][0] > 2:
+    if len(text.split())>1 or not re.search(r'[a-zA-Z]', text) or not suggs or suggs[0][0] > 2:
         return ('Meeru cheppindi ardam kaaledu:\nIvi try cheyandi:\n'
                 '• /storekit — Store setup Draft techukondi\n'
                 '• /selltest start — READY Packs tho test modalupettandi\n'
@@ -534,6 +534,9 @@ def handle(text: str, ctx: dict) -> dict | None:
     if not raw:
         return None
     lower = raw.lower()
+    message = ctx.get("message") or {}
+    if any(kind in message for kind in ("photo","document","voice","audio")):
+        return None  # Attachment plugins and media_brain own captions.
 
     # 1. Greetings: 'hi', 'hello', 'namaste', 'hii', 'em chestunnav'
     norm_greeting = re.sub(r"[^\w\s]", "", lower).strip()

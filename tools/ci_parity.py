@@ -117,6 +117,7 @@ def main(argv=None):
         if not library.exists():
             library.symlink_to(venv / 'lib', target_is_directory=True)
         env = clean_env(work, hosted)
+        env["PYTHONPATH"] = os.pathsep.join((str(repo), str(repo / "tests")))
         subprocess.run([str(hosted), '-c', 'import PIL, mockups, sys; assert mockups.available(); assert "hostedtoolcache" in sys.executable; print(sys.executable, "Pillow", PIL.__version__)'],
                        cwd=repo, env=env, check=True)
         subprocess.run([str(hosted), "tools/ci_real_packs.py", str(work / "real-products")],
@@ -125,6 +126,8 @@ def main(argv=None):
             modules = list(dict.fromkeys(args.modules + ['tests.test_r22_markdown_currency', 'tests.test_secret_guard', 'tests.test_autofix_control_copy']))
             log = work / 'focused.log'
             ok = run_checked([str(hosted), '-m', 'unittest', *modules], env, repo, log)
+            subprocess.run([str(hosted), "tools/ci_real_packs.py", "--check", str(work / "real-products")],
+                           cwd=repo, env=env, check=True)
             print('\n'.join(log.read_text().splitlines()[-18:]), flush=True)
             print('CI PARITY FOCUSED: ' + ('PASS' if ok else 'FAIL'), flush=True)
             return 0 if ok else 1
@@ -139,6 +142,8 @@ def main(argv=None):
             if not passed:
                 print('Details: ' + str(log), flush=True)
             ok = passed and ok
+        subprocess.run([str(hosted), "tools/ci_real_packs.py", "--check", str(work / "real-products")],
+                       cwd=repo, env=env, check=True)
         print('CI PARITY: ' + ('PASS' if ok else 'FAIL'), flush=True)
         return 0 if ok else 1
     except (OSError, ValueError, subprocess.CalledProcessError) as exc:

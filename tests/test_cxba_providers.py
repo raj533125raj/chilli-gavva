@@ -13,6 +13,7 @@ from tests.router_test_support import RouterTestCase
 
 class ProviderReasons(RouterTestCase):
     def test_every_failure_has_safe_tenglish_reason_and_fix(self):
+        self.enterContext(patch.object(router.provider_state.time,"time",return_value=1795520000))
         token = router._ROUTER_DB.set(self.db)
         self.addCleanup(router._ROUTER_DB.reset, token)
         cases = [(401, 'key refused'), (403, 'key refused'), (404, 'model peru'),
@@ -41,7 +42,7 @@ class ProviderReasons(RouterTestCase):
         router.log_provider('Gemini', False, self.db)
         router.provider_state.observe('Gemini', 'model', False, 'invalid_model', path=self.db)
         import sqlite3
-        with sqlite3.connect(self.db) as conn:
+        with patch.dict(os.environ,{'GEMINI_API_KEY':'fake'},clear=True), sqlite3.connect(self.db) as conn:
             text = daily_report._providers(conn, '2000-01-01')
         self.assertIn('Gemini FAIL (0 ok, 1 failed)', text)
         self.assertIn('Gemini: model peru', text)
@@ -101,6 +102,8 @@ class GitHubHelper(RouterTestCase):
         env = {'GITHUB_TOKEN': 'fake-workflow-credential', 'GITHUB_MODELS_MODEL': 'old,new'}
         with patch.dict(os.environ, env, clear=True):
             self.assertFalse(router.github_models_enabled())
+            import agent_engines
+            self.assertFalse(any(p=='GitHubModels' for p,_ in agent_engines.choices()))
             with patch('urllib.request.urlopen') as network:
                 self.assertIsNone(router._github_models('draft'))
                 network.assert_not_called()
@@ -115,6 +118,7 @@ class GitHubHelper(RouterTestCase):
             with patch.dict(os.environ, {'GITHUB_MODELS': 'on'}), \
                     patch.object(router.guardrails, 'can_call_llm', return_value=True), \
                     patch.object(router.guardrails, 'record_call'):
+                self.assertTrue(any(p=='GitHubModels' for p,_ in agent_engines.choices()))
                 from tests.test_llm_router_resilience import answer
                 with patch('urllib.request.urlopen', return_value=answer('working')) as network:
                     self.assertEqual(router.chat('draft', db_path=self.db), 'working')
@@ -132,3 +136,21 @@ class GitHubHelper(RouterTestCase):
         workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/agent.yml').read_text()
         self.assertIn('GITHUB_MODELS_TOKEN: ${{ secrets.GITHUB_TOKEN }}', workflow)
         self.assertIn('GITHUB_MODELS: ${{ vars.GITHUB_MODELS }}', workflow)
+
+class HealthModelLists(RouterTestCase):
+    def test_health_and_status_include_each_configured_fallback_and_local_hook(self):
+        env = {'OPENROUTER_API_KEY':'fake','OPENROUTER_MODEL':'old:free,new:free',
+               'FREELLMAPI_KEY':'freellmapi-fixture'}
+        with patch.dict(os.environ,env,clear=True):
+            targets = [(p,m) for p,m,*_ in router._targets()]
+            self.assertEqual(targets,[('OpenRouter','old:free'),('OpenRouter','new:free'),('FreeLLMAPI','auto')])
+            row = next(r for r in router.provider_status(self.db) if r['provider']=='OpenRouter')
+            self.assertEqual([r['model'] for r in row['models']],['old:free','new:free'])
+
+
+    def test_missing_configuration_takes_priority_over_old_http_failure(self):
+        router.provider_state.observe('Gemini','old',False,'invalid_model',path=self.db)
+        with patch.dict(os.environ,{},clear=True):
+            line = next(r for r in router.provider_reason_lines(self.db) if r.startswith('Gemini:'))
+        self.assertIn('key ledu',line)
+        self.assertIn('GEMINI_API_KEY',line)

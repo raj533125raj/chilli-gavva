@@ -115,7 +115,9 @@ def observe(provider, model, ok, kind="", task="general", path=None):
         with _connection(path) as conn:
             state = _read(conn, provider, model)
             state["probe_until"] = 0
-            state.update(last_ok=bool(ok), observed_at=now)
+            sequence = max((json.loads(raw).get("observed_seq", 0) for (raw,) in
+                            conn.execute("SELECT data FROM llm_model_health")), default=0) + 1
+            state.update(last_ok=bool(ok), observed_at=now, observed_seq=sequence)
             if ok:
                 state.update(kind="", streak=0, until=0)
             else:
@@ -195,5 +197,6 @@ def model_order(provider, models, path=None):
     def rank(model):
         state = states.get(model, {})
         return (state.get("last_kind") == "invalid_model" and not state.get("last_ok"),
-                -state.get("observed_at", 0) if state.get("last_ok") else 0)
+                -state.get("observed_at", 0) if state.get("last_ok") else 0,
+                -state.get("observed_seq", 0) if state.get("last_ok") else 0)
     return sorted(dict.fromkeys(models), key=rank)

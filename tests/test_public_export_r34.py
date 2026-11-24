@@ -69,7 +69,7 @@ class PublicExportTests(unittest.TestCase):
         expected = LEGACY_FIELDS | NEW_PUBLIC_FIELDS | {"ai_health", "minutes", "scout_ideas_count", "trend_items_count", "media_items_count", "cubes", "marketing_kits_count", "agent_budgets", "loop_events", "activity_events", "schedules", "receipts", "workspaces", "cloud_heartbeat", "changelog", "agent_connection", "daily_report", "sunday_letter", "office_requests"}
         self.assertEqual(set(status), expected)
         self.assertEqual(set(status["minutes"]), {"used_this_month", "limit"})
-        self.assertEqual({row["provider"] for row in status["ai_health"]}, {name for name, _ in llm_router._PROVIDERS})
+        self.assertEqual({row["provider"] for row in status["ai_health"]}, set(export_status.PUBLIC_AI_PROVIDERS))
         for row in status["ai_health"]:
             self.assertEqual(set(row), {"provider", "model", "state", "reason", "checked_at"})
             self.assertIn(row["state"], {"up", "down", "unknown"})

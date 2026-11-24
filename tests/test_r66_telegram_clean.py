@@ -83,7 +83,7 @@ class TestR66TelegramClean(unittest.TestCase):
         self.assertIn("(answered 2 messages)", self.sent[0][1])
 
     def test_unknown_text_gets_short_hint_not_full_menu(self):
-        """Unknown text that is not a command gets ONE short hint line, never full help menu."""
+        """Unknown text gets one compact three-command reply, never the full help menu."""
         updates = [_upd(10, "completely random gibberish 12345")]
         with mock.patch.object(ti, "fetch_updates", return_value=updates):
             handled = ti.process_updates("tok", OWNER, self.db)
@@ -91,7 +91,10 @@ class TestR66TelegramClean(unittest.TestCase):
         self.assertEqual(handled, 1)
         self.assertEqual(len(self.sent), 1)
         chat, text = self.sent[0]
-        self.assertEqual(text, ti.UNKNOWN_TEXT_HINT)
+        for command in ('/storekit','/selltest start','/today'):
+            self.assertIn(command,text)
+        self.assertLessEqual(len(text.splitlines()),15)
+        self.assertTrue(text.splitlines()[-1].startswith('Next:'))
         self.assertNotIn("Chilli Gavva approvals", text)
         self.assertNotIn("/approve ID", text)
 
@@ -106,8 +109,11 @@ class TestR66TelegramClean(unittest.TestCase):
 
         self.assertEqual(handled, 2)
         self.assertEqual(len(self.sent), 1)
-        self.assertIn(ti.UNKNOWN_TEXT_HINT, self.sent[0][1])
+        for command in ('/storekit','/selltest start','/today'):
+            self.assertIn(command,self.sent[0][1])
+        self.assertLessEqual(len(self.sent[0][1].splitlines()),15)
         self.assertIn("(answered 2 messages)", self.sent[0][1])
+        self.assertTrue(self.sent[0][1].splitlines()[-1].startswith("Next:"))
 
     def test_status_shape_with_missing_data(self):
         """Status with empty or missing data shows 'unknown' without crashing."""

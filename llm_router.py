@@ -522,7 +522,7 @@ def _openrouter(prompt: str) -> str | None:
     if not api_key or api_key.startswith("YOUR_") or not model:
         return None
     url = "https://openrouter.ai/api/v1/chat/completions"
-    for candidate in _ordered_models("OpenRouter", model.split(",")):
+    for candidate in _ordered_models("OpenRouter", _provider_models("OpenRouter")):
         text, status = _openai_style_call(url, api_key, candidate.strip(), prompt, "OpenRouter",
                                         extra_headers={"X-Title": "Chilli Gavva"})
         if text:
@@ -887,7 +887,7 @@ def _provider_models(name):
     if name == "Cloudflare":
         return _cloudflare_models()
     if name == "OpenRouter":
-        return [os.environ.get("OPENROUTER_MODEL", "").strip()] if os.environ.get("OPENROUTER_MODEL") else []
+        return [m.strip() for m in os.environ.get("OPENROUTER_MODEL", "").split(",") if m.strip()]
     if name == "GitHubModels":
         return _github_models_list()
     return ["auto"] if name == "FreeLLMAPI" else []
@@ -954,8 +954,10 @@ def provider_reason_lines(db_path=None):
     lines = []
     for name, secret in _PROVIDER_SECRETS.items():
         observed = [state for p, _, state in snapshots if p == name and state.get("observed_at")]
-        latest = max(observed, key=lambda s: s["observed_at"]) if observed else None
-        if latest and not latest.get("last_ok"):
+        latest = max(observed, key=lambda s: (s["observed_at"], s.get("observed_seq", 0))) if observed else None
+        if name != "GitHubModels" and not configured.get(name):
+            reason = "key ledu — owner: GitHub secret " + secret
+        elif latest and not latest.get("last_ok"):
             reason = _FAILURE_TE.get(latest.get("last_kind"), "AI fail — next run retry chestondi")
             reason = reason.format(secret=secret)
         elif name == "GitHubModels" and not github_models_enabled():
@@ -985,7 +987,7 @@ def get_provider_health(db_path=None, checked_at=None):
         row = {"provider": name, "model": None, "state": "unknown",
                "reason": "No activity recorded", "checked_at": checked_at, "failure_reasons": {}}
         if observed:
-            model, state = max(observed, key=lambda item: item[1]["observed_at"])
+            model, state = max(observed, key=lambda item: (item[1]["observed_at"], item[1].get("observed_seq", 0)))
             row["model"] = model
             for _, data in observed:
                 for kind, count in data["failures"].items():
@@ -1054,13 +1056,19 @@ def _targets():
     if key and model and not key.startswith("YOUR_"):
         headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json", "X-Title": "Chilli Gavva",
                    **_UA}
-        out.append(("OpenRouter", model, "https://openrouter.ai/api/v1/chat/completions", headers, _chat_parse))
+        for candidate in _ordered_models("OpenRouter", _provider_models("OpenRouter")):
+            out.append(("OpenRouter", candidate, "https://openrouter.ai/api/v1/chat/completions", headers, _chat_parse))
     tok, acc = os.environ.get("CF_API_TOKEN", ""), os.environ.get("CF_ACCOUNT_ID", "")
     if tok and acc and not tok.startswith("YOUR_"):
         headers = {"Authorization": f"Bearer {tok}", "Content-Type": "application/json", **_UA}
         for model in _ordered_models("Cloudflare", _cloudflare_models()):
             url = f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/{model}"
             out.append(("Cloudflare", model, url, headers, _cf_parse))
+    key = os.environ.get("FREELLMAPI_KEY", "")
+    if key.startswith("freellmapi-"):
+        url = os.environ.get("FREELLMAPI_BASE_URL", "http://localhost:3001/v1").rstrip("/")+"/chat/completions"
+        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json", **_UA}
+        out.append(("FreeLLMAPI", "auto", url, headers, _chat_parse))
     token = _github_models_token()
     if token:
         headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json", **_UA}

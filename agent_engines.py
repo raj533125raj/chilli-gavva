@@ -24,6 +24,8 @@ def credential_like(text):
 def choices():
     """Model IDs from router configuration only; never keys, URLs or a vendor catalogue."""
     providers = {name for name, _ in llm_router._PROVIDERS}
+    if not llm_router.github_models_enabled():
+        providers.discard("GitHubModels")
     candidates = {
         "Groq": llm_router._groq_models(llm_router.LARGE),
         "Gemini": llm_router._gemini_models(),

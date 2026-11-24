@@ -86,6 +86,10 @@ class PartialTest(unittest.TestCase):
         for text in (selltest.report_block(self.db,last,self.root),selltest_today.checklist(self.db,self.root,last)):
             self.assertNotIn('19/14',text)
             self.assertIn('day 14/14',text)
+        import promise_check
+        stats = next(text for key,text in promise_check.check(self.db,self.root,last) if key=='stats')
+        self.assertIn('1 Packs',stats)
+        self.assertIn('/selltest stats 4',stats)
         self.packs = choices(5)
         swap = selltest.swap(4,5,self.db,now=last)
         pack = next(p for p in swap['packs'] if p['id']==5)

@@ -38,5 +38,23 @@ def prepare(destination):
     print('REAL PACKS PRESENT: 2 actual ready upload packs', flush=True)
 
 
+def verify(destination):
+    """Tests must leave both real fixtures present and structurally valid."""
+    import zipfile
+    products = Path(destination)
+    for aid in (98001,98002):
+        matches = list((products/'upload').glob(str(aid)+'-*'))
+        if len(matches)!=1:
+            raise AssertionError('Real upload pack fixture missing or ambiguous')
+        pack = matches[0]
+        if not (products/pack.name).is_dir() or not (pack/'listing.txt').read_text().strip():
+            raise AssertionError('Real pack source or listing missing')
+        with zipfile.ZipFile(pack/'product.zip') as archive:
+            if not archive.namelist() or archive.testzip() is not None:
+                raise AssertionError('Real pack buyer ZIP invalid')
+    print('REAL PACKS RETAINED: 2 valid buyer ZIPs and listings',flush=True)
+
+
 if __name__ == '__main__':
-    prepare(sys.argv[1])
+    if sys.argv[1]=='--check': verify(sys.argv[2])
+    else: prepare(sys.argv[1])
