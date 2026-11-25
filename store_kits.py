@@ -641,6 +641,11 @@ GUMROAD_TYPES: Dict[str, Dict[str, Any]] = {
         "audience": ["People saving for planned costs a little at a time", "Anyone tracking several savings goals in one place"],
         "tags": ["sinking funds", "savings tracker", "savings goals", "budget spreadsheet", "spreadsheet template", "savings plan", "money tracker", "goal tracker"],
     },
+    "adhd_planner": {
+        "label": "ADHD-friendly printable planner",
+        "audience": ["Adults who plan better with short, clear pages", "Anyone who wants an undated planner for energy, routines or focus"],
+        "tags": ["adhd planner", "printable planner", "undated planner", "daily planner", "routine planner", "focus planner", "brain dump", "energy planner"],
+    },
     "digital_pack": {
         "label": "digital download",
         "audience": ["Anyone who wants ready-made files to download and use",
@@ -658,6 +663,7 @@ _TYPE_NEEDS = {
     **{kind: {_PDF_EXT} for kind in ("teacher_planner", "fitness_planner", "baby_tracker",
                                     "small_business_log", "kids_chore_reward")},
     "digital_planner": {_PDF_EXT},
+    "adhd_planner": {_PDF_EXT},
     "biz_sheets": _SHEET_EXTS,
     **{kind: _SHEET_EXTS for kind in ("debt_payoff", "couples_budget", "freelance_budget", "sinking_funds")},
     "sheets": _SHEET_EXTS | {".csv"},

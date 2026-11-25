@@ -142,6 +142,7 @@ def builtin_specs() -> Dict[str, tuple]:
 CUSTOM_SPECS = {
     "digital_planner": _custom("digital_planner", "Tablet PDF Planner with Month Tabs", "digital-planner", year=2027, instructions=["Import the PDF into a tablet notes app and tap the month tabs. The weekly and daily pages are undated."]),
     "biz_sheets": _custom("biz_sheets", "Small Business Order and Profit Workbook", "business-workbook"),
+    "adhd_planner": _custom("adhd_planner", "Energy-Based Daily Planner Printable", "energy-planner", edition="energy"),
     "debt_payoff": _custom("debt_payoff", "Debt Snowball and Avalanche Payoff Tracker", "debt-payoff"),
     "couples_budget": _custom("couples_budget", "Couples Shared Budget Spreadsheet", "couples-budget"),
     "freelance_budget": _custom("freelance_budget", "Freelancer Irregular Income Budget Spreadsheet", "freelance-budget"),
@@ -201,17 +202,19 @@ def _sell_message(approval_id: int, products: Path, marketing: Path) -> Dict[str
             "documents": len(documents), "photos": len(photos)}
 
 
-def prove(kind: str, root: Path) -> Dict[str, Any]:
-    """Build one pack of `kind` under root and evaluate it like /sell. Never raises."""
+def prove(kind: str, root: Path, spec: Optional[Dict[str, Any]] = None, label: str = "") -> Dict[str, Any]:
+    """Build one pack of `kind` under root and evaluate it like /sell. Never raises.
+
+    spec / label: prove a variant of a type (e.g. one ADHD planner edition) in its own folder root/label."""
     import product_builder as pb
     row: Dict[str, Any] = {"type": kind, "status": "NOT YET", "truth": "-", "zip": "-", "sell_message": False,
                            "fixes": [], "pack": ""}
     approval_id = FORMAT_ORDER.index(kind) + 1
-    products = root / kind / "products"
+    products = root / (label or kind) / "products"
     products.mkdir(parents=True, exist_ok=True)
-    db_path = str(root / kind / "proof.db")
+    db_path = str(root / (label or kind) / "proof.db")
     try:
-        folder_name = pb.build_product(spec_for(kind), approval_id, out_dir=str(products))
+        folder_name = pb.build_product(spec or spec_for(kind), approval_id, out_dir=str(products))
         product_folder = products / folder_name
         refused = io.StringIO()
         with contextlib.redirect_stderr(refused):

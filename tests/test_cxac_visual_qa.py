@@ -57,7 +57,7 @@ class AllFormatsVisualTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             rows=qa.audit(Path(temp)/'audit')
             self.assertEqual({r['format'] for r in rows},set(format_registry.list_registered_formats()))
-            self.assertEqual(len(rows),23)   # 19 + CC-BIG-1 money sheets (4)
+            self.assertEqual(len(rows),24)   # 19 + CC-BIG-1 money sheets (4) + ADHD planner (1)
             self.assertGreater(sum(r['pdf_pages'] for r in rows),600)
             self.assertTrue(all(r['previews']>=3 for r in rows))
             self.assertEqual({r['format']:r['flags'] for r in rows if r['flags']},{})
