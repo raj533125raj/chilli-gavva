@@ -236,30 +236,215 @@ def spec_prompt(niche, draft):
             + json.dumps(example, indent=1) + "\n\nApproved draft:\n" + draft[:5000])
 
 
+def rewrite_spec_prompt(niche, draft, reason, previous):
+    """The one automatic retry: tell the model exactly why its spec could not be used."""
+    return ("Your previous product spec could not be used. Problem: " + str(reason)[:200] + ".\n"
+            "Rewrite it. Reply with ONLY one valid JSON object: no text before or after it, no code fences, "
+            "no comments, no trailing commas, double quotes only. Keep it short enough to finish.\n"
+            "Start of your previous reply (for reference):\n" + str(previous or "")[:1500] + "\n\n"
+            + spec_prompt(niche, draft))
+
+
+def request_spec(ask, niche, draft):
+    """Ask the large model for a spec; one automatic 'rewrite spec' retry when it cannot be parsed.
+
+    ask(prompt) -> reply text. Returns (spec, None) or (None, reason). A missing reply (AI down or
+    call cap) is returned as AI_DOWN at once: that is not the draft's fault and must not use a retry.
+    """
+    reply = ask(spec_prompt(niche, draft))
+    spec, reason = parse_spec(reply, niche, draft)
+    if spec is not None or reason == AI_DOWN:
+        return spec, reason
+    retry = ask(rewrite_spec_prompt(niche, draft, reason, reply))
+    spec, second = parse_spec(retry, niche, draft)
+    if spec is not None:
+        return spec, None
+    if second == AI_DOWN:
+        return None, f"{reason} (rewrite retry got no AI reply)"
+    return None, f"{second} (after one rewrite retry)"
+
+
 def _clean(value, limit=200):
     return re.sub(r"\s+", " ", str(value if value is not None else "")).strip()[:limit]
 
 
-def parse_spec(text, niche):
-    """Read and normalise the model's JSON spec. Returns (spec, None) or (None, reason)."""
-    if not isinstance(text, str):
-        return None, "no reply from the model"
-    start, end = text.find("{"), text.rfind("}")
-    if start < 0 or end <= start:
-        return None, "reply has no JSON object"
-    try:
-        data = json.loads(text[start:end + 1])
-    except ValueError:
-        return None, "reply is not valid JSON"
-    if not isinstance(data, dict) or not isinstance(data.get("listing"), dict):
+# ---- tolerant JSON reading (CCZ-1) ---------------------------------------------------------
+# Free models often wrap the spec in prose or ```json fences, leave trailing commas, write Python
+# True/None, use curly quotes, add // comments or stop mid-object at the token limit. These helpers
+# only REPAIR THE SYNTAX of the model's own answer; the content checks in parse_spec stay strict.
+_FENCE_RX = re.compile(r"```[ \t]*(?:json|JSON|javascript|js)?[ \t]*\n?(.*?)(?:```|\Z)", re.S)
+_SMART = {"“": '"', "”": '"', "‘": "'", "’": "'"}
+_PY_WORDS = {"True": "true", "False": "false", "None": "null"}
+
+
+def _json_spans(text):
+    """Every top-level {...} span (string-aware). An unclosed last object is returned to its end."""
+    spans, depth, start, in_str, esc = [], 0, None, False, False
+    for i, ch in enumerate(text):
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"' and depth:
+            in_str = True
+        elif ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}" and depth:
+            depth -= 1
+            if depth == 0:
+                spans.append(text[start:i + 1])
+    if depth and start is not None:
+        spans.append(text[start:])
+    return spans
+
+
+def _repair_json(src):
+    """String-aware syntax repair: comments, trailing commas, Python words, unclosed brackets."""
+    out, stack, i, in_str, esc, n = [], [], 0, False, False, len(src)
+    while i < n:
+        ch = src[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            elif ch == "\n":
+                ch = "\\n"
+            out.append(ch)
+            i += 1
+            continue
+        if ch == '"':
+            in_str = True
+        elif src.startswith("//", i) or ch == "#":
+            while i < n and src[i] != "\n":
+                i += 1
+            continue
+        elif src.startswith("/*", i):
+            end = src.find("*/", i + 2)
+            i = n if end < 0 else end + 2
+            continue
+        elif ch in "{[":
+            stack.append("}" if ch == "{" else "]")
+        elif ch in "}]":
+            while out and out[-1] in " \t\r\n,":
+                out.pop()
+            if stack:
+                stack.pop()
+        elif ch.isalpha():
+            m = re.match(r"[A-Za-z_]+", src[i:])
+            word = m.group(0)
+            out.append(_PY_WORDS.get(word, word))
+            i += len(word)
+            continue
+        out.append(ch)
+        i += 1
+    if in_str:          # cut off inside a string at the token limit
+        out.append('"')
+    text = "".join(out).rstrip()
+    if stack:           # cut off mid-object: drop a dangling key / comma, then close what is open
+        text = re.sub(r',\s*"[^"]*"\s*:?\s*$', "", text)
+        text = re.sub(r'[,:]\s*$', "", text)
+        text = re.sub(r'\{\s*"[^"]*"\s*$', "{", text)
+        text += "".join(reversed(stack))
+    return text
+
+
+def extract_json_object(text):
+    """Best JSON object in a model reply. Returns (dict, None) or (None, reason)."""
+    if not isinstance(text, str) or not text.strip():
+        return None, AI_DOWN
+    for k, v in _SMART.items():
+        text = text.replace(k, v)
+    blocks = [b for b in _FENCE_RX.findall(text) if "{" in b] + [text]
+    found = []
+    for block in blocks:
+        for span in _json_spans(block):
+            for attempt in (span, _repair_json(span)):
+                try:
+                    value = json.loads(attempt)
+                except ValueError:
+                    continue
+                if isinstance(value, dict):
+                    found.append(value)
+                    break
+    if not found:
+        return None, ("reply has no JSON object" if "{" not in text else "reply is not valid JSON")
+    for value in list(found):   # unwrap {"spec": {...}} / {"product": {...}}
+        inner = [v for v in value.values() if isinstance(v, dict) and "listing" in v]
+        if "listing" not in value and len(inner) == 1:
+            found.append(inner[0])
+    found.sort(key=lambda d: ("listing" in d, len(json.dumps(d))), reverse=True)
+    return found[0], None
+
+
+_DRAFT_LABEL_RX = r"(?im)^\s*\**\s*{label}\s*\**\s*:\s*(.*?)(?=^\s*\**\s*(?:PRODUCT NAME|BUYER|PRICE|PLATFORM|WHAT'S INSIDE|HOW TO USE|LISTING TITLE|LISTING DESCRIPTION|SEARCH TAGS)\s*\**\s*:|\Z)"
+
+
+def draft_listing(draft):
+    """The approved draft's own LISTING TITLE / DESCRIPTION / SEARCH TAGS (safe defaults for a spec)."""
+    def section(label):
+        m = re.search(_DRAFT_LABEL_RX.format(label=label), draft or "", re.S)
+        return m.group(1).strip() if m else ""
+    title = clean_draft_title(section("LISTING TITLE") or section("PRODUCT NAME"))
+    tags = [_clean(t.strip(" #-*"), 40) for t in re.split(r"[,\n]", section("SEARCH TAGS")) if t.strip(" #-*")]
+    return {"title": _clean(title, 140), "description": section("LISTING DESCRIPTION")[:3000],
+            "tags": tags[:5], "name": _clean(clean_draft_title(section("PRODUCT NAME")), 80)}
+
+
+def _as_list(value):
+    """A model may send one string where a list belongs: one line per item then."""
+    if isinstance(value, str):
+        return [line.strip(" -*\t") for line in value.splitlines() if line.strip(" -*\t")]
+    return value if isinstance(value, list) else []
+
+
+def clean_draft_title(title):
+    """'Draft: [Budget Sheets Agent] Google Sheets X (v4, llm) (rewritten)' -> 'Google Sheets X'."""
+    title = re.sub(r"(?i)^\s*draft\s*:\s*", "", str(title or ""))
+    title = re.sub(r"\[[^\]]*\]", "", title)
+    title = re.sub(r"\((?:v\d+[^)]*|rewritten|llm|fallback)\)", "", title, flags=re.I)
+    return re.sub(r"\s+", " ", title).strip(" -:|")
+
+
+def parse_spec(text, niche, draft=""):
+    """Read and normalise the model's JSON spec. Returns (spec, None) or (None, reason).
+
+    The JSON may be wrapped in prose/fences or slightly broken (repaired by extract_json_object).
+    Listing title / description / tags / name the model left out are filled from the approved
+    draft's own sections. The product structure (sheets, pages, sections) is still checked strictly.
+    """
+    data, reason = extract_json_object(text)
+    if data is None:
+        return None, reason
+    fallback = draft_listing(draft) if draft else {}
+    listing = data.get("listing") if isinstance(data.get("listing"), dict) else {}
+    for key in ("title", "description", "tags"):
+        if not listing.get(key) and data.get(key):
+            listing[key] = data[key]
+        if not listing.get(key) and fallback.get(key):
+            listing[key] = fallback[key]
+    if not listing.get("title") and not data.get("name") and fallback.get("name"):
+        data["name"] = fallback["name"]
+    if not listing:
         return None, "spec has no listing"
+    data["listing"] = listing
     info, kind = NICHES[niche], NICHES[niche]["kind"]
-    listing = data["listing"]
     title = _clean(listing.get("title"), 140) or _clean(data.get("name"), 140)
     description = str(listing.get("description") or "").strip()[:3000]
     if not title or not description:
         return None, "listing needs a title and a description"
-    tags = [_clean(t, 40) for t in (listing.get("tags") or []) if _clean(t, 40)]
+    raw_tags = listing.get("tags") or []
+    if isinstance(raw_tags, str):
+        raw_tags = raw_tags.split(",")
+    tags = [_clean(t, 40) for t in raw_tags if _clean(t, 40)] if isinstance(raw_tags, list) else []
     tags = (tags + [t for t in info["tags"] if t not in tags])[:5]
     try:
         price = round(float(str(listing.get("price_usd", info["price"])).replace("$", "")), 2)
@@ -272,7 +457,7 @@ def parse_spec(text, niche):
             "listing": {"title": title, "description": description, "tags": tags, "price_usd": price,
                         "buyer": _clean(listing.get("buyer"), 160) or info["buyer"],
                         "platform": info["platform"]},   # always Gumroad (the store we use)
-            "instructions": [_clean(s, 300) for s in (data.get("instructions") or []) if _clean(s)][:12],
+            "instructions": [_clean(s, 300) for s in _as_list(data.get("instructions")) if _clean(s)][:12],
             "cover_image_idea": _clean(data.get("cover_image_idea"), 400)}
     checker = {"sheets": _norm_sheets, "planner": _norm_pages, "notion": _norm_notion, "resume": _norm_resume,
                "dated_planner": _norm_dated}.get(kind)
@@ -2274,8 +2459,8 @@ def build_pending(db_path=None, llm=None, max_builds=MAX_BUILDS_PER_RUN, out_dir
         import workforce  # lazy: keeps the LLM router out of plain file-building code
         llm = llm or workforce.default_llm(db_path)
         try:
-            spec, reason = parse_spec(workforce._ask({"llm": llm}, spec_prompt(niche, item["payload"]),
-                                                     size="large"), niche)
+            spec, reason = request_spec(lambda prompt: workforce._ask({"llm": llm}, prompt, size="large"),
+                                        niche, item["payload"])
         except Exception as exc:
             spec, reason = None, f"model error: {exc}"
         if spec is None and reason == AI_DOWN:

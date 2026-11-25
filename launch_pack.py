@@ -370,13 +370,16 @@ def build_launch_pack(approval_id: int, db_path=None, out_dir=None, llm=None,
         import workforce
         llm = llm or workforce.default_llm(db_path)
         try:
-            prompt = product_builder.spec_prompt(niche, payload_text)
-            spec, _ = product_builder.parse_spec(llm(prompt, size="large"), niche)
-        except Exception:
-            spec = None
-
-    if not spec:
-        return {"approval_id": approval_id, "status": "failed", "reason": "Failed to parse spec"}
+            spec, why = product_builder.request_spec(
+                lambda prompt: workforce._ask({"llm": llm}, prompt, size="large"), niche, payload_text)
+        except Exception as exc:  # a provider error is an AI problem, never a silent "failed to parse"
+            spec, why = None, f"{product_builder.AI_DOWN} ({type(exc).__name__})"
+        if not spec:
+            # CCZ-1: keep the concrete reason (the old text "Failed to parse spec" hid it).
+            waiting = str(why or "").startswith(product_builder.AI_DOWN)
+            return {"approval_id": approval_id, "status": "waiting_ai" if waiting else "failed",
+                    "reason": ("AI reply raaledu; next run lo malli try chestundi" if waiting
+                               else f"Spec could not be read: {why}")}
 
 
     folder_name = existing_folder or f"{approval_id}-{spec['short_name']}"

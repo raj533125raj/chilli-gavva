@@ -279,7 +279,7 @@ class DeliveryTests(unittest.TestCase):
     def test_no_spec_no_fallback_product_and_missing_images_cannot_be_ready(self):
         aid = self.approved(checker.format_review(90, []), council=True)
         result = launch_pack.build_launch_pack(aid, self.db, self.out, lambda *a, **k: None)
-        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["status"], "waiting_ai")   # CCZ-1: no AI reply = wait, never a fallback product
         self.assertEqual(os.listdir(self.out), [])
         with mock.patch("mockups.write_mockups", return_value=[]):
             result = launch_pack.build_launch_pack(aid, self.db, self.out, fake_spec, max_fix_rounds=1)

@@ -457,6 +457,16 @@ def run_pending(db_path=None, out_dir=None, llm=None, max_builds=DAILY_BUILDS,
                 break
             result = launch_pack.build_launch_pack(aid, db_path=db_path, out_dir=out_dir,
                                                    llm=llm, existing_folder=existing)
+            if result["status"] == "waiting_ai":
+                # CCZ-1: no AI reply for the spec is not the draft's fault: give the daily slot back,
+                # keep the draft, try again next run (no /doctor case, no needs-fix count).
+                with connect(db_path) as conn:
+                    conn.execute("UPDATE product_deliveries SET status='waiting_ai', reason=?, lease_until=0 "
+                                 "WHERE approval_id=?", (result["reason"], aid))
+                    conn.execute("DELETE FROM product_delivery_attempts WHERE day=? AND approval_id=?", (day, aid))
+                product_builder._record(db_path, aid, "retry", note=product_builder.AI_DOWN)
+                results.append({"id": aid, "status": "waiting_ai", "reason": result["reason"]})
+                break
             if result["status"] != "ready":
                 reason = ("; ".join(result.get("reasons", [])[:2])
                           or result.get("reason") or "Launch pack did not pass truth checks")

@@ -242,15 +242,16 @@ class FlowTests(Base):
         for expected in ("retry", "retry", "failed"):
             self.assertEqual(self.run_builder(llm)[0]["status"], expected)
         self.assertEqual(self.run_builder(llm), [])
-        self.assertEqual(llm.calls, pb.MAX_TRIES)
+        self.assertEqual(llm.calls, 2 * pb.MAX_TRIES)   # CCZ-1: one automatic rewrite retry per try
         self.assertFalse(os.path.exists(os.path.join(self.out, f"{aid}-freelancer-budget")))
 
     def test_retry_succeeds_on_next_run(self):
         self.add(TITLES["Budget Sheets Agent"])
         replies = iter(["no json here", json.dumps(SPECS["Budget Sheets Agent"])])
         llm = StubLLM(lambda p: next(replies))
-        self.assertEqual(self.run_builder(llm)[0]["status"], "retry")
+        # CCZ-1: the automatic "rewrite spec" retry fixes it in the same run.
         self.assertIn(self.run_builder(llm)[0]["status"], ("built", "needs_fix"))
+        self.assertEqual(llm.calls, 2)
 
     def test_model_error_is_a_retry(self):
         self.add(TITLES["Budget Sheets Agent"])
