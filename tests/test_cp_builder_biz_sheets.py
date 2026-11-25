@@ -79,7 +79,7 @@ class BizSheetsBuilderTests(unittest.TestCase):
             xml = archive.read("xl/worksheets/sheet6.xml").decode("utf-8")
             self.assertIn("Orders!F", xml)
             self.assertIn("Orders!G", xml)
-            self.assertIn("=C2-D2", xml)
+            self.assertIn("<f>C2-D2</f>", xml)   # OOXML formulas carry no leading "=" (CCA-1)
 
     def test_registry_classifies_bakery_spreadsheet(self):
         format_registry.reset_registry()

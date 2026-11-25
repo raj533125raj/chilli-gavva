@@ -92,6 +92,13 @@ class NewDraftTests(unittest.TestCase):
             self.assertEqual(pb.niche_for_draft(guardrails.get_approval(result["approval_id"], db)["title"],
                                                 payload), "Debt Payoff Agent")
 
+    def test_unbuildable_draft_is_kept_without_a_format_line_and_rewrite_keeps_the_line(self):
+        import workforce
+        self.assertEqual(workforce.with_format_line("demo", "Some text"), "Some text")
+        named = workforce.with_format_line("[Budget Sheets Agent] couples budget spreadsheet", "Body")
+        self.assertTrue(named.endswith("FORMAT: couples_budget\n"))
+        self.assertEqual(workforce.with_format_line("x", named), named)
+
 
 class ScoutTests(unittest.TestCase):
     def test_scout_prefers_top_niches_keeps_variety_and_names_registered_formats(self):

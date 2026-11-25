@@ -130,7 +130,7 @@ class ReviseTests(Base):
         self.assertEqual(calls["rewrite"], 2)
         self.assertEqual(calls["checker"], 3)  # initial check + 2 retries checked again
         item = self.only_draft()               # replaced in place, no duplicate in the queue
-        self.assertEqual(item["payload"], REWRITTEN)
+        self.assertEqual(item["payload"], REWRITTEN + "\nFORMAT: freelance_budget\n")   # CCC-1: rewrite keeps FORMAT
         self.assertTrue(item["title"].endswith("(rewritten)"))
         self.assertEqual(item["status"], "pending")
         self.assertIn("CHECKER: REVISE", item["review"])
@@ -153,7 +153,8 @@ class ReviseTests(Base):
         llm, _ = make_llm([checker_json(55, "revise", ["unclear"])], rewrite=None)
         self.run_pipeline(llm)
         item = self.only_draft()
-        self.assertEqual(item["payload"], DRAFT)
+        # CCC-1: the stored original is the draft plus the line naming its buildable format.
+        self.assertEqual(item["payload"], DRAFT + "\nFORMAT: freelance_budget\n")
         self.assertIn("rewrite failed, original kept", item["review"])
 
     def test_no_rewrite_after_human_decided(self):

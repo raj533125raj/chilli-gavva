@@ -206,8 +206,7 @@ class TestStepDraft(unittest.TestCase):
     def test_memory_exception_does_not_crash(self):
         def boom(tag, db_path=None): raise RuntimeError("boom")
         self._am.facts_for_prompt = boom
-        # CCC-1: a draft must name a buildable format, so the topic is a real product (a planner).
-        payload = {"topic": "weekly planner printable", "research": "notes"}
+        payload = {"topic": "test", "research": "notes"}
         result = self._workforce.step_draft(_task("draft", payload), _ctx())
         self.assertIn("approval_id", result)
 

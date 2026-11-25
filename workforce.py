@@ -458,6 +458,20 @@ def step_research(task, ctx):
             "next": [{"kind": "draft", "payload": {"topic": topic, "research": text[:1500]}}]}
 
 
+def with_format_line(topic, text):
+    """CCC-1: name the registered format a draft will be built as ("FORMAT: <id>"), when a builder fits.
+
+    A draft no builder can make keeps no line; the build pipeline's feasibility check stops it after approval."""
+    import format_registry
+    import product_builder
+    if product_builder._FORMAT_LINE.search(text or ""):
+        return text
+    fmt = product_builder.draft_format(topic, text)
+    if fmt and format_registry.can_build({"kind": fmt}):
+        return text.rstrip() + f"\nFORMAT: {fmt}\n"
+    return text
+
+
 def step_draft(task, ctx):
     waiting = active_draft_backlog(ctx["db_path"])
     if waiting > MAX_PENDING_APPROVALS:
@@ -495,11 +509,7 @@ def step_draft(task, ctx):
     # CC-BIG-1 CCC-1: every new draft names the registered format the robot will build it as.
     import format_registry
     import product_builder
-    fmt = product_builder.draft_format(topic, text)
-    if not fmt or not format_registry.can_build({"kind": fmt}):
-        return {"summary": f"skipped: no builder can make this draft ({product[:60]})", "next": []}
-    if not product_builder._FORMAT_LINE.search(text):
-        text = text.rstrip() + f"\nFORMAT: {fmt}\n"
+    text = with_format_line(topic, text)
     approval_id = guardrails.request_approval("public_draft", f"Draft: {topic[:60]} (v{version_id}, {mode})",
                                               text, db_path=ctx["db_path"])
     conn = connect(ctx["db_path"])
@@ -615,6 +625,9 @@ def step_rewrite(task, ctx):
                               ctx["db_path"])
         return {"mode": "fallback", "summary": "rewrite failed, original draft kept"}
     conn = guardrails.connect(ctx["db_path"])
+    named = re.search(r"(?im)^\s*FORMAT\s*:\s*[a-z_]+\s*$", approval["payload"] or "")
+    if named and not re.search(r"(?im)^\s*FORMAT\s*:", text):   # a rewrite keeps the named format
+        text = text.rstrip() + "\n" + named.group(0).strip() + "\n"
     conn.execute("UPDATE approvals SET payload = ?, title = ? WHERE id = ? AND status = 'pending'",
                  (text, f"{approval['title']} {REWRITTEN_TAG}", approval_id))
     conn.commit()
