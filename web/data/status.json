@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-24T13:49:36Z",
+ "generated_at": "2026-11-25T00:20:16Z",
  "llm": {
-  "calls_today": 92,
+  "calls_today": 1,
   "cap": 500
  },
  "agents": [
@@ -420,37 +420,37 @@
   {
    "provider": "Groq",
    "model": "openai/gpt-oss-20b",
-   "state": "down",
-   "reason": "Provider request rate exceeded",
-   "checked_at": "2026-11-24T13:49:36Z"
+   "state": "up",
+   "reason": "Latest request succeeded",
+   "checked_at": "2026-11-25T00:20:16Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
    "state": "down",
    "reason": "Provider request failed",
-   "checked_at": "2026-11-24T13:49:36Z"
+   "checked_at": "2026-11-25T00:20:16Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "down",
    "reason": "Provider request failed",
-   "checked_at": "2026-11-24T13:49:36Z"
+   "checked_at": "2026-11-25T00:20:16Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-24T13:49:36Z"
+   "checked_at": "2026-11-25T00:20:16Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-24T13:49:36Z"
+   "checked_at": "2026-11-25T00:20:16Z"
   }
  ],
  "minutes": {
@@ -737,7 +737,7 @@
  "reject_reasons": [
   {
    "reason": "Formatting or rubric issue",
-   "count": 99
+   "count": 95
   },
   {
    "reason": "Risky or prohibited claim",
@@ -753,14 +753,14 @@
   },
   {
    "reason": "Unclear value over free template",
-   "count": 32
+   "count": 29
   }
  ],
  "report": {
-  "drafts_made": 2,
+  "drafts_made": 0,
   "drafts_waiting": 16,
   "drafts_approved": 0,
-  "products_built": 3,
+  "products_built": 0,
   "errors": 0
  },
  "workers": [
@@ -838,7 +838,7 @@
   },
   "product_builds": {
    "plan": 2,
-   "done": 3
+   "done": 0
   },
   "promotion": {
    "plan": 2,
@@ -869,63 +869,63 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 92,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 92,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 92,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 92,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 92,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 92,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 92,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 92,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 92,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   }
@@ -935,7 +935,283 @@
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-24T13:49:36Z"
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:10Z"
   },
   {
    "agent": "Unknown agent",
@@ -954,282 +1230,6 @@
    "kind": "error",
    "label": "Recovery check",
    "at": "2026-11-24T13:49:36Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:36Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:36Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:36Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:36Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:36Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:36Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:36Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:36Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:36Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:36Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:36Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:36Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:36Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:36Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:35Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:35Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:35Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:35Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:35Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:35Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:35Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:35Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:35Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:21:02Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:21:02Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:21:02Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:21:01Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:21:01Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:21:01Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:21:01Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:21:01Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:21:01Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:21:01Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:21:00Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:21:00Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:21:00Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:21:00Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:21:00Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:20:59Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:20:59Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:20:59Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:20:59Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:20:59Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:20:59Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:20:58Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T08:20:58Z"
   }
  ],
  "activity_events": [
@@ -2395,39 +2395,37 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-24T13:49:35Z",
-  "last_run_end": "2026-11-24T13:49:36Z",
+  "last_run_start": "2026-11-25T00:20:10Z",
+  "last_run_end": "2026-11-25T00:20:16Z",
   "runner": "github-actions",
-  "run_id": "45407207375"
+  "run_id": "45513879005"
  },
  "changelog": [
+  "Merge remote-tracking branch 'origin/main' into HEAD",
+  "Lead fix: /today tests work in their own temp folder (run #1002 went red when the first real packs were unpacked before the tests)",
+  "agent: state + content update [skip ci]",
   "agent: owner inbox state [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "Lead fix: robot red on GitHub only \u2014 missing-file alert no longer depends on the Python path; office speed test measures CPU time (4 test parts run side by side",
-  "CXAA-3 record completed BIG-4 proof and simple-English summary",
-  "CXAA-2 pin owner flows to all three required UTC clock times",
-  "CXAA-1 record final clean-environment Python 3.11 suite",
-  "CXAA-1 part 1 extend handler-discovery coverage to selltest",
-  "CXZ-1 prepare real free samples and separate owner-upload kits",
-  "CXY-1 schedule fourteen days of linked sell-test Pins and carousels",
-  "CXX-3 explain measured keep change and drop decisions on days seven and fourteen",
-  "CXX-2 save private daily test numbers and report measured conversion",
-  "CXX-1 select and persist owner-controlled fourteen-day sell tests",
-  "CXW-3 record clean Python 3.11 full-suite proof",
-  "CXW-2 prove all nineteen formats through buyer and marketing gates",
-  "CXW-1 merge Copilot expanded packs and business workbook",
-  "CXW-1 merge Kilo rich printable packs and digital planner",
-  "CXW-0 keep worker notes out of the repo",
-  "Merge remote-tracking branch 'origin/main' into HEAD"
+  "CXAM-2 summarize completed BIG-6 work in simple English",
+  "CXAM-1 record final full suite and three-clock parity proof",
+  "CXAM-1 part 2 keep stopped Pin slots out of owner posting instructions",
+  "CXAM-1 part 1 close stale-link and empty-site gaps and cover new handlers",
+  "CXAL-1 diagnose every sell-test kit link page Pin and daily number",
+  "CXAK-1 learn milestone fixes and draft preferences from measured sales",
+  "CXAJ-1 include three owner-sent email drafts in real sample upload kits",
+  "CXAI-2 add approved sitemap metadata and real page-content PNG previews",
+  "CXAI-1 prepare gated paid and sample landing drafts with tracked links",
+  "CXAH-2 show durable completion marks in today for fourteen days",
+  "CXAH-1 send one compact sell-test morning action plan",
+  "CXAG-2 summarize completed BIG-5 work",
+  "CXAG-1 record passing full suite and three-clock parity",
+  "CXAG-1 part 1 keep queue inspection independent of Telegram UI"
  ],
  "daily_report": {
-  "date_ist": "2026-11-24",
-  "summary": "0 tasks completed; 0 approvals reviewed; 3 products built.",
-  "items_done": [
-   "Product built"
-  ]
+  "date_ist": "2026-11-25",
+  "summary": "No completed work recorded.",
+  "items_done": []
  },
  "sunday_letter": null,
  "cubes": [
@@ -2786,7 +2784,7 @@
   "approved": 55
  },
  "trend_items_count": {
-  "total": 200,
+  "total": 210,
   "proposed": 0,
   "approved": 0
  },
