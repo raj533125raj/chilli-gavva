@@ -154,8 +154,9 @@ def product_path(db_path=None, now=None):
         council_waiting = _count(conn, "SELECT COUNT(*) FROM product_deliveries WHERE status='waiting_ai'")
         council_improved = _count(conn, "SELECT COUNT(*) FROM council_approved_reviews WHERE candidate!='' AND ts>=?", (since,))
         council_rejected = _count(conn, "SELECT COUNT(*) FROM council_approved_reviews WHERE status='rejected' AND ts>=?", (since,))
-        fix_notes = [r[0] or "" for r in _q(conn, "SELECT note FROM product_builds WHERE status IN "
-                                                  "('needs_fix', 'retry', 'failed') AND ts >= ?", (since,))]
+        fix_rows = _q(conn, "SELECT approval_id, status, note FROM product_builds WHERE status IN "
+                            "('needs_fix', 'retry', 'failed') AND ts >= ?", (since,))
+        fix_notes = [r[2] or "" for r in fix_rows]
     finally:
         conn.close()
     ages = [h for h in (_hours_since(ts, now) for ts in waiting_ts) if h is not None]
@@ -164,10 +165,16 @@ def product_path(db_path=None, now=None):
         reason = _STUCK_PREFIX.sub("", note).strip()[:80] or "reason not saved"
         reasons[reason] = reasons.get(reason, 0) + 1
     top = sorted(reasons.items(), key=lambda kv: (-kv[1], kv[0]))[0][0] if reasons else ""
+    import fix_reasons
+    import product_builder
+    sides = {side: 0 for side in fix_reasons.SIDES}
+    for aid, status, note in fix_rows:
+        sides[fix_reasons.classify(status, note, product_builder.is_held(aid, db_path))[0]] += 1
     return {"drafts_waiting": len(waiting_ts), "oldest_hours": max(ages) if ages else 0,
             "proposals_waiting": proposals, "rule_proposals": rules, "approved": approved,
             "approved_auto": auto, "approved_owner": approved - auto, "built": built,
-            "needs_fix": len(fix_notes), "top_reason": top, "council_waiting": council_waiting,
+            "needs_fix": len(fix_notes), "top_reason": top, "fix_robot": sides["robot"],
+            "fix_owner": sides["owner"], "fix_wait": sides["wait"], "council_waiting": council_waiting,
             "council_improved": council_improved, "council_rejected": council_rejected}
 
 
@@ -189,7 +196,12 @@ def product_path_lines(db_path=None, now=None, include_built=True):
         lines.append(f"Approved build queue: {queued} (ee report tarvata ade run lo build; migilite next run; /packs)")
     if p['council_waiting'] or p['council_improved'] or p['council_rejected']:
         lines.append(f"Council: AI kosam waiting {p['council_waiting']} | improve chesinavi {p['council_improved']} | reject {p['council_rejected']}")
-    lines.append(f"Needs fix today: {p['needs_fix']}" + (f" (top: {p['top_reason']})" if p["needs_fix"] else ""))
+    split = ""
+    if p["needs_fix"]:
+        split = (f" — robot fix chestondi {p['fix_robot']}, owner decision kavali {p['fix_owner']}"
+                 + (f", AI/limit wait {p['fix_wait']}" if p["fix_wait"] else ""))
+    lines.append(f"Needs fix today: {p['needs_fix']}" + (f" (top: {p['top_reason']})" if p["needs_fix"] else "")
+                 + split)
     return lines
 
 

@@ -69,9 +69,10 @@ def sell_test_progress(db_path=None, products_dir=None, now=None):
     if Path(db_path).is_file():
         with sqlite3.connect(db_path) as conn:
             tables={row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-            if {'product_builds','approvals'}<=tables:
-                for aid,status in conn.execute("SELECT b.approval_id,b.status FROM product_builds b JOIN approvals a ON a.id=b.approval_id WHERE a.status='approved' AND a.kind='public_draft'"):
-                    if aid not in seen and status not in ('rejected',):blocked['Pack fixes leda Hold: /ready']+=1
+        if {'product_builds','approvals'}<=tables:
+            # CCZ-2: one split instead of "Pack fixes leda Hold": robot fixes itself / AI wait / owner decides
+            import fix_reasons
+            blocked.update(fix_reasons.counts(db_path,seen))
         if 'approvals' in tables:
             import auto_approve
             labels={'under_24h':'24h wait migilindi','daily_limit':'Auto daily limit aipoyindi',
