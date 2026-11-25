@@ -983,7 +983,9 @@ class Workbook:
             for c, (value, style, formula) in sorted(rows[r]):
                 ref, s = f"{_col(c)}{r}", f' s="{style}"' if style else ""
                 if formula:
-                    out.append(f'<c r="{ref}"{s}><f>{escape(formula)}</f></c>')
+                    # OOXML <f> holds the formula WITHOUT the leading "=" (Excel flags "=..." as damaged)
+                    text = formula[1:] if formula.startswith("=") else formula
+                    out.append(f'<c r="{ref}"{s}><f>{escape(text)}</f></c>')
                 elif isinstance(value, (int, float)) and not isinstance(value, bool):
                     out.append(f'<c r="{ref}"{s}><v>{value}</v></c>')
                 elif value not in (None, ""):

@@ -69,7 +69,8 @@ class EvidenceTests(unittest.TestCase):
             for row in range(2, 14):
                 self.assertIn('Orders!G', formulas['D'+str(row)])
                 self.assertIn('Expenses!D', formulas['D'+str(row)])
-                self.assertEqual(formulas['E'+str(row)], '=C'+str(row)+'-D'+str(row))
+                # OOXML stores formulas without the leading "=" (CCA-1 fixed the writer; Excel needs it so)
+                self.assertEqual(formulas['E'+str(row)], 'C'+str(row)+'-D'+str(row))
 
     def test_month_calendar_has_real_dates_and_weekday_alignment(self):
         import builder_digital_planner as builder
