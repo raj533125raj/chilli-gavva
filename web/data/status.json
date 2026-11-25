@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-25T00:20:16Z",
+ "generated_at": "2026-11-25T03:55:03Z",
  "llm": {
-  "calls_today": 1,
+  "calls_today": 65,
   "cap": 500
  },
  "agents": [
@@ -420,37 +420,37 @@
   {
    "provider": "Groq",
    "model": "openai/gpt-oss-20b",
-   "state": "up",
-   "reason": "Latest request succeeded",
-   "checked_at": "2026-11-25T00:20:16Z"
+   "state": "down",
+   "reason": "Provider request rate exceeded",
+   "checked_at": "2026-11-25T03:55:03Z"
   },
   {
    "provider": "Gemini",
-   "model": "gemini-3.5-flash",
+   "model": "gemini-flash-latest",
    "state": "down",
    "reason": "Provider request failed",
-   "checked_at": "2026-11-25T00:20:16Z"
+   "checked_at": "2026-11-25T03:55:03Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "down",
    "reason": "Provider request failed",
-   "checked_at": "2026-11-25T00:20:16Z"
+   "checked_at": "2026-11-25T03:55:03Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-25T00:20:16Z"
+   "checked_at": "2026-11-25T03:55:03Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-25T00:20:16Z"
+   "checked_at": "2026-11-25T03:55:03Z"
   }
  ],
  "minutes": {
@@ -736,20 +736,20 @@
  ],
  "reject_reasons": [
   {
-   "reason": "Formatting or rubric issue",
-   "count": 95
+   "reason": "Risky or prohibited claim",
+   "count": 103
   },
   {
-   "reason": "Risky or prohibited claim",
-   "count": 94
+   "reason": "Formatting or rubric issue",
+   "count": 103
   },
   {
    "reason": "Target audience unclear",
-   "count": 89
+   "count": 99
   },
   {
    "reason": "Product structure incomplete",
-   "count": 66
+   "count": 69
   },
   {
    "reason": "Unclear value over free template",
@@ -760,7 +760,7 @@
   "drafts_made": 0,
   "drafts_waiting": 16,
   "drafts_approved": 0,
-  "products_built": 0,
+  "products_built": 2,
   "errors": 0
  },
  "workers": [
@@ -825,23 +825,23 @@
    "done": 0
   },
   "research": {
-   "plan": 4,
+   "plan": 2,
    "done": 0
   },
   "drafts": {
-   "plan": 3,
+   "plan": 2,
    "done": 0
   },
   "review": {
-   "plan": 3,
+   "plan": 2,
    "done": 0
   },
   "product_builds": {
-   "plan": 2,
-   "done": 0
+   "plan": 1,
+   "done": 2
   },
   "promotion": {
-   "plan": 2,
+   "plan": 1,
    "done": 0
   }
  },
@@ -869,63 +869,63 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 65,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 65,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 65,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 65,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 65,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 65,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 65,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 65,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 1,
+   "calls_used_today": 65,
    "calls_limit_today": 500,
    "context_percent": null
   }
@@ -935,7 +935,55 @@
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
+   "at": "2026-11-25T00:24:38Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:21:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:21:15Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:21:00Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:44Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:39Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:36Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:33Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T00:20:31Z"
   },
   {
    "agent": "Unknown agent",
@@ -1182,54 +1230,6 @@
    "kind": "error",
    "label": "Recovery check",
    "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:36Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:36Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-24T13:49:36Z"
   }
  ],
  "activity_events": [
@@ -2395,12 +2395,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-25T00:20:10Z",
-  "last_run_end": "2026-11-25T00:20:16Z",
+  "last_run_start": "2026-11-25T03:52:56Z",
+  "last_run_end": "2026-11-25T03:55:03Z",
   "runner": "github-actions",
-  "run_id": "45513879005"
+  "run_id": "45540051110"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "Merge remote-tracking branch 'origin/main' into HEAD",
   "Lead fix: /today tests work in their own temp folder (run #1002 went red when the first real packs were unpacked before the tests)",
   "agent: state + content update [skip ci]",
@@ -2419,13 +2420,14 @@
   "CXAH-2 show durable completion marks in today for fourteen days",
   "CXAH-1 send one compact sell-test morning action plan",
   "CXAG-2 summarize completed BIG-5 work",
-  "CXAG-1 record passing full suite and three-clock parity",
-  "CXAG-1 part 1 keep queue inspection independent of Telegram UI"
+  "CXAG-1 record passing full suite and three-clock parity"
  ],
  "daily_report": {
   "date_ist": "2026-11-25",
-  "summary": "No completed work recorded.",
-  "items_done": []
+  "summary": "0 tasks completed; 0 approvals reviewed; 2 products built.",
+  "items_done": [
+   "Product built"
+  ]
  },
  "sunday_letter": null,
  "cubes": [
@@ -2792,8 +2794,8 @@
   "total": 0
  },
  "marketing_kits_count": {
-  "total": 11,
-  "draft": 11,
+  "total": 13,
+  "draft": 13,
   "approved": 0
  }
 }
