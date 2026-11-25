@@ -1,6 +1,17 @@
 # STATUS (read this first)
 
-Last updated: 2026-11-04.
+Last updated: 2026-11-26 (CC-BIG-1, branch robot-cc6).
+
+CC-BIG-1 (top niches that sell): approved drafts no longer die at "Failed to parse spec": the spec
+reader repairs wrapped/broken JSON, fills listing gaps from the approved draft, retries once with a
+"rewrite spec" prompt and otherwise names the real reason; no AI reply now waits (slot given back).
+The daily report splits blockers into "robot fix chestondi", "owner decision kavali" and AI/limit wait
+(`python3 fix_reasons.py --db agent_data.db` prints the table). New money-sheet builders (debt payoff,
+couples budget, freelancer budget, sinking funds) and an ADHD planner builder (energy, time-blindness,
+focus/brain-dump editions, 25-26 undated pages) pass the whole sell line (truth check 100, /sell
+SELLABLE, visual QA 0 flags). Niche-agent drafts about these products are built with the new builders
+and every new draft names a buildable FORMAT. `python3 tools/showroom.py` writes a contact sheet of
+every format to /private/tmp/showroom.
 
 Telegram outage repair (robot-tg): safe per-method HTTP outcomes, update/button/command
 and delivery counts now remain visible in successful inbox workflow logs. Token/chat
