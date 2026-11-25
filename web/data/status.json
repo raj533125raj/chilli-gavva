@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-25T05:05:34Z",
+ "generated_at": "2026-11-25T08:42:19Z",
  "llm": {
   "calls_today": 100,
   "cap": 500
@@ -422,35 +422,35 @@
    "model": "openai/gpt-oss-20b",
    "state": "down",
    "reason": "Provider request rate exceeded",
-   "checked_at": "2026-11-25T05:05:34Z"
+   "checked_at": "2026-11-25T08:42:19Z"
   },
   {
    "provider": "Gemini",
-   "model": "gemini-flash-latest",
+   "model": "gemini-3.5-flash",
    "state": "down",
-   "reason": "Provider request failed",
-   "checked_at": "2026-11-25T05:05:34Z"
+   "reason": "Provider request rate exceeded",
+   "checked_at": "2026-11-25T08:42:19Z"
   },
   {
    "provider": "Cloudflare",
-   "model": null,
+   "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "down",
-   "reason": "Provider cooldown or error",
-   "checked_at": "2026-11-25T05:05:34Z"
+   "reason": "Provider request failed",
+   "checked_at": "2026-11-25T08:42:19Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-25T05:05:34Z"
+   "checked_at": "2026-11-25T08:42:19Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-25T05:05:34Z"
+   "checked_at": "2026-11-25T08:42:19Z"
   }
  ],
  "minutes": {
@@ -737,15 +737,15 @@
  "reject_reasons": [
   {
    "reason": "Formatting or rubric issue",
-   "count": 109
+   "count": 115
+  },
+  {
+   "reason": "Target audience unclear",
+   "count": 105
   },
   {
    "reason": "Risky or prohibited claim",
    "count": 103
-  },
-  {
-   "reason": "Target audience unclear",
-   "count": 99
   },
   {
    "reason": "Product structure incomplete",
@@ -825,23 +825,23 @@
    "done": 0
   },
   "research": {
-   "plan": 2,
+   "plan": 4,
    "done": 0
   },
   "drafts": {
-   "plan": 2,
+   "plan": 3,
    "done": 0
   },
   "review": {
-   "plan": 2,
+   "plan": 3,
    "done": 0
   },
   "product_builds": {
-   "plan": 1,
+   "plan": 2,
    "done": 6
   },
   "promotion": {
-   "plan": 1,
+   "plan": 2,
    "done": 0
   }
  },
@@ -931,6 +931,114 @@
   }
  ],
  "loop_events": [
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T08:42:19Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T08:42:19Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T08:42:19Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T05:06:06Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T05:06:06Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T05:06:06Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T05:06:05Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T05:06:05Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T05:06:05Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T05:06:05Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T05:06:05Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T05:06:04Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T05:06:04Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T05:06:04Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T05:06:04Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T05:06:04Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T05:06:04Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-25T05:06:04Z"
+  },
   {
    "agent": "Unknown agent",
    "kind": "error",
@@ -1026,114 +1134,6 @@
    "kind": "error",
    "label": "Recovery check",
    "at": "2026-11-25T00:20:31Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
   },
   {
    "agent": "Unknown agent",
@@ -2395,12 +2395,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-25T05:04:29Z",
-  "last_run_end": "2026-11-25T05:05:34Z",
+  "last_run_start": "2026-11-25T08:42:18Z",
+  "last_run_end": "2026-11-25T08:42:19Z",
   "runner": "github-actions",
-  "run_id": "45548777379"
+  "run_id": "45578400255"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "Merge remote-tracking branch 'origin/main' into HEAD",
@@ -2419,8 +2420,7 @@
   "CXAI-2 add approved sitemap metadata and real page-content PNG previews",
   "CXAI-1 prepare gated paid and sample landing drafts with tracked links",
   "CXAH-2 show durable completion marks in today for fourteen days",
-  "CXAH-1 send one compact sell-test morning action plan",
-  "CXAG-2 summarize completed BIG-5 work"
+  "CXAH-1 send one compact sell-test morning action plan"
  ],
  "daily_report": {
   "date_ist": "2026-11-25",
