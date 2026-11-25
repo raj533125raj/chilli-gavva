@@ -492,6 +492,14 @@ def step_draft(task, ctx):
     if not text:  # never save a placeholder draft: the task goes back in the queue instead
         raise AIUnavailable("draft: no answer from any AI model")
     mode = "llm"
+    # CC-BIG-1 CCC-1: every new draft names the registered format the robot will build it as.
+    import format_registry
+    import product_builder
+    fmt = product_builder.draft_format(topic, text)
+    if not fmt or not format_registry.can_build({"kind": fmt}):
+        return {"summary": f"skipped: no builder can make this draft ({product[:60]})", "next": []}
+    if not product_builder._FORMAT_LINE.search(text):
+        text = text.rstrip() + f"\nFORMAT: {fmt}\n"
     approval_id = guardrails.request_approval("public_draft", f"Draft: {topic[:60]} (v{version_id}, {mode})",
                                               text, db_path=ctx["db_path"])
     conn = connect(ctx["db_path"])

@@ -266,8 +266,8 @@ BUILD_ROTATION = ('sheets', 'planner', 'resume', 'notion', 'digital_planner', 'b
 
 def queue_niche(title, payload=""):
     """Use the actual builder identity; separate business workbooks from budget sheets."""
-    niche = product_builder.niche_of(title)
-    kind = product_builder.NICHES[niche]['kind'] if niche else format_registry.classify(title+'\n'+payload)
+    # CCC-1: the format the draft is really built as (a debt tracker is not "just sheets").
+    kind = product_builder.draft_format(title, payload)
     if kind == 'biz_sheets' or 'business workbook' in (title+'\n'+payload).lower():
         return 'business_workbook'
     if kind == 'small_business_log':

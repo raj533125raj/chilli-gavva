@@ -326,6 +326,31 @@ EXTENDED_FALLBACK_CANDIDATES += [
     )
 ]
 
+# CC-BIG-1 CCC-1: the owner's top niches (research 28-29/35): money sheets and ADHD planners, each with a
+# real builder. Scout prefers them; the per-niche daily cap and the audience caps still keep variety.
+TOP_NICHE_FORMATS = {'debt_payoff', 'couples_budget', 'freelance_budget', 'sinking_funds', 'adhd_planner'}
+EXTENDED_FALLBACK_CANDIDATES += [
+    {"category": category, "idea": title, "audience": audience, "format": kind, "niche": niche,
+     "demand_score": 24, "competition_score": 20, "fit_score": 24, "effort_score": 22, "reason": reason}
+    for category, title, audience, kind, niche, reason in (
+        ('Templates', 'Debt Snowball and Avalanche Payoff Tracker Spreadsheet', 'adults paying off debt', 'debt_payoff',
+         'niche_budget_sheets', 'Shows the payoff order and months left for several debts in one workbook.'),
+        ('Templates', 'Couples Shared Budget Spreadsheet with Fair Bill Split', 'couples', 'couples_budget',
+         'niche_budget_sheets', 'Two incomes, shared bills and one clear settle-up line.'),
+        ('Templates', 'Irregular Income Budget Spreadsheet for Freelancers', 'freelancers', 'freelance_budget',
+         'niche_budget_sheets', 'Tax set-aside and a buffer fund for uneven months.'),
+        ('Templates', 'Sinking Funds and Savings Goals Tracker Spreadsheet', 'families', 'sinking_funds',
+         'niche_budget_sheets', 'Every savings goal with what to set aside each month.'),
+        ('Printables', 'Energy-Based Daily Planner Printable for ADHD Adults', 'adults with ADHD', 'adhd_planner',
+         'niche_adhd_planners', 'Plans tasks by energy level on undated full pages.'),
+        ('Printables', 'Time-Blindness Routine Planner Printable', 'neurodivergent adults', 'adhd_planner',
+         'niche_adhd_planners', 'Time anchors, routines and guess-vs-real time on undated pages.'),
+        ('Printables', 'Brain Dump and Focus Sheets Printable', 'students', 'adhd_planner',
+         'niche_adhd_planners', 'Brain dumps, one-task focus blocks and a priority grid.'),
+    )
+]
+
+
 def _clamp_score(val, default=20):
     try:
         ival = int(val)
@@ -382,7 +407,7 @@ def candidate_priority(candidate):
     kind=(candidate.get('format') if format_registry.get_format_info(candidate.get('format'))
           else format_registry.classify(candidate['idea']))
     new_types={'teacher_planner','fitness_planner','baby_tracker','small_business_log','kids_chore_reward'}
-    return candidate['total_score']+(16 if kind in SELL_TEST_FORMATS else 12 if kind in new_types else 8 if kind in PREFERRED_FORMATS else 0)
+    return candidate['total_score']+(20 if kind in TOP_NICHE_FORMATS else 16 if kind in SELL_TEST_FORMATS else 12 if kind in new_types else 8 if kind in PREFERRED_FORMATS else 0)
 
 def _clean_idea_title(text: str) -> str:
     """Strip prefixes and formatting to get base idea title."""
@@ -1137,6 +1162,11 @@ def run_scout(db_path=None, llm=None):
     for item in top_5:
         # Keep the preference-weighted ranking above, but never publish/store a score over 100.
         item = dict(item, total_score=max(0, min(100, item["total_score"])))
+        # CCC-1: every idea names a registered format id the robot can build (never "template" or "tracker sheet").
+        kind = candidate_kind(item)
+        if not kind:
+            continue
+        item["format"] = kind
         payload_text = (f"Category: {item['category']}\n"
                         f"Niche: {item['niche']}\n"
                         f"Audience: {item.get('audience', 'general')}\n"

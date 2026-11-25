@@ -110,21 +110,71 @@ def niche_of(title):
 
 
 
+# CC-BIG-1 CCC-1: a niche agent's generic kind is upgraded to a dedicated builder when the draft is clearly
+# about that product (top niches: money sheets and ADHD planners). Only the same file type: a spreadsheet
+# draft never becomes a PDF, a planner draft never becomes a spreadsheet.
+SPECIFIC_FORMATS = {"sheets": ("debt_payoff", "couples_budget", "freelance_budget", "sinking_funds"),
+                    "planner": ("adhd_planner",)}
+_FORMAT_LINE = re.compile(r"(?im)^\s*\**\s*FORMAT\s*\**\s*:\s*([a-z_]+)\s*$")
+
+
+def _plain(text):
+    return re.sub(r"[^a-z0-9]+", " ", str(text or "").lower()).strip()
+
+
+def specific_format(kind, text):
+    """The dedicated builder for a generic kind whose multi-word keywords match the text best, or None."""
+    import format_registry
+    plain = f" {_plain(text)} "
+    best, best_score = None, 0
+    for fid in SPECIFIC_FORMATS.get(kind, ()):
+        info = format_registry.get_format_info(fid)
+        if not info or not info.get("build"):
+            continue
+        score = sum(len(k.split()) for k in {_plain(k) for k in info["keywords"]}
+                    if " " in k and f" {k} " in plain)
+        if score > best_score:
+            best, best_score = fid, score
+    return best
+
+
+def draft_format(title, payload=""):
+    """The registered format id a draft will be built as (what 'FORMAT:' names), or None."""
+    import format_registry
+    text = f"{title}\n{payload}"
+    named = _FORMAT_LINE.search(payload or "")
+    niche = niche_of(title)
+    if niche:
+        kind = NICHES[niche]["kind"]
+        if named and named.group(1) in SPECIFIC_FORMATS.get(kind, ()) + (kind,):
+            return named.group(1)
+        return specific_format(kind, text) or kind
+    if named and format_registry.get_format_info(named.group(1)):
+        return named.group(1)
+    return format_registry.classify(text)
+
+
 def niche_for_draft(title, payload=""):
     """Resolve old agent titles and registered product formats through the same builder path."""
     niche = niche_of(title)
     if niche:
-        return niche
+        kind = draft_format(title, payload)
+        if kind == NICHES[niche]["kind"]:
+            return niche
     import format_registry
-    kind = format_registry.classify(f"{title}\n{payload}")
+    kind = draft_format(title, payload) if niche else format_registry.classify(f"{title}\n{payload}")
     if not kind:
         return None
     for name, meta in NICHES.items():
         if meta['kind'] == kind:
             return name
     name = kind.replace('_', ' ').title() + " Agent"
-    base = dict(NICHES['ADHD Planners Agent'])
-    base.update(kind=kind, buyer="people organizing this task", tags=[kind.replace('_', ' '), "printable", "organizer"])
+    if niche:   # an upgraded agent draft keeps its agent's buyer, price and tags
+        base = dict(NICHES[niche])
+        base.update(kind=kind, tags=[kind.replace('_', ' ')] + [t for t in base.get("tags", [])][:4])
+    else:
+        base = dict(NICHES['ADHD Planners Agent'])
+        base.update(kind=kind, buyer="people organizing this task", tags=[kind.replace('_', ' '), "printable", "organizer"])
     NICHES[name] = base
     return name
 
@@ -189,7 +239,15 @@ EXAMPLES = {
                                                "Kind regards,", "[Your Name]"]},
                "tracker": _SHEET_EXAMPLE},
 }
+_MONEY_RULE = ("The workbook (tabs, formulas, previews) is FIXED and made by code. Give only the listing and a "
+               "short title for the cover. Never promise charts, macros, bank sync or apps; never type amounts.")
+for _kind in ("debt_payoff", "couples_budget", "freelance_budget", "sinking_funds"):
+    EXAMPLES[_kind] = {"title": "Short product title for the cover"}
+EXAMPLES["adhd_planner"] = {"title": "Short product title for the cover", "edition": "energy"}
 KIND_RULES = {
+    **{_kind: _MONEY_RULE for _kind in ("debt_payoff", "couples_budget", "freelance_budget", "sinking_funds")},
+    "adhd_planner": ("The undated planner pages are FIXED and made by code. Set edition to energy, time_blindness "
+                     "or focus (the one that matches the draft) and give the listing. No medical or health claims."),
     "sheets": "Give 2-4 data sheets, up to 40 columns per sheet (a habit plus 31 days fits). Column types: text, number, money, date. Use 'overdue' only when the sheet "
               "has a due-date and a status column, and 'balance' only for a money in/out ledger "
               "(use \"\" when a side is missing). 3-6 sample rows per sheet, dates as YYYY-MM-DD. Set dashboard to true only when the requested product includes a Dashboard tab.",
