@@ -16,7 +16,7 @@ import store_kits
 class CoverageTests(unittest.TestCase):
     def test_nineteen_formats_have_specs_and_profiles(self):
         kinds = set(format_registry.list_registered_formats())
-        self.assertEqual(len(kinds), 19)
+        self.assertEqual(len(kinds), 23)   # 19 + CC-BIG-1 money sheets (4)
         self.assertEqual(kinds, set(sell_proof.FORMAT_ORDER))
         self.assertEqual(kinds, set(store_kits.GUMROAD_PRODUCT_TYPES))
         for kind in kinds:

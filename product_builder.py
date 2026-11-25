@@ -1909,7 +1909,10 @@ DESIGN_THEME_LABEL = "Design theme:"
 LISTING_IMAGE_NAMES = ("cover.png", "preview-1.png", "preview-2.png", "preview-3.png", "pinterest.png", "thumbnail.png")
 KIND_LABELS = {"wall_art": "WALL ART PRINT SET", "flashcards": "PRINTABLE FLASHCARDS", "event_planner": "EVENT PLANNER",
                "email_signature": "EMAIL SIGNATURE TEMPLATES", "habit_tracker": "HABIT TRACKER",
-               "study_planner": "STUDY PLANNER", "recipe_book": "RECIPE BOOK TEMPLATE"}
+               "study_planner": "STUDY PLANNER", "recipe_book": "RECIPE BOOK TEMPLATE",
+               "debt_payoff": "DEBT PAYOFF TRACKER",
+               "couples_budget": "COUPLES BUDGET SPREADSHEET", "freelance_budget": "FREELANCER BUDGET SPREADSHEET",
+               "sinking_funds": "SINKING FUNDS TRACKER"}
 
 
 def recorded_theme(folder):

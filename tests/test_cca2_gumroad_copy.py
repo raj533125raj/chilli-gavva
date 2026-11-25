@@ -50,6 +50,13 @@ TYPES = {
                  ["art_01_a4.png", "art_02_a4.png", "wall_art_set.pdf", "PRINTING.txt"], "Excel spreadsheet version"),
 }
 TYPES.update({
+    # CC-BIG-1: money-sheets family and ADHD planner editions
+    **{kind: (title, tags, [f"{kind}.xlsx", f"{kind}-csv-tabs.zip", "README.txt", "LICENSE.txt"], "Printable PDF version")
+       for kind, title, tags in (
+           ("debt_payoff", "Debt Payoff Tracker Spreadsheet", "debt payoff tracker, debt snowball, budget spreadsheet"),
+           ("couples_budget", "Couples Budget Spreadsheet", "couples budget, shared budget, budget spreadsheet"),
+           ("freelance_budget", "Freelancer Budget Spreadsheet", "freelancer budget, tax set aside, budget spreadsheet"),
+           ("sinking_funds", "Sinking Funds Tracker Spreadsheet", "sinking funds, savings goals, budget spreadsheet"))},
     "digital_planner": ("Digital Planner With Month Tabs", "digital planner, tablet planner, month tabs",
         ["digital_planner.pdf", "README.txt", "LICENSE.txt"], "Excel spreadsheet version"),
     "biz_sheets": ("Small Business Spreadsheet Workbook", "small business spreadsheet, order tracker spreadsheet, inventory spreadsheet",

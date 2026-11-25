@@ -5,6 +5,10 @@ import zipfile
 # Primary keyword, two concrete buyer benefits, and the buyer's opening problem.
 PROFILES={
  'sheets':('Budget Spreadsheet','See your totals clearly','Keep daily records organized','Scattered records make your next financial check harder than it needs to be.'),
+ 'debt_payoff':('Debt Payoff Tracker','See your payoff order clearly','Watch each balance go down','Paying several debts at once makes it hard to know which one to focus on next.'),
+ 'couples_budget':('Couples Budget Spreadsheet','Split shared bills fairly','See who owes whom at a glance','Shared bills get confusing when two people pay from different accounts.'),
+ 'freelance_budget':('Budget Spreadsheet','Plan around uneven months','Set money aside for tax and slow months','Uneven months make it hard to plan a steady budget.'),
+ 'sinking_funds':('Sinking Funds Tracker','See every savings goal in one place','Know what to set aside each month','Planned costs feel bigger when you have not saved a little for them each month.'),
  'biz_sheets':('Small Business Workbook','Track orders and expenses','Keep your business records together','Orders, expenses and stock notes are easy to lose across separate files.'),
  'planner':('Focus Planner','Choose your next manageable step','Plan one calm and manageable day','A crowded to-do list can make it hard to choose your next step.'),
  'dated_planner':('Dated Planner','See your full year more clearly','Keep dates and plans together','Appointments and plans are harder to follow when they live in separate places.'),

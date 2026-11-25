@@ -13,6 +13,10 @@ import selltest_listings
 TITLES={
 'sheets':'Families Budget Spreadsheet Organizing Daily Records',
 'biz_sheets':'Entrepreneurs Small Business Workbook Organizing Records',
+'debt_payoff':'Borrowers Debt Payoff Tracker Organizing Balances',
+'couples_budget':'Couples Budget Spreadsheet Organizing Shared Bills',
+'freelance_budget':'Freelancers Budget Spreadsheet Organizing Uneven Months',
+'sinking_funds':'Savers Sinking Funds Tracker Organizing Goals',
 'planner':'Adults Focus Planner For Organizing Daily Tasks',
 'dated_planner':'Families Dated Planner For Organizing Yearly Appointments',
 'resume':'Applicants Resume Bundle For Organizing Job Applications',

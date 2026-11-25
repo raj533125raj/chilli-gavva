@@ -621,6 +621,26 @@ GUMROAD_TYPES: Dict[str, Dict[str, Any]] = {
         "audience": ["Small business owners tracking orders and inventory", "Shop owners reviewing expenses and monthly profit"],
         "tags": ["business spreadsheet", "order tracker", "inventory spreadsheet", "profit workbook", "small business", "expense tracker", "customer tracker", "shop workbook"],
     },
+    "debt_payoff": {
+        "label": "debt payoff tracker",
+        "audience": ["People paying down several debts one at a time", "Anyone choosing a snowball or avalanche payoff order"],
+        "tags": ["debt payoff tracker", "debt snowball", "debt avalanche", "debt tracker", "budget spreadsheet", "spreadsheet template", "loan tracker", "debt free plan"],
+    },
+    "couples_budget": {
+        "label": "couples shared budget",
+        "audience": ["Couples sharing bills and household costs", "Partners who want a fair split and one settle-up line"],
+        "tags": ["couples budget", "shared budget", "joint budget", "household budget", "split expenses", "budget spreadsheet", "spreadsheet template", "bill tracker"],
+    },
+    "freelance_budget": {
+        "label": "freelancer budget for uneven months",
+        "audience": ["Freelancers whose pay changes from month to month", "Self-employed people setting money aside for tax and slow months"],
+        "tags": ["freelancer budget", "uneven pay budget", "self employed budget", "tax set aside", "buffer fund", "budget spreadsheet", "spreadsheet template", "freelance planner"],
+    },
+    "sinking_funds": {
+        "label": "sinking funds and savings goals tracker",
+        "audience": ["People saving for planned costs a little at a time", "Anyone tracking several savings goals in one place"],
+        "tags": ["sinking funds", "savings tracker", "savings goals", "budget spreadsheet", "spreadsheet template", "savings plan", "money tracker", "goal tracker"],
+    },
     "digital_pack": {
         "label": "digital download",
         "audience": ["Anyone who wants ready-made files to download and use",
@@ -639,6 +659,7 @@ _TYPE_NEEDS = {
                                     "small_business_log", "kids_chore_reward")},
     "digital_planner": {_PDF_EXT},
     "biz_sheets": _SHEET_EXTS,
+    **{kind: _SHEET_EXTS for kind in ("debt_payoff", "couples_budget", "freelance_budget", "sinking_funds")},
     "sheets": _SHEET_EXTS | {".csv"},
     "notion": {".md", ".csv", ".zip"},
     "resume": _DOC_EXTS | {_PDF_EXT},
