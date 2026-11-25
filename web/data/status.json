@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-25T08:42:19Z",
+ "generated_at": "2026-11-25T19:21:04Z",
  "llm": {
   "calls_today": 100,
   "cap": 500
@@ -422,35 +422,35 @@
    "model": "openai/gpt-oss-20b",
    "state": "down",
    "reason": "Provider request rate exceeded",
-   "checked_at": "2026-11-25T08:42:19Z"
+   "checked_at": "2026-11-25T19:21:04Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
    "state": "down",
    "reason": "Provider request rate exceeded",
-   "checked_at": "2026-11-25T08:42:19Z"
+   "checked_at": "2026-11-25T19:21:04Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "down",
    "reason": "Provider request failed",
-   "checked_at": "2026-11-25T08:42:19Z"
+   "checked_at": "2026-11-25T19:21:04Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-25T08:42:19Z"
+   "checked_at": "2026-11-25T19:21:04Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-25T08:42:19Z"
+   "checked_at": "2026-11-25T19:21:04Z"
   }
  ],
  "minutes": {
@@ -2395,12 +2395,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-25T08:42:18Z",
-  "last_run_end": "2026-11-25T08:42:19Z",
+  "last_run_start": "2026-11-25T19:21:03Z",
+  "last_run_end": "2026-11-25T19:21:04Z",
   "runner": "github-actions",
-  "run_id": "45578400255"
+  "run_id": "45684131383"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
@@ -2419,15 +2420,12 @@
   "CXAJ-1 include three owner-sent email drafts in real sample upload kits",
   "CXAI-2 add approved sitemap metadata and real page-content PNG previews",
   "CXAI-1 prepare gated paid and sample landing drafts with tracked links",
-  "CXAH-2 show durable completion marks in today for fourteen days",
-  "CXAH-1 send one compact sell-test morning action plan"
+  "CXAH-2 show durable completion marks in today for fourteen days"
  ],
  "daily_report": {
-  "date_ist": "2026-11-25",
-  "summary": "0 tasks completed; 0 approvals reviewed; 6 products built.",
-  "items_done": [
-   "Product built"
-  ]
+  "date_ist": "2026-11-26",
+  "summary": "No completed work recorded.",
+  "items_done": []
  },
  "sunday_letter": null,
  "cubes": [
