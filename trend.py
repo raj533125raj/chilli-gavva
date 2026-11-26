@@ -304,90 +304,62 @@ def dedupe_items(items: list[dict]) -> list[dict]:
 
 # ---- Scoring & Rationale ----
 
+NICHE_SIGNALS = (
+    (96, ('debt payoff','debt tracker'), 'Debt payoff sheets ki balance order mariyu progress fields clear ga plan cheyochu.'),
+    (86, ('budget','savings','spreadsheet','expense','income'), 'Budget sheets ki planned vs actual records mariyu totals use cheyochu.'),
+    (91, ('adhd','executive function','focus planner'), 'ADHD planners ki one-task focus mariyu manageable daily steps use cheyochu.'),
+    (88, ('resume','job application','ats','cover letter'), 'Resume Pack ki application checklist mariyu editable job-search records use cheyochu.'),
+    (90, ('small business','inventory','order tracker','client tracker','freelancer'), 'Business trackers ki orders, stock leda client follow-up fields use cheyochu.'),
+    (84, ('digital planner','goodnotes','hyperlinked planner'), 'Digital planners ki page navigation mariyu daily planning layout use cheyochu.'),
+    (64, ('planner','printable','template'), 'Planner template idea undi; buyer use mariyu actual file format mundu check cheyandi.'),
+)
+
+
+def is_ai_news(item):
+    title = str(item.get('title','')).casefold()
+    return (item.get('source') == 'huggingface' or bool(re.search(
+        r'\b(ai|llms?|models?|agents?|frameworks?|gpt|gemini|deepseek|qwen|openai|huggingface)\b',title)))
+
+
 def rule_based_score(item: dict) -> dict:
-    """Rule-based fallback scoring for usefulness to Chilli Gavva."""
-    title = (item.get("title") or "").lower()
-    snippet = (item.get("snippet") or "").lower()
-    combined = title + " " + snippet
-
-    score = 60
-    reasons = []
-
-    if any(k in combined for k in ["agent", "multi-agent", "framework", "autogen", "crewai", "langgraph"]):
-        score += 20
-        reasons.append("High relevance to agent tooling and workforce automation.")
-    if any(k in combined for k in ["template", "planner", "printable", "notion", "digital product", "workflow"]):
-        score += 15
-        reasons.append("Direct application for digital product creation.")
-    if any(k in combined for k in ["llm", "deepseek", "huggingface", "model", "reasoning"]):
-        score += 10
-        reasons.append("Useful AI model capabilities for content drafting.")
-
-    score = max(10, min(98, score))
-    why = reasons[0] if reasons else "Provides insights into current AI tools and digital workflows."
-
-    res = dict(item)
-    res["score"] = score
-    res["why"] = why
-    return res
-
-
-SCORE_PROMPT = """You are TREND, an AI agent analyzing rising tech tools, agent frameworks, and digital product trends for Chilli Gavva.
-Score each item from 1 to 100 on usefulness for Chilli Gavva (building agent tooling and low-cost digital products).
-Provide a 1-line rationale ('why') for each item.
-
-Rules:
-- Do NOT include any money amounts or currency symbols.
-- Reply strictly with a JSON array of objects:
-[
-  {
-    "title": "item title",
-    "score": 85,
-    "why": "1-line explanation of usefulness to Chilli Gavva"
-  }
-]
-
-Items to evaluate:
-{items_json}"""
+    """Score evidenced product-niche usefulness, never AI-tool popularity."""
+    title = str(item.get('title','')).casefold()
+    snippet = str(item.get('snippet','')).casefold()
+    signals = []
+    matches = lambda term,body: bool(re.search(r'(?<!\w)' + re.escape(term) + r's?(?!\w)',body))
+    for base, terms, why in NICHE_SIGNALS:
+        hits = [term for term in terms if matches(term,title)]
+        notes = [term for term in terms if matches(term,snippet)]
+        if hits or notes:
+            signals.append((len(hits)*100+len(notes)*10+base,base,hits,notes,why))
+    result = dict(item)
+    if is_ai_news(item):
+        result.update(score=25 if signals else 12,
+                      why='AI news matrame; mana buyer Pack ki direct demand proof ledu. Product use mundu check cheyandi.')
+    elif signals:
+        _,base,hits,notes,why = max(signals)
+        result.update(score=min(98,base+min(6,2*len(hits)+len(notes))),
+                      why=f"{(hits or notes)[0]}: {why}")
+    else:
+        result.update(score=18,why='Mana product niches tho clear match ledu; buyer need telisaka decide cheyandi.')
+    result['ai_news']=is_ai_news(item)
+    return result
 
 
 def score_items(items: list[dict], llm_fn=None, db_path=None) -> list[dict]:
-    """Score candidates using llm_router with rule-based fallback."""
-    if not items:
-        return []
+    """Deterministic selling relevance keeps AI news from inflating its own score."""
+    return [rule_based_score(item) for item in items]
 
-    scored = []
-    # Only call LLM if allowed by daily cap
-    if llm_fn is not None and guardrails.can_call_llm(db_path):
-        try:
-            compact = [{"title": it["title"], "snippet": it.get("snippet", "")} for it in items[:12]]
-            prompt = SCORE_PROMPT.format(items_json=json.dumps(compact))
-            reply = llm_fn(prompt, size="small") if callable(llm_fn) else None
-            if reply and "[" in reply and "]" in reply:
-                start = reply.find("[")
-                end = reply.rfind("]")
-                evals = json.loads(reply[start:end + 1])
-                eval_map = {e.get("title", "").strip().lower(): e for e in evals if isinstance(e, dict)}
-                for it in items:
-                    it_copy = dict(it)
-                    matched = eval_map.get(it["title"].strip().lower())
-                    if matched and isinstance(matched.get("score"), (int, float)):
-                        it_copy["score"] = max(1, min(100, int(matched["score"])))
-                        it_copy["why"] = str(matched.get("why") or "").strip() or "Relevant for agent tooling."
-                        scored.append(it_copy)
-                    else:
-                        scored.append(rule_based_score(it))
-        except Exception:
-            scored = []
 
-    if not scored or len(scored) < len(items):
-        # Fallback to rule-based scoring for remaining items
-        already_handled = {s["title"] for s in scored}
-        for it in items:
-            if it["title"] not in already_handled:
-                scored.append(rule_based_score(it))
-
-    return scored
+def digest_items(items):
+    """Up to five useful items, with no more than one AI-news item."""
+    ranked = sorted((rule_based_score(item) for item in items),key=lambda row:-row['score'])
+    chosen=[]; news=0
+    for item in ranked:
+        if item['ai_news'] and news:continue
+        chosen.append(item);news+=int(item['ai_news'])
+        if len(chosen)==5:break
+    return chosen
 
 
 # ---- Run Cycle & DB Persistence ----
@@ -433,7 +405,7 @@ def run_trend(db_path=None, llm=None, fetcher=None) -> list[dict]:
     conn.close()
 
     # Send ONE short Telegram digest for top 5 items
-    send_telegram_digest(saved_items[:5], db_path=db_path)
+    send_telegram_digest(saved_items, db_path=db_path)
 
     sync_approved_trends(db_path)
     return saved_items
@@ -468,22 +440,18 @@ def digest_buttons(items: list[dict]):
 
 def send_telegram_digest(items: list[dict], db_path=None):
     """Send ONE short Telegram digest with top items and interactivity buttons."""
+    items=digest_items(items)
     if not items:
         return False
     configured, token, chat_id = notify._telegram_configured()
     if not configured:
         return False
-
-    lines = ["🔥 TREND Digest — Today's Top AI Tools & Trends:\n"]
-    for idx, it in enumerate(items, 1):
-        lines.append(f"{idx}. {it['title']} (Score: {it.get('score', 50)}/100)")
-        lines.append(f"   Why: {it.get('why', '')}")
-        if it.get("url"):
-            lines.append(f"   Link: {it['url']}")
-        lines.append("")
-
-    lines.append("Use buttons below for a Deep Dive summary or to Propose an item.")
-    text = "\n".join(lines)
+    lines = ["🔥 TREND Digest — ammadaniki product ideas:"]
+    for idx,it in enumerate(items,1):
+        lines.append(f"{idx}. {it['title']} | Score: {it['score']}/100 — Why: {it['why']}")
+        if it.get('url'):lines.append(it['url'])
+    lines.append('Next: Deep Dive leda Propose button nokkandi; owner decide cheyandi.')
+    text='\n'.join(lines)
     btns = digest_buttons(items)
 
     import telegram_inbox

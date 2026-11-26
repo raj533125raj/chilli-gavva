@@ -106,7 +106,7 @@ class TrendAgentTests(unittest.TestCase):
             "source": "github"
         }
         scored = trend.rule_based_score(item)
-        self.assertGreaterEqual(scored["score"], 80)
+        self.assertLessEqual(scored["score"], 25)
         self.assertTrue(len(scored["why"]) > 5)
 
     def test_run_trend_stores_top_10_and_triggers_telegram(self):
@@ -125,7 +125,8 @@ class TrendAgentTests(unittest.TestCase):
             self.assertEqual(args[0], "token123")
             self.assertEqual(args[1], "chat456")
             self.assertIn("TREND Digest", args[2])
-            self.assertEqual(len(kwargs["buttons"]), 5)
+            self.assertLessEqual(len(kwargs["buttons"]), 5)
+            self.assertEqual(len(kwargs["buttons"]), args[2].count("Score:"))
 
     def test_deep_dive_callback_returns_summary(self):
         # Run trend to populate database
@@ -205,7 +206,7 @@ class TrendAgentTests(unittest.TestCase):
 
     def test_no_currency_symbols_or_money_in_prompts(self):
         for forbidden in ("$", "USD", "EUR", "GBP", "rupee"):
-            self.assertNotIn(forbidden, trend.SCORE_PROMPT)
+            self.assertNotIn(forbidden, str(trend.NICHE_SIGNALS))
             self.assertNotIn(forbidden, trend.SUMMARY_PROMPT)
 
 
