@@ -142,7 +142,7 @@ class CheckerWorkflowIntegrationTests(unittest.TestCase):
         item = {"id": 12, "title": "Freelancer Workspace Template", "review": review_str}
         card = ti.draft_card(item)
         lines = card.splitlines()
-        self.assertEqual(lines[0], "#12 Freelancer Workspace Template")
+        self.assertEqual(lines[0], "#12 Freelancer Workspace Template Digital Download For")
         self.assertEqual(lines[1], "Checker: 82/100")
         self.assertEqual(lines[2], "- Clear audience")
         self.assertEqual(lines[3], "- Beats free template")

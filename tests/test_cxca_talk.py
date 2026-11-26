@@ -89,6 +89,7 @@ class Talk(unittest.TestCase):
 
     def test_read_only_sell_card_remains_available(self):
         self.assertIsNone(owner_talk.action_hint('sell card'))
+        self.assertIsNone(owner_talk.action_hint('post chesanu okati'))
         self.assertIsNotNone(owner_talk.action_hint('sell pack 3'))
 
     def test_long_ai_lines_stay_short_on_the_actual_transport(self):
@@ -103,3 +104,22 @@ class Talk(unittest.TestCase):
             handled,reply=inbox.call_plugins('pakcs','unused',self.chat)
         self.assertTrue(handled);self.assertIn('anukunnara?',reply['text'])
         chat.assert_not_called()
+
+    def test_ai_down_turn_is_available_for_a_later_followup(self):
+        with patch('llm_router.chat',return_value=None):
+            owner_talk.answer('naa planner prashna',self.ctx)
+        with patch('llm_router.chat',return_value='Mundu prashna gurinchi cheptanu.') as chat:
+            owner_talk.answer('adi enduku?',self.ctx)
+        self.assertIn('naa planner prashna',chat.call_args.args[0])
+        self.assertIn('AI ippudu',chat.call_args.args[0])
+
+    def test_explicit_plugin_subset_does_not_invoke_global_talk(self):
+        from types import SimpleNamespace
+        plugin=SimpleNamespace(handle=lambda text,ctx:None)
+        with patch.object(inbox,'build_plugin_ctx',return_value=self.ctx), patch('llm_router.chat') as chat:
+            handled,reply=inbox.call_plugins('a general question','unused',self.chat,plugins=[plugin])
+        self.assertFalse(handled);self.assertIsNone(reply);chat.assert_not_called()
+
+    def test_legacy_resume_language_offers_the_real_command(self):
+        self.assertIn('Next: /resume',owner_talk.action_hint('malli start chey')['text'])
+        self.assertIn('Next: /pause',owner_talk.action_hint('anni aapu')['text'])

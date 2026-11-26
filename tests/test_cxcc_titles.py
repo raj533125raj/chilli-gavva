@@ -22,3 +22,16 @@ class Titles(unittest.TestCase):
         title=owner_title('Monthly budget sheet')
         self.assertTrue(title.startswith('Monthly budget sheet '))
         self.assertEqual(len(title.split()),6)
+
+    def test_proposal_title_does_not_claim_a_buyer_download(self):
+        self.assertEqual(owner_title({'kind':'scout_idea','title':'[Scout Idea] Research proposal'}),'Research proposal')
+
+    def test_marketing_reads_the_same_product_listing(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);pack=root/'products'/'upload'/'5-study'
+            pack.mkdir(parents=True)
+            title='Students Study Planner Organizing Weekly Study Tasks'
+            (pack/'listing.txt').write_text('Title: '+title)
+            for marketing in (root/'products'/'marketing'/'5-study',root/'marketing'/'5-study'):
+                marketing.mkdir(parents=True)
+                self.assertEqual(owner_title(marketing),title)

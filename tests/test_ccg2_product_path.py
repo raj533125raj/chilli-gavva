@@ -68,7 +68,9 @@ class ProposalsAreNotAutoDecided(Base):
         draft = self.add("public_draft", "Draft: [Budget Sheets Agent] Couple budget", _pass(84), 60)
         decisions = auto_approve.auto_decide_drafts(self.db, now=NOW)
         self.assertEqual([d["id"] for d in decisions], [draft])
-        self.assertEqual([self.status(i) for i in (scout, trend, patch)], ["pending"] * 3)   # never auto-rejected
+        self.assertEqual([self.status(i) for i in (scout, trend, patch)], ["archived", "pending", "pending"])
+        with guardrails.connect(self.db) as conn:
+            self.assertEqual(conn.execute("SELECT reason FROM approvals WHERE id=?",(scout,)).fetchone()[0], "archived — owner ki time ledu")  # never approved/rejected
         self.assertEqual(self.status(draft), "approved")
 
 
@@ -170,7 +172,9 @@ class FifteenNovemberQueue(Base):
         self.assertTrue(all(t.startswith("Draft: [") for t in titles), titles)
         self.assertTrue(any("Couple budget" in t for t in titles) and any("2027 teacher" in t for t in titles))
         left = {i["kind"] for i in guardrails.pending(self.db)}
-        self.assertTrue({"scout_idea", "trend_proposal", "code_patch"} <= left)
+        self.assertTrue({"trend_proposal", "code_patch"} <= left)
+        with guardrails.connect(self.db) as conn:
+            self.assertEqual(conn.execute("SELECT DISTINCT status FROM approvals WHERE kind='scout_idea'").fetchall(), [("archived",)])
 
 
 class OwnerApprovalsBuildFirst(Base):

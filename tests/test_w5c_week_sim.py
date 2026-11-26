@@ -248,6 +248,11 @@ class TestW5COneWeekSimulation(unittest.TestCase):
         # Monday Nov 9, 2026 09:00 IST
         self.clock = FakeClock(datetime.datetime(2026, 11, 9, 9, 0, tzinfo=IST))
         self.bot = FakeTelegramBot(self.owner_chat_id)
+        # The real product queue uses age gates; keep its clock on this simulated week.
+        as_utc = auto_approve._as_utc
+        self.patch_queue_clock = mock.patch('auto_approve._as_utc',
+            side_effect=lambda now=None: as_utc(now or self.clock.now_utc()))
+        self.patch_queue_clock.start()
 
         # Patches
         self.patch_call = mock.patch("telegram_inbox._call", side_effect=self.bot.call)
@@ -284,7 +289,7 @@ class TestW5COneWeekSimulation(unittest.TestCase):
         review = checker.format_review(score, ["Clear value", "Good format"], "PASS", fallback=False)
         with guardrails.connect(self.db_path) as conn:
             conn.execute(
-                "INSERT INTO approvals (id, ts, kind, title, payload, status, review) VALUES (?, ?, 'draft', ?, ?, 'pending', ?)",
+                "INSERT INTO approvals (id, ts, kind, title, payload, status, review) VALUES (?, ?, 'public_draft', ?, ?, 'pending', ?)",
                 (draft_id, self.clock.now_utc().isoformat(), title, payload, review),
             )
         return draft_id
@@ -541,20 +546,28 @@ class TestW5COneWeekSimulation(unittest.TestCase):
         res = telegram_inbox._run(db_path=self.db_path)
         self.assertEqual(res["commands"], 2)
 
-    def test_19_plain_text_tenglish_ok_approves(self):
-        """Tenglish: '10 ok' approves draft 10."""
+    def test_19_free_approve_requires_an_explicit_command(self):
+        """Free approve text offers the command; only /approve changes the draft."""
         self._create_sample_draft(10, "Draft: [ADHD Planners Agent] Plan", "ADHD Planners Agent")
         self.bot.enqueue_owner_message("approve 10")
+        telegram_inbox._run(db_path=self.db_path)
+        self.assertEqual(guardrails.get_approval(10,self.db_path)["status"],"pending")
+        self.assertTrue(any("/approve 10" in row["text"] for row in self.bot.sent_messages))
+        self.bot.enqueue_owner_message("/approve 10")
         telegram_inbox._run(db_path=self.db_path)
 
         with guardrails.connect(self.db_path) as conn:
             status = conn.execute("SELECT status FROM approvals WHERE id = 10").fetchone()[0]
         self.assertEqual(status, "approved")
 
-    def test_20_plain_text_tenglish_vaddu_rejects(self):
-        """Tenglish: '10 vaddu' rejects draft 10."""
+    def test_20_free_reject_requires_an_explicit_command(self):
+        """Free reject text offers the command; only /reject changes the draft."""
         self._create_sample_draft(10, "Draft: [ADHD Planners Agent] Plan", "ADHD Planners Agent")
         self.bot.enqueue_owner_message("reject 10")
+        telegram_inbox._run(db_path=self.db_path)
+        self.assertEqual(guardrails.get_approval(10,self.db_path)["status"],"pending")
+        self.assertTrue(any("/reject 10" in row["text"] for row in self.bot.sent_messages))
+        self.bot.enqueue_owner_message("/reject 10")
         telegram_inbox._run(db_path=self.db_path)
 
         with guardrails.connect(self.db_path) as conn:
@@ -854,10 +867,10 @@ class TestW5COneWeekSimulation(unittest.TestCase):
     def test_58_auto_approve_respects_threshold(self):
         """Settings: Auto-approve only acts on drafts waiting > 24 hours."""
         # Draft waiting only 2 hours (< 24 hours) with score 70
-        ts = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=2)).isoformat()
+        ts = (self.clock.now_utc() - datetime.timedelta(hours=2)).isoformat()
         with guardrails.connect(self.db_path) as conn:
             conn.execute(
-                "INSERT INTO approvals (id, ts, kind, title, payload, status, review) VALUES (40, ?, 'draft', 'Draft: ADHD', 'Payload', 'pending', 'Score: 70/100')",
+                "INSERT INTO approvals (id, ts, kind, title, payload, status, review) VALUES (40, ?, 'public_draft', 'Draft: ADHD', 'Payload', 'pending', 'Score: 70/100')",
                 (ts,),
             )
         auto_approve.run_auto_decisions(db_path=self.db_path, token=self.bot_token, owner_chat_id=self.owner_chat_id)

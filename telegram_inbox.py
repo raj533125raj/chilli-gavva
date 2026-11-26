@@ -871,6 +871,7 @@ def _plugin_burst(text, note):
 
 def call_plugins(text, token, chat_id, db_path=None, now=None, plugins=None, message=None):
     """Run loaded plugins on text in sorted order. Returns (handled: bool, reply_dict or None)."""
+    full_registry = plugins is None
     if plugins is None:
         plugins = discover_plugins()
     if not plugins:
@@ -922,7 +923,7 @@ def call_plugins(text, token, chat_id, db_path=None, now=None, plugins=None, mes
         return True, {"text": crash_note}
     if fallback is not None and 'anukunnara?' in str(fallback.get('text','')):
         return True, fallback  # A recognized command typo belongs to tg_menu.
-    if not str(text).strip().startswith("/") and not any(
+    if full_registry and not str(text).strip().startswith("/") and not any(
             kind in (message or {}) for kind in ("photo", "document", "voice", "audio")):
         import owner_talk
         reply = owner_talk.answer(text, ctx)
@@ -2483,8 +2484,9 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
         import owner_commands
         # Known Office controls keep their own explicit language. Robot talk
         # actions require a slash command or the existing decision buttons.
-        office_intent = owner_commands.parse(message_text).get('intent')
-        hint = None if office_intent in OFFICE_INTENTS else owner_talk.action_hint(message_text)
+        hint = owner_talk.action_hint(message_text)
+        if hint is not None and owner_commands.parse(message_text).get('intent') in OFFICE_INTENTS:
+            hint = None
         if hint is not None:
             if not is_duplicate:
                 send_text(token,owner_chat_id,_plugin_burst(hint['text'],burst_note))

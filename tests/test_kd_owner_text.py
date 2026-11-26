@@ -78,11 +78,19 @@ class KdOwnerTextTests(unittest.TestCase):
         with mock.patch.object(ti, "fetch_updates", return_value=updates):
             return ti.process_updates("tok", OWNER, self.db)
 
+    def legacy_prompt(self,intent,args):
+        """A previously delivered button must still enforce owner, expiry and replay checks."""
+        text,buttons=ti.create_confirmation_prompt(intent,args,db_path=self.db)
+        ti.send_text('tok',OWNER,text,buttons)
+
     # 1. "59 approve chey" -> confirm prompt, Yes -> approved, No -> nothing
     def test_approve_chey_flow(self):
         draft_id = self.add(title="Planner 59")
-        # Prompt: "59 approve chey"
         self.run_updates([_upd(1, f"{draft_id} approve chey")])
+        self.assertIn(f'Next: /approve {draft_id}',self.sent[0][1])
+        self.assertEqual(guardrails.get_approval(draft_id,self.db)['status'],'pending')
+        self.sent.clear()
+        self.legacy_prompt('approve_draft',{'n':draft_id})
         self.assertEqual(len(self.sent), 1)
         chat, text, buttons = self.sent[0]
         self.assertEqual(chat, OWNER)
@@ -111,7 +119,7 @@ class KdOwnerTextTests(unittest.TestCase):
 
     def test_approve_chey_cancelled_with_no(self):
         draft_id = self.add(title="Planner 59")
-        self.run_updates([_upd(1, f"{draft_id} approve chey")])
+        self.legacy_prompt('approve_draft',{'n':draft_id})
         btn_row = self.sent[0][2][0]
         cb_no = btn_row[1][1]
 
@@ -124,6 +132,10 @@ class KdOwnerTextTests(unittest.TestCase):
     def test_reject_chey_flow(self):
         draft_id = self.add(title="Planner 61")
         self.run_updates([_upd(1, f"draft {draft_id} reject chey, too generic")])
+        self.assertIn(f'Next: /reject {draft_id}',self.sent[0][1])
+        self.assertEqual(guardrails.get_approval(draft_id,self.db)['status'],'pending')
+        self.sent.clear()
+        self.legacy_prompt('reject_draft',{'n':draft_id,'reason':'too generic'})
         self.assertEqual(len(self.sent), 1)
         chat, text, buttons = self.sent[0]
         self.assertIn(f"Confirm: reject draft #{draft_id} (too generic)? Yes/No", text)
@@ -142,7 +154,7 @@ class KdOwnerTextTests(unittest.TestCase):
     # 3. Confirmation expiry (> 10 minutes)
     def test_confirmation_expired_after_10_minutes(self):
         draft_id = self.add(title="Planner 77")
-        self.run_updates([_upd(1, f"{draft_id} approve chey")])
+        self.legacy_prompt('approve_draft',{'n':draft_id})
         cb_yes = self.sent[0][2][0][0][1]
 
         # Simulate 11 minutes later
@@ -228,7 +240,7 @@ class KdOwnerTextTests(unittest.TestCase):
         self.assertEqual(guardrails.get_approval(d, self.db)["status"], "pending")
 
         # Non-owner callback button press is ignored
-        self.run_updates([_upd(2, f"{d} approve chey", chat=OWNER)])
+        self.legacy_prompt('approve_draft',{'n':d})
         cb_yes = self.sent[0][2][0][0][1]
         self.sent.clear()
         self.run_updates([_cb(3, cb_yes, chat="9999999", sender="9999999")])
@@ -247,6 +259,8 @@ class KdOwnerTextTests(unittest.TestCase):
     def test_pause_and_resume_all_confirm(self):
         # "anni aapu" -> pause_all
         self.run_updates([_upd(1, "anni aapu")])
+        self.assertIn('Next: /pause',self.sent[-1][1])
+        self.legacy_prompt('pause_all',{})
         self.assertIn("Confirm: pause all? Yes/No", self.sent[-1][1])
         cb_yes = self.sent[-1][2][0][0][1]
 
@@ -257,6 +271,8 @@ class KdOwnerTextTests(unittest.TestCase):
 
         # "malli start chey" -> resume_all
         self.run_updates([_upd(3, "malli start chey")])
+        self.assertIn('Next: /resume',self.sent[-1][1])
+        self.legacy_prompt('resume_all',{})
         self.assertIn("Confirm: resume all? Yes/No", self.sent[-1][1])
         cb_resume_yes = self.sent[-1][2][0][0][1]
 

@@ -67,9 +67,15 @@ def action_hint(text):
         return None  # Reading settings cannot approve a draft or change a policy.
     import talk_intents
     found = talk_intents.detect(text)
-    if found and found['command']=='sellcard':
-        return None  # The daily read-only card never lists or posts a product.
-    if found and found.get('risky'):
+    if found and found['command'].split()[0] in ('sellcard','/posted'):
+        return None  # Read-only card and owner-reported receipts never publish a post.
+    import owner_commands
+    legacy=owner_commands.parse(text)
+    mapped={'approve_draft':'/approve','reject_draft':'/reject','pause_all':'/pause','resume_all':'/resume'}.get(legacy.get('intent'))
+    if mapped:
+        number=(legacy.get('args') or {}).get('n')
+        command=mapped+((' '+str(number)) if mapped in ('/approve','/reject') and number is not None else '')
+    elif found and found.get('risky'):
         command = found['command']
     else:
         match = re.search(r'\b(approve|reject|pause|resume|kill|delete|sell|list|post|publish)\b', str(text), re.I)
@@ -146,7 +152,7 @@ def answer(text, ctx):
         memory(ctx, text, local)
         return {'text': local + '\nNext: /talk pampandi; inko prashna adagandi.'}
     if not reserve_answer(ctx.get('db_path'), now):
-        return {'text': 'Ee roju 30 AI answers limit aipoyindi. Repu malli adagandi.\nNext: /today'}
+        return {'text': 'Ee roju 30 AI talk tries limit aipoyindi. Repu malli adagandi.\nNext: /today'}
     import llm_router
     import daily_report
     import json
@@ -168,6 +174,8 @@ def answer(text, ctx):
         return {'text': clean + '\nNext: /talk pampandi; inko prashna adagandi.'}
     from tg_menu import find_suggestions
     suggestions = find_suggestions(text)
-    return {'text': 'AI ippudu answer ivvalekapoyindi. Malli adagandi.\n' +
-            '\n'.join(f'• {cmd} — {help_te}' for _,cmd,help_te in suggestions) +
-            '\nNext: /menu pampandi; pani enchukondi.'}
+    reply = ('AI ippudu answer ivvalekapoyindi. Malli adagandi.\n' +
+             '\n'.join(f'• {cmd} — {help_te}' for _,cmd,help_te in suggestions) +
+             '\nNext: /menu pampandi; pani enchukondi.')
+    memory(ctx,text,reply)
+    return {'text':reply}

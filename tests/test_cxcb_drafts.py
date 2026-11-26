@@ -90,3 +90,21 @@ class Backlog(unittest.TestCase):
             result=workforce.run_once(max_tasks=1,db_path=self.db,llm=lambda prompt:'Savings goal worksheet\nFORMAT: sheets',rng=random.Random(2))
         self.assertEqual(result['ran'],1,result)
         self.assertEqual(len(auto_approve.split_waiting(self.db)[0]),1)
+
+    def test_auto_decision_owner_copy_uses_the_same_buyer_title(self):
+        aid=guardrails.request_approval('public_draft','Draft: [ADHD Planners Agent] Focus (v4, llm)',
+                                       'FORMAT: adhd_planner',review='Checker: 89/100 | CHECKER: PASS',db_path=self.db)
+        with guardrails.connect(self.db) as conn:
+            conn.execute('UPDATE approvals SET ts=? WHERE id=?',((NOW-dt.timedelta(hours=30)).isoformat(),aid))
+        decisions=auto_approve.auto_decide_drafts(self.db,NOW)
+        line=next(row['line'] for row in decisions if row['id']==aid)
+        self.assertIn('Adults ADHD Planner Organizing Daily Steps',line)
+        self.assertNotIn('Agent',line)
+
+    def test_report_and_writer_share_the_same_active_draft_limit(self):
+        guardrails.request_approval('public_draft','Budget Sheet','FORMAT: sheets',db_path=self.db)
+        with patch.object(workforce,'MAX_PENDING_APPROVALS',1):
+            data=auto_approve.queue_digest(self.db,NOW)
+            self.assertTrue(data['new_drafts_paused'])
+            self.assertIn('product Drafts limit 1',auto_approve.queue_digest_line(self.db,NOW))
+            self.assertEqual(workforce.step_plan({'payload':{'topic':'Budget worksheet'}},{'db_path':self.db})['next'],[])

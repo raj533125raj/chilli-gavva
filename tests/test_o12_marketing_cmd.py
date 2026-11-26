@@ -103,7 +103,7 @@ class MarketingTextTests(MarketingBase):
     def test_full_pack_lists_everything(self):
         pdir = self.make_full_pack(5)
         res = ti.marketing_text(5, marketing_dir=str(self.marketing))
-        self.assertIn("Marketing pack #5 (5):", res)
+        self.assertIn("Marketing pack #5:", res)
         self.assertIn("Carousel: 3 slides", res)
         self.assertIn("Pins:", res)
         self.assertIn("Reel frames: 2", res)
@@ -134,7 +134,7 @@ class MarketingTextTests(MarketingBase):
             pdir = self.make_pack(name=name)
         (pdir / "blog.md").write_text("a b c", encoding="utf-8")
         res = ti.marketing_text(5, marketing_dir=str(self.marketing))
-        self.assertIn("Marketing pack #5 (5-planner):", res)
+        self.assertIn("Marketing pack #5:", res)
         self.assertIn("Blog: 3 words", res)
         self.assertNotIn("not-fake", res)
 
@@ -179,7 +179,7 @@ class HandleCommandTests(MarketingBase):
         self.make_full_pack(5)
         self.use_cwd()
         res = ti.handle_command("marketing", [5], db_path=None)
-        self.assertIn("Marketing pack #5 (5):", res)
+        self.assertIn("Marketing pack #5:", res)
         self.assertIn("Carousel: 3 slides", res)
 
     def test_help_mentions_marketing(self):
@@ -241,7 +241,7 @@ class TelegramIntegrationTests(MarketingBase, _FakeUpdatesBase):
         self.make_full_pack(3)
         self.run_updates([self._upd(1, "marketing 3 chupinchu")])
         self.assertEqual(len(self.sent), 1)
-        self.assertIn("Marketing pack #3 (3):", self.sent[0][1])
+        self.assertIn("Marketing pack #3:", self.sent[0][1])
 
     def test_owner_chat_only(self):
         self.make_full_pack(5)

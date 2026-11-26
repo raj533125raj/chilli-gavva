@@ -121,12 +121,13 @@ class AdviceOnlyTests(unittest.TestCase):
         q.rescore_old_reviews(self.db)
         card = ti.draft_card(guardrails.pending(self.db)[0], db_path=self.db)
         lines = card.splitlines()
-        self.assertEqual(lines[0], f"#{a} Draft: [ADHD Planners Agent] planner")
+        self.assertEqual(lines[0], f"#{a} Adults ADHD Planner Organizing Daily Steps")
         self.assertEqual(lines[1], "Checker: 5/100")
-        self.assertEqual(lines[2:], ["- Contents not listed", "- No buyer named"])
+        self.assertEqual(lines[2:-1], ["- Contents not listed", "- No buyer named"])
+        self.assertTrue(lines[-1].startswith("Next:"))
 
     def test_card_without_review(self):
-        self.assertIn("not checked yet", ti.draft_card({"id": 9, "title": "x", "review": None}))
+        self.assertIn("inka check cheyaledu", ti.draft_card({"id": 9, "title": "x", "review": None}))
 
     def test_low_score_and_ai_reject_never_decide(self):
         import workforce

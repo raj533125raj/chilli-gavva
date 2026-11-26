@@ -135,7 +135,7 @@ class TestKeReportPacks(unittest.TestCase):
         self.assertIn("Door bell: on", text)
         self.assertIn("Button presses received in the last 24h: 0", text)
         self.assertIn("Errors: none", text)
-        self.assertIn("Next step for owner: nothing needed", text)
+        self.assertIn("Next: /listnext", text)
 
         # Money regex check
         self.assertEqual(MONEY_PATTERN.findall(text), [])

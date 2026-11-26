@@ -24,6 +24,7 @@ from typing import Dict, List, Optional, Set, Tuple
 import checker
 import guardrails
 import notify
+from owner_titles import owner_title
 
 AUTO_APPROVE_HOURS = 24
 DEFAULT_SCORE_THRESHOLD = 75
@@ -380,7 +381,7 @@ def morning_digest_line(db_path=None, now=None) -> str:
             return "Auto-approved yesterday: None (ninna auto-approve aina drafts emi levu)."
 
         count = len(rows)
-        titles = [f"#{aid} {(title or '')[:30]}".strip() for aid, title in rows]
+        titles = [f"#{aid} {owner_title(title)}" for aid,title in rows]
         titles_str = ", ".join(titles)
         return f"Auto-approved yesterday: {count} drafts ({titles_str})."
     except Exception:
@@ -587,11 +588,12 @@ def auto_decide_drafts(db_path=None, now=None):
     decisions = _expire_rule_proposals(db_path, now)
     for entry in _plan(db_path, now, settings):
         approval_id, score, title = entry["id"], entry["score"], entry["title"][:50]
+        display_title = owner_title({"title":entry["title"],"kind":entry["kind"]})
         if entry["action"] == "approve":
             if guardrails.decide(approval_id, True, db_path, reason="auto-approved"):
                 decisions.append({"id": approval_id, "action": "approved", "title": title, "score": score,
                                   "line": f"Draft #{approval_id} auto-approved (score {score}/100 >= {threshold}): "
-                                          f"{title}"})
+                                          f"{display_title}"})
         elif entry["action"] == "reject":
             reason = {"checker_problem": "checker problem", "proposal_timeout": "owner time ayipoyindi"}.get(
                 entry["why"], AUTO_REJECT_REASON)
@@ -602,7 +604,7 @@ def auto_decide_drafts(db_path=None, now=None):
                     reason += ": " + "; ".join(str(value) for value in reasons[:2])[:240]
             if guardrails.decide(approval_id, False, db_path, reason=reason):
                 decisions.append({"id": approval_id, "action": "rejected", "title": title, "score": score,
-                                  "line": f"Draft #{approval_id} auto-rejected: {reason}. {title}"})
+                                  "line": f"Draft #{approval_id} auto-rejected: {reason}. {display_title}"})
         # guardrails.decide is a compare-and-set: a prior owner decision wins.
         # Use the injected clock for decisions actually made by this run.
         if decisions and decisions[-1]["id"] == approval_id:
@@ -663,12 +665,12 @@ def waiting_report_text(db_path=None, now=None, max_lines: int = 12) -> str:
              f"/100, daily limit {settings.get('daily_limit')} (ee roju auto-approved: {report['approved_today']})",
              f"Product drafts waiting: {len(drafts)}" + (f" (oldest {oldest}h)" if drafts else "")]
     for d in drafts[:max_lines]:
-        lines.append(f"#{d['id']} {d['hours']}h: {d['why_text']} | {d['title'][:45]}")
+        lines.append(f"#{d['id']} {d['hours']}h: {d['why_text']} | {owner_title(d)}")
     if len(drafts) > max_lines:
         lines.append(f"... inka {len(drafts) - max_lines} drafts (/list)")
     lines.append(f"Proposals waiting: {len(proposals)} (product drafts kaadu; meere decide cheyali)")
     for p in proposals[:max_lines]:
-        lines.append(f"#{p['id']} {p['hours']}h {KIND_LABEL.get(p['kind'], p['kind'])} | {p['title'][:45]}")
+        lines.append(f"#{p['id']} {p['hours']}h {KIND_LABEL.get(p['kind'], p['kind'])} | {owner_title(p)}")
     if len(proposals) > max_lines:
         lines.append(f"... inka {len(proposals) - max_lines} proposals")
     lines.append(f"Self-Improvement Proposals waiting: {report['rule_proposals']}")
@@ -705,11 +707,13 @@ def queue_digest(db_path=None, now=None):
                     rejected += status == "rejected"
     finally:
         conn.close()
+    import workforce
     return {"waiting": len(plan)+rule_waiting, "approved": approved, "rejected": rejected,
             "decided": approved+rejected, "blocked": sum(reasons.values()), "reasons": dict(reasons),
             "product_drafts": sum(row['product'] for row in plan),
             "proposals": sum(not row['product'] for row in plan)+rule_waiting,
-            "new_drafts_paused": __import__('workforce').active_draft_backlog(db_path) >= 10}
+            "draft_limit": workforce.MAX_PENDING_APPROVALS,
+            "new_drafts_paused": workforce.active_draft_backlog(db_path) >= workforce.MAX_PENDING_APPROVALS}
 
 
 def queue_digest_line(db_path=None, now=None):
@@ -726,7 +730,7 @@ def queue_digest_line(db_path=None, now=None):
         line += f": {why}"
     line += f"; Product drafts waiting: {data['product_drafts']}; Proposals waiting: {data['proposals']}"
     if data["new_drafts_paused"]:
-        line += ". Kotha Drafts ee run lo aapamu (waiting 10 minchindi)."
+        line += f". Kotha Drafts ee run lo aapamu (product Drafts limit {data['draft_limit']} cherindi)."
     return line
 
 
