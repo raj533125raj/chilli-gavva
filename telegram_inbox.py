@@ -880,6 +880,11 @@ def call_plugins(text, token, chat_id, db_path=None, now=None, plugins=None, mes
     plugins = sorted(plugins, key=lambda plugin: -int(getattr(plugin, "PRIORITY", 0) or 0))
 
     ctx = build_plugin_ctx(token, chat_id, db_path=db_path, now=now, message=message)
+    if os.environ.get('TELEGRAM_CHAT_ID', '').strip() == str(chat_id):
+        import owner_talk
+        hint = owner_talk.action_hint(text)
+        if hint is not None:
+            return True, hint
     # A "did not understand" suggestion (tg_menu) is only a fallback: a later plugin that really owns
     # the command (for example /ideas in tg_reports) must win.
     fallback = None

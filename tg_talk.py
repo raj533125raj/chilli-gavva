@@ -290,6 +290,13 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
         return {"text": examples_text()}
     if text.strip().startswith("/"):
         return None
+    import owner_talk
+    detected = talk_intents.detect(text)
+    if detected and detected.get('risky'):
+        return suggestion_reply(detected, ctx)
+    hint = owner_talk.action_hint(text)
+    if hint is not None:
+        return hint
     found = talk_intents.detect(text)
     if found is None:
         return None

@@ -489,21 +489,15 @@ class TalkPluginTests(TalkBase):
         self.assertEqual([Path(path).name for path in self.documents], ["product.zip", "cover.png", "listing.txt"])
         self.assertEqual(self.documents[0], str(pack / "product.zip"))
 
-    def test_sell_with_telugu_number_runs_tg_sell(self):
-        self.add_pack()
-        with mock.patch.object(tg_sell, "handle", wraps=tg_sell.handle) as sell:
+    def test_sell_with_telugu_number_requires_explicit_command(self):
+        with mock.patch.object(tg_sell, "handle") as sell:
             reply = tg_talk.handle("moodo pack sell chey", self.ctx)
-        self.assertEqual(sell.call_args[0][0], "/sell 3")
-        self.assertEqual(reply, {"handled": True})
-        self.assertIn("Pack #3", self.texts[0])
-        self.assertIn("1/4 GUMROAD FIELDS", self.texts[1])
-        self.assertEqual([Path(path).name for path in self.documents], ["product.zip", "LICENSE.txt"])
-        self.assertEqual([Path(path).name for path in self.photos], ["cover.png", "preview-1.png", "preview-2.png", "preview-3.png"])
+        sell.assert_not_called()
+        self.assertIn("/sell 3", reply["text"])
 
-    def test_sell_missing_pack_is_tg_sells_own_answer(self):
+    def test_sell_missing_pack_requires_explicit_command(self):
         reply = tg_talk.handle("pack 9 sell chey", self.ctx)
-        self.assertEqual(reply, tg_sell.handle("/sell 9", self.ctx))
-        self.assertIn("Pack #9", reply["text"])
+        self.assertIn("/sell 9", reply["text"])
 
     def test_sales_today_is_the_real_sales_report(self):
         import tg_sales
@@ -625,8 +619,7 @@ class TalkPluginTests(TalkBase):
     def test_number_words_reach_the_command(self):
         self.add_pack("11-budget-sheet", title="Budget Sheet")
         reply = tg_talk.handle("padakondo pack sell chey", self.ctx)
-        self.assertEqual(reply, {"handled": True})
-        self.assertIn("Pack #11", self.texts[0])
+        self.assertIn("/sell 11", reply["text"])
 
 
 class PerIntentTests(TalkBase):
@@ -688,9 +681,8 @@ class CallPluginsTests(TalkBase):
         self.add_pack()
         handled, reply = self.call("moodo pack sell chey")
         self.assertTrue(handled)
-        self.assertEqual(reply, {"handled": True})
-        self.assertIn("1/4 GUMROAD FIELDS", self.texts[1])
-        self.assertEqual(len(self.documents), 2)
+        self.assertIn("/sell 3", reply["text"])
+        self.assertEqual(len(self.documents), 0)
 
     def test_what_now_through_call_plugins(self):
         self.add_draft()
@@ -770,12 +762,9 @@ class EndToEndTests(TalkBase):
         self.add_pack()
         handled, texts = self.say("moodo pack sell chey")
         self.assertEqual(handled, 1)
-        self.assertIn("Pack #3", texts[0])
-        self.assertIn("1/4 GUMROAD FIELDS", texts[1])
-        self.assertTrue(any("4/4 GUMROAD CHECKLIST" in page for page in texts))
-        kinds = [kind for kind, _, _ in self.sent]
-        self.assertEqual(kinds.count("document"), 2)
-        self.assertEqual(kinds.count("photo"), 4)
+        self.assertIn("/sell 3", texts[0])
+        self.assertEqual(len(texts), 1)
+        self.assertFalse(any(kind in ('document','photo') for kind,_,_ in self.sent))
 
     def test_em_cheyali_ippudu(self):
         self.add_draft()
@@ -817,7 +806,7 @@ class EndToEndTests(TalkBase):
         for index, word in enumerate(TELUGU_ORDINAL[:5], 1):
             _handled, texts = self.say(f"{word} pack sell chey")
             self.assertEqual(len(texts), 1, word)
-            self.assertIn(f"Pack #{index} ready upload pack dorakaledu", texts[0], word)
+            self.assertIn(f"/sell {index}", texts[0], word)
 
     def test_low_confidence_gets_two_suggestions_keyboard(self):
         handled, texts = self.say("money vishayam")

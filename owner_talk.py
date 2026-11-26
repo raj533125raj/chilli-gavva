@@ -42,13 +42,61 @@ def local_answer(text, now):
     return None
 
 
+def action_hint(text):
+    """Free text can suggest an action command, never perform it."""
+    if str(text).strip().startswith('/'):
+        return None
+    import talk_intents
+    found = talk_intents.detect(text)
+    if found and found.get('risky'):
+        command = found['command']
+    else:
+        match = re.search(r'\b(approve|reject|pause|resume|kill|delete|sell|list|post|publish)\b', str(text), re.I)
+        if not match:
+            return None
+        action = match.group(1).lower()
+        # Questions about counts/available work are read-only known intents.
+        question = re.search(r'\b(entha|enni|what|how|em|ela)\b', str(text), re.I)
+        if question and found and found['command'] in ('/list','/today','sellcard','/sell'):
+            return None
+        number = talk_intents.extract_numbers(text)
+        command = '/' + action + ((' ' + str(number[0])) if number else '')
+        if action in ('delete','publish'):
+            command = '/help ' + action
+    return {'text': 'Idi action. Meeru command pampithe matrame chestanu.\nNext: ' + command}
+
+
+def reserve_answer(db_path, now):
+    """Atomically reserve at most thirty AI attempts, including outages."""
+    import guardrails
+    import json
+    day = now.date().isoformat()
+    with guardrails.connect(db_path) as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        row = conn.execute("SELECT value FROM control WHERE key='talk_daily'").fetchone()
+        try: state = json.loads(row[0]) if row else {}
+        except (ValueError, TypeError): state = {}
+        count = int(state.get('count',0)) if state.get('day') == day else 0
+        if count >= 30: return False
+        conn.execute("INSERT OR REPLACE INTO control(key,value) VALUES('talk_daily',?)",
+                     (json.dumps({'day':day,'count':count+1}),))
+    return True
+
+
 def answer(text, ctx):
     """No command dispatch or side effects apart from talk state."""
     owner = os.environ.get('TELEGRAM_CHAT_ID', '').strip()
     if not owner or str(ctx.get('chat_id')) != owner: return None
+    hint = action_hint(text)
+    if hint: return hint
+    import injection_guard
+    if injection_guard.is_suspicious(text):
+        return {'text': 'Ee text lo unsafe instructions unnayi. Simple prashna adagandi.\nNext: /talk'}
     now = ctx.get('now') or dt.datetime.now(dt.timezone.utc)
     local = local_answer(text, now)
     if local is not None: return {'text': local + '\nNext: /talk pampandi; inko prashna adagandi.'}
+    if not reserve_answer(ctx.get('db_path'), now):
+        return {'text': 'Ee roju 30 AI answers limit aipoyindi. Repu malli adagandi.\nNext: /today'}
     import llm_router
     try:
         result = llm_router.chat(SYSTEM + '\nOwner question:\n' + text[:6000], db_path=ctx.get('db_path'), size='small')
