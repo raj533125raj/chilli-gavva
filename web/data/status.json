@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-25T19:21:04Z",
+ "generated_at": "2026-11-26T03:37:25Z",
  "llm": {
-  "calls_today": 100,
+  "calls_today": 1,
   "cap": 500
  },
  "agents": [
@@ -420,37 +420,37 @@
   {
    "provider": "Groq",
    "model": "openai/gpt-oss-20b",
-   "state": "down",
-   "reason": "Provider request rate exceeded",
-   "checked_at": "2026-11-25T19:21:04Z"
+   "state": "up",
+   "reason": "Latest request succeeded",
+   "checked_at": "2026-11-26T03:37:25Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
    "state": "down",
    "reason": "Provider request rate exceeded",
-   "checked_at": "2026-11-25T19:21:04Z"
+   "checked_at": "2026-11-26T03:37:25Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "down",
    "reason": "Provider request failed",
-   "checked_at": "2026-11-25T19:21:04Z"
+   "checked_at": "2026-11-26T03:37:25Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-25T19:21:04Z"
+   "checked_at": "2026-11-26T03:37:25Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-25T19:21:04Z"
+   "checked_at": "2026-11-26T03:37:25Z"
   }
  ],
  "minutes": {
@@ -737,7 +737,7 @@
  "reject_reasons": [
   {
    "reason": "Formatting or rubric issue",
-   "count": 115
+   "count": 108
   },
   {
    "reason": "Target audience unclear",
@@ -749,18 +749,18 @@
   },
   {
    "reason": "Product structure incomplete",
-   "count": 69
+   "count": 68
   },
   {
    "reason": "Unclear value over free template",
-   "count": 29
+   "count": 25
   }
  ],
  "report": {
   "drafts_made": 0,
   "drafts_waiting": 16,
   "drafts_approved": 0,
-  "products_built": 6,
+  "products_built": 0,
   "errors": 0
  },
  "workers": [
@@ -838,7 +838,7 @@
   },
   "product_builds": {
    "plan": 2,
-   "done": 6
+   "done": 0
   },
   "promotion": {
    "plan": 2,
@@ -869,63 +869,63 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 100,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 100,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 100,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 100,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 100,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 100,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 100,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 100,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 100,
+   "calls_used_today": 1,
    "calls_limit_today": 500,
    "context_percent": null
   }
@@ -935,6 +935,252 @@
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-26T03:37:18Z"
+  },
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
    "at": "2026-11-25T08:42:19Z"
   },
   {
@@ -984,252 +1230,6 @@
    "kind": "error",
    "label": "Recovery check",
    "at": "2026-11-25T05:06:05Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T05:06:05Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T05:06:05Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T05:06:04Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T05:06:04Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T05:06:04Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T05:06:04Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T05:06:04Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T05:06:04Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T05:06:04Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T05:04:29Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T05:04:29Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T05:04:29Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T03:59:49Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T03:58:47Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T03:58:26Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T03:57:46Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:24:38Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:21:18Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:21:15Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:21:00Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:44Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:39Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:36Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:33Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:31Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-25T00:20:10Z"
   }
  ],
  "activity_events": [
@@ -2395,12 +2395,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-25T19:21:03Z",
-  "last_run_end": "2026-11-25T19:21:04Z",
+  "last_run_start": "2026-11-26T03:37:18Z",
+  "last_run_end": "2026-11-26T03:37:25Z",
   "runner": "github-actions",
-  "run_id": "45684131383"
+  "run_id": "45749957951"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
@@ -2419,8 +2420,7 @@
   "CXAK-1 learn milestone fixes and draft preferences from measured sales",
   "CXAJ-1 include three owner-sent email drafts in real sample upload kits",
   "CXAI-2 add approved sitemap metadata and real page-content PNG previews",
-  "CXAI-1 prepare gated paid and sample landing drafts with tracked links",
-  "CXAH-2 show durable completion marks in today for fourteen days"
+  "CXAI-1 prepare gated paid and sample landing drafts with tracked links"
  ],
  "daily_report": {
   "date_ist": "2026-11-26",
@@ -2784,7 +2784,7 @@
   "approved": 55
  },
  "trend_items_count": {
-  "total": 210,
+  "total": 220,
   "proposed": 0,
   "approved": 0
  },
