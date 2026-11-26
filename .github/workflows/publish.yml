@@ -1,17 +1,18 @@
 name: publish-content
 
+# Publishing is an explicit owner action. agent_data.db.enc changing never publishes.
 on:
-  push:
-    paths:
-      - "agent_data.db.enc"
-      - "site_builder.py"
-      - ".github/workflows/publish.yml"
-    branches:
-      - main
   workflow_dispatch:
+    inputs:
+      publish_approved:
+        description: 'Publish approved pages (owner confirmation)'
+        type: boolean
+        default: false
+        required: true
 
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 
@@ -20,46 +21,49 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  check-setup:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.setup.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Check owner publication setup
+        id: setup
+        env:
+          DB_KEY: ${{ secrets.DB_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH_APPROVED: ${{ inputs.publish_approved }}
+        run: python3 scripts/pages_preflight.py
+
   build-and-deploy:
+    needs: check-setup
+    if: needs.check-setup.outputs.ready == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Check the database key
-        env:
-          DB_KEY: ${{ secrets.DB_KEY }}
-        run: |
-          if [ -z "$DB_KEY" ]; then
-            echo "DB_KEY not set; cannot build approved pages."
-            exit 1
-          fi
-
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-
       - name: Open the database
         env:
           DB_KEY: ${{ secrets.DB_KEY }}
         run: python3 scripts/db_crypt.py decrypt
-
       - name: Unpack private products
         env:
           DB_KEY: ${{ secrets.DB_KEY }}
         run: python3 scripts/db_crypt.py unpack-products
-
       - name: Build owner-approved pages
         run: |
           python3 -c 'import site_builder; pages = site_builder.build(); print(f"Built {len(pages)} approved page(s).")'
-
       - uses: actions/configure-pages@v5
-
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
-
       - uses: actions/deploy-pages@v4
         id: deployment
