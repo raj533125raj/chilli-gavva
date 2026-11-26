@@ -167,7 +167,7 @@ def sell_card_data(ctx: Dict[str, Any]) -> Dict[str, Any]:
         if evaluation.get("status") in (sell_ready.STATUS_SELLABLE, sell_ready.STATUS_ALMOST):
             to_list.append({"id": number, "title": evaluation.get("title") or title, "status": evaluation["status"]})
     try:
-        drafts = len(guardrails.pending(ctx.get("db_path")))
+        drafts = len(__import__("auto_approve").split_waiting(ctx.get("db_path"))[0])
     except Exception:
         drafts = 0
     return {"to_list": to_list, "listed": listed, "drafts": drafts,

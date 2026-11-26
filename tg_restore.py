@@ -24,6 +24,11 @@ def handle(text, ctx):
                                    "WHERE id=? AND kind='public_draft' AND title LIKE '[Scout Idea] %' "
                                    "AND status='rejected' AND reason='owner time ayipoyindi'",
                                    (ctx['now'].isoformat(), aid)).rowcount
+            if not changed:
+                changed = conn.execute("UPDATE approvals SET status='pending', decided_ts=NULL, reason=NULL, ts=? "
+                                       "WHERE id=? AND kind='scout_idea' AND status='archived' "
+                                       "AND reason='archived — owner ki time ledu'",
+                                       (ctx['now'].isoformat(),aid)).rowcount
             if changed:
                 # Scout sync may have copied the timeout decision. Reopen only this row.
                 exists = conn.execute("SELECT 1 FROM sqlite_master WHERE name='scout_ideas'").fetchone()
@@ -32,4 +37,4 @@ def handle(text, ctx):
     finally:
         conn.close()
     return {'text': (f'Draft #{aid} malli waiting lo undi.\nNext: /view {aid}' if changed else
-                     'Timeout ayina Scout product Draft maatrame restore cheyagalanu.\nNext: /list')}
+                     'Timeout leda archived Scout proposal maatrame restore cheyagalanu.\nNext: /list')}

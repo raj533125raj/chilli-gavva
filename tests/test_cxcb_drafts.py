@@ -33,8 +33,8 @@ class Backlog(unittest.TestCase):
     def test_reports_expose_existing_contradiction(self):
         view=daily_report.product_path(self.db,NOW)
         self.assertEqual((view['drafts_waiting'],view['proposals_waiting']),(0,16))
-        # CXCB-1 evidence: the existing morning digest falsely says drafts paused.
-        self.assertTrue(auto_approve.queue_digest(self.db,NOW)['new_drafts_paused'])
+        # CXCB-2: proposals never claim that product drafts are paused.
+        self.assertFalse(auto_approve.queue_digest(self.db,NOW)['new_drafts_paused'])
     def test_ai_failure_is_explicit_and_allowed_niche_reaches_writer(self):
         ctx={'db_path':self.db,'llm':lambda prompt:None,'rng':random.Random(7)}
         with self.assertRaises(workforce.AIUnavailable):
@@ -60,3 +60,33 @@ class Backlog(unittest.TestCase):
                                    {'db_path':self.db,'llm':lambda prompt:'Savings goal workbook\nFORMAT: sheets',
                                     'rng':random.Random(1)})
         self.assertTrue(result['approval_id'])
+
+    def test_archive_and_restore_without_approval(self):
+        import os
+        import telegram_inbox as inbox
+        auto_approve.auto_decide_drafts(self.db,NOW)
+        self.assertEqual(daily_report.product_path(self.db,NOW)['proposals_waiting'],0)
+        self.assertEqual(guardrails.get_approval(1,self.db)['status'],'archived')
+        chat=str(int('1234' '5678'))
+        with patch.dict(os.environ,TELEGRAM_CHAT_ID=chat):
+            handled,reply=inbox.call_plugins('/restore 1','unused',chat,db_path=self.db,now=NOW)
+        self.assertTrue(handled);self.assertIn('waiting',reply['text'])
+        self.assertEqual(guardrails.get_approval(1,self.db)['status'],'pending')
+        self.assertEqual(auto_approve.archive_scout_proposals(self.db,NOW),[])
+    def test_reports_and_reminder_use_product_split(self):
+        import telegram_inbox as inbox
+        import tg_talk
+        self.assertIn('No drafts waiting',inbox.list_text(self.db))
+        self.assertIn('Proposals waiting: 16',inbox.list_text(self.db))
+        self.assertIn('Product drafts waiting: 0',auto_approve.queue_digest_line(self.db,NOW))
+        self.assertEqual(tg_talk.sell_card_data({'db_path':self.db,'products_dir':str(self.products)})['drafts'],0)
+        with patch.object(inbox,'send_text') as send:
+            self.assertFalse(inbox.remind_waiting_drafts('unused','owner',self.db,NOW.timestamp()))
+            send.assert_not_called()
+    def test_one_real_run_makes_product_draft_with_working_ai(self):
+        import rest_window
+        workforce.enqueue('draft',{'topic':'[Budget Sheets Agent] Savings Goal Worksheet'},db_path=self.db)
+        with patch.object(rest_window,'in_rest_window',return_value=False):
+            result=workforce.run_once(max_tasks=1,db_path=self.db,llm=lambda prompt:'Savings goal worksheet\nFORMAT: sheets',rng=random.Random(2))
+        self.assertEqual(result['ran'],1,result)
+        self.assertEqual(len(auto_approve.split_waiting(self.db)[0]),1)

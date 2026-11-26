@@ -1189,13 +1189,18 @@ def _score(review):
 
 
 def list_text(db_path=None):
-    items = guardrails.pending(db_path)
-    if not items:
+    import auto_approve
+    drafts, proposals = auto_approve.split_waiting(db_path)
+    if not drafts and not proposals:
         return "No drafts waiting. ✅"
-    lines = [f"#{it['id']} {it['title'][:70]}{_score(it.get('review'))}" for it in items[:25]]
-    more = f"\n...and {len(items) - 25} more" if len(items) > 25 else ""
-    return (f"{len(items)} draft(s) waiting:\n\n" + "\n".join(lines) + more
-            + "\n\nReply /view ID to read, /approve ID or /reject ID.")
+    lines = [f"{len(drafts)} draft(s) waiting:" if drafts else "No drafts waiting. ✅"]
+    lines += [f"#{it['id']} {it['title'][:70]}{_score(it.get('review'))}" for it in drafts[:15]]
+    if len(drafts)>15: lines.append(f"Inka {len(drafts)-15} drafts: /drafts")
+    if proposals:
+        lines.append(f"Proposals waiting: {len(proposals)} (product drafts kaadu)")
+        lines += [f"Proposal #{it['id']} {it['title'][:70]}" for it in proposals[:5]]
+    lines.append("Reply /view ID to read, /approve ID or /reject ID.")
+    return '\n'.join(lines)
 
 
 def view_text(approval_id, db_path=None):
@@ -2797,7 +2802,8 @@ def remind_waiting_drafts(token, owner_chat_id, db_path=None, now=None):
     successful send, so a Telegram outage can be retried later.
     """
     now = time.time() if now is None else now
-    pending = guardrails.pending(db_path)
+    import auto_approve
+    pending, _ = auto_approve.split_waiting(db_path)
     has_old_draft = any(ts is not None and now - ts > WAITING_DRAFT_AGE_SECONDS
                          for ts in (_approval_time(item.get("ts")) for item in pending))
     if not has_old_draft:

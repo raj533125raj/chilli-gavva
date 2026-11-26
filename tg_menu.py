@@ -433,7 +433,7 @@ def get_short_status_line(ctx: dict) -> str:
     db_path = ctx.get("db_path")
     try:
         import guardrails
-        pending_cnt = len(guardrails.pending(db_path))
+        pending_cnt = len(__import__("auto_approve").split_waiting(db_path)[0])
     except Exception:
         pending_cnt = 0
 

@@ -474,7 +474,7 @@ def with_format_line(topic, text):
 
 def step_draft(task, ctx):
     waiting = active_draft_backlog(ctx["db_path"])
-    if waiting > MAX_PENDING_APPROVALS:
+    if waiting >= MAX_PENDING_APPROVALS:
         return {"summary": f"Waiting {waiting}; kotha Drafts ee run lo aapamu; mundu waiting Drafts decide avvali.",
                 "next": []}
     topic = task["payload"]["topic"]

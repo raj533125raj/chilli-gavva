@@ -549,6 +549,22 @@ def _shingles(text: str) -> Set[str]:
     return get_word_shingles(words, k=5)
 
 
+def archive_scout_proposals(db_path=None, now=None):
+    """Archive unanswered research proposals, preserving explicit owner decisions."""
+    stamp = _as_utc(now)
+    ids = []
+    with guardrails.connect(db_path) as conn:
+        rows = conn.execute("SELECT id,ts FROM approvals WHERE kind='scout_idea' AND status='pending'").fetchall()
+        for aid, ts in rows:
+            created = _parse_item_time(ts)
+            if created and stamp-created >= datetime.timedelta(hours=72):
+                changed = conn.execute("UPDATE approvals SET status='archived',reason='archived — owner ki time ledu',decided_ts=? "
+                                       "WHERE id=? AND kind='scout_idea' AND status='pending'",
+                                       (stamp.isoformat(),aid)).rowcount
+                if changed: ids.append(aid)
+    return ids
+
+
 def auto_decide_drafts(db_path=None, now=None):
     """Examine pending drafts waiting > 24 hours and apply auto-decisions.
 
@@ -557,6 +573,7 @@ def auto_decide_drafts(db_path=None, now=None):
     """
     if guardrails.is_paused(db_path) or guardrails.is_killed():
         return []
+    archive_scout_proposals(db_path, now)
     _checker_since(db_path, now, track=True)
     settings = effective_settings(db_path)
     threshold = settings.get("threshold", DEFAULT_SCORE_THRESHOLD)
@@ -683,7 +700,9 @@ def queue_digest(db_path=None, now=None):
         conn.close()
     return {"waiting": len(plan)+rule_waiting, "approved": approved, "rejected": rejected,
             "decided": approved+rejected, "blocked": sum(reasons.values()), "reasons": dict(reasons),
-            "new_drafts_paused": len(plan) > 10}
+            "product_drafts": sum(row['product'] for row in plan),
+            "proposals": sum(not row['product'] for row in plan)+rule_waiting,
+            "new_drafts_paused": __import__('workforce').active_draft_backlog(db_path) >= 10}
 
 
 def queue_digest_line(db_path=None, now=None):
@@ -698,6 +717,7 @@ def queue_digest_line(db_path=None, now=None):
             f"(approved {data['approved']} / rejected {data['rejected']}); blocked {data['blocked']}")
     if why:
         line += f": {why}"
+    line += f"; Product drafts waiting: {data['product_drafts']}; Proposals waiting: {data['proposals']}"
     if data["new_drafts_paused"]:
         line += ". Kotha Drafts ee run lo aapamu (waiting 10 minchindi)."
     return line
