@@ -723,7 +723,7 @@ def _missing_pack_reply(action: str, ctx: Dict[str, Any]) -> Dict[str, Any]:
     if packs:
         lines += ["", "Last 5 ready packs:"]
         for number, title, _path in packs[-5:]:
-            lines.append(f"• #{number} {str(title)[:50]}")
+            lines.append(f"• #{number} {__import__('owner_titles').owner_title(title)}")
         lines += ["", "Anni packs: /packs"]
     else:
         lines.append("Ready packs inka levu. /packs tho chudandi.")

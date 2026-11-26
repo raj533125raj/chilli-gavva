@@ -140,14 +140,15 @@ def notify_ready(db_path=None, send=None):
     import notify
     send = send or (lambda text: notify.send(html.escape(text)))
     conn = connect(db_path)
-    rows = conn.execute("SELECT d.approval_id, a.title FROM product_deliveries d JOIN approvals a ON a.id=d.approval_id "
+    rows = conn.execute("SELECT d.approval_id, a.title, d.folder FROM product_deliveries d JOIN approvals a ON a.id=d.approval_id "
                         "WHERE d.status='ready' AND d.notified=0 AND a.status='approved' ORDER BY d.approval_id").fetchall()
     conn.close()
     marketing = _marketing_lines(db_path)   # also backfills older READY packs
-    for aid, title in rows:
+    for aid, title, folder in rows:
         if product_builder.is_held(aid, db_path):
             continue
-        title = " ".join((title or "Product").split())[:140]
+        from owner_titles import owner_title
+        title = owner_title({'title':title,'folder':folder})
         try:
             sent = send(f"Product ready: #{aid} {title} — files ready to upload\n/pack {aid}"
                         + (f"\n{marketing[aid]}" if marketing.get(aid) else ""))

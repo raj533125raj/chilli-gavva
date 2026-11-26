@@ -446,7 +446,7 @@ class TalkPluginTests(TalkBase):
         self.add_draft()
         reply = tg_talk.handle("pending drafts entha", self.ctx)
         self.assertEqual(reply["text"], telegram_inbox.handle_command("list", [], self.db))
-        self.assertIn("Monthly budget sheet", reply["text"])
+        self.assertIn("Families Budget Spreadsheet Organizing Daily Records", reply["text"])
 
     def test_list_output_changes_with_the_database(self):
         empty = tg_talk.handle("drafts enni unnayi", self.ctx)["text"]
@@ -454,7 +454,7 @@ class TalkPluginTests(TalkBase):
         self.add_draft("Draft: [ADHD Planners Agent] Focus planner")
         full = tg_talk.handle("drafts enni unnayi", self.ctx)["text"]
         self.assertNotEqual(empty, full)
-        self.assertIn("Focus planner", full)
+        self.assertIn("Adults ADHD Planner Organizing Daily Steps", full)
 
     def test_daily_report_is_the_real_report(self):
         reply = tg_talk.handle("ee roju em jarigindi", self.ctx)
@@ -771,7 +771,7 @@ class EndToEndTests(TalkBase):
         _handled, texts = self.say("em cheyali ippudu?")
         self.assertEqual(len(texts), 1)
         self.assertIn("1 drafts mee approval kosam wait chestunnayi", texts[0])
-        self.assertIn("Monthly budget sheet", texts[0])
+        self.assertIn("Families Budget Spreadsheet Organizing Daily Records", texts[0])
 
     def test_ee_roju_em_jarigindi(self):
         _handled, texts = self.say("ee roju em jarigindi")
@@ -781,7 +781,7 @@ class EndToEndTests(TalkBase):
         self.add_draft()
         _handled, texts = self.say("pending drafts entha")
         self.assertEqual(texts[0], telegram_inbox.handle_command("list", [], self.db))
-        self.assertIn("Monthly budget sheet", "\n".join(texts))
+        self.assertIn("Families Budget Spreadsheet Organizing Daily Records", "\n".join(texts))
 
     def test_robot_ela_undi(self):
         _handled, texts = self.say("robot ela undi")

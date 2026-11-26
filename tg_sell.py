@@ -24,6 +24,8 @@ from __future__ import annotations
 
 from tg_menu import owner_reply
 
+from owner_titles import owner_title
+
 import os
 import re
 from pathlib import Path
@@ -158,7 +160,7 @@ def verdict_text(pack_id: int, evaluation: Dict[str, Any]) -> str:
     status = evaluation.get("status")
     icon = {sell_ready.STATUS_SELLABLE: "🟢", sell_ready.STATUS_ALMOST: "🟡"}.get(status, "🔴")
     lines = [f"{icon} Pack #{pack_id} — {status} (Score {evaluation.get('score', 0)}/100)",
-             f"Title: {evaluation.get('title') or evaluation.get('pack_name')}"]
+             f"Title: {owner_title(evaluation)}"]
     fixes = [str(fix) for fix in (evaluation.get("fixes") or [])]
     if status == sell_ready.STATUS_NOT_YET:
         lines += ["", "Ee pack ni ippude Gumroad lo pettakandi. Mundu ee fixes kavali:"]
@@ -179,6 +181,7 @@ def gumroad_fields(pack_dir: Path) -> str:
     """Copy-paste fields from the real Gumroad kit (store_kits): title, descriptions, tags, price."""
     import store_kits
     info = store_kits.parse_listing_file(pack_dir / "listing.txt")
+    info["title"] = owner_title(pack_dir)
     kit = store_kits.generate_kit_text("gumroad", pack_dir, info)
     fields = kit.split("--- FIELD: FILES TO UPLOAD", 1)[0].rstrip()
     wanted = []
@@ -424,7 +427,7 @@ def list_text(evaluations: List[Dict[str, Any]]) -> Tuple[str, List[int]]:
     lines = ["Gumroad lo pettadaniki ready packs:", ""]
     for number, evaluation in ready:
         icon = "🟢" if evaluation["status"] == sell_ready.STATUS_SELLABLE else "🟡"
-        lines.append(f"{icon} /sell {number} — {evaluation.get('title') or evaluation.get('pack_name')} "
+        lines.append(f"{icon} /sell {number} — {owner_title(evaluation)} "
                      f"({evaluation['status']}, {evaluation.get('score', 0)}/100)")
     if waiting:
         lines += ["", f"Inko {waiting} packs ki fixes kavali: /ready"]

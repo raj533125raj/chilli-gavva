@@ -31,6 +31,8 @@ CLI:
   python3 telegram_inbox.py          # process commands + send new-draft alerts
   python3 telegram_inbox.py status   # show config state (no network calls)
 """
+from owner_titles import owner_title
+
 import json
 import contextvars
 
@@ -1144,7 +1146,7 @@ def draft_card(item, db_path=None):
     import checker
     import product_council
 
-    lines = [f"#{item['id']} {item['title'][:70]}"]
+    lines = [f"#{item['id']} {owner_title(item)}"]
 
     # 3-line Product Council summary if available
     council_lines = product_council.get_council_card_lines(item["id"], db_path=db_path)
@@ -1194,11 +1196,11 @@ def list_text(db_path=None):
     if not drafts and not proposals:
         return "No drafts waiting. ✅"
     lines = [f"{len(drafts)} draft(s) waiting:" if drafts else "No drafts waiting. ✅"]
-    lines += [f"#{it['id']} {it['title'][:70]}{_score(it.get('review'))}" for it in drafts[:15]]
+    lines += [f"#{it['id']} {owner_title(it)}{_score(it.get('review'))}" for it in drafts[:15]]
     if len(drafts)>15: lines.append(f"Inka {len(drafts)-15} drafts: /drafts")
     if proposals:
         lines.append(f"Proposals waiting: {len(proposals)} (product drafts kaadu)")
-        lines += [f"Proposal #{it['id']} {it['title'][:70]}" for it in proposals[:5]]
+        lines += [f"Proposal #{it['id']} {owner_title(it)}" for it in proposals[:5]]
     lines.append("Reply /view ID to read, /approve ID or /reject ID.")
     return '\n'.join(lines)
 
@@ -1208,7 +1210,7 @@ def view_text(approval_id, db_path=None):
     if not item:
         return f"Draft #{approval_id} not found."
     review = item.get("review") or "no review yet"
-    return (f"#{item['id']} [{item['status']}] {item['title']}\nReview: {review}\n\n"
+    return (f"#{item['id']} [{item['status']}] {owner_title(item)}\nReview: {review}\n\n"
             f"{item.get('payload') or ''}")
 
 
@@ -1477,7 +1479,7 @@ def _find_ready_packs(products_dir=None):
                                 title = p.name
                         except Exception:
                             pass
-                        packs.append((num, title, p))
+                        packs.append((num, owner_title(p), p))
                 except OSError:
                     continue
     packs.sort(key=lambda x: (x[0] if x[0] is not None else 999999, str(x[2])))
@@ -1647,7 +1649,7 @@ def pack_detail_text(aid, db_path=None, products_dir=None, marketing_dir=None):
     else:
         title = target.name
 
-    lines = [f"Pack #{aid}: {title}\n"]
+    lines = [f"Pack #{aid}: {owner_title(target)}\n"]
 
     # 1. Files (names + sizes)
     lines.append("Files:")
@@ -1890,7 +1892,7 @@ def marketing_text(n=None, marketing_dir=None):
     if pack_dir is None:
         return f"Pack #{n} ki marketing files inka ledu. /pack {n} tho pack status chudandi."
 
-    lines = [f"Marketing pack #{n} ({pack_dir.name}):"]
+    lines = [f"Marketing pack #{n}: {owner_title(pack_dir)}"]
 
     car_dir = pack_dir / "carousel"
     slides = list(car_dir.glob("slide-*.png")) if car_dir.is_dir() else []
@@ -1905,7 +1907,7 @@ def marketing_text(n=None, marketing_dir=None):
             count_line = f"Pins: {len(list(pins_dir.glob('pin_*.png')))}"
         lines.append(count_line)
         for i, t in enumerate(titles, 1):
-            lines.append(f"  {i}. {t}")
+            lines.append(f"  {i}. {owner_title(t)}")
     else:
         lines.append("Pins: 0")
 

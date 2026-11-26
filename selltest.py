@@ -1,4 +1,6 @@
 """Private, owner-controlled fourteen-day sales experiment. No store API calls."""
+from owner_titles import owner_title
+
 import datetime as dt
 from contextlib import contextmanager, closing
 import json
@@ -150,7 +152,7 @@ def plan_text(run, now=None):
     day = day_number(run,now)
     lines = [f"14-day Sell test: start {run['start_day']} | day {min(max(day,1),14)}/14",
              f"Ready {len(run['packs'])}/8 — kotha packs ready ayyaka auto ga add avutayi"]
-    lines += [f"{p['slot']}. {p['title'][:55]} | day {day_number(run,now,p)}/14 | /upload {p['id']}" for p in run['packs']]
+    lines += [f"{p['slot']}. {owner_title(p)} | day {day_number(run,now,p)}/14 | /upload {p['id']}" for p in run['packs']]
     if not running(run,now):
         lines.append('14 rojulu poorthi; saved numbers tho results chudandi.')
     lines.append('Next: /selltest list; Pack marchadaniki /selltest swap A B (Pack numbers).')

@@ -108,7 +108,7 @@ class JuDailyReportTests(unittest.TestCase):
         aid2 = self._insert_draft(hours_ago=10, title="Secret Unapproved Private Draft Title", status="pending")
         self._insert_product(aid2, folder="2-secret", hours_ago=3)
 
-        # Very long title should cut to 40 characters
+        # A long word stays whole; character cuts would hide the buyer title.
         aid3 = self._insert_draft(hours_ago=10, title="A" * 60, status="approved", decided_hours_ago=10)
         self._insert_product(aid3, folder="3-long", hours_ago=4)
 
@@ -117,8 +117,8 @@ class JuDailyReportTests(unittest.TestCase):
         self.assertIn("Productivity Workbook for ADHD Adults"[:40], text)
         self.assertIn(f"Draft #{aid2}", text)
         self.assertNotIn("Secret Unapproved Private Draft Title", text)
-        self.assertIn("A" * 40, text)
-        self.assertNotIn("A" * 41, text)
+        self.assertIn("A" * 60, text)
+        self.assertNotIn("A" * 61, text)
 
     def test_built_products_max_5_titles(self):
         for i in range(1, 8):

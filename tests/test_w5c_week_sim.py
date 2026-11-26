@@ -392,7 +392,7 @@ class TestW5COneWeekSimulation(unittest.TestCase):
         packs = telegram_inbox._find_ready_packs(products_dir=str(self.products_dir))
         self.assertEqual(len(packs), 1)
         self.assertEqual(packs[0][0], 1)
-        self.assertEqual(packs[0][1], "ADHD Daily Focus System")
+        self.assertEqual(packs[0][1], "ADHD Daily Focus System Digital Download")
 
     def test_07_wednesday_truth_check_verifies_pack(self):
         """Wednesday 11:30 IST: Truth check verifies readiness of upload pack."""

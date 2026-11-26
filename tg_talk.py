@@ -22,6 +22,8 @@ from __future__ import annotations
 
 from tg_menu import owner_reply
 
+from owner_titles import owner_title
+
 import datetime
 import glob
 import importlib
@@ -191,7 +193,7 @@ def sell_card_text(data: Dict[str, Any], ctx: Optional[Dict[str, Any]] = None) -
         lines.append(f"1. Gumroad lo pettali — {len(to_list)} pack(s) ready, inka list cheyaledu:")
         for item in to_list[:SELL_CARD_MAX_LINES]:
             mark = "🟢" if item["status"] == "SELLABLE" else "🟡"
-            lines.append(f"   {mark} /sell {item['id']} — {str(item['title'])[:50]}")
+            lines.append(f"   {mark} /sell {item['id']} — {owner_title(item)}")
         if len(to_list) > SELL_CARD_MAX_LINES:
             lines.append(f"   ... inko {len(to_list) - SELL_CARD_MAX_LINES} (/sell)")
     else:
@@ -203,7 +205,7 @@ def sell_card_text(data: Dict[str, Any], ctx: Optional[Dict[str, Any]] = None) -
         lines.append(f"2. Listed packs — ee roju post ({len(running) + len(waiting)}):")
         for item in (running + waiting)[:SELL_CARD_MAX_LINES]:
             state = f"Day {item['day']}/7" if item["launch"] == "running" else "launch plan start cheyandi"
-            lines.append(f"   📌 /launch {item['id']} — {str(item['title'])[:40]} ({state})")
+            lines.append(f"   📌 /launch {item['id']} — {owner_title(item)} ({state})")
     elif listed:
         lines.append(f"2. Listed packs: {len(done)} (launch week aipoyindi) — roju post kosam /today.")
     else:

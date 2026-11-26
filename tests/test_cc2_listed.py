@@ -169,9 +169,9 @@ class SaveTests(Base):
         self.assertTrue(result["ok"])
         self.assertEqual(result["url"], LINK)
         self.assertIsNone(result["old_url"])
-        self.assertEqual(result["title"], "Focus Planner")
+        self.assertEqual(result["title"], "Adults Focus Planner Organizing Daily Tasks")
         self.assertEqual(tg_listed.get_listed(pack, self.db),
-                         {"id": pack, "url": LINK, "listed_ts": "2026-11-14T09:30:00Z", "title": "Focus Planner"})
+                         {"id": pack, "url": LINK, "listed_ts": "2026-11-14T09:30:00Z", "title": "Adults Focus Planner Organizing Daily Tasks"})
         self.assertTrue(tg_listed.is_listed(pack, self.db))
 
     def test_row_is_really_in_the_database(self):
@@ -259,10 +259,10 @@ class SaveTests(Base):
         self.assertEqual(tg_listed.get_listed(pack, self.db)["listed_ts"], "2026-01-02T03:04:05Z")
 
     def test_clean_title(self):
-        self.assertEqual(tg_listed.clean_title("Draft: ADHD planner (v3, llm)"), "ADHD planner")
-        self.assertEqual(tg_listed.clean_title("Budget Sheet"), "Budget Sheet")
-        self.assertEqual(tg_listed.clean_title(None), "Pack")
-        self.assertEqual(len(tg_listed.clean_title("x" * 300)), 80)
+        self.assertEqual(tg_listed.clean_title("Draft: ADHD planner (v3, llm)"), "Adults ADHD Planner Organizing Daily Steps")
+        self.assertEqual(tg_listed.clean_title("Budget Sheet"), "Budget Sheet Digital Download For Personal")
+        self.assertEqual(tg_listed.clean_title(None), "Product Pack Digital Download For Personal")
+        self.assertEqual(tg_listed.clean_title("x" * 300), "Product Pack Digital Download For Personal")
 
 
 class RemoveTests(Base):
@@ -305,7 +305,7 @@ class ReplyTests(Base):
     def test_save_reply(self):
         pack = self.add()
         text = self.say(f"/listed {pack} {LINK}")
-        self.assertIn(f"✅ Pack #{pack} (Focus Planner) Gumroad lo listed", text)
+        self.assertIn(f"✅ Pack #{pack} (Adults Focus Planner Organizing Daily Tasks) Gumroad lo listed", text)
         self.assertIn(LINK, text)
         self.assertIn("/status", text)
         self.assertTrue(tg_listed.is_listed(pack, self.db))
@@ -364,8 +364,8 @@ class ReplyTests(Base):
         self.say(f"/listed {second} {LINK2}")
         text = self.say("listed packs")
         self.assertIn("Gumroad lo listed packs (2):", text)
-        self.assertIn(f"#{first} — Focus Planner", text)
-        self.assertIn(f"#{second} — Budget Sheet", text)
+        self.assertIn(f"#{first} — Adults Focus Planner Organizing Daily Tasks", text)
+        self.assertIn(f"#{second} — Families Budget Spreadsheet Organizing Daily Records", text)
         self.assertIn(LINK, text)
         self.assertIn(LINK2, text)
         self.assertIn("(listed 2026-11-14)", text)
@@ -375,7 +375,7 @@ class ReplyTests(Base):
         pack = self.add()
         self.say(f"/listed {pack} {LINK}")
         text = self.say(f"/listed {pack}")
-        self.assertIn(f"Pack #{pack} — Focus Planner", text)
+        self.assertIn(f"Pack #{pack} — Adults Focus Planner Organizing Daily Tasks", text)
         self.assertIn(f"Gumroad link: {LINK}", text)
 
     def test_show_reply_when_not_listed(self):
@@ -526,7 +526,7 @@ class ReachabilityTests(Base):
         self.call(f"/listed {pack} {LINK}")
         handled, reply = self.call("/listed")
         self.assertTrue(handled)
-        self.assertIn(f"#{pack} — Focus Planner", reply["text"])
+        self.assertIn(f"#{pack} — Adults Focus Planner Organizing Daily Tasks", reply["text"])
 
     def test_plain_word_through_call_plugins(self):
         handled, reply = self.call("listed packs")

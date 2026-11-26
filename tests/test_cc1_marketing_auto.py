@@ -721,7 +721,7 @@ class ReadyHookTests(Base):
         aid, _pack = self.ready("1-budget-sheet")
         with mock.patch.object(ma, "run_ready", side_effect=RuntimeError("broken")):
             product_pipeline.notify_ready(self.db, self.send)
-        self.assertEqual(self.sent, [f"Product ready: #{aid} Draft: [Budget Sheets Agent] 1-budget-sheet "
+        self.assertEqual(self.sent, [f"Product ready: #{aid} Monthly Budget Sheet Printable Digital Download "
                                      f"— files ready to upload\n/pack {aid}"])
 
     def test_run_ready_itself_never_raises(self):

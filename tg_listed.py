@@ -140,9 +140,8 @@ def _stamp(now: Any = None) -> str:
 
 def clean_title(title: Any) -> str:
     """'Draft: ADHD planner (v3, llm)' -> 'ADHD planner'."""
-    text = re.sub(r"^\s*Draft:\s*", "", str(title or ""))
-    text = re.sub(r"\s*\(v\d+[^)]*\)\s*$", "", text).strip()
-    return text[:80] or "Pack"
+    from owner_titles import owner_title
+    return owner_title(title)
 
 
 def set_listed(approval_id: int, url: str, db_path=None, now=None) -> Dict[str, Any]:
