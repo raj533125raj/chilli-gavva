@@ -45,6 +45,9 @@ COMMANDS = [
     },
 ]
 
+COMMANDS.append({'cmd':'/forget','words':['forget'], 'help_en':'Clear the short talk memory',
+                 'help_te':'Maatala memory clear cheyandi: /forget'})
+
 # Built-in commands answered by telegram_inbox.handle_command(cmd, ids, db_path).
 BUILTIN = {"status", "list", "view", "packs", "pack", "marketing", "pipeline", "doctor", "today", "posted",
            "week", "rules", "cubes"}
@@ -286,6 +289,12 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
     """Standard Telegram plugin entry point."""
     if not isinstance(text, str):
         return None
+    if re.fullmatch(r'/forget(?:@\w+)?', text.strip(), re.I):
+        if not os.environ.get('TELEGRAM_CHAT_ID') or str(ctx.get('chat_id')) != os.environ['TELEGRAM_CHAT_ID']:
+            return None
+        import owner_talk
+        owner_talk.memory(ctx, clear=True)
+        return {'text':'Maatala memory clear chesanu.\nNext: /talk'}
     if re.fullmatch(r"/talk(?:@\w+)?|talk|maatladu|matladu", text.strip(), re.IGNORECASE):
         return {"text": examples_text()}
     if text.strip().startswith("/"):

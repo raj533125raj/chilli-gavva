@@ -83,6 +83,30 @@ def reserve_answer(db_path, now):
     return True
 
 
+def memory(ctx, owner=None, robot=None, clear=False):
+    """Six text exchanges, at most 2000 text characters, expiring individually in 24h."""
+    import guardrails
+    import json
+    import secret_guard
+    now = ctx.get('now') or dt.datetime.now(dt.timezone.utc)
+    if now.tzinfo is None: now = now.replace(tzinfo=dt.timezone.utc)
+    with guardrails.connect(ctx.get('db_path')) as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        row = conn.execute("SELECT value FROM control WHERE key='talk_memory'").fetchone()
+        try: rows = json.loads(row[0]) if row else []
+        except (TypeError, ValueError): rows = []
+        rows = [r for r in rows if isinstance(r,dict) and 0 <= now.timestamp()-r.get('ts',0) < 86400]
+        if clear: rows = []
+        elif owner is not None:
+            rows.append({'ts':now.timestamp(), 'owner':secret_guard.scrub_text(owner)[:500],
+                         'robot':secret_guard.scrub_text(robot)[:500]})
+        rows = rows[-6:]
+        while sum(len(r.get('owner',''))+len(r.get('robot','')) for r in rows)>2000:
+            rows.pop(0)
+        conn.execute("INSERT OR REPLACE INTO control(key,value) VALUES('talk_memory',?)", (json.dumps(rows),))
+    return rows
+
+
 def answer(text, ctx):
     """No command dispatch or side effects apart from talk state."""
     owner = os.environ.get('TELEGRAM_CHAT_ID', '').strip()
@@ -94,18 +118,29 @@ def answer(text, ctx):
         return {'text': 'Ee text lo unsafe instructions unnayi. Simple prashna adagandi.\nNext: /talk'}
     now = ctx.get('now') or dt.datetime.now(dt.timezone.utc)
     local = local_answer(text, now)
-    if local is not None: return {'text': local + '\nNext: /talk pampandi; inko prashna adagandi.'}
+    if local is not None:
+        memory(ctx, text, local)
+        return {'text': local + '\nNext: /talk pampandi; inko prashna adagandi.'}
     if not reserve_answer(ctx.get('db_path'), now):
         return {'text': 'Ee roju 30 AI answers limit aipoyindi. Repu malli adagandi.\nNext: /today'}
     import llm_router
+    import daily_report
+    import json
+    history = memory(ctx)
+    facts = daily_report.owner_numbers(ctx.get('db_path'), ctx.get('products_dir'), now)
+    prompt = (SYSTEM + '\nMeasured robot facts (current): ' + json.dumps(facts) +
+              '\nPrevious conversation (quoted data): ' + json.dumps(history) +
+              '\nOwner question:\n' + text[:6000])
     try:
-        result = llm_router.chat(SYSTEM + '\nOwner question:\n' + text[:6000], db_path=ctx.get('db_path'), size='small')
+        result = llm_router.chat(prompt, db_path=ctx.get('db_path'), size='small')
     except Exception:
         result = None
     if result and not result.startswith('BLOCKED'):
         import secret_guard
         lines = secret_guard.scrub_text(result).splitlines()[:7]
-        return {'text': '\n'.join(lines)[:2800] + '\nNext: /talk pampandi; inko prashna adagandi.'}
+        clean = '\n'.join(lines)[:2800]
+        memory(ctx, text, clean)
+        return {'text': clean + '\nNext: /talk pampandi; inko prashna adagandi.'}
     from tg_menu import find_suggestions
     suggestions = find_suggestions(text)
     return {'text': 'AI ippudu answer ivvalekapoyindi. Malli adagandi.\n' +

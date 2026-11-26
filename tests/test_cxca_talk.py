@@ -22,7 +22,7 @@ class Talk(unittest.TestCase):
         with patch('llm_router.chat',return_value='Mee prashna ki answer idi.') as chat:
             result=owner_talk.answer('enduku ila avutundi? '*500,self.ctx)
             self.assertLessEqual(len(result['text'].splitlines()),8)
-            self.assertLess(len(chat.call_args.args[0]),6500)
+            self.assertLess(len(chat.call_args.args[0]),8500)
             self.assertEqual(chat.call_args.kwargs['db_path'],self.ctx['db_path'])
     def test_down(self):
         with patch('llm_router.chat',return_value=None):
@@ -60,3 +60,26 @@ class Talk(unittest.TestCase):
             self.assertEqual(owner_talk.answer('2+2',self.ctx)['text'].splitlines()[0],'4')
             owner_talk.answer('enduku?',dict(self.ctx,now=self.ctx['now']+dt.timedelta(days=1)))
             self.assertEqual(chat.call_count,31)
+
+    def test_memory_followup_bounds_expiry_and_forget(self):
+        with patch('llm_router.chat',return_value='Answer andi.') as chat:
+            owner_talk.answer('modati prashna',self.ctx)
+            owner_talk.answer('adi enduku?',self.ctx)
+            self.assertIn('modati prashna',chat.call_args.args[0])
+            for i in range(10): owner_talk.memory(self.ctx,str(i)*500,'answer'*100)
+            rows=owner_talk.memory(self.ctx)
+            self.assertLessEqual(len(rows),6)
+            self.assertLessEqual(sum(len(r['owner'])+len(r['robot']) for r in rows),2000)
+            later=dict(self.ctx,now=self.ctx['now']+dt.timedelta(hours=24))
+            self.assertEqual(owner_talk.memory(later),[])
+            owner_talk.memory(self.ctx,'prashna','answer')
+            with patch.object(inbox,'build_plugin_ctx',return_value=self.ctx):
+                handled,reply=inbox.call_plugins('/forget','unused',self.chat)
+            self.assertTrue(handled);self.assertIn('clear',reply['text'])
+            self.assertEqual(owner_talk.memory(self.ctx),[])
+    def test_measured_facts_from_report_functions(self):
+        facts={'ready_packs':9,'listed':0,'drafts':0,'proposals':16,'needs_fix':32}
+        with patch('daily_report.owner_numbers',return_value=facts) as numbers, patch('llm_router.chat',return_value='Counts chudandi.') as chat:
+            owner_talk.answer('enni ready?',self.ctx)
+            self.assertIn('"ready_packs": 9',chat.call_args.args[0])
+            numbers.assert_called_once_with(self.ctx['db_path'],None,self.ctx['now'])

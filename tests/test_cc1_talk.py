@@ -423,7 +423,7 @@ class TalkPluginTests(TalkBase):
         commands = ["/" + name for name in telegram_inbox._COMMANDS.split("|")]
         for path in glob.glob(str(Path(tg_talk.__file__).parent / "tg_*.py")):
             module = __import__(Path(path).stem)
-            commands += [entry["cmd"] for entry in getattr(module, "COMMANDS", []) if entry["cmd"] != "/talk"]
+            commands += [entry["cmd"] for entry in getattr(module, "COMMANDS", []) if entry["cmd"] not in ("/talk", "/forget")]
         self.assertGreater(len(commands), 50)
         for command in commands:
             self.assertIsNone(tg_talk.handle(command, self.ctx), command)

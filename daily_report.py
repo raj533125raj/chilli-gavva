@@ -108,6 +108,18 @@ def _count_ready_upload_packs(products_dir=None):
     return count
 
 
+def owner_numbers(db_path=None, products_dir=None, now=None):
+    """Shared measured facts for reports and read-only owner talk."""
+    import product_builder
+    import tg_listed
+    products = products_dir or product_builder.PRODUCTS_DIR
+    counts = product_counts.snapshot(db_path, products, now=now)
+    path = product_path(db_path, now)
+    return {'ready_packs': counts['upload_ready'] if counts is not None else _count_ready_upload_packs(products),
+            'listed': len(tg_listed.listed_ids(db_path)), 'drafts': path['drafts_waiting'],
+            'proposals': path['proposals_waiting'], 'needs_fix': path['needs_fix']}
+
+
 def upload_packs_line(products_dir=None, db_path=None, now=None):
     """One safe status line showing count of ready upload packs."""
     import product_builder
