@@ -83,3 +83,7 @@ class Talk(unittest.TestCase):
             owner_talk.answer('enni ready?',self.ctx)
             self.assertIn('"ready_packs": 9',chat.call_args.args[0])
             numbers.assert_called_once_with(self.ctx['db_path'],None,self.ctx['now'])
+
+    def test_read_only_sell_card_remains_available(self):
+        self.assertIsNone(owner_talk.action_hint('sell card'))
+        self.assertIsNotNone(owner_talk.action_hint('sell pack 3'))

@@ -48,6 +48,8 @@ def action_hint(text):
         return None
     import talk_intents
     found = talk_intents.detect(text)
+    if found and found['command']=='sellcard':
+        return None  # The daily read-only card never lists or posts a product.
     if found and found.get('risky'):
         command = found['command']
     else:

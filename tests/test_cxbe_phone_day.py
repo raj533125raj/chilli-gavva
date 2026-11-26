@@ -44,7 +44,7 @@ class PhoneDay(unittest.TestCase):
                    'state_get':lambda key,default=None:state.get(key,default),
                    'state_set':lambda key,value:state.update({key:value})}
             steps = [('/storekit','/sell 56'),('/sell 56','/upload 56'),('/upload 56','/listed 56'),
-                     ('/listed 56 https://example.gumroad.com/l/resume','/selltest start'),
+                     ('/listed 56 https://example.gumroad.com/l/resume','/listnext'),
                      ('/selltest start','/today'),('/today','/post today'),('/post today','/posted 1'),
                      ('/posted 1','/selltest stats 56'),('/selltest stats 56 views 120 sales 1','/doctor selltest'),
                      ('/doctor selltest','/doctor promises'),('/doctor promises','/today')]

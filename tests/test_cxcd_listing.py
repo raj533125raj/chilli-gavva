@@ -63,3 +63,37 @@ class ListingDay(unittest.TestCase):
     def test_non_owner_sends_nothing(self):
         self.assertIsNone(tg_listnext.handle('/listnext',dict(self.ctx,chat_id='stranger')))
         self.assertEqual(self.texts,[])
+
+    def test_two_pack_phone_listing_and_individual_days(self):
+        import tg_listed
+        import tg_talk
+        first=tg_listnext.next_pack(self.ctx)['id']
+        self.call('/listnext')
+        self.call(f'/upload {first}')
+        self.assertTrue(any(Path(path).name=='product.zip' for path,_ in self.documents))
+        self.call(f'/listed {first} https://example.gumroad.com/l/first')
+        self.assertIn('Next: /listnext',self.texts[-1])
+        run=selltest.active(self.db)
+        selected=next(p for p in run['packs'] if p['id']==first)
+        self.assertEqual(selected['start_day'],'2026-11-26')
+        second=tg_listnext.next_pack(self.ctx)['id'];self.assertNotEqual(first,second)
+        self.ctx['now']=NOW+dt.timedelta(days=2)
+        self.call('/listnext')
+        self.call(f'/listed {second} https://gumroad.com/l/second')
+        run=selltest.active(self.db);members={p['id']:p for p in run['packs']}
+        self.assertEqual(selltest.day_number(run,self.ctx['now'],members[first]),3)
+        self.assertEqual(selltest.day_number(run,self.ctx['now'],members[second]),1)
+        self.call(f'/listed {first} https://example.gumroad.com/l/first')
+        self.assertEqual(next(p for p in selltest.active(self.db)['packs'] if p['id']==first)['start_day'],'2026-11-26')
+        self.assertEqual(set(tg_listed.listed_ids(self.db)),{first,second})
+        self.assertIsNone(tg_listnext.next_pack(self.ctx))
+        self.call('/listnext');self.assertIn('Kotha unlisted READY Pack ledu',self.texts[-1])
+        card=tg_talk.sell_card_text({'to_list':[{'id':first,'title':'Budget Sheet','status':'SELLABLE'}],'listed':[],'drafts':0},self.ctx)
+        self.assertLess(card.index('/listnext'),card.index('/sell '))
+    def test_wrong_link_does_not_mark_or_start(self):
+        import tg_listed
+        for link in ('https://gumroad.com.evil.test/l/x','http://gumroad.com/l/x','https://gumroad.com/','https://example.com/l/x'):
+            self.call('/listed 51 '+link)
+            self.assertFalse(tg_listed.listed_ids(self.db))
+            self.assertIsNone(selltest.active(self.db))
+            self.assertIn('Link save cheyaledu',self.texts[-1])

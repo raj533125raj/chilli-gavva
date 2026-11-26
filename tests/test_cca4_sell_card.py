@@ -209,9 +209,9 @@ class CardTextTests(Base):
         self.assertIn("1. Gumroad lo pettali — 1 pack(s) ready, inka list cheyaledu:", text)
         self.assertIn("   🟢 /sell 3 — Focus Planner Printable Pack for Daily Planning", text)
         self.assertIn("2. Listed packs — ee roju post (1):", text)
-        self.assertIn("   📌 /launch 5 — Budget Sheet - Digital Download and Pers (Day 2/7)", text)
+        self.assertIn("   📌 /launch 5 — Budget Sheet - Digital Download and Personal Use Guide (Day 2/7)", text)
         self.assertIn("3. Drafts waiting: 1 — /list", text)
-        self.assertTrue(text.endswith("Robot edi list / post cheyadu. Anni meere cheyali."))
+        self.assertTrue(text.splitlines()[-1].startswith("Next: /listnext"))
 
     def test_empty_card_says_so_plainly(self):
         text = self.card()
@@ -222,7 +222,7 @@ class CardTextTests(Base):
     def test_listed_pack_without_started_launch(self):
         self.make_pack("3-focus-planner")
         self.list_pack(3, "2099-01-01T00:00:00Z")
-        self.assertIn("/launch 3 — Focus Planner Printable Pack for Daily P (launch plan start cheyandi)", self.card())
+        self.assertIn("/launch 3 — Focus Planner Printable Pack for Daily Planning (launch plan start cheyandi)", self.card())
 
     def test_finished_launch_points_to_today(self):
         self.make_pack("3-focus-planner")
@@ -238,9 +238,9 @@ class CardTextTests(Base):
                 "listed": [{"id": 50 + index, "title": "Listed " + "y" * 80, "launch": "running", "day": 2}
                            for index in range(9)], "drafts": 14}
         text = tg_talk.sell_card_text(data, self.ctx)
-        self.assertIn("... inko 7 (/sell)", text)
-        self.assertEqual(text.count("/sell "), 5)
-        self.assertEqual(text.count("/launch "), 5)
+        self.assertIn("... inko 9 (/sell)", text)
+        self.assertEqual(text.count("/sell "), 3)
+        self.assertEqual(text.count("/launch "), 3)
         self.assertLess(len(text), 1200)
         self.assertLessEqual(len(text.splitlines()), 18)
 
@@ -264,7 +264,7 @@ class TalkTests(Base):
         reply = tg_talk.handle("ee roju ammadaniki em cheyali", self.ctx)
         self.assertEqual(reply, {"handled": True})
         self.assertIn("/sell 3 — Focus Planner Printable Pack for Daily Planning", self.texts[0])
-        self.assertEqual(self.keyboards[0], [["/sell 3", "/launch 5", "/list"]])
+        self.assertEqual(self.keyboards[0], [["/listnext", "/sell 3", "/launch 5"], ["/list"]])
 
     def test_nothing_to_do_is_a_plain_text_reply(self):
         reply = tg_talk.handle("ee roju ammadaniki em cheyali", self.ctx)
@@ -281,7 +281,7 @@ class TalkTests(Base):
             self.make_pack(f"{number}-pack-{number}", title=f"Pack {number}")
         self.add_draft()
         tg_talk.handle("sell card", self.ctx)
-        self.assertEqual(self.keyboards[0], [["/sell 3", "/sell 4", "/sell 5"], ["/list"]])
+        self.assertEqual(self.keyboards[0], [["/listnext", "/sell 3", "/sell 4"], ["/list"]])
 
     def test_through_call_plugins(self):
         self.make_pack("3-focus-planner")
@@ -290,7 +290,7 @@ class TalkTests(Base):
         self.assertTrue(handled)
         self.assertEqual(reply, {"handled": True})
         self.assertIn("🛒 Ee roju ammadaniki em cheyali (14 Nov)", self.sent[0]["text"])
-        self.assertEqual(self.sent[0]["keyboard"], [["/sell 3"]])
+        self.assertEqual(self.sent[0]["keyboard"], [["/listnext", "/sell 3"]])
 
     def test_through_process_updates_owner_only(self):
         self.make_pack("3-focus-planner")
@@ -397,7 +397,7 @@ class MorningCardTests(Base):
     def test_listed_pack_gets_its_launch_line(self):
         self.list_pack(3)
         self.assertTrue(self.morning(ist(9)))
-        self.assertIn("/launch 3 — Focus Planner Printable Pack for Daily P (Day 2/7)", self.sent[0]["text"])
+        self.assertIn("/launch 3 — Focus Planner Printable Pack for Daily Planning (Day 2/7)", self.sent[0]["text"])
 
     def test_only_one_text_goes_out_and_nothing_else(self):
         with mock.patch.object(telegram_inbox, "send_document") as document, \

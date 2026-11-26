@@ -114,7 +114,7 @@ def next_step(ctx: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # ---- CCA-4: the daily sell card ("Ee roju ammadaniki em cheyali") -----------------------
-SELL_CARD_MAX_LINES = 5
+SELL_CARD_MAX_LINES = 3
 _IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
 
 
@@ -187,9 +187,10 @@ def _card_date(ctx: Dict[str, Any]) -> str:
 
 def sell_card_text(data: Dict[str, Any], ctx: Optional[Dict[str, Any]] = None) -> str:
     """The short card. Every line is a real pack or a real count with the command to tap."""
-    lines = [f"🛒 Ee roju ammadaniki em cheyali ({_card_date(ctx or {})})", ""]
+    lines = [f"🛒 Ee roju ammadaniki em cheyali ({_card_date(ctx or {})})"]
     to_list, listed, drafts = data["to_list"], data["listed"], data["drafts"]
     if to_list:
+        lines.append("Mundu /listnext pampandi — next Pack fields copy cheyandi.")
         lines.append(f"1. Gumroad lo pettali — {len(to_list)} pack(s) ready, inka list cheyaledu:")
         for item in to_list[:SELL_CARD_MAX_LINES]:
             mark = "🟢" if item["status"] == "SELLABLE" else "🟡"
@@ -211,7 +212,9 @@ def sell_card_text(data: Dict[str, Any], ctx: Optional[Dict[str, Any]] = None) -
     else:
         lines.append("2. Listed packs inka levu. Gumroad lo pettaka: /listed N <link>.")
     lines.append(f"3. Drafts waiting: {drafts} — /list" if drafts else "3. Drafts waiting: 0.")
-    lines += ["", "Robot edi list / post cheyadu. Anni meere cheyali."]
+    lines += ["Robot edi list / post cheyadu. Anni meere cheyali.",
+              "Next: /listnext pampandi; next Pack fields copy cheyandi." if to_list else
+              "Next: /today pampandi; ee roju pani chudandi."]
     return "\n".join(lines)
 
 
@@ -219,7 +222,7 @@ def sell_card(ctx: Dict[str, Any]) -> Dict[str, Any]:
     """The card as a plugin reply, with one-tap buttons for the first few commands."""
     data = sell_card_data(ctx)
     text = sell_card_text(data, ctx)
-    buttons = [f"/sell {item['id']}" for item in data["to_list"][:3]]
+    buttons = (["/listnext"] if data["to_list"] else []) + [f"/sell {item['id']}" for item in data["to_list"][:2]]
     buttons += [f"/launch {item['id']}" for item in data["listed"] if item["launch"] != "done"][:3]
     if data["drafts"]:
         buttons.append("/list")

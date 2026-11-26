@@ -126,6 +126,31 @@ def start(db_path=None, products_dir=None, now=None):
     return active(db_path)
 
 
+def start_listed(aid, db_path=None, products_dir=None, now=None):
+    """Explicit listing starts this READY pack once; duplicate links never restart its day."""
+    import post_planner
+    pack = next((p for p in candidates(db_path,products_dir,now) if p['id']==aid),None)
+    if pack is None:
+        return 'READY Pack kavali; /ready lo fixes chudandi.'
+    day = post_planner.owner_today(now).isoformat()
+    with _connect(db_path) as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        conn.execute('CREATE TABLE IF NOT EXISTS sell_test_listing_starts (approval_id INTEGER PRIMARY KEY, start_day TEXT NOT NULL)')
+        if conn.execute('SELECT 1 FROM sell_test_listing_starts WHERE approval_id=?',(aid,)).fetchone():
+            return 'Sell test day mundu start ayyindi; malli reset cheyaledu.'
+        member = conn.execute('SELECT 1 FROM sell_test_packs WHERE approval_id=?',(aid,)).fetchone()
+        if not member and conn.execute('SELECT COUNT(*) FROM sell_test_packs').fetchone()[0]>=8:
+            return 'Sell test lo 8 packs unnayi; /selltest swap A B tho owner selection marchandi.'
+        conn.execute('INSERT OR IGNORE INTO sell_test VALUES(1,?)',(day,))
+        if not member:
+            slot=conn.execute('SELECT COALESCE(MAX(slot),0)+1 FROM sell_test_packs').fetchone()[0]
+            conn.execute('INSERT INTO sell_test_packs VALUES(?,?,?,?,?,?)',
+                         (slot,aid,pack['title'],pack['folder'],pack['format'],pack['listing_score']))
+        conn.execute('INSERT OR REPLACE INTO sell_test_pack_starts VALUES(?,?)',(aid,day))
+        conn.execute('INSERT INTO sell_test_listing_starts VALUES(?,?)',(aid,day))
+    return 'Ee Pack sell test Day 1 start chesanu; /selltest stats lo counts ivvandi.'
+
+
 def swap(old_id, new_id, db_path=None, products_dir=None, now=None):
     import post_planner
     run = active(db_path)

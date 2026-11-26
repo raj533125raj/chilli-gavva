@@ -26,6 +26,7 @@ from tg_menu import owner_reply
 
 import datetime
 import json
+import sqlite3
 import re
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlsplit
@@ -266,7 +267,7 @@ def show_text(pack_id: int, db_path=None) -> str:
             f"Listed: {item['listed_ts'][:10]}\nLink teeseyadaniki: /listed {item['id']} remove")
 
 
-def save_text(pack_id: int, link: str, db_path=None, now=None) -> str:
+def save_text(pack_id: int, link: str, db_path=None, now=None, products_dir=None) -> str:
     result = set_listed(pack_id, link, db_path=db_path, now=now)
     if result["ok"]:
         lines = [f"✅ Pack #{pack_id} ({result['title']}) Gumroad lo listed ani gurthu pettukunna.",
@@ -276,6 +277,12 @@ def save_text(pack_id: int, link: str, db_path=None, now=None) -> str:
         elif result["old_url"]:
             lines.append("(Ide link mundu kuda undi.)")
         lines.append("Ippudu /status, /ready lo idi listed ga kanipistundi. Anni listed packs: /listed")
+        import selltest
+        try:
+            lines.append(selltest.start_listed(pack_id,db_path,products_dir,now))
+        except (OSError, ValueError, sqlite3.Error):
+            lines.append('Link save chesanu; sell test check kosam /doctor selltest pampandi.')
+        lines.append('Next: /listnext')
         return "\n".join(lines)
     if result["reason"] == "not_found":
         return f"Pack #{pack_id} dorakaledu. Ready packs kosam /ready, listed packs kosam /listed."
@@ -283,7 +290,7 @@ def save_text(pack_id: int, link: str, db_path=None, now=None) -> str:
         return (f"Pack #{pack_id} approved Draft kaadu (status: {result.get('status')}). "
                 "Approve ayina, build ayina pack ni matrame listed ani mark cheyagalanu.")
     return (f"Link save cheyaledu: {result['reason']}\n"
-            f"Sari ayina format: {EXAMPLE}")
+            f"Sari ayina format: {EXAMPLE}\nNext: /listed {pack_id} <Gumroad link>")
 
 
 def remove_text(pack_id: int, db_path=None) -> str:
@@ -338,7 +345,7 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
         if action == "remove":
             return {"text": remove_text(pack_id, db_path)}
         if action == "save":
-            return {"text": save_text(pack_id, rest, db_path, ctx.get("now"))}
+            return {"text": save_text(pack_id, rest, db_path, ctx.get("now"), ctx.get("products_dir"))}
         return {"text": "Ila pampandi (pack number, tarvata okka Gumroad link):\n" + EXAMPLE
                         + "\nListed packs chudadaniki: /listed"}
     except Exception as error:

@@ -107,7 +107,7 @@ def owner_flow_next(text, ctx):
         return f"/sell {packs[0]['id']} pampandi; modati Pack chudandi." if packs else '/ready pampandi; READY Pack kavali.'
     if cmd == 'sell' and aid: return f'/upload {aid} pampandi; Gumroad files techukondi.'
     if cmd == 'upload' and aid: return f'/upload {aid} malli pampandi; files poorthiga techukondi.'
-    if cmd == 'listed' and aid and len(words)>2: return '/selltest start pampandi; READY Packs tho test modalupettandi.'
+    if cmd == 'listed' and aid and len(words)>2: return '/listnext pampandi; next Pack listing techukondi.'
     if cmd == 'selltest' and (len(words)==1 or words[1].lower()=='start'): return '/today pampandi; ee roju pani chudandi.'
     if cmd == 'today' and len(words)==1:
         import selltest
