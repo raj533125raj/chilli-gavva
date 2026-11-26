@@ -920,6 +920,8 @@ def call_plugins(text, token, chat_id, db_path=None, now=None, plugins=None, mes
             return True, res
     if crash_note:     # the plugin that owned the text crashed: say so instead of a "did not understand" guess
         return True, {"text": crash_note}
+    if fallback is not None and 'anukunnara?' in str(fallback.get('text','')):
+        return True, fallback  # A recognized command typo belongs to tg_menu.
     if not str(text).strip().startswith("/") and not any(
             kind in (message or {}) for kind in ("photo", "document", "voice", "audio")):
         import owner_talk
@@ -1141,6 +1143,7 @@ def parse_start_payload(text):
     return approval_id
 
 
+@owner_card("/drafts pampandi; waiting Drafts chudandi.")
 def draft_card(item, db_path=None):
     """Short alert text for one draft: title, Checker score, 3-line Council summary."""
     import checker
@@ -2294,11 +2297,20 @@ def _link_belongs_to_command(message_text):
         return False
 
 
+def _send_owner_media(token, chat_id, text, buttons=None):
+    from tg_menu import owner_reply_pages
+    pages = owner_reply_pages('Media vachindi; ee vivaralu chudandi.\n'+text,
+                              '/today pampandi; ee roju pani chudandi.')
+    for i,page in enumerate(pages):
+        send_text(token,chat_id,page,buttons if i==len(pages)-1 else None)
+
+
 def process_updates(token, owner_chat_id, db_path=None, stats=None):
     """Handle new commands and button presses from the owner chat. Returns number handled.
 
     stats (optional dict from new_stats()) is filled with counts only: never ids, tokens or text.
     """
+    import auto_approve
     global LAST_FETCH_ERROR
     stats = stats if stats is not None else new_stats()
     offset = get_state("update_offset", None, db_path)
@@ -2437,14 +2449,14 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                 handled += 1
                 continue
             reply_text, buttons, _ = media_brain.process_photo(token, msg["photo"], caption=caption, db_path=db_path)
-            send_text(token, owner_chat_id, reply_text, buttons)
+            _send_owner_media(token, owner_chat_id, reply_text, buttons)
             handled += 1
             continue
 
         if "voice" in msg or "audio" in msg:
             audio_item = msg.get("voice") or msg.get("audio")
             reply_text, buttons, _ = media_brain.process_audio(token, audio_item, caption=caption, db_path=db_path)
-            send_text(token, owner_chat_id, reply_text, buttons)
+            _send_owner_media(token, owner_chat_id, reply_text, buttons)
             handled += 1
             continue
 
@@ -2456,7 +2468,7 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                 handled += 1
                 continue
             reply_text, buttons, _ = media_brain.process_document(token, msg["document"], db_path=db_path)
-            send_text(token, owner_chat_id, reply_text, buttons)
+            _send_owner_media(token, owner_chat_id, reply_text, buttons)
             handled += 1
             continue
 
@@ -2466,6 +2478,18 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
         seen_message_keys.add(m_key)
         total_k_count = key_counts.get(m_key, 1)
         burst_note = f"\n\n(answered {total_k_count} messages)" if total_k_count > 1 else ""
+
+        import owner_talk
+        import owner_commands
+        # Known Office controls keep their own explicit language. Robot talk
+        # actions require a slash command or the existing decision buttons.
+        office_intent = owner_commands.parse(message_text).get('intent')
+        hint = None if office_intent in OFFICE_INTENTS else owner_talk.action_hint(message_text)
+        if hint is not None:
+            if not is_duplicate:
+                send_text(token,owner_chat_id,_plugin_burst(hint['text'],burst_note))
+            handled += 1
+            continue
 
         approval_id = parse_start_payload(message_text)
         if approval_id is not None:
@@ -2486,7 +2510,7 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
             if urls:
                 if not is_duplicate:
                     reply_text, buttons, _ = media_brain.process_url(urls[0], db_path=db_path)
-                    send_text(token, owner_chat_id, reply_text + burst_note, buttons)
+                    _send_owner_media(token, owner_chat_id, reply_text + burst_note, buttons)
                 handled += 1
                 continue
 
@@ -2542,7 +2566,7 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                     if c_intent == "list_drafts":
                         reply = handle_command("list", [], db_path) + burst_note
                         send_text(token, owner_chat_id, reply)
-                        for it in guardrails.pending(db_path)[:10]:
+                        for it in auto_approve.split_waiting(db_path)[0][:10]:
                             send_text(token, owner_chat_id, draft_card(it, db_path=db_path), draft_buttons(it["id"]))
                     elif c_intent == "show_status":
                         reply = status_text(db_path) + burst_note
@@ -2639,11 +2663,11 @@ def process_updates(token, owner_chat_id, db_path=None, stats=None):
                     reply = handle_command(cmd, ids, db_path) + burst_note
                     send_text(token, owner_chat_id, reply)
             if cmd == "list":       # fresh buttons for every waiting draft (up to 10)
-                for it in guardrails.pending(db_path)[:10]:
+                for it in auto_approve.split_waiting(db_path)[0][:10]:
                     send_text(token, owner_chat_id, draft_card(it, db_path=db_path), draft_buttons(it["id"]))
             elif cmd == "buttontest":
-                if send_text(token, owner_chat_id, "Press this test button. The reply comes on the next run "
-                             "(about 1-2 minutes with the door bell)." + burst_note, [[("Test button", "t:ping")]]):
+                if send_text(token, owner_chat_id, "Ee Test button nokkandi. Reply next run lo vastundi (door bell unte 1-2 min).\n"
+                             "Next: Test button nokkandi; reply chudandi." + burst_note, [[("Test button", "t:ping")]]):
                     # The next run reports what really happened (press received, webhook, allowed_updates).
                     set_state(BUTTONTEST_PENDING,
                               datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"), db_path)
@@ -2668,7 +2692,8 @@ def stats_line(stats, note=""):
 
 def alert_new_drafts(token, owner_chat_id, db_path=None):
     """Announce drafts that joined the queue since the last alert. Returns count announced."""
-    items = guardrails.pending(db_path)
+    import auto_approve
+    items, _ = auto_approve.split_waiting(db_path)
     last_seen = int(get_state("last_alerted_id", 0, db_path) or 0)
     if last_seen == 0 and items:
         _ensure_checked(items, db_path)

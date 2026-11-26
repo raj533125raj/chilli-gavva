@@ -153,7 +153,8 @@ def _get_draft_card(item: dict, db_path: Optional[str] = None) -> str:
         pass
 
     # Fallback formatting if telegram_inbox isn't available or errors
-    lines = [f"#{item['id']} {item.get('title', '')[:70]}"]
+    from owner_titles import owner_title
+    lines = [f"#{item['id']} {owner_title(item)}"]
     review = item.get("review") or ""
     try:
         import checker
@@ -182,7 +183,8 @@ def _get_view_text(approval_id: int, db_path: Optional[str] = None) -> str:
 
 def _get_pending_drafts(db_path: Optional[str] = None) -> List[dict]:
     guardrails = _get_guardrails()
-    return guardrails.pending(db_path)
+    import auto_approve
+    return auto_approve.split_waiting(db_path)[0]
 
 
 def _build_decide_keyboard(draft_id: int) -> List[List[str]]:
@@ -357,7 +359,9 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
         if not pending:
             _clear_state_key(ctx, KEY_ACTIVE_SESSION)
             _clear_state_key(ctx, KEY_REJECTING_DRAFT)
-            msg = "Waiting drafts em levu. No drafts waiting. ✅"
+            import auto_approve
+            proposals = len(auto_approve.split_waiting(db_path)[1])
+            msg = f"Waiting drafts em levu. No drafts waiting. ✅\nProposals waiting: {proposals} — /list"
             _send(ctx, msg, keyboard=_build_remove_keyboard())
             return {"handled": True}
 

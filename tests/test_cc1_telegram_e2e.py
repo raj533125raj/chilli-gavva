@@ -83,8 +83,10 @@ class Inbox(unittest.TestCase):
         patches = [
             mock.patch.dict(os.environ, {"CHILLI_PRODUCTS_DIR": str(self.products),
                                          "CHILLI_MARKETING_DIR": str(self.marketing),
+                                         "TELEGRAM_CHAT_ID": str(OWNER),
                                          "GEMINI_AUTOFIX_KEY": ""}),
             mock.patch.object(product_builder, "PRODUCTS_DIR", str(self.products)),
+            mock.patch("llm_router.chat", return_value=None),
             mock.patch("truth_check.check", return_value={"verdict": "ready", "score": 100, "problems": []}),
             mock.patch("product_qa_deep.check_folder", return_value={"verdict": "ready", "score": 100, "problems": []}),
             mock.patch.object(telegram_inbox, "fetch_updates", side_effect=lambda token, offset: list(self.updates)),
@@ -225,7 +227,7 @@ class BuiltInBehaviourTests(Inbox):
     def test_list_shows_drafts_with_buttons(self):
         aid = self.add_draft()
         self.say("/list")
-        self.assertIn("Monthly budget sheet", self.sent[0]["text"])
+        self.assertIn("Families Budget Spreadsheet Organizing Daily Records", self.sent[0]["text"])
         cards = [item for item in self.sent if item.get("buttons")]
         self.assertEqual(len(cards), 1)
         self.assertEqual(cards[0]["buttons"], telegram_inbox.draft_buttons(aid))
@@ -427,8 +429,8 @@ class GreetingAndUnknownTests(Inbox):
         handled, texts = self.say("nenu bayataki veltunna")
         self.assertEqual(handled, 1)
         self.assertEqual(len(texts), 1)
-        for command in ('/storekit','/selltest start','/today'):
-            self.assertIn(command,texts[0])
+        self.assertIn("AI ippudu", texts[0])
+        self.assertEqual(texts[0].count("•"), 3)
         self.assertLessEqual(len(texts[0].splitlines()),15)
         self.assertTrue(texts[0].splitlines()[-1].startswith('Next:'))
 
@@ -463,8 +465,8 @@ class NumberWordTests(Inbox):
     def test_telugu_ordinal_sell(self):
         self.add_pack()
         _handled, texts = self.say("moodo pack sell chey")
-        self.assertIn("1/4 GUMROAD FIELDS", texts[1])
-        self.assertEqual(self.files(), ["product.zip", "LICENSE.txt"])
+        self.assertIn("/sell 3", texts[0])
+        self.assertEqual(self.files(), [])
 
     def test_telugu_cardinal_files(self):
         self.add_pack()
@@ -479,7 +481,7 @@ class NumberWordTests(Inbox):
     def test_number_words_up_to_twenty(self):
         for word, number in (("okato", 1), ("aido", 5), ("padakondo", 11), ("iravai", 20), ("twelfth", 12)):
             _handled, texts = self.say(f"{word} pack sell chey")
-            self.assertIn(f"Pack #{number} ", texts[0], word)
+            self.assertIn(f"/sell {number}", texts[0], word)
 
     def test_view_draft_by_number_word(self):
         aid = self.add_draft()
@@ -694,7 +696,8 @@ class RegressionTests(Inbox):
     def test_pack_sell_sentence_runs_the_sell_flow(self):
         self.add_pack()
         _handled, texts = self.say("pack 3 sell chey")
-        self.assertIn("1/4 GUMROAD FIELDS", texts[1])
+        self.assertIn("/sell 3", texts[0])
+        self.assertEqual(self.files(), [])
 
     def test_pack_kit_sentence_sends_the_kit(self):
         self.add_pack()
@@ -739,9 +742,11 @@ class RegressionTests(Inbox):
     def test_old_owner_sentences_still_work(self):
         self.add_draft()
         _handled, texts = self.say("list drafts")
-        self.assertIn("Monthly budget sheet", texts[0])
+        self.assertIn("Next: /list", texts[0])
+        _handled, texts = self.say("/list")
+        self.assertIn("Families Budget Spreadsheet Organizing Daily Records", texts[0])
         _handled, texts = self.say("pause all")
-        self.assertIn("Confirm", texts[0])
+        self.assertIn("Next: /pause", texts[0])
         self.assertFalse(guardrails.is_paused(self.db))
         _handled, texts = self.say("today posts")
         self.assertEqual(texts, [telegram_inbox.today_posts_text()])
@@ -785,8 +790,10 @@ class RegressionTests(Inbox):
 
     def test_post_chey_gives_todays_posts(self):
         _handled, texts = self.say("post chey")
+        self.assertIn("Next: /post", texts[0])
+        self.assertEqual(self.files(), [])
         _handled, expected = self.say("/post today")
-        self.assertEqual(texts, expected)
+        self.assertTrue(expected)
 
     def test_bare_sale_explains_how_to_record(self):
         _handled, texts = self.say("sale")

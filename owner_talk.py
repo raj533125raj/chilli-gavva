@@ -5,6 +5,7 @@ import datetime as dt
 import operator
 import os
 import re
+import textwrap
 
 SYSTEM = ('Reply in simple Tenglish, at most 8 short lines. Answer the question directly. '
           'You can only explain, never execute actions. No secrets or private paths. '
@@ -13,7 +14,7 @@ SYSTEM = ('Reply in simple Tenglish, at most 8 short lines. Answer the question 
 
 
 def local_answer(text, now):
-    expression = re.sub(r'^(?:what is|calculate|entha)\s+', '', text.strip(), flags=re.I).rstrip('=? ')
+    expression = re.sub(r'^(?:what is|how much is|calculate|entha)\s+', '', text.strip(), flags=re.I).rstrip('=? ')
     if len(expression) <= 120 and re.fullmatch(r'[\d\s.+*/()%−-]+', expression):
         ops = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
                ast.Div: operator.truediv, ast.FloorDiv: operator.floordiv, ast.Mod: operator.mod}
@@ -31,14 +32,30 @@ def local_answer(text, now):
             return format(value, '.12g')
         except (SyntaxError, ValueError, ZeroDivisionError, OverflowError, RecursionError):
             return 'Lekka check cheyandi; division lo zero vadakandi.'
-    if re.fullmatch(r'(?:today|date|today.s date|ee roju date|ivala date)\??', text.strip(), re.I):
-        return now.astimezone(dt.timezone(dt.timedelta(hours=5, minutes=30))).strftime('%d %B %Y, %A')
-    match = re.fullmatch(r'(\d+(?:\.\d+)?)\s*(mm|cm|m|km|g|kg|min|minutes|hours|h)\s+(?:in|to|=)\s*(mm|cm|m|km|g|kg|min|minutes|hours|h)\??', text.strip(), re.I)
-    if match:
-        units = {'mm':('length',.001),'cm':('length',.01),'m':('length',1),'km':('length',1000),
-                 'g':('mass',1),'kg':('mass',1000),'min':('time',1),'minutes':('time',1),'hours':('time',60),'h':('time',60)}
-        value, source, target = match.groups(); a,b=units[source.lower()],units[target.lower()]
-        if a[0] == b[0]: return f'{float(value)*a[1]/b[1]:.12g} {target}'
+    phrase=' '.join(text.casefold().strip().rstrip('?').split())
+    date_words={0:('today','date',"today's date",'ee roju date','ivala date','today date','what is the date today','what day is it'),
+                1:('tomorrow','tomorrow date',"tomorrow's date",'repu date','what day is tomorrow'),
+                -1:('yesterday','yesterday date',"yesterday's date",'ninna date','what day was yesterday')}
+    for offset,words in date_words.items():
+        if phrase in words:
+            return (now.astimezone(dt.timezone(dt.timedelta(hours=5,minutes=30)))+dt.timedelta(days=offset)).strftime('%d %B %Y, %A')
+    day=re.fullmatch(r'(?:what day is|weekday of) (\d{4}-\d{2}-\d{2})',phrase)
+    difference=re.fullmatch(r'days between (\d{4}-\d{2}-\d{2}) and (\d{4}-\d{2}-\d{2})',phrase)
+    if day or difference:
+        try:
+            if day:return dt.date.fromisoformat(day[1]).strftime('%A')
+            return str((dt.date.fromisoformat(difference[2])-dt.date.fromisoformat(difference[1])).days)+' days'
+        except ValueError:return 'Date sarigga ledu; YYYY-MM-DD lo pampandi.'
+    units={'mm':('length',.001),'cm':('length',.01),'m':('length',1),'km':('length',1000),
+           'inch':('length',.0254),'inches':('length',.0254),'feet':('length',.3048),'ft':('length',.3048),
+           'g':('mass',1),'grams':('mass',1),'kg':('mass',1000),'kilograms':('mass',1000),
+           'ml':('volume',.001),'l':('volume',1),'liters':('volume',1),
+           'seconds':('time',1/60),'sec':('time',1/60),'min':('time',1),'minutes':('time',1),'hours':('time',60),'h':('time',60)}
+    match=re.fullmatch(r'(?:convert )?([-+]?\d+(?:\.\d+)?)\s*([a-z]+)\s+(?:in|to|=)\s*([a-z]+)',phrase)
+    if match and match[2] in units and match[3] in units:
+        value,source,target=match.groups();a,b=units[source],units[target]
+        if a[0]==b[0]:return f'{float(value)*a[1]/b[1]:.12g} {target}'
+        return 'Ee units okerakam kaavu; length, weight leda time units check cheyandi.'
     return None
 
 
@@ -46,6 +63,8 @@ def action_hint(text):
     """Free text can suggest an action command, never perform it."""
     if str(text).strip().startswith('/'):
         return None
+    if re.fullmatch(r'(?:auto[ -]?approve|autoapprove)\s+status',str(text).strip(),re.I):
+        return None  # Reading settings cannot approve a draft or change a policy.
     import talk_intents
     found = talk_intents.detect(text)
     if found and found['command']=='sellcard':
@@ -63,7 +82,9 @@ def action_hint(text):
             return None
         number = talk_intents.extract_numbers(text)
         command = '/' + action + ((' ' + str(number[0])) if number else '')
-        if action in ('delete','publish'):
+        if action=='kill':
+            command='/pause'
+        elif action in ('delete','publish'):
             command = '/help ' + action
     return {'text': 'Idi action. Meeru command pampithe matrame chestanu.\nNext: ' + command}
 
@@ -103,7 +124,7 @@ def memory(ctx, owner=None, robot=None, clear=False):
             rows.append({'ts':now.timestamp(), 'owner':secret_guard.scrub_text(owner)[:500],
                          'robot':secret_guard.scrub_text(robot)[:500]})
         rows = rows[-6:]
-        while sum(len(r.get('owner',''))+len(r.get('robot','')) for r in rows)>2000:
+        while sum(len(r.get('owner',''))+len(r.get('robot','')) for r in rows)>2000 or len(json.dumps(rows))>2000:
             rows.pop(0)
         conn.execute("INSERT OR REPLACE INTO control(key,value) VALUES('talk_memory',?)", (json.dumps(rows),))
     return rows
@@ -119,6 +140,7 @@ def answer(text, ctx):
     if injection_guard.is_suspicious(text):
         return {'text': 'Ee text lo unsafe instructions unnayi. Simple prashna adagandi.\nNext: /talk'}
     now = ctx.get('now') or dt.datetime.now(dt.timezone.utc)
+    if now.tzinfo is None:now=now.replace(tzinfo=dt.timezone.utc)
     local = local_answer(text, now)
     if local is not None:
         memory(ctx, text, local)
@@ -139,7 +161,8 @@ def answer(text, ctx):
         result = None
     if result and not result.startswith('BLOCKED'):
         import secret_guard
-        lines = secret_guard.scrub_text(result).splitlines()[:7]
+        lines = [textwrap.shorten(line,width=300,placeholder='…')
+                 for line in secret_guard.scrub_text(result).splitlines()[:7]]
         clean = '\n'.join(lines)[:2800]
         memory(ctx, text, clean)
         return {'text': clean + '\nNext: /talk pampandi; inko prashna adagandi.'}

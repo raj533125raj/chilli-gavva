@@ -16,7 +16,7 @@ NOW=dt.datetime(2026,11,26,7,tzinfo=dt.timezone.utc)
 CHAT=str(int('1234' '5678'))
 
 @unittest.skipUnless(mockups.available(),'Pillow and Poppler required')
-class ListingDay(unittest.TestCase):
+class ReadyPacksFixture(unittest.TestCase):
     def setUp(self):
         temp=tempfile.TemporaryDirectory();self.addCleanup(temp.cleanup)
         self.products=Path(temp.name)/'products';self.db=str(Path(temp.name)/'robot.db')
@@ -47,6 +47,8 @@ class ListingDay(unittest.TestCase):
         self.assertTrue(handled,text)
         if reply.get('text'):self.texts.append(str(reply['text']))
         return reply
+
+class ListingDay(ReadyPacksFixture):
     def test_listnext_separate_fields_from_real_kit(self):
         best=tg_listnext.next_pack(self.ctx)
         self.call('/listnext')

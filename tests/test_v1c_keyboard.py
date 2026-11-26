@@ -102,7 +102,7 @@ class TestV1CKeyboardPlugin(unittest.TestCase):
         cur = conn.cursor()
         cur.execute(
             "INSERT INTO approvals (ts, kind, title, payload, status, review) VALUES (?, ?, ?, ?, ?, ?)",
-            (self.now.isoformat(), "digital_pack", title, "Draft content details...", status, review),
+            (self.now.isoformat(), "public_draft", title, "Draft content details...", status, review),
         )
         conn.commit()
         draft_id = cur.lastrowid

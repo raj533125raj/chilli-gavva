@@ -252,7 +252,7 @@ def daily_text(db_path=None, now=None, status_fn=None, products_dir=None):
         else:
             label = (title or folder or (f"Draft #{aid}" if aid is not None else "Product")).strip()
         from owner_titles import owner_title
-        built_titles.append(owner_title({'title':label,'folder':folder}))
+        built_titles.append(owner_title({'title':label,'folder':folder if status!='pending' else None}))
     built_line = "Built products (last 24h): " + (", ".join(built_titles) if built_titles else "none")
 
     if waiting > 0:

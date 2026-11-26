@@ -561,7 +561,14 @@ def archive_scout_proposals(db_path=None, now=None):
                 changed = conn.execute("UPDATE approvals SET status='archived',reason='archived — owner ki time ledu',decided_ts=? "
                                        "WHERE id=? AND kind='scout_idea' AND status='pending'",
                                        (stamp.isoformat(),aid)).rowcount
-                if changed: ids.append(aid)
+                if changed:
+                    ids.append(aid)
+                    if conn.execute("SELECT 1 FROM sqlite_master WHERE name='scout_ideas'").fetchone():
+                        columns={row[1] for row in conn.execute('PRAGMA table_info(scout_ideas)')}
+                        if {'approval_id','status'} <= columns:
+                            extra=',synced=1' if 'synced' in columns else ''
+                            conn.execute("UPDATE scout_ideas SET status='archived'"+extra+
+                                         " WHERE approval_id=? AND status='pending'",(aid,))
     return ids
 
 

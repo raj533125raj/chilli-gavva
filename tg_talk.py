@@ -98,10 +98,16 @@ def _text_only(ctx: Dict[str, Any]) -> Dict[str, Any]:
 def next_step(ctx: Dict[str, Any]) -> Dict[str, Any]:
     """'Em cheyali ippudu?' — look at the real state and show the first thing that needs the owner."""
     import guardrails
-    waiting = guardrails.pending(ctx.get("db_path"))
+    import auto_approve
+    waiting, proposals = auto_approve.split_waiting(ctx.get("db_path"))
     if waiting:
         return {"text": f"Mundu idi cheyandi: {len(waiting)} drafts mee approval kosam wait chestunnayi.\n\n"
                         + _builtin("list", [], ctx)}
+    import tg_listnext
+    pack = tg_listnext.next_pack(ctx)
+    if pack:
+        return {'text':f"Product drafts waiting: 0; Proposals waiting: {len(proposals)}\n"
+                       f"Pack #{pack['id']} ready; listing fields copy cheyandi.\nNext: /listnext"}
     sell = plugin_for("/sell")
     if sell is not None:
         quiet = _text_only(ctx)
@@ -148,9 +154,12 @@ def sell_card_data(ctx: Dict[str, Any]) -> Dict[str, Any]:
             listed_ids = list(listed_plugin.listed_ids(ctx.get("db_path")))
         except Exception:
             listed_ids = []
+    import product_counts
+    view = product_counts.snapshot(ctx.get('db_path'),base,ctx.get('marketing_dir'),ctx.get('now'))
+    allowed = {row[0] for row in view['packs']} if view is not None else None
     to_list, listed = [], []
     for number, title, path in sell_ready.find_all_ready_packs(base):
-        if number is None:
+        if number is None or (allowed is not None and number not in allowed):
             continue
         if number in listed_ids:
             status, day = ("not_started", None)
@@ -294,12 +303,14 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
     """Standard Telegram plugin entry point."""
     if not isinstance(text, str):
         return None
-    if re.fullmatch(r'/forget(?:@\w+)?', text.strip(), re.I):
+    if re.fullmatch(r'/?forget(?:@\w+)?', text.strip(), re.I):
         if not os.environ.get('TELEGRAM_CHAT_ID') or str(ctx.get('chat_id')) != os.environ['TELEGRAM_CHAT_ID']:
             return None
         import owner_talk
         owner_talk.memory(ctx, clear=True)
         return {'text':'Maatala memory clear chesanu.\nNext: /talk'}
+    if re.fullmatch(r'ee\s+roju\s+em\s+cheyali\??',text.strip(),re.I):
+        return next_step(ctx)
     if re.fullmatch(r"/talk(?:@\w+)?|talk|maatladu|matladu", text.strip(), re.IGNORECASE):
         return {"text": examples_text()}
     if text.strip().startswith("/"):

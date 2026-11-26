@@ -41,12 +41,12 @@ def handle(text,ctx):
         return {'text':f'Pack #{aid} ready. Fields kosam /listnext pampandi.\nNext: /upload {aid}'}
     for label,value in fields:
         send(label+' — field text copy cheyandi:\n'+value+f'\nNext: /upload {aid}')
-    send(f'5. Files: send /upload {aid}\nNext: /upload {aid}')
+    send(f'5. Files: send /upload {aid} — pampandi.\nNext: /upload {aid}')
     from tg_sell import image_files
     images=image_files(base)
     cover=next((path for path in images if 'cover' in Path(path).stem.lower()),images[0] if images else None)
     if cover and callable(ctx.get('send_photo')):
-        ctx['send_photo'](cover,caption=f'6. Cover — Gumroad lo pettandi.\nNext: /upload {aid}')
+        ctx['send_photo'](cover,caption=f'6. Cover chudandi; Gumroad lo pettandi.\nNext: /upload {aid}')
     send(f'7. Gumroad app/site lo New product -> paste 1,2,3,4 -> files -> Publish -> link copy -> /listed {aid} <link>\n'
          f'Price meere decide cheyandi. Robot list/post cheyadu.\nNext: /listed {aid} <link>')
     return {'handled':True}

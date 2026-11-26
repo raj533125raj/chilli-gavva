@@ -15,7 +15,7 @@ class Talk(unittest.TestCase):
                     'now':dt.datetime(2026,11,26,7,tzinfo=dt.timezone.utc)}
         self.env = patch.dict(os.environ,TELEGRAM_CHAT_ID=self.chat); self.env.start(); self.addCleanup(self.env.stop)
     def test_local(self):
-        for text, expected in [('2+2','4'),('3*(4+2)','18'),('1 km to m','1000 m'),('ee roju date','26 November 2026, Thursday')]:
+        for text, expected in [('2+2','4'),('3*(4+2)','18'),('1 km to m','1000 m'),('ee roju date','26 November 2026, Thursday'),('repu date','27 November 2026, Friday'),('ninna date','25 November 2026, Wednesday'),('what day is 2026-11-26','Thursday'),('days between 2026-11-26 and 2026-12-01','5 days'),('convert 1 kg to grams','1000 grams'),('2 hours in minutes','120 minutes')]:
             with self.subTest(text=text), patch('llm_router.chat',side_effect=AssertionError('local')):
                 self.assertEqual(owner_talk.answer(text,self.ctx)['text'].splitlines()[0],expected)
     def test_router_and_long_question(self):
@@ -43,7 +43,7 @@ class Talk(unittest.TestCase):
         for verb in ('approve','reject','pause','resume','kill','delete','sell','list','post','publish'):
             with self.subTest(verb=verb), patch('llm_router.chat',side_effect=AssertionError('action')):
                 result = owner_talk.answer(verb+' 3',self.ctx)
-                self.assertIn('/'+('help '+verb if verb in ('delete','publish') else verb),result['text'])
+                self.assertIn('/'+('pause' if verb=='kill' else 'help '+verb if verb in ('delete','publish') else verb),result['text'])
         with patch.object(inbox,'build_plugin_ctx',return_value=self.ctx), patch('tg_sell.handle',side_effect=AssertionError('execute')):
             handled,reply=inbox.call_plugins('sell 3','unused',self.chat)
             self.assertTrue(handled);self.assertIn('/sell 3',reply['text'])
@@ -70,6 +70,9 @@ class Talk(unittest.TestCase):
             rows=owner_talk.memory(self.ctx)
             self.assertLessEqual(len(rows),6)
             self.assertLessEqual(sum(len(r['owner'])+len(r['robot']) for r in rows),2000)
+            import guardrails
+            with guardrails.connect(self.ctx['db_path']) as conn:
+                self.assertLessEqual(len(conn.execute("SELECT value FROM control WHERE key='talk_memory'").fetchone()[0]),2000)
             later=dict(self.ctx,now=self.ctx['now']+dt.timedelta(hours=24))
             self.assertEqual(owner_talk.memory(later),[])
             owner_talk.memory(self.ctx,'prashna','answer')
@@ -87,3 +90,16 @@ class Talk(unittest.TestCase):
     def test_read_only_sell_card_remains_available(self):
         self.assertIsNone(owner_talk.action_hint('sell card'))
         self.assertIsNotNone(owner_talk.action_hint('sell pack 3'))
+
+    def test_long_ai_lines_stay_short_on_the_actual_transport(self):
+        with patch('llm_router.chat',return_value='\n'.join(['plain words '*100]*7)), patch.object(inbox,'build_plugin_ctx',return_value=self.ctx):
+            handled,reply=inbox.call_plugins('a long general question','unused',self.chat)
+        self.assertTrue(handled)
+        self.assertLessEqual(len(reply['text'].splitlines()),8)
+        self.assertNotIn('word…',reply['text'])
+
+    def test_known_command_typo_keeps_menu_suggestion_without_ai(self):
+        with patch.object(inbox,'build_plugin_ctx',return_value=self.ctx), patch('llm_router.chat') as chat:
+            handled,reply=inbox.call_plugins('pakcs','unused',self.chat)
+        self.assertTrue(handled);self.assertIn('anukunnara?',reply['text'])
+        chat.assert_not_called()
