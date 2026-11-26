@@ -51,6 +51,16 @@ class KhPostTelegramTests(unittest.TestCase):
 
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
+        # Work inside the temp folder: on GitHub the real products are unpacked into exported_content/products before
+        # the tests run, and /today scans that relative folder (lead fix 24 Nov, run #1002).
+        old_cwd = os.getcwd()
+        os.chdir(self.tmp.name)
+        self.addCleanup(os.chdir, old_cwd)
+        import product_builder
+        p_products = mock.patch.object(product_builder, "PRODUCTS_DIR",
+                                       os.path.join(self.tmp.name, "exported_content", "products"))
+        p_products.start()
+        self.addCleanup(p_products.stop)
         self.db = os.path.join(self.tmp.name, "kh_test.db")
         self.plan_path = os.path.join(self.tmp.name, "post_plan.json")
         self.products_dir = os.path.join(self.tmp.name, "exported_content", "products", "upload")
