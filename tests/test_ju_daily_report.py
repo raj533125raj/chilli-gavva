@@ -34,6 +34,8 @@ class JuDailyReportTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.db = os.path.join(self.tmp.name, "ju_daily.db")
         self.addCleanup(self.tmp.cleanup)
+        products = mock.patch.object(product_builder, "PRODUCTS_DIR", os.path.join(self.tmp.name,"products"))
+        products.start(); self.addCleanup(products.stop)
 
         # Base reference timestamp: 2026-11-06 12:00:00 UTC
         self.fixed_now = datetime.datetime(2026, 11, 6, 12, 0, 0)

@@ -270,31 +270,36 @@ def daily_text(db_path=None, now=None, status_fn=None, products_dir=None):
         errors.append(f"{retries} task(s) waiting to retry")
 
     import button_timing
-    lines = [f"Chilli Gavva daily report ({now:%Y-%m-%d})",
-             providers,
-             f"Drafts: {made} made, {waiting} waiting, {approved} approved (last 24h)",
+    numbers = owner_numbers(db_path, products_dir, now)
+    if numbers['listed'] < numbers['ready_packs']:
+        action = '/listnext — ready Pack ni Gumroad lo pettandi.'
+        next_step = 'Next step for owner: check upload packs'
+    elif waiting:
+        action = '/list — Drafts chusi decide cheyandi.'
+    elif numbers['needs_fix']:
+        action = '/ready — Pack fixes chudandi.'
+        next_step = 'Next step for owner: check pack fixes'
+    else:
+        action = '/today — ee roju pani chudandi.'
+    flat = lambda value: '; '.join(str(value).splitlines())
+    lines = ["Meeru cheyali: " + action,
+             f"Chilli Gavva daily report ({now:%Y-%m-%d})",
+             f"Drafts: {made} made, {waiting} waiting, {approved} approved (last 24h); "
              f"Auto-decided (last 24h): {auto_approved} approved, {auto_rejected} rejected",
-             f"Products built: {built}",
-             built_line,
-             *product_path_lines(db_path, now, include_built=False),
-             upload_packs_line(products_dir=products_dir, db_path=db_path, now=now),
-             product_counts.sell_test_line(db_path, products_dir, now),
-             _minutes(reply=clock),
-             door_bell_line(clock),
-             last_run_line(clock),
-             button_timing.line(db_path, now),
-             f"Button presses received in the last 24h: {buttons}",
-             "Errors: " + ("; ".join(errors) if errors else "none"),
-             next_step]
-    if paused:
-        lines.append("Status: PAUSED (send /resume to start again)")
-    import selltest
-    block = selltest.report_block(db_path, now, products_dir)
-    if block:
-        lines.append(block)
-    review = selltest.review_block(db_path, now)
-    if review:
-        lines.append(review)
+             f"Products built: {built}; " + built_line,
+             '; '.join(product_path_lines(db_path, now, include_built=False)),
+             upload_packs_line(products_dir=products_dir, db_path=db_path, now=now) + f"; Listed: {numbers['listed']}",
+             flat(product_counts.sell_test_line(db_path, products_dir, now)),
+             '; '.join((_minutes(reply=clock), door_bell_line(clock), last_run_line(clock))),
+             button_timing.line(db_path, now) + f"; Button presses received in the last 24h: {buttons}",
+             "Errors: " + ("; ".join(errors) if errors else "none")
+             + ("; Status: PAUSED (send /resume to start again)" if paused else "")]
+    block = flat(selltest.report_block(db_path, now, products_dir))
+    review = flat(selltest.review_block(db_path, now))
+    if block or review:
+        lines.append('; '.join(value for value in (block,review) if value))
+    lines.append(next_step + '; Next: ' + action)
+    lines.extend(providers.splitlines())
     return "\n".join(lines)
 
 
@@ -341,7 +346,8 @@ def report_text(db_path=None, now=None, status_fn=None, products_dir=None):
     now = now or _now()
     text = daily_text(db_path, now, status_fn, products_dir=products_dir)
     if now.weekday() == 6:
-        text += "\n\n" + weekly_text(db_path, now)
+        head, marker, health = text.partition("\nAI:")
+        text = head + "\n" + "; ".join(weekly_text(db_path, now).splitlines()) + marker + health
     from owner_private import OwnerPrivateText
     return OwnerPrivateText(text)
 
