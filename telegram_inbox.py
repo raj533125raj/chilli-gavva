@@ -913,6 +913,14 @@ def call_plugins(text, token, chat_id, db_path=None, now=None, plugins=None, mes
             return True, res
     if crash_note:     # the plugin that owned the text crashed: say so instead of a "did not understand" guess
         return True, {"text": crash_note}
+    if not str(text).strip().startswith("/") and not any(
+            kind in (message or {}) for kind in ("photo", "document", "voice", "audio")):
+        import owner_talk
+        reply = owner_talk.answer(text, ctx)
+        if reply is not None:
+            from tg_menu import owner_reply_pages
+            reply["text"] = owner_reply_pages(reply["text"])[0]
+            return True, reply
     if fallback is not None:
         return True, fallback
     return False, None

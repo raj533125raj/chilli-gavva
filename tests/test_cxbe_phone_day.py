@@ -67,7 +67,7 @@ class PhoneDay(unittest.TestCase):
                 handled, reply = inbox.call_plugins('2+2','unused',chat,db_path=db,now=now)
                 self.assertTrue(handled)
                 self.assertLessEqual(len(reply['text'].splitlines()),8)
-                for command in ('/storekit','/selltest start','/today'): self.assertIn(command,reply['text'])
+                self.assertEqual(reply['text'].splitlines()[0], '4')
                 self.assertTrue(reply['text'].splitlines()[-1].startswith('Next:'))
             self.assertIn('product.zip',files)
             self.assertEqual(selltest.stats(db)[0]['sales'],1)
