@@ -106,7 +106,8 @@ jobs:
         timeout-minutes: 2
         env:
           DB_KEY: ${{ secrets.DB_KEY }}
-        run: python3 run_failure.py run unpack -- python3 scripts/db_crypt.py unpack-products
+        # The archive is stored in git as parts under 100 MB (GitHub's file limit, run #1013); join them first.
+        run: python3 run_failure.py run unpack -- bash -e -o pipefail -c 'python3 scripts/product_parts.py join && python3 scripts/db_crypt.py unpack-products'
 
       # Manual only (Run workflow -> health = yes): one tiny test per AI model + one long-answer test.
       # Prints provider, model, OK/FAIL, error number or timeout, seconds. Never prints keys.
@@ -205,7 +206,8 @@ jobs:
           python3 tools/run_tests_chunked.py
           # Some tests write to the real database / status file. Put the committed copies back
           # (and drop files tests created) so test data is never saved by "Save state".
-          git checkout -- web/data/status.json agent_data.db.enc products.tar.gz.enc .scheduler_locks exported_content
+          git checkout -- web/data/status.json agent_data.db.enc .scheduler_locks exported_content $(git ls-files -- products.tar.gz.enc products.tar.gz.enc.parts)
+          python3 scripts/product_parts.py join
           python3 scripts/db_crypt.py decrypt
           git clean -fdq -- exported_content .scheduler_locks
           ROBOT_STEP
@@ -351,7 +353,7 @@ jobs:
         timeout-minutes: 2
         env:
           DB_KEY: ${{ secrets.DB_KEY }}
-        run: python3 run_failure.py run pack -- python3 scripts/db_crypt.py pack-products
+        run: python3 run_failure.py run pack -- bash -e -o pipefail -c 'python3 scripts/db_crypt.py pack-products && python3 scripts/product_parts.py split'
 
       - name: Save state
         if: steps.gate.outputs.run == 'true'
@@ -403,7 +405,9 @@ jobs:
           # Refuse to save an unreadable, empty, incomplete or stale encrypted backup.
           python3 backup_check.py
           # Add each path on its own: one missing folder must not stop everything else being saved
-          for p in agent_data.db.enc products.tar.gz.enc web/data/status.json .scheduler_locks; do
+          # The single archive file is no longer committed (over 100 MB); its parts are.
+          if git ls-files --error-unmatch products.tar.gz.enc >/dev/null 2>&1; then git rm -q --cached products.tar.gz.enc; fi
+          for p in agent_data.db.enc products.tar.gz.enc.parts web/data/status.json .scheduler_locks; do
             if [ -e "$p" ]; then git add "$p"; fi
           done
           if git diff --cached --quiet; then
@@ -411,7 +415,7 @@ jobs:
             exit 0
           fi
           git commit -q -m "agent: state + content update [skip ci]"
-          STATE="agent_data.db.enc products.tar.gz.enc web/data/status.json .scheduler_locks"
+          STATE="agent_data.db.enc products.tar.gz.enc products.tar.gz.enc.parts web/data/status.json .scheduler_locks"
           bash scripts/push_state.sh $STATE
           ROBOT_STEP
 
@@ -485,6 +489,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           python3 run_failure.py run inbox -- bash -e -o pipefail <<'ROBOT_RECOVERY'
+          python3 scripts/product_parts.py join
           python3 scripts/db_crypt.py decrypt
           cp agent_data.db "$RUNNER_TEMP/owner-before.db"
           python3 telegram_inbox.py --recovery

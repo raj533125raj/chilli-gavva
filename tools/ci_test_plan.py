@@ -10,7 +10,7 @@ ROOT=Path(__file__).resolve().parents[1]
 
 def state_only(path):
     return (path in {'agent_data.db.enc','products.tar.gz.enc','web/data/status.json','README.md','.scheduler_locks'}
-            or path.startswith('.scheduler_locks/') or path.startswith('docs/') and path.endswith('.md'))
+            or path.startswith('.scheduler_locks/') or path.startswith('products.tar.gz.enc.parts/') or path.startswith('docs/') and path.endswith('.md'))
 
 
 def plan(repo=ROOT,baseline='',event='',reason='',force='no'):

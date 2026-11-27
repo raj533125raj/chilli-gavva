@@ -34,3 +34,8 @@ logs/
 
 # Local worker queues and notes
 .jobs/
+
+# The encrypted products archive is committed as parts (products.tar.gz.enc.parts/), never as one file over 100 MB.
+/products.tar.gz.enc
+/products.tar.gz.enc.joining
+/products.tar.gz.enc.parts/*.tmp

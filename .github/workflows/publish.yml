@@ -57,7 +57,7 @@ jobs:
       - name: Unpack private products
         env:
           DB_KEY: ${{ secrets.DB_KEY }}
-        run: python3 scripts/db_crypt.py unpack-products
+        run: python3 scripts/product_parts.py join && python3 scripts/db_crypt.py unpack-products
       - name: Build owner-approved pages
         run: |
           python3 -c 'import site_builder; pages = site_builder.build(); print(f"Built {len(pages)} approved page(s).")'

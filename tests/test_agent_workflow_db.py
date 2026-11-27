@@ -42,8 +42,11 @@ class AgentWorkflowDbTests(unittest.TestCase):
         save = text[saved:]
         loop = re.search(r"for p in ([^;]+); do", save).group(1).split()
         state = re.search(r'STATE="([^"]+)"', save).group(1).split()
-        self.assertIn("products.tar.gz.enc", loop)
-        self.assertIn("products.tar.gz.enc", state)
+        # GitHub refuses files over 100 MB (run #1013): the archive is staged as parts, never as one file.
+        self.assertIn("products.tar.gz.enc.parts", loop)
+        self.assertNotIn("products.tar.gz.enc", loop)
+        self.assertIn("products.tar.gz.enc.parts", state)
+        self.assertIn("python3 scripts/product_parts.py split", pack_step)
         self.assertNotIn("exported_content", loop)
         self.assertNotIn("exported_content", state)
 
