@@ -159,8 +159,10 @@ def handle(text: str, ctx: dict) -> Optional[dict]:
     # Context helpers
     send_text = ctx.get("send_text")
     state_set = ctx.get("state_set")
-    products_dir = ctx.get("products_dir")
-    marketing_dir = ctx.get("marketing_dir")
+    # Same folder lookup as tg_bundle / tg_kits: ctx first, then CHILLI_PRODUCTS_DIR / CHILLI_MARKETING_DIR
+    # (tests point these at a temp folder; on GitHub the real packs are unpacked before the tests run, run #1011).
+    products_dir = ctx.get("products_dir") or os.environ.get("CHILLI_PRODUCTS_DIR")
+    marketing_dir = ctx.get("marketing_dir") or os.environ.get("CHILLI_MARKETING_DIR")
 
     if aid is not None:
         # User requested specific pack: /ready N
@@ -224,8 +226,10 @@ def _with_listed_summary(ctx: dict, summary_text: str, evaluations: list) -> str
 
 def _handle_button_action(action: str, aid: int, ctx: dict) -> dict:
     """Handle Kit, Files, Marketing button presses for pack N."""
-    products_dir = ctx.get("products_dir")
-    marketing_dir = ctx.get("marketing_dir")
+    # Same folder lookup as tg_bundle / tg_kits: ctx first, then CHILLI_PRODUCTS_DIR / CHILLI_MARKETING_DIR
+    # (tests point these at a temp folder; on GitHub the real packs are unpacked before the tests run, run #1011).
+    products_dir = ctx.get("products_dir") or os.environ.get("CHILLI_PRODUCTS_DIR")
+    marketing_dir = ctx.get("marketing_dir") or os.environ.get("CHILLI_MARKETING_DIR")
     send_text = ctx.get("send_text")
     send_document = ctx.get("send_document")
 
