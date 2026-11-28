@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-28T16:38:09Z",
+ "generated_at": "2026-11-28T17:09:50Z",
  "llm": {
-  "calls_today": 127,
+  "calls_today": 145,
   "cap": 500
  },
  "agents": [
@@ -344,35 +344,35 @@
    "model": "openai/gpt-oss-120b",
    "state": "down",
    "reason": "Provider request rate exceeded",
-   "checked_at": "2026-11-28T16:38:09Z"
+   "checked_at": "2026-11-28T17:09:50Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
    "state": "down",
    "reason": "Provider request rate exceeded",
-   "checked_at": "2026-11-28T16:38:09Z"
+   "checked_at": "2026-11-28T17:09:50Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "down",
    "reason": "Provider request failed",
-   "checked_at": "2026-11-28T16:38:09Z"
+   "checked_at": "2026-11-28T17:09:50Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-28T16:38:09Z"
+   "checked_at": "2026-11-28T17:09:50Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-28T16:38:09Z"
+   "checked_at": "2026-11-28T17:09:50Z"
   }
  ],
  "minutes": {
@@ -531,18 +531,6 @@
    "store_url": null
   },
   {
-   "id": 104,
-   "short_title": "Weekly Workout Planner",
-   "has_image": false,
-   "listing_status": "draft",
-   "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
-    "reasons": []
-   },
-   "store_url": null
-  },
-  {
    "id": 102,
    "short_title": "Baby Milestone Tracker",
    "has_image": false,
@@ -625,24 +613,39 @@
     "reasons": []
    },
    "store_url": null
+  },
+  {
+   "id": 45,
+   "short_title": "Daily gratitude & habit tracker for ne",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": [
+     "Promises 'weekly or daily dated pages' (listing.md): no weekly or daily dated pages",
+     "Promises 'weekly or daily dated pages' (README.md): no weekly or daily dated pages"
+    ]
+   },
+   "store_url": null
   }
  ],
  "reject_reasons": [
   {
    "reason": "Target audience unclear",
-   "count": 163
+   "count": 167
   },
   {
    "reason": "Formatting or rubric issue",
-   "count": 152
-  },
-  {
-   "reason": "Risky or prohibited claim",
-   "count": 129
+   "count": 157
   },
   {
    "reason": "Product structure incomplete",
-   "count": 124
+   "count": 134
+  },
+  {
+   "reason": "Risky or prohibited claim",
+   "count": 131
   },
   {
    "reason": "Unclear value over free template",
@@ -762,63 +765,63 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 127,
+   "calls_used_today": 145,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 127,
+   "calls_used_today": 145,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 127,
+   "calls_used_today": 145,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 127,
+   "calls_used_today": 145,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 127,
+   "calls_used_today": 145,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 127,
+   "calls_used_today": 145,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 127,
+   "calls_used_today": 145,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 127,
+   "calls_used_today": 145,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 127,
+   "calls_used_today": 145,
    "calls_limit_today": 500,
    "context_percent": null
   }
@@ -2288,12 +2291,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-28T16:38:09Z",
-  "last_run_end": "2026-11-28T16:38:09Z",
+  "last_run_start": "2026-11-28T17:09:49Z",
+  "last_run_end": "2026-11-28T17:09:50Z",
   "runner": "github-actions",
-  "run_id": "46164125388"
+  "run_id": "46166802330"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
@@ -2312,12 +2316,11 @@
   "CXCD-2 start each listed pack once and lead morning cards with listnext",
   "CXCD-1 send the best unlisted pack as separate phone copy fields",
   "CXCC-2 lead compact daily reports with owner actions and finish with AI health",
-  "CXCC-1 show shared buyer titles with whole-word shortening across owner messages",
-  "CXCB-2 archive old proposals and use product-only draft counts"
+  "CXCC-1 show shared buyer titles with whole-word shortening across owner messages"
  ],
  "daily_report": {
   "date_ist": "2026-11-28",
-  "summary": "0 tasks completed; 19 approvals reviewed; 0 products built.",
+  "summary": "0 tasks completed; 20 approvals reviewed; 0 products built.",
   "items_done": [
    "Approval reviewed"
   ]
