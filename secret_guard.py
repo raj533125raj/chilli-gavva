@@ -27,7 +27,8 @@ from urllib.parse import quote, quote_plus
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ALLOW_FILE = os.path.join(BASE_DIR, ".secret_guard_allow")
 SAVE_PATHS = ["agent_data.db", "web/data/status.json", "exported_content", ".scheduler_locks"]
-SKIP_DIRS = {".git", "__pycache__", "node_modules", ".venv", "venv"}
+# products.tar.gz.enc.parts = the encrypted products archive cut into parts (random bytes, like .enc; run #1016).
+SKIP_DIRS = {".git", "__pycache__", "node_modules", ".venv", "venv", "products.tar.gz.enc.parts"}
 # .enc = the encrypted database (random bytes; the plaintext copy is scanned before it is encrypted).
 BINARY_EXT = (".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf", ".webp", ".woff", ".woff2", ".ttf", ".enc")
 ZIP_EXT = (".zip", ".xlsx", ".docx", ".pptx")

@@ -20,7 +20,8 @@ def git(*args, cwd=ROOT):
 
 def private_state(name):
     return (Path(name).name.startswith('agent_data.db') or name in
-            ('products.tar.gz.enc', 'web/data/status.json') or name.startswith('.scheduler_locks/'))
+            ('products.tar.gz.enc', 'web/data/status.json') or name.startswith('.scheduler_locks/')
+            or name.startswith('products.tar.gz.enc.parts/'))
 
 
 def sync_checkout(work):

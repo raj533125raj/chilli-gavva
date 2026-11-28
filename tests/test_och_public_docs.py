@@ -49,6 +49,9 @@ ALLOWED_MISSING = {
     "blog.md": "generated blog draft file inside upload packs",
     "README.txt": "generated readme inside upload packs",
     "LICENSE.txt": "generated license stub inside upload packs",
+    # Lead fix push121: since push120 the encrypted archive is committed as products.tar.gz.enc.parts/;
+    # the single file is rebuilt on the runner (scripts/product_parts.py join) and is git-ignored.
+    "products.tar.gz.enc": "runtime encrypted products archive (committed as products.tar.gz.enc.parts/)",
 }
 
 # Tokens that look like slash commands in docs but are NOT Telegram commands.

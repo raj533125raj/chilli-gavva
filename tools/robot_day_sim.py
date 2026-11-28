@@ -58,7 +58,7 @@ WORLD = Path(__file__).resolve().with_name("robot_sim_world.py")
 
 # Never copied into the sandbox: real state, encrypted secrets, local settings, tests, job notes.
 EXCLUDE_NAMES = {"agent_data.db", "agent_data.db.enc", "products.tar.gz.enc", "config.json", ".env"}
-EXCLUDE_PREFIXES = ("tests/", ".jobs/", ".git/", ".github/", "__pycache__/")
+EXCLUDE_PREFIXES = ("tests/", ".jobs/", ".git/", ".github/", "__pycache__/", "products.tar.gz.enc.parts/")
 SEED_NICHES = ("niche_budget_sheets", "niche_adhd_planners", "niche_planners_2027")
 OWNER_CHAT = str(int("1234" "5678"))
 SKIP_COMMANDS = {"/pause", "/resume", "/undo", "/approve", "/reject", "/start"}

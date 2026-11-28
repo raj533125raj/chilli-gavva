@@ -492,6 +492,7 @@ class Drill:
                                    check=True).stdout.decode("utf-8", "replace").split("\0"):
             base = name.rsplit("/", 1)[-1]
             if (not name or base in NEVER_COPIED or base.startswith("agent_data.db") or base.endswith(".enc")
+                    or name.startswith("products.tar.gz.enc.parts/")
                     or name.startswith(".jobs/")):
                 continue
             if keep_tests is not None and name.startswith("tests/") and base.startswith("test_") \
