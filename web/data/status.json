@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-28T15:10:45Z",
+ "generated_at": "2026-11-28T16:38:09Z",
  "llm": {
-  "calls_today": 97,
+  "calls_today": 127,
   "cap": 500
  },
  "agents": [
@@ -344,35 +344,35 @@
    "model": "openai/gpt-oss-120b",
    "state": "down",
    "reason": "Provider request rate exceeded",
-   "checked_at": "2026-11-28T15:10:45Z"
+   "checked_at": "2026-11-28T16:38:09Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
    "state": "down",
    "reason": "Provider request rate exceeded",
-   "checked_at": "2026-11-28T15:10:45Z"
+   "checked_at": "2026-11-28T16:38:09Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "down",
    "reason": "Provider request failed",
-   "checked_at": "2026-11-28T15:10:45Z"
+   "checked_at": "2026-11-28T16:38:09Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-28T15:10:45Z"
+   "checked_at": "2026-11-28T16:38:09Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-28T15:10:45Z"
+   "checked_at": "2026-11-28T16:38:09Z"
   }
  ],
  "minutes": {
@@ -543,18 +543,6 @@
    "store_url": null
   },
   {
-   "id": 103,
-   "short_title": "Exam Prep Checklist Bundle",
-   "has_image": false,
-   "listing_status": "draft",
-   "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
-    "reasons": []
-   },
-   "store_url": null
-  },
-  {
    "id": 102,
    "short_title": "Baby Milestone Tracker",
    "has_image": false,
@@ -625,24 +613,36 @@
     "reasons": []
    },
    "store_url": null
+  },
+  {
+   "id": 56,
+   "short_title": "Personal Brand Builder\" - helps freela",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "READY",
+    "status": "READY",
+    "reasons": []
+   },
+   "store_url": null
   }
  ],
  "reject_reasons": [
   {
    "reason": "Target audience unclear",
-   "count": 153
+   "count": 163
   },
   {
    "reason": "Formatting or rubric issue",
-   "count": 147
+   "count": 152
   },
   {
    "reason": "Risky or prohibited claim",
-   "count": 123
+   "count": 129
   },
   {
    "reason": "Product structure incomplete",
-   "count": 114
+   "count": 124
   },
   {
    "reason": "Unclear value over free template",
@@ -718,23 +718,23 @@
    "done": 0
   },
   "research": {
-   "plan": 2,
+   "plan": 4,
    "done": 0
   },
   "drafts": {
-   "plan": 2,
+   "plan": 3,
    "done": 0
   },
   "review": {
-   "plan": 2,
+   "plan": 3,
    "done": 0
   },
   "product_builds": {
-   "plan": 1,
+   "plan": 2,
    "done": 0
   },
   "promotion": {
-   "plan": 1,
+   "plan": 2,
    "done": 0
   }
  },
@@ -762,68 +762,74 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 97,
+   "calls_used_today": 127,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 97,
+   "calls_used_today": 127,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 97,
+   "calls_used_today": 127,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 97,
+   "calls_used_today": 127,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 97,
+   "calls_used_today": 127,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 97,
+   "calls_used_today": 127,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 97,
+   "calls_used_today": 127,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 97,
+   "calls_used_today": 127,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 97,
+   "calls_used_today": 127,
    "calls_limit_today": 500,
    "context_percent": null
   }
  ],
  "loop_events": [
+  {
+   "agent": "Unknown agent",
+   "kind": "error",
+   "label": "Recovery check",
+   "at": "2026-11-28T15:13:20Z"
+  },
   {
    "agent": "Unknown agent",
    "kind": "error",
@@ -1117,12 +1123,6 @@
    "kind": "error",
    "label": "Recovery check",
    "at": "2026-11-28T08:18:09Z"
-  },
-  {
-   "agent": "Unknown agent",
-   "kind": "error",
-   "label": "Recovery check",
-   "at": "2026-11-26T17:00:38Z"
   }
  ],
  "activity_events": [
@@ -2288,12 +2288,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-28T15:10:44Z",
-  "last_run_end": "2026-11-28T15:10:45Z",
+  "last_run_start": "2026-11-28T16:38:09Z",
+  "last_run_end": "2026-11-28T16:38:09Z",
   "runner": "github-actions",
-  "run_id": "46156247917"
+  "run_id": "46164125388"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "Lead fix: treat products.tar.gz.enc.parts like the encrypted file in the secret scan, robot-day sandbox, auto-fix drill and parity (runs #1016-#1018: tests fail",
@@ -2312,12 +2313,11 @@
   "CXCD-1 send the best unlisted pack as separate phone copy fields",
   "CXCC-2 lead compact daily reports with owner actions and finish with AI health",
   "CXCC-1 show shared buyer titles with whole-word shortening across owner messages",
-  "CXCB-2 archive old proposals and use product-only draft counts",
-  "CXCB-1 reproduce proposal backlog and audit every draft generation gate"
+  "CXCB-2 archive old proposals and use product-only draft counts"
  ],
  "daily_report": {
   "date_ist": "2026-11-28",
-  "summary": "0 tasks completed; 18 approvals reviewed; 0 products built.",
+  "summary": "0 tasks completed; 19 approvals reviewed; 0 products built.",
   "items_done": [
    "Approval reviewed"
   ]
