@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-26T16:58:31Z",
+ "generated_at": "2026-11-28T08:19:54Z",
  "llm": {
-  "calls_today": 40,
+  "calls_today": 17,
   "cap": 500
  },
  "agents": [
@@ -206,98 +206,110 @@
   {
    "id": 107,
    "ts": "2026-11-14T01:39:08.563360",
-   "kind": "scout_idea",
+   "kind": "public_draft",
    "title": "Draft #107"
   },
   {
    "id": 108,
    "ts": "2026-11-15T06:46:35.965883",
-   "kind": "scout_idea",
+   "kind": "public_draft",
    "title": "Draft #108"
   },
   {
    "id": 112,
    "ts": "2026-11-21T18:08:38.157714",
-   "kind": "scout_idea",
+   "kind": "public_draft",
    "title": "Draft #112"
   },
   {
    "id": 113,
    "ts": "2026-11-21T18:08:38.160291",
-   "kind": "scout_idea",
+   "kind": "public_draft",
    "title": "Draft #113"
   },
   {
    "id": 114,
    "ts": "2026-11-21T18:08:38.162868",
-   "kind": "scout_idea",
+   "kind": "public_draft",
    "title": "Draft #114"
   },
   {
    "id": 115,
    "ts": "2026-11-22T01:24:33.166777",
-   "kind": "scout_idea",
+   "kind": "public_draft",
    "title": "Draft #115"
   },
   {
    "id": 116,
    "ts": "2026-11-22T01:24:33.170205",
-   "kind": "scout_idea",
+   "kind": "public_draft",
    "title": "Draft #116"
   },
   {
    "id": 117,
    "ts": "2026-11-22T01:24:33.172718",
-   "kind": "scout_idea",
+   "kind": "public_draft",
    "title": "Draft #117"
   },
   {
    "id": 118,
    "ts": "2026-11-22T01:24:33.175268",
-   "kind": "scout_idea",
+   "kind": "public_draft",
    "title": "Draft #118"
   },
   {
    "id": 119,
    "ts": "2026-11-23T13:09:04.186285",
-   "kind": "scout_idea",
+   "kind": "public_draft",
    "title": "Draft #119"
   },
   {
    "id": 120,
    "ts": "2026-11-23T13:09:04.189417",
-   "kind": "scout_idea",
+   "kind": "public_draft",
    "title": "Draft #120"
   },
   {
    "id": 121,
    "ts": "2026-11-23T13:09:04.192030",
-   "kind": "scout_idea",
+   "kind": "public_draft",
    "title": "Draft #121"
   },
   {
    "id": 122,
    "ts": "2026-11-23T13:09:04.194731",
-   "kind": "scout_idea",
+   "kind": "public_draft",
    "title": "Draft #122"
   },
   {
    "id": 123,
    "ts": "2026-11-23T13:09:04.197197",
-   "kind": "scout_idea",
+   "kind": "public_draft",
    "title": "Draft #123"
   },
   {
    "id": 124,
    "ts": "2026-11-24T02:15:20.927585",
-   "kind": "scout_idea",
+   "kind": "public_draft",
    "title": "Draft #124"
   },
   {
    "id": 125,
    "ts": "2026-11-24T02:15:20.932346",
-   "kind": "scout_idea",
+   "kind": "public_draft",
    "title": "Draft #125"
+  },
+  {
+   "id": 126,
+   "ts": "2026-11-28T08:18:51.113767",
+   "kind": "public_draft",
+   "title": "Draft #126"
+  },
+  {
+   "id": 127,
+   "ts": "2026-11-28T08:18:51.117013",
+   "kind": "public_draft",
+   "title": "Draft #127"
   }
  ],
  "worker": {
@@ -421,36 +433,36 @@
    "provider": "Groq",
    "model": "openai/gpt-oss-20b",
    "state": "down",
-   "reason": "Provider request rate exceeded",
-   "checked_at": "2026-11-26T16:58:31Z"
+   "reason": "Provider returned no answer",
+   "checked_at": "2026-11-28T08:19:54Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
-   "state": "down",
-   "reason": "Provider request timed out",
-   "checked_at": "2026-11-26T16:58:31Z"
+   "state": "up",
+   "reason": "Latest request succeeded",
+   "checked_at": "2026-11-28T08:19:54Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "down",
    "reason": "Provider request failed",
-   "checked_at": "2026-11-26T16:58:31Z"
+   "checked_at": "2026-11-28T08:19:54Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-26T16:58:31Z"
+   "checked_at": "2026-11-28T08:19:54Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-26T16:58:31Z"
+   "checked_at": "2026-11-28T08:19:54Z"
   }
  ],
  "minutes": {
@@ -497,6 +509,102 @@
     "reasons": [
      "Raw ** symbols in the listing images"
     ]
+   },
+   "store_url": null
+  },
+  {
+   "id": 106,
+   "short_title": "Academic Assignment and Exam Tracker Planner for small shop owners",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
+   },
+   "store_url": null
+  },
+  {
+   "id": 105,
+   "short_title": "Batch Recipe Tracker",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
+   },
+   "store_url": null
+  },
+  {
+   "id": 104,
+   "short_title": "Weekly Workout Planner",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
+   },
+   "store_url": null
+  },
+  {
+   "id": 103,
+   "short_title": "Exam Prep Checklist Bundle",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
+   },
+   "store_url": null
+  },
+  {
+   "id": 102,
+   "short_title": "Baby Milestone Tracker",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
+   },
+   "store_url": null
+  },
+  {
+   "id": 101,
+   "short_title": "Minimalist Weekly Goal and Gratitude Log for Teachers",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
+   },
+   "store_url": null
+  },
+  {
+   "id": 100,
+   "short_title": "Classroom Lesson Planning Printable Planner for Teachers",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
+   },
+   "store_url": null
+  },
+  {
+   "id": 99,
+   "short_title": "Habit and Routine Printable Worksheet for Students",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
    },
    "store_url": null
   },
@@ -614,133 +722,15 @@
     ]
    },
    "store_url": null
-  },
-  {
-   "id": 42,
-   "short_title": "Time\u2011block planner for freelance",
-   "has_image": true,
-   "listing_status": "ready",
-   "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
-    "reasons": [
-     "Promises 'stickers / digital tablet version' (listing.md): no stickers or tablet version in the file",
-     "Promises 'duplicate link' (README.md): there is no 'Duplicate' template link, only files to import"
-    ]
-   },
-   "store_url": null
-  },
-  {
-   "id": 41,
-   "short_title": "Time\u2011blocking planner for solo e",
-   "has_image": true,
-   "listing_status": "ready",
-   "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
-    "reasons": [
-     "Promises 'year overview page' (listing.md): no year overview page in the files",
-     "Promises 'Settings tab' (README.md): promised but not in the files",
-     "Promises 'Reminders tab' (README.md): promised but not in the files"
-    ]
-   },
-   "store_url": null
-  },
-  {
-   "id": 40,
-   "short_title": "Affiliate performance tracker fo",
-   "has_image": true,
-   "listing_status": "ready",
-   "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
-    "reasons": [
-     "Raw ** symbols in the listing images"
-    ]
-   },
-   "store_url": null
-  },
-  {
-   "id": 39,
-   "short_title": "College student rent & utilities track",
-   "has_image": true,
-   "listing_status": "ready",
-   "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
-    "reasons": [
-     "Promises 'duplicate link' (listing.md): there is no 'Duplicate' template link, only files to import",
-     "Promises 'duplicate link' (README.md): there is no 'Duplicate' template link, only files to import"
-    ]
-   },
-   "store_url": null
-  },
-  {
-   "id": 38,
-   "short_title": "Google Sheets boutique inventory cost",
-   "has_image": true,
-   "listing_status": "ready",
-   "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
-    "reasons": [
-     "Promises 'charts / progress bars' (listing.md): no charts in the files",
-     "Promises 'charts / progress bars' (README.md): no charts in the files"
-    ]
-   },
-   "store_url": null
-  },
-  {
-   "id": 37,
-   "short_title": "Google Sheets musician equipment budge",
-   "has_image": true,
-   "listing_status": "ready",
-   "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
-    "reasons": [
-     "Promises 'year overview page' (listing.md): no year overview page in the files"
-    ]
-   },
-   "store_url": null
-  },
-  {
-   "id": 36,
-   "short_title": "Subscription revenue tracker for",
-   "has_image": true,
-   "listing_status": "ready",
-   "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
-    "reasons": [
-     "Promises 'MRR tracker' (listing.md): promised but not in the files",
-     "Promises 'year overview page' (README.md): no year overview page in the files"
-    ]
-   },
-   "store_url": null
-  },
-  {
-   "id": 35,
-   "short_title": "Event planning budget tracker fo",
-   "has_image": true,
-   "listing_status": "ready",
-   "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
-    "reasons": [
-     "Promises 'year overview page' (README.md): no year overview page in the files"
-    ]
-   },
-   "store_url": null
   }
  ],
  "reject_reasons": [
   {
-   "reason": "Formatting or rubric issue",
-   "count": 123
+   "reason": "Target audience unclear",
+   "count": 117
   },
   {
-   "reason": "Target audience unclear",
+   "reason": "Formatting or rubric issue",
    "count": 115
   },
   {
@@ -753,12 +743,12 @@
   },
   {
    "reason": "Unclear value over free template",
-   "count": 26
+   "count": 19
   }
  ],
  "report": {
-  "drafts_made": 0,
-  "drafts_waiting": 16,
+  "drafts_made": 2,
+  "drafts_waiting": 18,
   "drafts_approved": 0,
   "products_built": 0,
   "errors": 0
@@ -869,63 +859,63 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 40,
+   "calls_used_today": 17,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 40,
+   "calls_used_today": 17,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 40,
+   "calls_used_today": 17,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 40,
+   "calls_used_today": 17,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 40,
+   "calls_used_today": 17,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 40,
+   "calls_used_today": 17,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 40,
+   "calls_used_today": 17,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 40,
+   "calls_used_today": 17,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 40,
+   "calls_used_today": 17,
    "calls_limit_today": 500,
    "context_percent": null
   }
@@ -935,301 +925,301 @@
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T16:58:30Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T16:58:30Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T16:58:30Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T16:58:30Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:41:01Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:41:01Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:41:01Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:41:01Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:41:01Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:41:01Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:41:01Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:41:01Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:41:01Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:41:00Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:40:40Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:40:37Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:40:35Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:40:33Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:40:25Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:40:22Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:40:20Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:40:08Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:40:03Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:38:14Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:38:05Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:38:00Z"
+   "at": "2026-11-28T08:18:10Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:57Z"
+   "at": "2026-11-28T08:18:09Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:55Z"
+   "at": "2026-11-28T08:18:09Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:52Z"
+   "at": "2026-11-28T08:18:09Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-28T08:18:09Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-28T08:18:09Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-28T08:18:09Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-28T08:18:09Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-28T08:18:09Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-28T08:18:09Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-28T08:18:09Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-28T08:18:09Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-28T08:18:09Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-28T08:18:09Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-28T08:18:09Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-28T08:18:09Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-28T08:18:09Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-28T08:18:09Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-28T08:18:09Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-28T08:18:09Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-26T17:00:38Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-26T17:00:23Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-26T16:59:53Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-26T16:59:35Z"
   },
   {
    "agent": "Unknown agent",
    "kind": "error",
    "label": "Recovery check",
-   "at": "2026-11-26T03:37:18Z"
+   "at": "2026-11-26T16:59:12Z"
   }
  ],
  "activity_events": [
@@ -2395,35 +2385,35 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-26T16:58:30Z",
-  "last_run_end": "2026-11-26T16:58:31Z",
+  "last_run_start": "2026-11-28T08:18:08Z",
+  "last_run_end": "2026-11-28T08:19:54Z",
   "runner": "github-actions",
-  "run_id": "45863478672"
+  "run_id": "46123288201"
  },
  "changelog": [
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
+  "Lead fix: store the encrypted products archive as parts under 100 MB (run #1013: 103.85 MB file refused, state not saved)",
   "Merge remote-tracking branch 'origin/main' into HEAD",
-  "Lead fix: /today tests work in their own temp folder (run #1002 went red when the first real packs were unpacked before the tests)",
-  "agent: state + content update [skip ci]",
+  "Lead fix: /ready reads CHILLI_PRODUCTS_DIR like the other sell plugins (run #1011 went red: test saw the real packs unpacked before the tests)",
+  "CXCG-2 summarize completed BIG-9 work in simple English",
+  "CXCG-1 record passing full suite clocks and protected file proof",
+  "CXCG-1 part 1 close remaining safety title and regression integration gaps",
   "agent: owner inbox state [skip ci]",
-  "agent: state + content update [skip ci]",
-  "agent: state + content update [skip ci]",
-  "CXAM-2 summarize completed BIG-6 work in simple English",
-  "CXAM-1 record final full suite and three-clock parity proof",
-  "CXAM-1 part 2 keep stopped Pin slots out of owner posting instructions",
-  "CXAM-1 part 1 close stale-link and empty-site gaps and cover new handlers",
-  "CXAL-1 diagnose every sell-test kit link page Pin and daily number",
-  "CXAK-1 learn milestone fixes and draft preferences from measured sales",
-  "CXAJ-1 include three owner-sent email drafts in real sample upload kits",
-  "CXAI-2 add approved sitemap metadata and real page-content PNG previews"
+  "CXCF-1 verify the owner day and close action queue media and phone reply gaps",
+  "CXCE-2 skip incomplete Pages setup cleanly and require manual owner publication",
+  "CXCE-1 rank trends by product niche usefulness and cap AI news in digests",
+  "CXCD-2 start each listed pack once and lead morning cards with listnext",
+  "CXCD-1 send the best unlisted pack as separate phone copy fields",
+  "CXCC-2 lead compact daily reports with owner actions and finish with AI health",
+  "CXCC-1 show shared buyer titles with whole-word shortening across owner messages",
+  "CXCB-2 archive old proposals and use product-only draft counts",
+  "CXCB-1 reproduce proposal backlog and audit every draft generation gate",
+  "CXCA-3 retain bounded expiring talk memory and measured report facts",
+  "CXCA-2 require explicit action commands and bound guarded talk AI",
+  "CXCA-1 answer unhandled owner questions locally or through free AI",
+  "Merge remote-tracking branch 'origin/main' into HEAD"
  ],
  "daily_report": {
-  "date_ist": "2026-11-26",
+  "date_ist": "2026-11-28",
   "summary": "No completed work recorded.",
   "items_done": []
  },
@@ -2779,12 +2769,12 @@
  ],
  "office_requests": [],
  "scout_ideas_count": {
-  "total": 71,
-  "pending": 16,
+  "total": 73,
+  "pending": 18,
   "approved": 55
  },
  "trend_items_count": {
-  "total": 220,
+  "total": 230,
   "proposed": 0,
   "approved": 0
  },
@@ -2792,8 +2782,8 @@
   "total": 0
  },
  "marketing_kits_count": {
-  "total": 17,
-  "draft": 17,
+  "total": 18,
+  "draft": 18,
   "approved": 0
  }
 }
