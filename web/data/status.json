@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-28T08:19:54Z",
+ "generated_at": "2026-11-28T14:10:40Z",
  "llm": {
-  "calls_today": 17,
+  "calls_today": 48,
   "cap": 500
  },
  "agents": [
@@ -204,100 +204,10 @@
  ],
  "pending_approvals": [
   {
-   "id": 107,
-   "ts": "2026-11-14T01:39:08.563360",
-   "kind": "public_draft",
-   "title": "Draft #107"
-  },
-  {
    "id": 108,
    "ts": "2026-11-15T06:46:35.965883",
    "kind": "public_draft",
    "title": "Draft #108"
-  },
-  {
-   "id": 112,
-   "ts": "2026-11-21T18:08:38.157714",
-   "kind": "public_draft",
-   "title": "Draft #112"
-  },
-  {
-   "id": 113,
-   "ts": "2026-11-21T18:08:38.160291",
-   "kind": "public_draft",
-   "title": "Draft #113"
-  },
-  {
-   "id": 114,
-   "ts": "2026-11-21T18:08:38.162868",
-   "kind": "public_draft",
-   "title": "Draft #114"
-  },
-  {
-   "id": 115,
-   "ts": "2026-11-22T01:24:33.166777",
-   "kind": "public_draft",
-   "title": "Draft #115"
-  },
-  {
-   "id": 116,
-   "ts": "2026-11-22T01:24:33.170205",
-   "kind": "public_draft",
-   "title": "Draft #116"
-  },
-  {
-   "id": 117,
-   "ts": "2026-11-22T01:24:33.172718",
-   "kind": "public_draft",
-   "title": "Draft #117"
-  },
-  {
-   "id": 118,
-   "ts": "2026-11-22T01:24:33.175268",
-   "kind": "public_draft",
-   "title": "Draft #118"
-  },
-  {
-   "id": 119,
-   "ts": "2026-11-23T13:09:04.186285",
-   "kind": "public_draft",
-   "title": "Draft #119"
-  },
-  {
-   "id": 120,
-   "ts": "2026-11-23T13:09:04.189417",
-   "kind": "public_draft",
-   "title": "Draft #120"
-  },
-  {
-   "id": 121,
-   "ts": "2026-11-23T13:09:04.192030",
-   "kind": "public_draft",
-   "title": "Draft #121"
-  },
-  {
-   "id": 122,
-   "ts": "2026-11-23T13:09:04.194731",
-   "kind": "public_draft",
-   "title": "Draft #122"
-  },
-  {
-   "id": 123,
-   "ts": "2026-11-23T13:09:04.197197",
-   "kind": "public_draft",
-   "title": "Draft #123"
-  },
-  {
-   "id": 124,
-   "ts": "2026-11-24T02:15:20.927585",
-   "kind": "public_draft",
-   "title": "Draft #124"
-  },
-  {
-   "id": 125,
-   "ts": "2026-11-24T02:15:20.932346",
-   "kind": "public_draft",
-   "title": "Draft #125"
   },
   {
    "id": 126,
@@ -431,38 +341,38 @@
  "ai_health": [
   {
    "provider": "Groq",
-   "model": "openai/gpt-oss-20b",
+   "model": "openai/gpt-oss-120b",
    "state": "down",
-   "reason": "Provider returned no answer",
-   "checked_at": "2026-11-28T08:19:54Z"
+   "reason": "Provider request rate exceeded",
+   "checked_at": "2026-11-28T14:10:40Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
-   "state": "up",
-   "reason": "Latest request succeeded",
-   "checked_at": "2026-11-28T08:19:54Z"
+   "state": "down",
+   "reason": "Provider request rate exceeded",
+   "checked_at": "2026-11-28T14:10:40Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "down",
    "reason": "Provider request failed",
-   "checked_at": "2026-11-28T08:19:54Z"
+   "checked_at": "2026-11-28T14:10:40Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-28T08:19:54Z"
+   "checked_at": "2026-11-28T14:10:40Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-28T08:19:54Z"
+   "checked_at": "2026-11-28T14:10:40Z"
   }
  ],
  "minutes": {
@@ -470,6 +380,78 @@
   "limit": null
  },
  "products": [
+  {
+   "id": 119,
+   "short_title": "Vendor Timeline and Seating Checklist for Wedding Planners",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
+   },
+   "store_url": null
+  },
+  {
+   "id": 116,
+   "short_title": "Beginner Fitness Routine Printable Planner for exam takers",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
+   },
+   "store_url": null
+  },
+  {
+   "id": 115,
+   "short_title": "Telugu Cultural Event and Festival Planner for exam takers",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
+   },
+   "store_url": null
+  },
+  {
+   "id": 114,
+   "short_title": "Exam Countdown Tracker",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
+   },
+   "store_url": null
+  },
+  {
+   "id": 113,
+   "short_title": "Telugu Family Calendar for Teachers",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
+   },
+   "store_url": null
+  },
+  {
+   "id": 112,
+   "short_title": "Lesson Plan Organizer",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
+   },
+   "store_url": null
+  },
   {
    "id": 111,
    "short_title": "Contract renewal calendar for fr",
@@ -509,6 +491,18 @@
     "reasons": [
      "Raw ** symbols in the listing images"
     ]
+   },
+   "store_url": null
+  },
+  {
+   "id": 107,
+   "short_title": "Simple Project Expense and Milestone Tracker Sheet",
+   "has_image": false,
+   "listing_status": "draft",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": []
    },
    "store_url": null
   },
@@ -597,18 +591,6 @@
    "store_url": null
   },
   {
-   "id": 99,
-   "short_title": "Habit and Routine Printable Worksheet for Students",
-   "has_image": false,
-   "listing_status": "draft",
-   "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
-    "reasons": []
-   },
-   "store_url": null
-  },
-  {
    "id": 90,
    "short_title": "Resume Template Pack for Remote Creato",
    "has_image": false,
@@ -643,103 +625,24 @@
     "reasons": []
    },
    "store_url": null
-  },
-  {
-   "id": 58,
-   "short_title": "Interview Prep Pro\" - provides a set o",
-   "has_image": true,
-   "listing_status": "ready",
-   "truth_check": {
-    "verdict": "READY",
-    "status": "READY",
-    "reasons": []
-   },
-   "store_url": null
-  },
-  {
-   "id": 57,
-   "short_title": "Social Media Optimizer\" - aids job see",
-   "has_image": false,
-   "listing_status": "ready",
-   "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
-    "reasons": []
-   },
-   "store_url": null
-  },
-  {
-   "id": 56,
-   "short_title": "Personal Brand Builder\" - helps freela",
-   "has_image": true,
-   "listing_status": "ready",
-   "truth_check": {
-    "verdict": "READY",
-    "status": "READY",
-    "reasons": []
-   },
-   "store_url": null
-  },
-  {
-   "id": 45,
-   "short_title": "Daily gratitude & habit tracker for ne",
-   "has_image": true,
-   "listing_status": "ready",
-   "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
-    "reasons": [
-     "Promises 'weekly or daily dated pages' (listing.md): no weekly or daily dated pages",
-     "Promises 'weekly or daily dated pages' (README.md): no weekly or daily dated pages"
-    ]
-   },
-   "store_url": null
-  },
-  {
-   "id": 44,
-   "short_title": "Study schedule planner for ADHD colleg",
-   "has_image": true,
-   "listing_status": "ready",
-   "truth_check": {
-    "verdict": "READY",
-    "status": "READY",
-    "reasons": []
-   },
-   "store_url": null
-  },
-  {
-   "id": 43,
-   "short_title": "Family schedule binder for ADHD parent",
-   "has_image": true,
-   "listing_status": "ready",
-   "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
-    "reasons": [
-     "Promises 'charts / progress bars' (listing.md): no charts in the files",
-     "Promises 'weekly or daily dated pages' (listing.md): no weekly or daily dated pages",
-     "Promises 'charts / progress bars' (README.md): no charts in the files"
-    ]
-   },
-   "store_url": null
   }
  ],
  "reject_reasons": [
   {
    "reason": "Target audience unclear",
-   "count": 117
+   "count": 138
   },
   {
    "reason": "Formatting or rubric issue",
-   "count": 115
+   "count": 136
   },
   {
    "reason": "Risky or prohibited claim",
-   "count": 114
+   "count": 119
   },
   {
    "reason": "Product structure incomplete",
-   "count": 79
+   "count": 92
   },
   {
    "reason": "Unclear value over free template",
@@ -748,8 +651,8 @@
  ],
  "report": {
   "drafts_made": 2,
-  "drafts_waiting": 18,
-  "drafts_approved": 0,
+  "drafts_waiting": 3,
+  "drafts_approved": 7,
   "products_built": 0,
   "errors": 0
  },
@@ -859,63 +762,63 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 17,
+   "calls_used_today": 48,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 17,
+   "calls_used_today": 48,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 17,
+   "calls_used_today": 48,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 17,
+   "calls_used_today": 48,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 17,
+   "calls_used_today": 48,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 17,
+   "calls_used_today": 48,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 17,
+   "calls_used_today": 48,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 17,
+   "calls_used_today": 48,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 17,
+   "calls_used_today": 48,
    "calls_limit_today": 500,
    "context_percent": null
   }
@@ -2385,12 +2288,14 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-28T08:18:08Z",
-  "last_run_end": "2026-11-28T08:19:54Z",
+  "last_run_start": "2026-11-28T14:10:39Z",
+  "last_run_end": "2026-11-28T14:10:40Z",
   "runner": "github-actions",
-  "run_id": "46123288201"
+  "run_id": "46151153699"
  },
  "changelog": [
+  "Lead fix: treat products.tar.gz.enc.parts like the encrypted file in the secret scan, robot-day sandbox, auto-fix drill and parity (runs #1016-#1018: tests fail",
+  "agent: state + content update [skip ci]",
   "Lead fix: store the encrypted products archive as parts under 100 MB (run #1013: 103.85 MB file refused, state not saved)",
   "Merge remote-tracking branch 'origin/main' into HEAD",
   "Lead fix: /ready reads CHILLI_PRODUCTS_DIR like the other sell plugins (run #1011 went red: test saw the real packs unpacked before the tests)",
@@ -2408,14 +2313,14 @@
   "CXCB-2 archive old proposals and use product-only draft counts",
   "CXCB-1 reproduce proposal backlog and audit every draft generation gate",
   "CXCA-3 retain bounded expiring talk memory and measured report facts",
-  "CXCA-2 require explicit action commands and bound guarded talk AI",
-  "CXCA-1 answer unhandled owner questions locally or through free AI",
-  "Merge remote-tracking branch 'origin/main' into HEAD"
+  "CXCA-2 require explicit action commands and bound guarded talk AI"
  ],
  "daily_report": {
   "date_ist": "2026-11-28",
-  "summary": "No completed work recorded.",
-  "items_done": []
+  "summary": "0 tasks completed; 16 approvals reviewed; 0 products built.",
+  "items_done": [
+   "Approval reviewed"
+  ]
  },
  "sunday_letter": null,
  "cubes": [
@@ -2770,8 +2675,8 @@
  "office_requests": [],
  "scout_ideas_count": {
   "total": 73,
-  "pending": 18,
-  "approved": 55
+  "pending": 3,
+  "approved": 62
  },
  "trend_items_count": {
   "total": 230,
