@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-28T17:39:15Z",
+ "generated_at": "2026-11-28T17:41:19Z",
  "llm": {
-  "calls_today": 164,
+  "calls_today": 174,
   "cap": 500
  },
  "agents": [
@@ -344,35 +344,35 @@
    "model": "openai/gpt-oss-20b",
    "state": "down",
    "reason": "Provider request rate exceeded",
-   "checked_at": "2026-11-28T17:39:15Z"
+   "checked_at": "2026-11-28T17:41:19Z"
   },
   {
    "provider": "Gemini",
    "model": "gemini-3.5-flash",
    "state": "down",
    "reason": "Provider request rate exceeded",
-   "checked_at": "2026-11-28T17:39:15Z"
+   "checked_at": "2026-11-28T17:41:19Z"
   },
   {
    "provider": "Cloudflare",
    "model": "@cf/meta/llama-3.1-8b-instruct-fp8",
    "state": "down",
    "reason": "Provider request failed",
-   "checked_at": "2026-11-28T17:39:15Z"
+   "checked_at": "2026-11-28T17:41:19Z"
   },
   {
    "provider": "OpenRouter",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-28T17:39:15Z"
+   "checked_at": "2026-11-28T17:41:19Z"
   },
   {
    "provider": "FreeLLMAPI",
    "model": null,
    "state": "unknown",
    "reason": "No activity recorded",
-   "checked_at": "2026-11-28T17:39:15Z"
+   "checked_at": "2026-11-28T17:41:19Z"
   }
  ],
  "minutes": {
@@ -507,18 +507,6 @@
    "store_url": null
   },
   {
-   "id": 106,
-   "short_title": "Academic Assignment and Exam Tracker Planner for small shop owners",
-   "has_image": false,
-   "listing_status": "draft",
-   "truth_check": {
-    "verdict": "NEEDS FIX",
-    "status": "NEEDS FIX",
-    "reasons": []
-   },
-   "store_url": null
-  },
-  {
    "id": 102,
    "short_title": "Baby Milestone Tracker",
    "has_image": false,
@@ -628,24 +616,40 @@
     "reasons": []
    },
    "store_url": null
+  },
+  {
+   "id": 43,
+   "short_title": "Family schedule binder for ADHD parent",
+   "has_image": true,
+   "listing_status": "ready",
+   "truth_check": {
+    "verdict": "NEEDS FIX",
+    "status": "NEEDS FIX",
+    "reasons": [
+     "Promises 'charts / progress bars' (listing.md): no charts in the files",
+     "Promises 'weekly or daily dated pages' (listing.md): no weekly or daily dated pages",
+     "Promises 'charts / progress bars' (README.md): no charts in the files"
+    ]
+   },
+   "store_url": null
   }
  ],
  "reject_reasons": [
   {
    "reason": "Target audience unclear",
-   "count": 172
+   "count": 176
   },
   {
    "reason": "Formatting or rubric issue",
-   "count": 159
+   "count": 160
   },
   {
    "reason": "Product structure incomplete",
-   "count": 144
+   "count": 153
   },
   {
    "reason": "Risky or prohibited claim",
-   "count": 135
+   "count": 139
   },
   {
    "reason": "Unclear value over free template",
@@ -721,23 +725,23 @@
    "done": 0
   },
   "research": {
-   "plan": 2,
+   "plan": 4,
    "done": 0
   },
   "drafts": {
-   "plan": 2,
+   "plan": 3,
    "done": 0
   },
   "review": {
-   "plan": 2,
+   "plan": 3,
    "done": 0
   },
   "product_builds": {
-   "plan": 1,
+   "plan": 2,
    "done": 0
   },
   "promotion": {
-   "plan": 1,
+   "plan": 2,
    "done": 0
   }
  },
@@ -765,63 +769,63 @@
   {
    "agent": "CEO",
    "scope": "shared",
-   "calls_used_today": 164,
+   "calls_used_today": 174,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Manager",
    "scope": "shared",
-   "calls_used_today": 164,
+   "calls_used_today": 174,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Content Manager",
    "scope": "shared",
-   "calls_used_today": 164,
+   "calls_used_today": 174,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Reviewer",
    "scope": "shared",
-   "calls_used_today": 164,
+   "calls_used_today": 174,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Research Worker",
    "scope": "shared",
-   "calls_used_today": 164,
+   "calls_used_today": 174,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Draft Worker",
    "scope": "shared",
-   "calls_used_today": 164,
+   "calls_used_today": 174,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "QA Checker",
    "scope": "shared",
-   "calls_used_today": 164,
+   "calls_used_today": 174,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Review Worker",
    "scope": "shared",
-   "calls_used_today": 164,
+   "calls_used_today": 174,
    "calls_limit_today": 500,
    "context_percent": null
   },
   {
    "agent": "Coder Worker",
    "scope": "shared",
-   "calls_used_today": 164,
+   "calls_used_today": 174,
    "calls_limit_today": 500,
    "context_percent": null
   }
@@ -2291,12 +2295,13 @@
   }
  ],
  "cloud_heartbeat": {
-  "last_run_start": "2026-11-28T17:39:15Z",
-  "last_run_end": "2026-11-28T17:39:15Z",
+  "last_run_start": "2026-11-28T17:41:18Z",
+  "last_run_end": "2026-11-28T17:41:19Z",
   "runner": "github-actions",
-  "run_id": "46169460106"
+  "run_id": "46171271537"
  },
  "changelog": [
+  "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
   "agent: state + content update [skip ci]",
@@ -2315,12 +2320,11 @@
   "CXCE-2 skip incomplete Pages setup cleanly and require manual owner publication",
   "CXCE-1 rank trends by product niche usefulness and cap AI news in digests",
   "CXCD-2 start each listed pack once and lead morning cards with listnext",
-  "CXCD-1 send the best unlisted pack as separate phone copy fields",
-  "CXCC-2 lead compact daily reports with owner actions and finish with AI health"
+  "CXCD-1 send the best unlisted pack as separate phone copy fields"
  ],
  "daily_report": {
   "date_ist": "2026-11-28",
-  "summary": "0 tasks completed; 22 approvals reviewed; 0 products built.",
+  "summary": "0 tasks completed; 23 approvals reviewed; 0 products built.",
   "items_done": [
    "Approval reviewed"
   ]
